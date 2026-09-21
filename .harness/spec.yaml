@@ -1,0 +1,31 @@
+schemaVersion: 3
+
+name: template-baseline
+description: Keep the Proof Wall demo installing, linting, building and booting without a wallet or a .env file.
+
+baseline:
+  commands:
+    - name: install          # required — also used for install fingerprinting
+      command: yarn install
+    - name: lint
+      command: yarn lint
+    - name: build
+      command: yarn next:build
+
+# Defaults are left implicit (agent claude, prd .harness/prd.md, maxAttempts 3,
+# validators.static / validators.commands, packageManager and workspaces detected
+# from package.json). Only the opt-in stages are declared below.
+
+# SMOKE — boots the dev server and walks the routes in the smoke file.
+validators:
+  playwright: .harness/validators/playwright-smoke.yaml
+
+# EVALUATE — grades the running app against the checklist in eval.json.
+eval: .harness/eval.json
+validator:
+  enabled: true
+
+templateMetadata:
+  name: scaffold-hbar-template
+  frontend: nextjs-app
+  solidityFramework: none

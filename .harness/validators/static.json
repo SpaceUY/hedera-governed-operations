@@ -1,0 +1,32 @@
+{
+  "name": "template-baseline-static",
+  "description": "Files and text a fresh scaffold of this template must ship with. template.json is not asserted: create-scaffold-hbar removes it when scaffolding.",
+  "jsonAssertions": [
+    {
+      "file": "package.json",
+      "path": "packageManager",
+      "equals": "yarn@3.2.3"
+    }
+  ],
+  "fileAssertions": {
+    "required": [
+      "README.md",
+      "AGENTS.md",
+      "package.json",
+      "packages/nextjs/package.json",
+      "packages/nextjs/.env.example",
+      ".harness/spec.yaml",
+      ".harness/prd.md"
+    ],
+    "forbidden": [
+      ".env",
+      "packages/nextjs/.env"
+    ]
+  },
+  "textAssertions": [
+    {
+      "file": "README.md",
+      "contains": ["yarn install", "yarn next:dev"]
+    }
+  ]
+}

@@ -19,10 +19,12 @@
     "next:lint": "yarn workspace @sh/nextjs lint",
     "next:serve": "yarn workspace @sh/nextjs serve",
     "next:dev": "yarn workspace @sh/nextjs dev",
-    "next:start": "yarn workspace @sh/nextjs dev"
+    "next:start": "yarn workspace @sh/nextjs dev",
+    "harness:run": "hedera-harness run .harness/spec.yaml"
   },
   "packageManager": "yarn@3.2.3",
   "devDependencies": {
+    "hedera-harness": "2.0.0-rc.4",
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10"
   },
