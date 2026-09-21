@@ -49,6 +49,20 @@ yarn next:dev    # http://localhost:3000
 2. Copy topic ID into `NEXT_PUBLIC_PROOF_WALL_TOPIC_ID` (and badge token into `NEXT_PUBLIC_PROOF_WALL_BADGE_TOKEN_ID` if created).
 3. Restart dev server, post a proof on the home page.
 
+### Set up testnet
+
+Instead of creating the topic by hand, let the setup script bootstrap testnet for you:
+
+```bash
+cp packages/nextjs/.env.example packages/nextjs/.env
+# Set HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY (testnet account from portal.hedera.com)
+
+yarn setup
+yarn next:dev
+```
+
+`yarn setup` creates an HCS topic, two funded ECDSA demo accounts (`alice`, `bob`) associated with testnet USDC (`0.0.5449`), and writes `NEXT_PUBLIC_PROOF_WALL_TOPIC_ID` plus the demo account ids to `packages/nextjs/.env.local`. It is idempotent: ids are kept in `packages/nextjs/setup-state.json` (gitignored, holds the demo keys), verified against the Mirror Node on every run, and only missing pieces are created. It refuses `HEDERA_NETWORK=mainnet`. Product-specific fixtures plug into the hooks in `packages/nextjs/scripts/setup/extensions.ts`.
+
 ## Scripts
 
 | Command | Description |
@@ -58,6 +72,7 @@ yarn next:dev    # http://localhost:3000
 | `yarn next:check-types` | TypeScript check |
 | `yarn lint` / `yarn next:lint` | ESLint |
 | `yarn test` | Unit tests (Vitest) |
+| `yarn setup` | Idempotent testnet bootstrap (topic, demo accounts, `.env.local`) |
 | `yarn format` | Prettier |
 
 ## Validate with Hedera Harness

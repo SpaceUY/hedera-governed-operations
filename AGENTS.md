@@ -14,10 +14,13 @@ yarn next:build
 yarn next:check-types
 yarn lint               # same as yarn next:lint
 yarn test               # Vitest, files matching *.test.ts(x)
+yarn setup              # idempotent testnet bootstrap: topic, demo accounts, writes .env.local
 yarn format
 ```
 
 Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required: `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`. After admin setup: `NEXT_PUBLIC_PROOF_WALL_TOPIC_ID`, optionally `NEXT_PUBLIC_PROOF_WALL_BADGE_TOKEN_ID`.
+
+`yarn setup` (`packages/nextjs/scripts/setup.ts`) needs `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_PRIVATE_KEY` in `.env`, refuses mainnet, keeps ids and demo keys in `packages/nextjs/setup-state.json` (gitignored) and verifies them on the Mirror Node before creating anything. Product-specific fixtures go in the no-op hooks of `scripts/setup/extensions.ts`.
 
 ## App overview
 
