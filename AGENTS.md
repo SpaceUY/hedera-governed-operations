@@ -26,6 +26,7 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required: `NEXT_
 | `/` | Proof Wall — submit proofs, browse HCS feed for the active topic |
 | `/my-proofs` | Proofs filtered by connected account; badge display |
 | `/admin` | Create HCS topic and HTS badge token (wallet-signed) |
+| `/explorer` | Read-only Mirror Node view: decoded topic messages and schedule state, no wallet needed |
 
 Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env).
 
@@ -43,9 +44,23 @@ packages/nextjs/
     useCreateTopic.ts     Admin: create HCS topic
     useCreateToken.ts     Admin: create HTS badge token
     useBadgeTokens.ts     Badge balance / eligibility
+    mirror/               React Query hooks over services/mirror
+      useSchedule.ts        Schedule + derived state; polls while pending
+      useTransaction.ts     Mirror rows for a tx id; polls until indexed
+      useAccount.ts         Account by 0.0.x id or EVM address
+      useTopicMessagesFeed.ts  Decoded topic messages straight from Mirror
+      mirrorQuery.ts        Shared options, query keys, polling decision
     scaffold-hbar/        Shared Scaffold-HBAR hooks (useTargetNetwork, …)
-  services/               hederaClient, mirrorNode, badgeService
+  services/               hederaClient, badgeService
     web3/                 AppKit + HederaProvider setup, hederaSigner (wallet execute/sign/batch helpers)
+    mirrorNode.ts         Re-export of services/mirror (kept for existing imports)
+    mirror/               Typed Mirror Node client
+      client.ts             Base URL per network, MirrorNodeError, mirrorGet, links.next paginator
+      topics.ts             fetchTopicMessages, base64 → text/JSON decoding
+      schedules.ts          fetchSchedule, fetchSchedulesByCreator, deriveScheduleState
+      transactions.ts       normalizeTransactionId, fetchTransaction
+      accounts.ts / contracts.ts  fetchAccount, fetchContractResult
+      __fixtures__/         Recorded Mirror responses used by the tests
   utils/scaffold-hbar/    Hedera tx helpers, identity, topic/token resolution
   scaffold.config.ts      Target networks (testnet, mainnet), RPC, WalletConnect
   contracts/              deployedContracts.ts (empty — no Solidity workspace)
@@ -64,7 +79,14 @@ packages/nextjs/
 
 **Submit proof:** `useSubmitProof` builds a JSON payload `{ text, author, timestamp }`, submits via `@hiero-ledger/sdk` `TopicMessageSubmitTransaction`, and sends through `useNativeTransaction` from `@scaffold-hbar-ui/hooks`.
 
-**Read feed:** `useTopicMessages` fetches from `/api/hedera/topic-messages` (Mirror Node). Home page polls every 15s; passes `onNewMessage` after submit for optimistic refresh.
+**Read feed:** `useTopicMessages` fetches from `/api/hedera/topic-messages` (Mirror Node). Home page polls every 15s; passes `onNewMessage` after submit for optimistic refresh. For new reads prefer the hooks in `hooks/mirror/`: Mirror reads are public, so they call the Mirror Node directly from the client with `services/mirror` (typed responses, `MirrorNodeError` on non-2xx, `mirrorGetAllPages` for `links.next`). `useTopicMessagesFeed` returns messages already decoded (`text`, and `json` when the payload parses); `useSchedule` / `useTransaction` poll every 5s while pending or not yet indexed (404) and stop once settled; queries stay disabled while the id is empty or malformed.
+
+**Mirror Node traps** (verified on testnet):
+
+- `GET /api/v1/schedules?account.id=X` filters by the schedule **creator** (`creator_account_id`), not by `payer_account_id`. Querying with the payer returns an empty list. See `fetchSchedulesByCreator`.
+- A schedule's `signatures` list also contains the signature the `ScheduleCreate` payer added implicitly; it does not count toward the threshold of the scheduled transaction's keys, so `signatures.length` is an upper bound. See `MirrorSchedule.signatures`.
+- Mirror lags consensus by seconds: a freshly submitted entity 404s for a while, and state such as a schedule's `executed_timestamp` or a transaction id appears later. Poll instead of reading once (`resolvePendingRefetchInterval` in `hooks/mirror/mirrorQuery.ts`).
+- Transaction ids come in two forms: the SDK's `0.0.x@sec.nanos` and Mirror's `0.0.x-sec-nanos` (used in paths). `normalizeTransactionId` accepts both; the same id can return several rows (parent plus scheduled/child rows).
 
 **Admin create topic/token:** Client hooks call API routes or native transactions; after submit, `resolveTopicIdFromTransactionId` / `resolveTokenIdFromTransactionId` poll Mirror Node until IDs are indexed (may take 10–20s).
 

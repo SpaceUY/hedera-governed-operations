@@ -1,0 +1,33 @@
+{
+  "admin_key": null,
+  "deleted": false,
+  "consensus_timestamp": "1789670094.383668286",
+  "creator_account_id": "0.0.8192684",
+  "executed_timestamp": "1789672160.550227105",
+  "expiration_time": "1790274893.842000000",
+  "memo": "POC A3 proposal 3",
+  "payer_account_id": "0.0.10590498",
+  "schedule_id": "0.0.10590552",
+  "signatures": [
+    {
+      "consensus_timestamp": "1789670094.383668286",
+      "public_key_prefix": "A8ZOXqRHjGJ59xH6h3Zh96PaVXzEHtJA/DtxSFHTmFO7",
+      "signature": "…",
+      "type": "ECDSA_SECP256K1"
+    },
+    {
+      "consensus_timestamp": "1789670094.383668286",
+      "public_key_prefix": "AoSpRFf/h2qFC+yvgDbEhqRkgSZ5IJzANkz+2d4pqDIa",
+      "signature": "…",
+      "type": "ECDSA_SECP256K1"
+    },
+    {
+      "consensus_timestamp": "1789672160.550227104",
+      "public_key_prefix": "Axf0o26IIX71WariMWRAq8ZRpK85cmuZseQMZJtvqc8W",
+      "signature": "…",
+      "type": "ECDSA_SECP256K1"
+    }
+  ],
+  "transaction_body": "",
+  "wait_for_expiry": false
+}

@@ -4,7 +4,13 @@ import React, { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bars3Icon, ChatBubbleLeftIcon, Cog6ToothIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+import {
+  Bars3Icon,
+  ChatBubbleLeftIcon,
+  Cog6ToothIcon,
+  MagnifyingGlassIcon,
+  UserCircleIcon,
+} from "@heroicons/react/24/outline";
 import { WalletConnectButton } from "~~/components/scaffold-hbar";
 import { useOutsideClick } from "~~/hooks/scaffold-hbar";
 
@@ -29,6 +35,11 @@ export const menuLinks: HeaderMenuLink[] = [
     label: "Admin",
     href: "/admin",
     icon: <Cog6ToothIcon className="h-4 w-4" />,
+  },
+  {
+    label: "Explorer",
+    href: "/explorer",
+    icon: <MagnifyingGlassIcon className="h-4 w-4" />,
   },
 ];
 
