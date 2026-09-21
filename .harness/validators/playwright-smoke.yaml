@@ -11,6 +11,8 @@ defaults:
 routes:
   - name: home
     path: /
+  - name: explorer
+    path: /explorer
 forbidden:
   visibleText:
     - Internal Server Error

@@ -1,6 +1,8 @@
+import { SwapValidationError } from "./errors";
 import type { SwapNetwork } from "./types";
 import type { Address } from "viem";
-import { mirrorGet } from "~~/services/mirrorNode";
+import { fetchAccount } from "~~/services/mirror";
+import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 /**
  * Maps a Hedera account id to the EVM address the network knows it by.
@@ -12,11 +14,12 @@ export type AccountResolver = {
   evmAddress(accountId: string): Promise<Address>;
 };
 
-type MirrorAccount = { evm_address: Address };
-
 export const createMirrorNodeAccountResolver = (network: SwapNetwork): AccountResolver => ({
   async evmAddress(accountId) {
-    const account = await mirrorGet<MirrorAccount>(`/api/v1/accounts/${accountId}`, network);
-    return account.evm_address;
+    const { evm_address: evmAddress } = await fetchAccount(accountId, { network });
+    if (!isEvmAddress(evmAddress)) {
+      throw new SwapValidationError(`Mirror Node returned no EVM address for account ${accountId}`);
+    }
+    return evmAddress;
   },
 });

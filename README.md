@@ -52,6 +52,7 @@ yarn next:dev    # http://localhost:3000
 | `/`             | Proof Wall — submit a proof (HCS message) and browse the live feed for the configured topic |
 | `/my-proofs`    | Proofs filtered by the connected account; badge display                                     |
 | `/admin`        | Create an HCS topic and an HTS badge token with wallet-signed transactions                  |
+| `/explorer`     | Read-only Mirror Node view: decoded topic messages and schedule state, no wallet needed     |
 | `/api/hedera/*` | Server routes: Mirror Node proxies, operator status, badge airdrop                          |
 
 ### Modules
@@ -125,16 +126,18 @@ The app treats that key as a **test signer** (`packages/nextjs/services/web3/bur
 
 ## Evidence on testnet
 
-<!-- TODO(product): replace the placeholders with real HashScan links once the release demo has been run on testnet. -->
+<!-- TODO(product): add the release demo (sample proof, badge token, product journey) once it has been run on testnet. -->
 
-_Placeholders — real links coming with the first release._
+Every module was exercised on testnet with the code in this repository:
 
-| What                        | HashScan                                                |
-| --------------------------- | ------------------------------------------------------- |
-| Proof Wall topic            | `https://hashscan.io/testnet/topic/0.0.xxxxx`           |
-| Sample proof transaction    | `https://hashscan.io/testnet/transaction/0.0.xxxxx@...` |
-| Badge token                 | `https://hashscan.io/testnet/token/0.0.xxxxx`           |
-| Sample swap (SaucerSwap V2) | `https://hashscan.io/testnet/transaction/0.0.xxxxx@...` |
+| What                                              | HashScan                                                                                                                                                    |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic created from `/admin`, signed with HashPack | [0.0.10650370](https://hashscan.io/testnet/topic/0.0.10650370)                                                                                              |
+| Topic created by `yarn setup`                     | [0.0.10650162](https://hashscan.io/testnet/topic/0.0.10650162)                                                                                              |
+| Demo accounts created by `yarn setup`             | [0.0.10650163](https://hashscan.io/testnet/account/0.0.10650163) (`alice`), [0.0.10650164](https://hashscan.io/testnet/account/0.0.10650164) (`bob`)        |
+| Swap 1 HBAR → USDC through the `SwapProvider`     | [0.0.8192684@1790003842.988101841](https://hashscan.io/testnet/transaction/0.0.8192684@1790003842.988101841)                                                |
+
+_Release demo evidence: coming with the first release._
 
 ## Docs
 

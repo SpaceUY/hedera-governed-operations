@@ -57,7 +57,12 @@ packages/nextjs/
     scaffold-hbar/        Shared Scaffold-HBAR hooks (useTargetNetwork, …)
   services/
     web3/                 AppKit + HederaProvider bootstrap, WalletConnect context, signer bridge
-    web3/hederaSigner.ts  Reusable HashPack signer: sign-and-execute, sign-only, batch inner txs
+      hederaSignerPort.ts   HederaSigner port shared by every signer
+      hashPackSigner.ts     Port adapter over the WalletConnect session
+      hederaSigner.ts       HashPack wallet calls: sign-and-execute, sign-only, batch inner txs
+      burnerSigner.ts       Port adapter over the harness test key (localStorage["burnerWallet.pk"])
+      burnerSignerPolicy.ts Where the test signer is allowed (testnet; opt-in in production)
+      BurnerSignerProvider.tsx  Reads the key on load, resolves the account, exposes useBurnerSigner
     mirrorNode.ts         Re-export of services/mirror (kept for existing imports)
     mirror/               Typed Mirror Node client (HTTP only, no SDK)
       client.ts             Base URL per network, MirrorNodeError, mirrorGet, links.next paginator
