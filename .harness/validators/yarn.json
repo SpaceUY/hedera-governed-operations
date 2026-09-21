@@ -1,6 +1,6 @@
 {
-  "name": "my-feature-yarn",
-  "description": "Yarn commands for the project-centric harness recipe. Keep install named \"install\" for fingerprint skip across attempts.",
+  "name": "template-baseline-yarn",
+  "description": "Yarn commands graded after every attempt. Keep install named \"install\" for fingerprint skip across attempts.",
   "requiresNoSecrets": true,
   "forbiddenCommands": [
     "npm install",
@@ -19,7 +19,7 @@
       "name": "lint",
       "command": "yarn lint",
       "timeoutMs": 180000,
-      "purpose": "Lint the project."
+      "purpose": "Lint the Next.js workspace."
     },
     {
       "name": "build",

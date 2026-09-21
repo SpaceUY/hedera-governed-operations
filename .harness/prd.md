@@ -1,29 +1,33 @@
-# Feature brief (edit me)
+# Template baseline
 
 ## Goal
 
-Describe the feature you want the harness agent to implement in this existing
-Scaffold-HBAR project. Do **not** ask the agent to rebuild the app from scratch.
+Keep this Scaffold-HBAR template healthy as a product: a fresh scaffold must install, lint, build and boot, and the Proof Wall demo must be browsable by someone who has no wallet and no `.env` file. This brief describes the app as it ships; it does not ask the agent to add features.
 
-## Who it is for
+## Journeys
 
-- Developers iterating on a Scaffold-HBAR app with `hedera-harness run`
+1. **Browse without a wallet.** Open the home page, see the Proof Wall and the wallet-connect affordance, and read the empty state or the feed for the configured topic.
+2. **Configuration.** Copy `packages/nextjs/.env.example` to `packages/nextjs/.env`, set the WalletConnect project id and, after creating a topic, the topic id; restart and see the feed pick it up.
+3. **Wallet-gated actions.** With a connected Hedera account, submit a proof from the home page and create an HCS topic or an HTS badge token from `/admin`.
 
-## Existing app (preserve)
+## Hedera services
 
-List routes, packages, and behaviors that must keep working.
-
-## Feature to implement
-
-Describe the delta: new route, panel, Hedera service integration, etc.
+- Hedera Consensus Service (HCS): topic creation and message submission for proofs.
+- Hedera Token Service (HTS): badge token creation and balance checks.
+- Mirror Node REST API: topic messages, account and token lookups through the routes under `packages/nextjs/app/api/hedera/`.
 
 ## Non-goals
 
-- Do not switch the package manager away from Yarn
-- Do not remove Scaffold-HBAR / AGENTS.md conventions
-- Do not commit secrets or `.env` files
+- No Solidity workspace (`packages/hardhat` / `packages/foundry`).
+- Do not switch the package manager away from Yarn.
+- Do not remove the Scaffold-HBAR / `AGENTS.md` conventions.
+- Do not commit secrets or `.env` files.
 
-## Acceptance (deterministic)
+## Deliverables
 
-1. Edit `.harness/validators/static.json` and `.harness/validators/yarn.json` to match this brief
-2. `yarn lint` and `yarn next:build` still pass (baseline + target validators)
+- `packages/nextjs` — App Router UI, Hedera SDK + WalletConnect, Mirror Node API routes.
+- `README.md` and `AGENTS.md` documenting install, run and validation commands.
+
+## Acceptance
+
+Deterministic checks live in `.harness/validators/`; semantic checks live in `.harness/eval.json`.

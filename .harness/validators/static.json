@@ -1,6 +1,6 @@
 {
-  "name": "my-feature-static",
-  "description": "Static invariants for the project-centric harness recipe. Adjust required files and text assertions to match your PRD.",
+  "name": "template-baseline-static",
+  "description": "Files and text a fresh scaffold of this template must ship with. template.json is not asserted: create-scaffold-hbar removes it when scaffolding.",
   "jsonAssertions": [
     {
       "file": "package.json",
@@ -14,6 +14,7 @@
       "AGENTS.md",
       "package.json",
       "packages/nextjs/package.json",
+      "packages/nextjs/.env.example",
       ".harness/spec.yaml",
       ".harness/prd.md"
     ],
@@ -25,7 +26,7 @@
   "textAssertions": [
     {
       "file": "README.md",
-      "contains": ["yarn install"]
+      "contains": ["yarn install", "yarn next:dev"]
     }
   ]
 }
