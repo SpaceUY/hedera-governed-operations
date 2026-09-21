@@ -33,5 +33,8 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# yarn setup (holds demo account keys)
+setup-state.json
+
 # typescript
 *.tsbuildinfo

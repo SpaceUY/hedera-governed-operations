@@ -22,6 +22,7 @@
     "next:dev": "yarn workspace @sh/nextjs dev",
     "next:start": "yarn workspace @sh/nextjs dev",
     "next:test": "yarn workspace @sh/nextjs test",
+    "setup": "yarn workspace @sh/nextjs setup",
     "harness:run": "hedera-harness run .harness/spec.yaml"
   },
   "packageManager": "yarn@3.2.3",
