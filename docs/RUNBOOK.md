@@ -88,8 +88,9 @@ curl -s "https://testnet.mirrornode.hedera.com/api/v1/transactions/0.0.xxxxx-170
 The harness forbids a `.env` file inside the tree (it treats it as a leaked secret) and does not read it either, so export the operator in the shell and move the file aside first.
 
 ```bash
-export HEDERA_OPERATOR_ID=$(grep ^HEDERA_OPERATOR_ID= packages/nextjs/.env | cut -d= -f2)
-export HEDERA_OPERATOR_PRIVATE_KEY=$(grep ^HEDERA_OPERATOR_PRIVATE_KEY= packages/nextjs/.env | cut -d= -f2)
+# bare values only: an inline comment copied from .env makes the harness reject (and echo) the key
+export HEDERA_OPERATOR_ID=0.0.xxxxx
+export HEDERA_OPERATOR_PRIVATE_KEY=<ECDSA private key, DER or raw hex>
 mv packages/nextjs/.env /tmp/scaffold-hbar.env      # keep it outside the repo
 npx hedera-harness doctor                          # recipe schema, node, git, browser, operator variables
 npx hedera-harness validate                        # ASSERT + SMOKE: static needles, yarn install/lint/test/build, home route boots
