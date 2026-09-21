@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import { WagmiProvider } from "wagmi";
 import { Footer } from "~~/components/Footer";
 import { Header } from "~~/components/Header";
+import { BurnerSignerProvider } from "~~/services/web3/BurnerSignerProvider";
 import { NativeTransactionSignerBridge } from "~~/services/web3/NativeTransactionSignerBridge";
 import { HederaWalletConnectProvider } from "~~/services/web3/hederaWalletConnect";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
@@ -36,10 +37,12 @@ export const ScaffoldHbarAppWithProviders = ({ children }: { children: React.Rea
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <HederaWalletConnectProvider>
-          <NativeTransactionSignerBridge>
-            <ProgressBar height="3px" color="#2299dd" />
-            <ScaffoldHbarApp>{children}</ScaffoldHbarApp>
-          </NativeTransactionSignerBridge>
+          <BurnerSignerProvider>
+            <NativeTransactionSignerBridge>
+              <ProgressBar height="3px" color="#2299dd" />
+              <ScaffoldHbarApp>{children}</ScaffoldHbarApp>
+            </NativeTransactionSignerBridge>
+          </BurnerSignerProvider>
         </HederaWalletConnectProvider>
       </QueryClientProvider>
     </WagmiProvider>

@@ -4,8 +4,8 @@ import { useCreateToken as useCreateTokenFromScaffoldHbarUi } from "@scaffold-hb
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 
 export function useCreateToken() {
-  const { requireProvider } = useHederaSigner();
+  const { requireAccountId } = useHederaSigner();
   return useCreateTokenFromScaffoldHbarUi({
-    getTreasuryAccountId: () => requireProvider().accountId,
+    getTreasuryAccountId: requireAccountId,
   });
 }

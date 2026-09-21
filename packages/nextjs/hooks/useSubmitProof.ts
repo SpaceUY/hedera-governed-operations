@@ -16,12 +16,12 @@ const MAX_MESSAGE_BYTES = 1024;
 const TOPIC_ID_REGEX = /^\d+\.\d+\.\d+$/;
 
 export function useSubmitProof() {
-  const { requireProvider, accountId } = useHederaSigner();
+  const { requireAccountId, accountId } = useHederaSigner();
   const { sendTransaction } = useNativeTransaction();
 
   return useMutation({
     mutationFn: async (params: SubmitProofParams) => {
-      const { accountId: connectedId } = requireProvider();
+      const connectedId = requireAccountId();
 
       const topicId = params.topicId?.trim();
       const text = params.text?.trim();

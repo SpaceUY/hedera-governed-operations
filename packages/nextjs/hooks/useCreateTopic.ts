@@ -4,10 +4,10 @@ import { useCreateTopic as useCreateTopicFromScaffoldHbarUi } from "@scaffold-hb
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 
 export function useCreateTopic() {
-  const { requireProvider } = useHederaSigner();
+  const { requireAccountId } = useHederaSigner();
   return useCreateTopicFromScaffoldHbarUi({
     ensureReady: () => {
-      requireProvider();
+      requireAccountId();
     },
   });
 }
