@@ -34,3 +34,5 @@ dist
 .skill-cache/
 .harness-skills/
 .harness-context/
+.harness-semantic/
+chain-signer.json
