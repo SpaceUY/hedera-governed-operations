@@ -112,6 +112,17 @@ yarn harness:run                      # full loop: generate from .harness/prd.md
 
 `validate` needs no credentials. `validate-semantic` and `harness:run` need the `claude` CLI authenticated and Chrome (or Playwright Chromium) available. CI runs `doctor --recipe-only` and `validate` on every pull request.
 
+The recipe also enables the CHAIN stage: `validate-semantic` and `harness:run` create a funded, disposable testnet account and hand its key to the app as `localStorage["burnerWallet.pk"]`, so wallet-gated assertions run end to end and are verified on the Mirror Node (the account is swept back afterwards). Export the operator in the shell first — the harness does not read `.env`:
+
+```bash
+export HEDERA_OPERATOR_ID=0.0.xxxxx
+export HEDERA_OPERATOR_PRIVATE_KEY=<ECDSA private key>
+npx hedera-harness doctor             # now also checks the two variables
+npx hedera-harness validate-semantic
+```
+
+The app treats that key as a **test signer** (`packages/nextjs/services/web3/burnerSigner.ts`): testnet only, active in dev builds, opt-in for production with `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true`. Without the key, HashPack is used as usual.
+
 ## Evidence on testnet
 
 <!-- TODO(product): replace the placeholders with real HashScan links once the release demo has been run on testnet. -->

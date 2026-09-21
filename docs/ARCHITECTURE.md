@@ -8,6 +8,7 @@ This template is a single Next.js (App Router) workspace that talks to Hedera th
 - **Hedera Token Service (HTS)** — fungible badge tokens and airdrops.
 - **Mirror Node REST API** — every read: topic messages, accounts, tokens, transactions, schedules.
 - **HashPack via WalletConnect** (Reown AppKit + `@hashgraph/hedera-wallet-connect`) — every user-signed write.
+- **Test signer** — a disposable ECDSA key injected by Hedera Harness (`localStorage["burnerWallet.pk"]`) that signs in place of HashPack during automated validation; same port, see [Signing port](#signing-port-hashpack-or-test-signer).
 - **Hiero SDK** (`@hiero-ledger/sdk`) — builds transactions on the client and on the server.
 
 There is no Solidity workspace and no EVM contract deployment. The only server-side signing happens in Next.js route handlers with an operator key read from the environment.
@@ -55,7 +56,33 @@ sequenceDiagram
   M-->>A: entity id / message
 ```
 
-Code: `services/web3/hederaSigner.ts` (signer), `hooks/useHederaSigner.ts` (session in components), `services/web3/NativeTransactionSignerBridge.tsx` (bridge to `@scaffold-hbar-ui/hooks`), `utils/scaffold-hbar/resolve*` (Mirror polling).
+Code: `services/web3/hederaSigner.ts` (wallet calls), `services/web3/hashPackSigner.ts` (port adapter), `hooks/useHederaSigner.ts` (signer in components), `services/web3/NativeTransactionSignerBridge.tsx` (bridge to `@scaffold-hbar-ui/hooks`), `utils/scaffold-hbar/resolve*` (Mirror polling).
+
+### Signing port: HashPack or test signer
+
+Components sign through one port, `HederaSigner` (`services/web3/hederaSignerPort.ts`): `executeTransaction(tx)` and `signTransaction(tx)` plus `kind`, `accountId` and `network`. Two adapters implement it, and `useHederaSigner` picks one per page load:
+
+```mermaid
+flowchart LR
+  UI["Components / hooks<br/>useHederaSigner()"]
+  Port["HederaSigner port"]
+  HP["HashPackSigner<br/>WalletConnect session"]
+  B["BurnerSigner<br/>ECDSA key from localStorage"]
+  M["Mirror Node<br/>GET /accounts/0x{alias}"]
+  H["Hedera testnet"]
+
+  UI --> Port
+  Port -- "no key stored" --> HP
+  Port -- "burnerWallet.pk present" --> B
+  B -. "resolve 0.0.x (retry on lag)" .-> M
+  HP -- "hedera_signAndExecuteTransaction" --> H
+  B -- "freezeWith(client) + execute(client)" --> H
+```
+
+- **Selection** (`BurnerSignerProvider`): on load the app reads `localStorage["burnerWallet.pk"]`. If a key is present, allowed by `burnerSignerPolicy.ts` (testnet only; in production builds only with `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true`) and its account resolves on the Mirror Node, the burner becomes the active signer and takes precedence over any HashPack session. Otherwise HashPack is used and the header offers "Connect Wallet".
+- **Why**: Hedera Harness CHAIN provisions a funded ECDSA account and injects its key that way, following the burner-wallet pattern of the harness's x402 recipe ([hedera-dev/hedera-harness](https://github.com/hedera-dev/hedera-harness)). HashPack cannot be driven by Playwright, so without this port wallet-gated assertions could only be graded as affordances.
+- **UI**: the header shows the burner's `0.0.x` with a "test signer" badge; "Disconnect" forgets the key. Consumers read the payer with `requireAccountId()` and never touch the wallet provider directly, so they do not care which signer is active.
+- **Extension point**: `BurnerSigner.publicKey` lets a demo mode put the ephemeral account on-chain beyond paying (for example as a member of a threshold key); a payer-only demo needs nothing beyond the HBAR the harness funds (`chainValidation.fundingHbar`).
 
 ### Operator → server route → Hedera
 
@@ -105,16 +132,17 @@ Rules that make this work (verified on testnet):
 
 ## Module map
 
-| Module           | Path (under `packages/nextjs/`)                                                                   | Responsibility                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Wallet signer    | `services/web3/hederaSigner.ts`, `hooks/useHederaSigner.ts`                                       | WalletConnect session, sign-and-execute, sign-only, batch inner-transaction helpers                      |
-| Wallet bootstrap | `services/web3/appKitHedera.ts`, `hederaWalletConnect.tsx`, `NativeTransactionSignerBridge.tsx`   | AppKit + `HederaProvider` singletons, session context, bridge to `@scaffold-hbar-ui/hooks`               |
-| Mirror client    | `services/mirrorNode.ts`, `hooks/mirror/*`                                                        | Typed REST client (HTTP only) and React Query hooks; all reads go through here                           |
-| Swap provider    | `services/swap/*`                                                                                 | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
-| Operator client  | `services/hederaClient.ts`                                                                        | Server-side `Client` with the operator key; used only by route handlers                                  |
-| Setup script     | root `yarn setup`                                                                                 | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
-| Harness          | `.harness/`                                                                                       | ASSERT (`validators/static.json`, `yarn.json`), SMOKE (`playwright-smoke.yaml`), EVALUATE (`eval.json`)  |
-| Demo             | `app/*`, `components/*`, `hooks/use*.ts`, `services/badgeService.ts`, `config/proofWallConfig.ts` | Proof Wall pages built on the modules above                                                              |
+| Module           | Path (under `packages/nextjs/`)                                                                                                                              | Responsibility                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Signing port     | `services/web3/hederaSignerPort.ts`, `hashPackSigner.ts`, `burnerSigner.ts`, `burnerSignerPolicy.ts`, `BurnerSignerProvider.tsx`, `hooks/useHederaSigner.ts` | `HederaSigner` port, HashPack and test-signer adapters, selection policy and context                     |
+| Wallet signer    | `services/web3/hederaSigner.ts`                                                                                                                              | WalletConnect calls: sign-and-execute, sign-only, batch inner-transaction helpers                        |
+| Wallet bootstrap | `services/web3/appKitHedera.ts`, `hederaWalletConnect.tsx`, `NativeTransactionSignerBridge.tsx`                                                              | AppKit + `HederaProvider` singletons, session context, bridge to `@scaffold-hbar-ui/hooks`               |
+| Mirror client    | `services/mirrorNode.ts`, `hooks/mirror/*`                                                                                                                   | Typed REST client (HTTP only) and React Query hooks; all reads go through here                           |
+| Swap provider    | `services/swap/*`                                                                                                                                            | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
+| Operator client  | `services/hederaClient.ts`                                                                                                                                   | Server-side `Client` with the operator key; used only by route handlers                                  |
+| Setup script     | root `yarn setup`                                                                                                                                            | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
+| Harness          | `.harness/`                                                                                                                                                  | ASSERT (`validators/static.json`, `yarn.json`), SMOKE (`playwright-smoke.yaml`), EVALUATE (`eval.json`)  |
+| Demo             | `app/*`, `components/*`, `hooks/use*.ts`, `services/badgeService.ts`, `config/proofWallConfig.ts`                                                            | Proof Wall pages built on the modules above                                                              |
 
 ## Verified network constraints and decisions
 
@@ -127,6 +155,7 @@ Rules that make this work (verified on testnet):
 | **Batch inner txs never set node ids** | `setNodeAccountIds` blocks `freeze()` from pinning node `0.0.0`, which HIP-551 inner transactions require                                                                  |
 | **Schedules are indexed by creator**   | Mirror `/schedules?account.id=` filters by `creator_account_id`, and it lists the payer's signature, which does not count toward a threshold key                           |
 | **On-chain quoting for swaps**         | SaucerSwap API reserves do not reflect concentrated-liquidity prices; `amountOutMinimum` must come from `QuoterV2` or the pool's `sqrtRatioX96`                            |
+| **Test signer is testnet-only**        | The burner signs with a key stored in the browser; `burnerSignerPolicy.ts` ignores it on mainnet and, in production builds, unless `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` |
 | **Setup targets testnet only**         | `yarn setup` spends operator HBAR and creates entities; it refuses other networks so a misconfigured `.env` cannot touch mainnet                                           |
 | **Operator key stays server-side**     | Only route handlers read `HEDERA_OPERATOR_*`; the client learns whether an operator exists through `/api/hedera/operator-status`                                           |
 | **`.env.example` is the env contract** | `template.json` carries no `envVars` (the CLI would write a root `.env.example` Next.js does not read); every variable is documented in `packages/nextjs/.env.example`     |
@@ -137,7 +166,14 @@ Rules that make this work (verified on testnet):
 
 ```ts
 quote({ tokenIn, tokenOut, amountIn }); // → { amountOut, amountOutMinimum, route }
-buildSwapStep({ tokenIn, tokenOut, amountIn, amountOutMinimum, recipient, deadline }); // → ContractExecuteTransaction
+buildSwapStep({
+  tokenIn,
+  tokenOut,
+  amountIn,
+  amountOutMinimum,
+  recipient,
+  deadline,
+}); // → ContractExecuteTransaction
 ```
 
 Amounts are `bigint` in the smallest unit of each token (tinybar for HBAR). Tokens are Hedera ids wrapped in a small union, `HBAR` or `htsToken("0.0.x")`, so "native HBAR" is a typed value and never a magic string. `buildSwapStep` returns a built transaction that is not frozen, signed or executed: the caller decides whether it goes through the wallet, the server operator or as an inner transaction of an atomic batch. The DEX pays `tokenOut` straight to `recipient`, so settlement never passes through a contract of ours.
