@@ -1,4 +1,4 @@
-# Scaffold-HBAR Template — SpaceDev (Proof Wall)
+# Scaffold-HBAR Template (Proof Wall)
 
 Hedera-native **Next.js-only** demo: post timestamped proofs on **Hedera Consensus Service (HCS)**, browse them on a live feed, and earn **HTS badge tokens** for participation. No Solidity workspace or contract deploy required.
 

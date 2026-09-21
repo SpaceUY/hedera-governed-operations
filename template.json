@@ -1,6 +1,6 @@
 {
   "name": "scaffold-hbar-template",
-  "description": "SpaceDev Scaffold-HBAR template: Hedera-native Next.js app (HCS, HTS, Mirror Node) without local Solidity workspaces.",
+  "description": "Hedera-native Next.js template (HCS, HTS, Mirror Node) without local Solidity workspaces.",
   "version": "0.1.0",
   "create-scaffold-hbar": {
     "requirements": {
