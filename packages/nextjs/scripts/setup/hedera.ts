@@ -13,7 +13,7 @@ import {
   TokenAssociateTransaction,
   TopicCreateTransaction,
 } from "@hiero-ledger/sdk";
-import { mirrorGet } from "~~/services/mirrorNode";
+import { isMirrorNotFound, mirrorGet } from "~~/services/mirror";
 
 /** HBAR sent from the operator to each demo account so it can pay its own fees during a demo. */
 export const DEMO_ACCOUNT_INITIAL_HBAR = 5;
@@ -66,15 +66,13 @@ export function createActions(client: Client): SetupActions {
   };
 }
 
-const NOT_FOUND_PREFIX = "Mirror node error 404";
-
 /** Resolves false only on a 404; any other Mirror Node failure propagates so a flaky read never triggers a re-create. */
 async function mirrorHas(path: string, network: string): Promise<boolean> {
   try {
     await mirrorGet<unknown>(path, network);
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith(NOT_FOUND_PREFIX)) return false;
+    if (isMirrorNotFound(error)) return false;
     throw error;
   }
 }
