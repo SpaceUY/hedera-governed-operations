@@ -13,6 +13,7 @@ yarn next:dev           # http://localhost:3000
 yarn next:build
 yarn next:check-types
 yarn lint               # same as yarn next:lint
+yarn test               # Vitest, files matching *.test.ts(x)
 yarn format
 ```
 

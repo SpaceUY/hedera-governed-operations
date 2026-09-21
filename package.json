@@ -10,6 +10,7 @@
   "scripts": {
     "format": "yarn next:format",
     "lint": "yarn next:lint",
+    "test": "yarn next:test",
     "postinstall": "husky",
     "precommit": "lint-staged",
     "lint-staged": "lint-staged",
@@ -20,6 +21,7 @@
     "next:serve": "yarn workspace @sh/nextjs serve",
     "next:dev": "yarn workspace @sh/nextjs dev",
     "next:start": "yarn workspace @sh/nextjs dev",
+    "next:test": "yarn workspace @sh/nextjs test",
     "harness:run": "hedera-harness run .harness/spec.yaml"
   },
   "packageManager": "yarn@3.2.3",
