@@ -14,12 +14,13 @@ const mockedUseHederaSigner = vi.mocked(useHederaSigner);
 
 const signerState = (overrides: Partial<ReturnType<typeof useHederaSigner>>) =>
   ({
-    provider: null,
     accountId: null,
     isConnected: false,
     isInitializing: false,
     isBusy: false,
-    requireProvider: vi.fn(),
+    signerKind: "hashpack",
+    requireAccountId: vi.fn(),
+    requireSigner: vi.fn(),
     executeTransaction: vi.fn(),
     signTransaction: vi.fn(),
     disconnect: vi.fn().mockResolvedValue(undefined),
@@ -100,6 +101,22 @@ describe("ConnectWallet", () => {
       render(<ConnectWallet />);
 
       expect(screen.getByText(ACCOUNT_ID)).toBeDefined();
+    });
+
+    it("does not label a HashPack session as the test signer", () => {
+      mockedUseHederaSigner.mockReturnValue(connected());
+
+      render(<ConnectWallet />);
+
+      expect(screen.queryByText("test signer")).toBeNull();
+    });
+
+    it("labels the account when the test signer is active", () => {
+      mockedUseHederaSigner.mockReturnValue(connected({ signerKind: "burner" }));
+
+      render(<ConnectWallet />);
+
+      expect(screen.getByText("test signer")).toBeDefined();
     });
 
     it("disconnects through the signer hook", async () => {

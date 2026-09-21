@@ -3,10 +3,7 @@
   "template": "scaffold-hbar-template",
   "prd": ".harness/prd.md",
   "version": 1,
-  "routes": [
-    "/",
-    "/admin"
-  ],
+  "routes": ["/", "/admin"],
   "evaluationRules": {
     "posture": "adversarial",
     "failOnUncertainty": "If an assertion cannot be positively verified from the running app, mark it FAILED. Absence of evidence is a failure.",
@@ -23,7 +20,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "The home route renders the Proof Wall without a wallet, without a .env file and without browser console errors.",
-      "howToVerify": "Navigate to /. Confirm the \"Proof Wall\" heading and the \"Connect your wallet to post\" message are visible, no crash banner is shown and the console has no errors."
+      "howToVerify": "Navigate to /. Confirm the \"Proof Wall\" heading is visible together with either the \"Connect your wallet to post\" message (a topic is configured) or the \"Set NEXT_PUBLIC_PROOF_WALL_TOPIC_ID or create a topic in the Admin page.\" notice (no topic configured, the expected state without a .env), no crash banner is shown and the console has no errors."
     },
     {
       "id": "E2",
@@ -34,6 +31,17 @@
       "verifiableWithoutCredentials": true,
       "statement": "The admin route shows the topic and badge creation controls and explains that a connected wallet is required, without crashing.",
       "howToVerify": "Navigate to /admin without connecting. Confirm the \"Connect a Hedera wallet to create topics and tokens.\" message, the create-topic and create-token controls (disabled), and no error boundary."
+    },
+    {
+      "id": "E3",
+      "journey": "Create a topic with the test signer",
+      "route": "/admin",
+      "severity": "major",
+      "walletRequired": true,
+      "verifiableWithoutCredentials": false,
+      "executableWithTestSigner": true,
+      "statement": "With the harness test signer stored in localStorage, the app connects on reload without a wallet modal, creates an HCS topic from /admin and the topic exists on the testnet Mirror Node.",
+      "howToVerify": "Store the test signer key under localStorage[\"burnerWallet.pk\"] and reload /admin. Do not open any wallet modal: the header must show the signer's 0.0.x account id with a \"test signer\" badge and the page the \"Wallet connected as 0.0.x.\" message (allow ~20 s for the account to resolve from the Mirror Node). Click \"Create topic\" and wait for \"Topic created\" with a 0.0.x topic id. Then GET https://testnet.mirrornode.hedera.com/api/v1/topics/{topicId} (poll up to 30 s) and confirm memo \"Proof Wall\" and deleted=false."
     }
   ]
 }

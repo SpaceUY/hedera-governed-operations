@@ -17,7 +17,7 @@ const toFriendlyMessage = (error: unknown) => (isWalletRejection(error) ? REJECT
  */
 export const ConnectWallet = () => {
   const { open } = useAppKit();
-  const { accountId, isConnected, isInitializing, isBusy, disconnect } = useHederaSigner();
+  const { accountId, isConnected, isInitializing, isBusy, signerKind, disconnect } = useHederaSigner();
   const [message, setMessage] = useState<string | null>(null);
   const isDisabled = isInitializing || isBusy;
 
@@ -38,6 +38,7 @@ export const ConnectWallet = () => {
       {isConnected && accountId ? (
         <div className="flex items-center gap-2">
           <span className="badge badge-outline font-mono">{accountId}</span>
+          {signerKind === "burner" && <span className="badge badge-warning badge-sm">test signer</span>}
           <button type="button" className="btn btn-ghost btn-sm" onClick={handleDisconnect} disabled={isDisabled}>
             {isBusy ? "Disconnecting..." : "Disconnect"}
           </button>
