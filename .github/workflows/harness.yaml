@@ -1,0 +1,32 @@
+name: Harness
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup node env
+        uses: actions/setup-node@v3
+        with:
+          node-version: lts/*
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Check recipe schema
+        run: npx hedera-harness doctor --recipe-only
+
+      - name: Run ASSERT and SMOKE stages
+        run: npx hedera-harness validate

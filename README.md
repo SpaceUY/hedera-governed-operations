@@ -59,6 +59,19 @@ yarn next:dev    # http://localhost:3000
 | `yarn lint` / `yarn next:lint` | ESLint |
 | `yarn format` | Prettier |
 
+## Validate with Hedera Harness
+
+The template ships a [Hedera Harness](https://github.com/hedera-dev/hedera-harness) recipe under `.harness/` (`hedera-harness` is pinned to `2.0.0-rc.4`, schema v3). It checks that a fresh scaffold installs, lints, builds and boots, and grades the running app against `.harness/eval.json`. The recipe assumes Yarn; if you scaffolded with npm, adjust the commands in `.harness/validators/yarn.json` and `.harness/spec.yaml`.
+
+```bash
+npx hedera-harness doctor             # preflight: node, git, recipe, agent CLI, browser
+npx hedera-harness validate           # ASSERT + SMOKE: static checks, yarn install/lint/build, home route boots
+npx hedera-harness validate-semantic  # EVALUATE: a Claude Code session browses the app and grades eval.json
+yarn harness:run                      # full loop: generate from .harness/prd.md, then validate and repair
+```
+
+`validate` needs no credentials. `validate-semantic` and `harness:run` need the `claude` CLI authenticated and Chrome (or Playwright Chromium) available. CI runs `doctor --recipe-only` and `validate` on every pull request.
+
 ## Project layout
 
 - **packages/nextjs** — App Router UI, Hedera SDK + wallet connect, Mirror Node API routes, Proof Wall components

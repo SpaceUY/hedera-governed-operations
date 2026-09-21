@@ -80,6 +80,19 @@ import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 
 `packages/nextjs/scaffold.config.ts` — `hederaTestnet` and `hedera` mainnet. RPC overrides via `NEXT_PUBLIC_HEDERA_*_RPC_URL`. Default polling interval: 10s.
 
+## Validate with Hedera Harness
+
+`.harness/` holds the harness recipe (`hedera-harness@2.0.0-rc.4`, schema v3; the recipe assumes Yarn). Run the stages in this order after changing the app:
+
+```bash
+npx hedera-harness doctor             # preflight
+npx hedera-harness validate           # ASSERT + SMOKE, no credentials needed
+npx hedera-harness validate-semantic  # EVALUATE against .harness/eval.json (needs claude CLI + browser)
+yarn harness:run                      # generate from .harness/prd.md, then validate and repair
+```
+
+Keep `.harness/validators/static.json` and `.harness/eval.json` in sync with routes and copy you change. Do not assert on `template.json`: `create-scaffold-hbar` removes it when scaffolding.
+
 ## Code style
 
 | Style | Use for |
