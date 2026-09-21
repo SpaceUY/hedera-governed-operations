@@ -1,8 +1,8 @@
-# Scaffold-HBAR — Hedera Demo (Proof Wall)
+# Scaffold-HBAR Template — SpaceDev (Proof Wall)
 
 Hedera-native **Next.js-only** demo: post timestamped proofs on **Hedera Consensus Service (HCS)**, browse them on a live feed, and earn **HTS badge tokens** for participation. No Solidity workspace or contract deploy required.
 
-CLI key: `hedera-demo` (branch `templates/hedera-demo`).
+Based on the `hedera-demo` template from [hedera-dev/scaffold-hbar](https://github.com/hedera-dev/scaffold-hbar) (branch `templates/hedera-demo`).
 
 ```
 Wallet connect → Submit HCS message (JSON proof) → Mirror Node feed
@@ -22,7 +22,7 @@ General Scaffold-HBAR docs: [Scaffold HBAR on Hedera](https://docs.hedera.com/so
 Create a project:
 
 ```bash
-npm create scaffold-hbar@latest -- --template hedera-demo
+npm create scaffold-hbar@latest -- --template SpaceUY/scaffold-hbar-template
 ```
 
 ## Quick start
