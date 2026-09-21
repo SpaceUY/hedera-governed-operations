@@ -30,6 +30,10 @@ export type MirrorTransactionsResponse = {
   transactions: MirrorTransaction[];
 };
 
+export function isTransactionId(value: string): boolean {
+  return TRANSACTION_ID_REGEX.test(value.trim());
+}
+
 /** Normalizes either accepted form to the `0.0.x-sec-nanos` form Mirror uses in paths. */
 export function normalizeTransactionId(transactionId: string): string {
   const match = TRANSACTION_ID_REGEX.exec(transactionId.trim());
