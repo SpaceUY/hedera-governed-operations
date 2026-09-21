@@ -39,12 +39,6 @@ export function useHederaSigner() {
 
   const requireAccountId = useCallback(() => requireSigner().accountId, [requireSigner]);
 
-  const requireProvider = useCallback(() => {
-    if (burner.signer) throw new Error("HashPack provider is not available with the test signer");
-    if (!wallet.provider || !wallet.isConnected || !wallet.accountId) throw new Error(NOT_CONNECTED_MESSAGE);
-    return { provider: wallet.provider, accountId: wallet.accountId };
-  }, [burner.signer, wallet.provider, wallet.isConnected, wallet.accountId]);
-
   const executeTransaction = useCallback(
     async (tx: Transaction) => requireSigner().executeTransaction(tx),
     [requireSigner],
@@ -64,13 +58,11 @@ export function useHederaSigner() {
   }, [burner, wallet]);
 
   return {
-    provider: wallet.provider,
     accountId: signer?.accountId ?? null,
     isConnected: signer !== null,
     isInitializing: wallet.isInitializing || burner.status === "resolving",
     isBusy: wallet.isBusy,
     signerKind,
-    requireProvider,
     requireAccountId,
     requireSigner,
     executeTransaction,

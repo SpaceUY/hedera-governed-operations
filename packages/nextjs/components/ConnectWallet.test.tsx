@@ -14,13 +14,11 @@ const mockedUseHederaSigner = vi.mocked(useHederaSigner);
 
 const signerState = (overrides: Partial<ReturnType<typeof useHederaSigner>>) =>
   ({
-    provider: null,
     accountId: null,
     isConnected: false,
     isInitializing: false,
     isBusy: false,
     signerKind: "hashpack",
-    requireProvider: vi.fn(),
     requireAccountId: vi.fn(),
     requireSigner: vi.fn(),
     executeTransaction: vi.fn(),

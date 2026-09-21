@@ -29,14 +29,12 @@ export const WalletConnectButton = () => {
     );
   }
 
-  const shortAccount = accountId ? `${accountId.slice(0, 6)}...${accountId.slice(-4)}` : "Connected";
-
   return (
     <div className="dropdown dropdown-end">
       <details ref={menuRef}>
-        <summary className="btn btn-ghost btn-sm list-none" title={accountId ?? "Connected"}>
+        <summary className="btn btn-ghost btn-sm list-none">
           <span className="hidden sm:inline">Hedera</span>
-          <span>{isTestSigner ? accountId : shortAccount}</span>
+          <span className="font-mono">{accountId}</span>
           {isTestSigner && <span className="badge badge-warning badge-sm">test signer</span>}
         </summary>
         <ul className="menu dropdown-content mt-2 z-[60] w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">

@@ -76,10 +76,17 @@ describe("useHederaSigner", () => {
       mockedUseHederaWalletConnect.mockReturnValue(walletState({}));
     });
 
-    it("requireProvider throws", () => {
+    it("requireAccountId throws", () => {
       const { result } = renderHook(() => useHederaSigner());
 
-      expect(() => result.current.requireProvider()).toThrow("Connect a Hedera wallet first");
+      expect(() => result.current.requireAccountId()).toThrow("Connect a Hedera wallet first");
+    });
+
+    it("exposes no signer", () => {
+      const { result } = renderHook(() => useHederaSigner());
+
+      expect(result.current).toMatchObject({ accountId: null, isConnected: false });
+      expect("provider" in result.current).toBe(false);
     });
 
     it("executeTransaction rejects without reaching a provider", async () => {
@@ -110,8 +117,8 @@ describe("useHederaSigner", () => {
         isInitializing: false,
         signerKind: "hashpack",
       });
-      expect(result.current.requireProvider()).toEqual({ provider, accountId: ACCOUNT_ID });
       expect(result.current.requireAccountId()).toBe(ACCOUNT_ID);
+      expect(result.current.requireSigner()).toMatchObject({ kind: "hashpack", accountId: ACCOUNT_ID });
     });
 
     it("executeTransaction signs and executes with the connected account on the target network", async () => {
@@ -205,15 +212,6 @@ describe("useHederaSigner", () => {
       await result.current.signTransaction(tx);
 
       expect(burner.signTransaction).toHaveBeenCalledWith(tx);
-    });
-
-    it("requireProvider explains that HashPack is not in use", () => {
-      mockedUseHederaWalletConnect.mockReturnValue(walletState({}));
-      mockedUseBurnerSigner.mockReturnValue(burnerReady(createBurnerSignerMock()));
-
-      const { result } = renderHook(() => useHederaSigner());
-
-      expect(() => result.current.requireProvider()).toThrow("HashPack provider is not available with the test signer");
     });
 
     it("disconnect deactivates the burner instead of the wallet", async () => {

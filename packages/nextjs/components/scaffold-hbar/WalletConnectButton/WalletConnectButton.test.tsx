@@ -43,12 +43,12 @@ describe("WalletConnectButton", () => {
     expect(open).toHaveBeenCalledWith({ view: "Connect", namespace: hederaNamespace });
   });
 
-  it("shows the full account id of a HashPack session in the menu title", () => {
+  it("shows the full account id of a HashPack session without a badge", () => {
     mockedUseHederaSigner.mockReturnValue(connected());
 
     render(<WalletConnectButton />);
 
-    expect(screen.getByTitle(ACCOUNT_ID)).toBeDefined();
+    expect(screen.getByText(ACCOUNT_ID)).toBeDefined();
     expect(screen.queryByText("test signer")).toBeNull();
   });
 
