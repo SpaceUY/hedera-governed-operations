@@ -3,15 +3,17 @@
 import { useRef } from "react";
 import { hederaNamespace } from "@hashgraph/hedera-wallet-connect";
 import { useAppKit } from "@reown/appkit/react";
-import { useHederaWalletConnect } from "~~/services/web3/hederaWalletConnect";
+import { useHederaSigner } from "~~/hooks/useHederaSigner";
 
 /**
- * Custom wallet connect UI (independent from Reown UI components).
+ * Custom wallet connect UI (independent from Reown UI components). When the harness test signer
+ * is active it shows the account with a badge instead of offering the wallet modal.
  */
 export const WalletConnectButton = () => {
   const { open } = useAppKit();
-  const { accountId, isConnected, isBusy, disconnectWallet } = useHederaWalletConnect();
+  const { accountId, isConnected, isBusy, signerKind, disconnect } = useHederaSigner();
   const menuRef = useRef<HTMLDetailsElement>(null);
+  const isTestSigner = signerKind === "burner";
 
   if (!isConnected) {
     return (
@@ -34,7 +36,8 @@ export const WalletConnectButton = () => {
       <details ref={menuRef}>
         <summary className="btn btn-ghost btn-sm list-none" title={accountId ?? "Connected"}>
           <span className="hidden sm:inline">Hedera</span>
-          <span>{shortAccount}</span>
+          <span>{isTestSigner ? accountId : shortAccount}</span>
+          {isTestSigner && <span className="badge badge-warning badge-sm">test signer</span>}
         </summary>
         <ul className="menu dropdown-content mt-2 z-[60] w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
           <li className="menu-title">
@@ -59,7 +62,7 @@ export const WalletConnectButton = () => {
               className="text-error justify-start normal-case"
               onClick={() => {
                 menuRef.current?.removeAttribute("open");
-                void disconnectWallet();
+                void disconnect();
               }}
               disabled={isBusy}
             >
