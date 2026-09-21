@@ -45,6 +45,7 @@ packages/nextjs/
     useBadgeTokens.ts     Badge balance / eligibility
     scaffold-hbar/        Shared Scaffold-HBAR hooks (useTargetNetwork, …)
   services/               hederaClient, mirrorNode, badgeService
+    web3/                 AppKit + HederaProvider setup, hederaSigner (wallet execute/sign/batch helpers)
   utils/scaffold-hbar/    Hedera tx helpers, identity, topic/token resolution
   scaffold.config.ts      Target networks (testnet, mainnet), RPC, WalletConnect
   contracts/              deployedContracts.ts (empty — no Solidity workspace)
@@ -52,7 +53,14 @@ packages/nextjs/
 
 ## Hedera integration patterns
 
-**Wallet + identity:** `useHederaSigner` wraps connection state and `requireProvider()` for mutations. Account IDs use `0.0.xxxxx` form; helpers in `utils/scaffold-hbar/identity.ts` normalize EVM ↔ native identity.
+**Wallet + identity:** `useHederaSigner` wraps connection state and `requireProvider()` for mutations, and binds `executeTransaction(tx)`, `signTransaction(tx)` (sign only, returns the signed `Transaction`) and `disconnect()` to the connected HashPack session. The pure functions live in `services/web3/hederaSigner.ts` (also `prepareBatchInnerTransaction`, `WalletRejectedError`, `isWalletRejection`); `NativeTransactionSignerBridge` reuses `executeTransaction` for `useNativeTransaction`. `components/ConnectWallet.tsx` is an inline connect/disconnect control for feature pages that shows wallet rejections as a message. Account IDs use `0.0.xxxxx` form; helpers in `utils/scaffold-hbar/identity.ts` normalize EVM ↔ native identity.
+
+**HashPack signing rules:**
+- Both ED25519 and ECDSA HashPack accounts work through the WalletConnect flow.
+- Freeze before execute: `DAppSigner.freezeWithSigner` in `@hashgraph/hedera-wallet-connect` 2.1.x does not set node account ids. The signer freezes with a `Client` for the target network (`useTargetNetwork` → `Client.forTestnet()` / `forMainnet()`) and sets the transaction id from the connected account before `hedera_signAndExecuteTransaction` / `hedera_signTransaction`.
+- Atomic batch inner transactions (HIP-551): `prepareBatchInnerTransaction(tx, { payer, batchKey })` does `setTransactionId(TransactionId.generate(payer))` + `setBatchKey` + `freeze()`. Never call `setNodeAccountIds` on an inner transaction.
+- Wallet rejections arrive as WalletConnect JSON-RPC errors (`code` 5000–5003, or a `USER_REJECT` message); the signer maps them to `WalletRejectedError`.
+- This native flow is separate from the EVM burner wallet of RainbowKit/`wagmi`: the harness CHAIN stage injects an ECDSA burner key through `localStorage["burnerWallet.pk"]`, which only drives the `wagmi` EVM path and is not wired to HashPack or to `useHederaSigner`.
 
 **Submit proof:** `useSubmitProof` builds a JSON payload `{ text, author, timestamp }`, submits via `@hiero-ledger/sdk` `TopicMessageSubmitTransaction`, and sends through `useNativeTransaction` from `@scaffold-hbar-ui/hooks`.
 
