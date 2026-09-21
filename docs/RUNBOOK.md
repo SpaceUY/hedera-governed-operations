@@ -36,7 +36,7 @@ yarn install
 yarn setup
 ```
 
-`yarn setup` creates the resources the app needs (the Proof Wall topic and the badge token in the demo), reusing anything that already exists, and writes their ids to `packages/nextjs/.env.local`. Run it again at any time; it is idempotent and refuses to run against anything but testnet.
+`yarn setup` creates the resources the app needs (the Proof Wall topic and two funded demo accounts, `alice` and `bob`, associated with testnet USDC), reusing anything that already exists, and writes their ids to `packages/nextjs/.env.local`. The badge token is created from `/admin` with a connected wallet. Run it again at any time; it is idempotent and refuses to run against anything but testnet.
 
 Verify the topic exists on the Mirror Node:
 
