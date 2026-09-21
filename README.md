@@ -57,6 +57,7 @@ yarn next:dev    # http://localhost:3000
 | `yarn next:build` | Production build |
 | `yarn next:check-types` | TypeScript check |
 | `yarn lint` / `yarn next:lint` | ESLint |
+| `yarn test` | Unit tests (Vitest) |
 | `yarn format` | Prettier |
 
 ## Validate with Hedera Harness
@@ -65,7 +66,7 @@ The template ships a [Hedera Harness](https://github.com/hedera-dev/hedera-harne
 
 ```bash
 npx hedera-harness doctor             # preflight: node, git, recipe, agent CLI, browser
-npx hedera-harness validate           # ASSERT + SMOKE: static checks, yarn install/lint/build, home route boots
+npx hedera-harness validate           # ASSERT + SMOKE: static checks, yarn install/lint/test/build, home route boots
 npx hedera-harness validate-semantic  # EVALUATE: a Claude Code session browses the app and grades eval.json
 yarn harness:run                      # full loop: generate from .harness/prd.md, then validate and repair
 ```
