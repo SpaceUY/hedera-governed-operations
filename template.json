@@ -21,25 +21,26 @@
         {
           "steps": [
             {
-              "text": "Hedera native services: no contract deploy is required to run or test this demo."
+              "text": "Hedera native services only (HCS, HTS, Mirror Node): no contract deploy is required."
             }
           ]
         },
         {
-          "title": "Suggested steps",
+          "title": "Quick start",
           "steps": [
             {
               "label": "Copy the env file",
               "text": "packages/nextjs/.env.example → packages/nextjs/.env"
             },
             {
-              "label": "Optional: set NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID",
-              "text": "A built-in fallback project id works for local demos; set your own for production.",
-              "url": "https://cloud.reown.com"
+              "label": "Set the operator and WalletConnect variables",
+              "text": "HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY from a testnet account; NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID from Reown Cloud.",
+              "url": "https://portal.hedera.com"
             },
             {
-              "label": "Set NEXT_PUBLIC_PROOF_WALL_TOPIC_ID",
-              "text": "After creating a topic in /admin, set this in packages/nextjs/.env."
+              "label": "Bootstrap testnet resources",
+              "text": "Idempotent: creates what is missing and writes the ids to packages/nextjs/.env.local.",
+              "command": "{run:setup}"
             },
             {
               "label": "Start the frontend",
@@ -47,7 +48,24 @@
             },
             {
               "label": "Try the demo",
-              "text": "Open /admin to create an HCS topic and HTS badge token, then post proofs on the home page."
+              "text": "Connect HashPack, post a proof on the home page and watch it appear in the feed."
+            }
+          ]
+        },
+        {
+          "title": "Learn more",
+          "steps": [
+            {
+              "label": "Runbook",
+              "text": "docs/RUNBOOK.md — reproduce on testnet end to end, verify with the Mirror Node and HashScan, troubleshoot."
+            },
+            {
+              "label": "Architecture",
+              "text": "docs/ARCHITECTURE.md — signing flows, module map, verified network constraints."
+            },
+            {
+              "label": "Validate with Hedera Harness",
+              "command": "npx hedera-harness validate"
             }
           ]
         }

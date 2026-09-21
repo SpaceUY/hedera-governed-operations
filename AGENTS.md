@@ -2,34 +2,35 @@
 
 Briefing for coding agents in this app (Cursor, Claude Code, Codex). Claude Code loads it through `CLAUDE.md`.
 
-This is a **Hedera-native Next.js demo** (Proof Wall). There is **no Solidity workspace** — interactions use HCS (topics/messages), HTS (badge tokens), and Mirror Node APIs via wallet-signed transactions and server routes.
+This is a **Hedera-native Next.js template**: HCS topics and messages, HTS tokens, Mirror Node reads, HashPack signing through WalletConnect, and a SaucerSwap-backed swap provider. There is **no Solidity workspace and no EVM contract deploy**; every write is a native Hiero SDK transaction signed either by the user's wallet or by a server-side operator. The Proof Wall pages are a demo of the reusable modules, not the product.
 
-Use the package manager this project was created with (`packageManager` in the root `package.json`). Examples use `yarn`.
+<!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
+
+Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
 ## Commands
 
 ```bash
+yarn setup              # idempotent testnet bootstrap; writes ids to packages/nextjs/.env.local
 yarn next:dev           # http://localhost:3000
 yarn next:build
 yarn next:check-types
 yarn lint               # same as yarn next:lint
 yarn test               # Vitest, files matching *.test.ts(x)
-yarn setup              # idempotent testnet bootstrap: topic, demo accounts, writes .env.local
 yarn format
 ```
 
-Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required: `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`. After admin setup: `NEXT_PUBLIC_PROOF_WALL_TOPIC_ID`, optionally `NEXT_PUBLIC_PROOF_WALL_BADGE_TOKEN_ID`.
-
-`yarn setup` (`packages/nextjs/scripts/setup.ts`) needs `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_PRIVATE_KEY` in `.env`, refuses mainnet, keeps ids and demo keys in `packages/nextjs/setup-state.json` (gitignored) and verifies them on the Mirror Node before creating anything. Product-specific fixtures go in the no-op hooks of `scripts/setup/extensions.ts`.
+Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for signing from the browser: `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`. Required for `yarn setup` and operator-signed routes: `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_PRIVATE_KEY`, `HEDERA_NETWORK=testnet`. `yarn setup` (`packages/nextjs/scripts/setup.ts`) writes the demo ids (`NEXT_PUBLIC_PROOF_WALL_TOPIC_ID`, `NEXT_PUBLIC_DEMO_ACCOUNT_*_ID`) to `.env.local`; set `NEXT_PUBLIC_PROOF_WALL_TOPIC_ID` by hand in `.env` if you skip it. It refuses mainnet, keeps ids and demo keys in `packages/nextjs/setup-state.json` (gitignored) and verifies them on the Mirror Node before creating anything; product-specific fixtures go in the no-op hooks of `scripts/setup/extensions.ts`. `.env.example` is the single list of documented variables: add new ones there with an empty value. Never commit `.env` or `.env.local`.
 
 ## App overview
 
-| Route | Purpose |
-|---|---|
-| `/` | Proof Wall — submit proofs, browse HCS feed for the active topic |
-| `/my-proofs` | Proofs filtered by connected account; badge display |
-| `/admin` | Create HCS topic and HTS badge token (wallet-signed) |
-| `/explorer` | Read-only Mirror Node view: decoded topic messages and schedule state, no wallet needed |
+| Route           | Purpose                                                               |
+| --------------- | --------------------------------------------------------------------- |
+| `/`             | Proof Wall — submit proofs, browse HCS feed for the active topic      |
+| `/my-proofs`    | Proofs filtered by connected account; badge display                   |
+| `/admin`        | Create HCS topic and HTS badge token (wallet-signed)                  |
+| `/explorer`     | Read-only Mirror Node view: decoded topic messages and schedule state |
+| `/api/hedera/*` | Mirror Node proxies, operator status, badge airdrop (operator-signed) |
 
 Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env).
 
@@ -41,7 +42,7 @@ packages/nextjs/
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
   hooks/
-    useHederaSigner.ts    Wallet + Hedera account identity
+    useHederaSigner.ts    Wallet session + Hedera account identity for the UI
     useSubmitProof.ts     HCS TopicMessageSubmitTransaction via native tx hook
     useTopicMessages.ts   Poll Mirror Node for topic messages
     useCreateTopic.ts     Admin: create HCS topic
@@ -54,44 +55,70 @@ packages/nextjs/
       useTopicMessagesFeed.ts  Decoded topic messages straight from Mirror
       mirrorQuery.ts        Shared options, query keys, polling decision
     scaffold-hbar/        Shared Scaffold-HBAR hooks (useTargetNetwork, …)
-  services/               hederaClient, badgeService
-    web3/                 AppKit + HederaProvider setup, hederaSigner (wallet execute/sign/batch helpers)
+  services/
+    web3/                 AppKit + HederaProvider bootstrap, WalletConnect context, signer bridge
+    web3/hederaSigner.ts  Reusable HashPack signer: sign-and-execute, sign-only, batch inner txs
     mirrorNode.ts         Re-export of services/mirror (kept for existing imports)
-    mirror/               Typed Mirror Node client
+    mirror/               Typed Mirror Node client (HTTP only, no SDK)
       client.ts             Base URL per network, MirrorNodeError, mirrorGet, links.next paginator
       topics.ts             fetchTopicMessages, base64 → text/JSON decoding
       schedules.ts          fetchSchedule, fetchSchedulesByCreator, deriveScheduleState
       transactions.ts       normalizeTransactionId, fetchTransaction
       accounts.ts / contracts.ts  fetchAccount, fetchContractResult
       __fixtures__/         Recorded Mirror responses used by the tests
+    swap/                 SwapProvider interface + SaucerSwap V2 implementation
+    hederaClient.ts       Server-side Hiero SDK client with the operator key
+    badgeService.ts       Demo: badge airdrop logic (operator-signed)
   utils/scaffold-hbar/    Hedera tx helpers, identity, topic/token resolution
   scaffold.config.ts      Target networks (testnet, mainnet), RPC, WalletConnect
   contracts/              deployedContracts.ts (empty — no Solidity workspace)
+.harness/                 Hedera Harness recipe (spec, prd, validators, eval)
+docs/                     ARCHITECTURE.md, RUNBOOK.md
 ```
 
 ## Hedera integration patterns
 
-**Wallet + identity:** `useHederaSigner` wraps connection state and `requireProvider()` for mutations, and binds `executeTransaction(tx)`, `signTransaction(tx)` (sign only, returns the signed `Transaction`) and `disconnect()` to the connected HashPack session. The pure functions live in `services/web3/hederaSigner.ts` (also `prepareBatchInnerTransaction`, `WalletRejectedError`, `isWalletRejection`); `NativeTransactionSignerBridge` reuses `executeTransaction` for `useNativeTransaction`. `components/ConnectWallet.tsx` is an inline connect/disconnect control for feature pages that shows wallet rejections as a message. Account IDs use `0.0.xxxxx` form; helpers in `utils/scaffold-hbar/identity.ts` normalize EVM ↔ native identity.
+### Stack
 
-**HashPack signing rules:**
-- Both ED25519 and ECDSA HashPack accounts work through the WalletConnect flow.
-- Freeze before execute: `DAppSigner.freezeWithSigner` in `@hashgraph/hedera-wallet-connect` 2.1.x does not set node account ids. The signer freezes with a `Client` for the target network (`useTargetNetwork` → `Client.forTestnet()` / `forMainnet()`) and sets the transaction id from the connected account before `hedera_signAndExecuteTransaction` / `hedera_signTransaction`.
-- Atomic batch inner transactions (HIP-551): `prepareBatchInnerTransaction(tx, { payer, batchKey })` does `setTransactionId(TransactionId.generate(payer))` + `setBatchKey` + `freeze()`. Never call `setNodeAccountIds` on an inner transaction.
-- Wallet rejections arrive as WalletConnect JSON-RPC errors (`code` 5000–5003, or a `USER_REJECT` message); the signer maps them to `WalletRejectedError`.
-- This native flow is separate from the EVM burner wallet of RainbowKit/`wagmi`: the harness CHAIN stage injects an ECDSA burner key through `localStorage["burnerWallet.pk"]`, which only drives the `wagmi` EVM path and is not wired to HashPack or to `useHederaSigner`.
+- **Hiero SDK** (`@hiero-ledger/sdk`) builds every transaction, on the client and on the server. No `ethers`/`viem` calls for Hedera writes.
+- **HashPack via WalletConnect**: `@hashgraph/hedera-wallet-connect` + Reown AppKit (`services/web3/appKitHedera.ts`, `hederaWalletConnect.tsx`). The wallet exposes `hedera_signAndExecuteTransaction` and `hedera_signTransaction`; the app never holds a user key. Both ED25519 and ECDSA accounts work. `useHederaSigner` binds `executeTransaction(tx)`, `signTransaction(tx)` (sign only, returns the signed `Transaction`) and `disconnect()` to the session; `components/ConnectWallet.tsx` is an inline connect/disconnect control that shows wallet rejections as a message.
+- **Mirror Node REST** for all reads (`services/mirror`, re-exported from `services/mirrorNode.ts`): typed responses, `MirrorNodeError` on non-2xx, `mirrorGetAllPages` for `links.next`. Reads are public, so the hooks in `hooks/mirror/` call the Mirror Node directly from the client: `useTopicMessagesFeed` returns decoded messages (`text`, and `json` when the payload parses); `useSchedule` / `useTransaction` poll every 5 s while pending or not yet indexed (404) and stop once settled; queries stay disabled while the id is empty or malformed. It is eventually consistent: expect a few seconds of lag after a transaction reaches consensus.
+- **Identity**: account IDs use the `0.0.xxxxx` form; `utils/scaffold-hbar/hederaIdentity.ts` normalizes EVM ↔ native identity and builds CAIP ids for the wallet.
 
-**Submit proof:** `useSubmitProof` builds a JSON payload `{ text, author, timestamp }`, submits via `@hiero-ledger/sdk` `TopicMessageSubmitTransaction`, and sends through `useNativeTransaction` from `@scaffold-hbar-ui/hooks`.
+### Signing conventions
 
-**Read feed:** `useTopicMessages` fetches from `/api/hedera/topic-messages` (Mirror Node). Home page polls every 15s; passes `onNewMessage` after submit for optimistic refresh. For new reads prefer the hooks in `hooks/mirror/`: Mirror reads are public, so they call the Mirror Node directly from the client with `services/mirror` (typed responses, `MirrorNodeError` on non-2xx, `mirrorGetAllPages` for `links.next`). `useTopicMessagesFeed` returns messages already decoded (`text`, and `json` when the payload parses); `useSchedule` / `useTransaction` poll every 5s while pending or not yet indexed (404) and stop once settled; queries stay disabled while the id is empty or malformed.
+- **Wallet-signed (client)**: build the transaction with the SDK, freeze it with a network `Client`, then hand it to the wallet through `services/web3/hederaSigner.ts` (`useHederaSigner` in components). Use this for anything the user owns or pays for: submitting a proof, creating a topic or token, swapping.
+- **Operator-signed (server route)**: `services/hederaClient.ts` reads `HEDERA_OPERATOR_*` and signs inside `app/api/hedera/*` route handlers. Use this only for actions the app itself pays for (badge airdrops, setup). Never expose the operator key to the client; return `503` when it is missing (see `check-badge/route.ts`).
+- **Freeze before execute**: always `freeze()` / `freezeWith(client)` a transaction before signing or serialising it. A frozen transaction has its transaction id and node account ids fixed; an unfrozen one cannot be signed by an external wallet.
+- **Batch inner transactions (HIP-551)**: for an inner transaction the wallet signs and the server batches, set `setTransactionId(TransactionId.generate(payer))`, `setBatchKey(serviceKey)`, then `freeze()`. Do **not** call `setNodeAccountIds`: it locks the node list and `freeze()` can no longer pin node `0.0.0`, which a batch requires. The service adds the signed inner tx to a `BatchTransaction` and executes it with the batch key.
+- **Wallet rejections** arrive as WalletConnect JSON-RPC errors (`code` 5000–5003, EIP-1193 `4001`, or a `USER_REJECT` message); `hederaSigner.ts` maps them to `WalletRejectedError` (`isWalletRejection`) so components can show a message instead of a crash.
+- **After a write, poll the Mirror Node** until the entity appears (`resolveTopicIdFromTransactionId`, `resolveTokenIdFromTransactionId`), typically 3–20 s. Never assume a read right after `execute` reflects the write.
 
-**Mirror Node traps** (verified on testnet):
+### Verified traps
 
-- `GET /api/v1/schedules?account.id=X` filters by the schedule **creator** (`creator_account_id`), not by `payer_account_id`. Querying with the payer returns an empty list. See `fetchSchedulesByCreator`.
-- A schedule's `signatures` list also contains the signature the `ScheduleCreate` payer added implicitly; it does not count toward the threshold of the scheduled transaction's keys, so `signatures.length` is an upper bound. See `MirrorSchedule.signatures`.
-- Mirror lags consensus by seconds: a freshly submitted entity 404s for a while, and state such as a schedule's `executed_timestamp` or a transaction id appears later. Poll instead of reading once (`resolvePendingRefetchInterval` in `hooks/mirror/mirrorQuery.ts`).
-- Transaction ids come in two forms: the SDK's `0.0.x@sec.nanos` and Mirror's `0.0.x-sec-nanos` (used in paths). `normalizeTransactionId` accepts both; the same id can return several rows (parent plus scheduled/child rows).
+- `DAppSigner.freezeWithSigner` (`hedera-wallet-connect` 2.1.x) does **not** set node account ids; freeze with a `Client.forTestnet()` / `forMainnet()` before `executeWithSigner` or the wallet call fails.
+- Mirror `GET /schedules?account.id=X` filters by **creator** of the schedule (`creator_account_id`), not by `payer_account_id`; querying with the payer returns an empty list. See `fetchSchedulesByCreator`.
+- Mirror lists the **payer's signature** on a schedule too (added implicitly by `ScheduleCreate`); it does not count toward a threshold key, so `signatures.length` is an upper bound. Filter signatures by the keys that make up the threshold key.
+- Mirror Node lag: reads right after consensus return 404 or stale pages. Retry with backoff (`utils/scaffold-hbar/resolve*`) instead of failing.
+- Swap quoting must be **on-chain** (`QuoterV2` or the pool's `sqrtRatioX96`). Reserve numbers from the SaucerSwap API do not give the concentrated-liquidity price; using them for `amountOutMinimum` reverts with `Too little received`.
+- Transaction ids come in two forms: the SDK's `0.0.x@sec.nanos` and Mirror's `0.0.x-sec-nanos` (used in paths). `normalizeTransactionId` accepts both; one id can return several rows (parent plus scheduled/child rows).
+- The native wallet flow is separate from the EVM burner wallet of RainbowKit/`wagmi`: the harness CHAIN stage injects an ECDSA burner key through `localStorage["burnerWallet.pk"]`, which only drives the `wagmi` EVM path and is not wired to HashPack or `useHederaSigner`.
+- The harness does not load `.env`; a `.env` file inside the tree fails the ASSERT stage. Remove it before `npx hedera-harness validate`.
 
-**Admin create topic/token:** Client hooks call API routes or native transactions; after submit, `resolveTopicIdFromTransactionId` / `resolveTokenIdFromTransactionId` poll Mirror Node until IDs are indexed (may take 10–20s).
+### How to add an operation
+
+1. **Service function** in `services/` that builds and freezes the SDK transaction (pure, testable, no React). Return the frozen transaction or the `transactionId`.
+2. **Hook** in `hooks/` wrapping it in `useMutation`; get the signer through `useHederaSigner` and throw early when no account is connected.
+3. **Read side**: add or reuse a hook under `hooks/mirror/` so the UI refreshes from the Mirror Node after the write; pass the expected sequence number or transaction id so polling knows when to stop.
+4. **Tests** next to the code (`*.test.ts`): assert the transaction shape (type, payer, memo, batch key) with the SDK, mock the wallet and Mirror calls, never hit the network.
+5. **Env**: any new id or key goes to `packages/nextjs/.env.example` with an empty value; extend `yarn setup` if it can be created on testnet.
+
+### How to add a harness eval assertion
+
+1. Add an entry to `.harness/eval.json` → `assertions` with a stable `id` (`E3`, `E4`, …; never renumber existing ones), `journey`, `route`, `severity`, `walletRequired`, `verifiableWithoutCredentials`, `statement` and a concrete `howToVerify` (element text, expected console state).
+2. Add the route to `routes` if it is new, and to `.harness/validators/playwright-smoke.yaml` so SMOKE boots it.
+3. If the assertion depends on copy or a file, mirror it in `.harness/validators/static.json` (`textAssertions` / `fileAssertions`) so ASSERT catches regressions without a browser.
+4. Run `npx hedera-harness doctor` (schema) and `npx hedera-harness validate` (ASSERT + SMOKE); run `validate-semantic` when the `claude` CLI and a browser are available.
 
 ## UI
 
@@ -112,7 +139,7 @@ import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 
 ## Networks
 
-`packages/nextjs/scaffold.config.ts` — `hederaTestnet` and `hedera` mainnet. RPC overrides via `NEXT_PUBLIC_HEDERA_*_RPC_URL`. Default polling interval: 10s.
+`packages/nextjs/scaffold.config.ts` — `hederaTestnet` and `hedera` mainnet. RPC overrides via `NEXT_PUBLIC_HEDERA_*_RPC_URL`. Default polling interval: 10s. `yarn setup` and the runbook target **testnet only**.
 
 ## Validate with Hedera Harness
 
@@ -129,10 +156,10 @@ Keep `.harness/validators/static.json` and `.harness/eval.json` in sync with rou
 
 ## Code style
 
-| Style | Use for |
-|---|---|
-| `UpperCamelCase` | types, components, enums |
+| Style            | Use for                     |
+| ---------------- | --------------------------- |
+| `UpperCamelCase` | types, components, enums    |
 | `lowerCamelCase` | functions, variables, hooks |
-| `CONSTANT_CASE` | constants |
+| `CONSTANT_CASE`  | constants                   |
 
-Prefer `type` over `interface`. Comments only when they add non-obvious context.
+TypeScript strict, no `any`, named exports, early returns, functions with at most three parameters and no boolean flags. Prefer `type` over `interface`. Comments only when they add non-obvious context; no commented-out code.
