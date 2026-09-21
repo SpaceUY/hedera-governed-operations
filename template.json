@@ -1,7 +1,11 @@
 {
-  "name": "hedera-demo",
-  "description": "Hedera-native Next.js demo without local Solidity workspaces.",
+  "name": "scaffold-hbar-template",
+  "description": "Hedera-native Next.js template (HCS, HTS, Mirror Node) without local Solidity workspaces.",
+  "version": "0.1.0",
   "create-scaffold-hbar": {
+    "requirements": {
+      "node": ">=20.18.3"
+    },
     "capabilities": {
       "frontend": ["nextjs-app"],
       "solidityFramework": ["none"],
