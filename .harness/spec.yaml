@@ -25,6 +25,23 @@ eval: .harness/eval.json
 validator:
   enabled: true
 
+# CHAIN — provisions a funded ECDSA testnet account and injects its key as
+# localStorage["burnerWallet.pk"]; the app connects with it on reload (see
+# packages/nextjs/services/web3/BurnerSignerProvider.tsx), so assertions
+# flagged executableWithTestSigner run end to end. Only `validate-semantic`
+# and `run` use it; `validate` and `doctor --recipe-only` ignore it. Export the
+# operator variables in the shell (the harness does not read .env).
+chainValidation:
+  enabled: true
+  network: testnet
+  operator:
+    accountIdEnv: HEDERA_OPERATOR_ID
+    privateKeyEnv: HEDERA_OPERATOR_PRIVATE_KEY
+  fundingHbar: 5
+  sweepBack: true
+  expose:
+    browserLocalStorageKey: burnerWallet.pk
+
 templateMetadata:
   name: scaffold-hbar-template
   frontend: nextjs-app
