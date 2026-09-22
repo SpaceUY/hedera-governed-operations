@@ -153,12 +153,93 @@ Rules that make this work (verified on testnet):
 | **Mirror Node lag**                    | Reads after consensus can 404 or return stale pages for several seconds; every post-write read polls with backoff and the UI shows a "resolving" state                     |
 | **Freeze before sign**                 | Wallet signing needs a frozen transaction with a fixed transaction id and node ids; `DAppSigner.freezeWithSigner` does not set node ids, so freeze with a network `Client` |
 | **Batch inner txs never set node ids** | `setNodeAccountIds` blocks `freeze()` from pinning node `0.0.0`, which HIP-551 inner transactions require                                                                  |
+| **HTS keys can be a contract id**       | A council cannot sign an HTS operation: scheduling one is refused outright and a scheduled contract call cannot present the governance key to `0x167`. The token's keys point at `TokenAdmin` instead — see [Governing an HTS token](#governing-an-hts-token-the-contract-as-the-tokens-key) |
 | **Schedules are indexed by creator**   | Mirror `/schedules?account.id=` filters by `creator_account_id`, and it lists the payer's signature, which does not count toward a threshold key                           |
 | **On-chain quoting for swaps**         | SaucerSwap API reserves do not reflect concentrated-liquidity prices; `amountOutMinimum` must come from `QuoterV2` or the pool's `sqrtRatioX96`                            |
 | **Test signer is testnet-only**        | The burner signs with a key stored in the browser; `burnerSignerPolicy.ts` ignores it on mainnet and, in production builds, unless `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` |
 | **Setup targets testnet only**         | `yarn setup` spends operator HBAR and creates entities; it refuses other networks so a misconfigured `.env` cannot touch mainnet                                           |
 | **Operator key stays server-side**     | Only route handlers read `HEDERA_OPERATOR_*`; the client learns whether an operator exists through `/api/hedera/operator-status`                                           |
 | **`.env.example` is the env contract** | `template.json` carries no `envVars` (the CLI would write a root `.env.example` Next.js does not read); every variable is documented in `packages/nextjs/.env.example`     |
+
+## Governing an HTS token: the contract as the token's key
+
+Pausing a token or freezing an account is a native HTS operation, and a council that holds a
+threshold key cannot perform one directly. Two obvious routes fail, each with its own network error,
+and the one that works reads like a detour until you see why the other two do not.
+
+**A scheduled `TokenPause` is rejected outright.** Scheduled transactions are limited to a whitelist
+set by the network's configuration, and the token operations are not on it:
+
+```
+SCHEDULED_TRANSACTION_NOT_IN_WHITELIST
+```
+
+**A scheduled contract call with the key on the governance account is rejected by the system
+contract.** The obvious repair is to wrap the operation in a contract call, which *is* schedulable,
+and leave the token's pause key on the governance account. The schedule collects the m signatures,
+executes, and the call reaches HTS at `0x167` — which refuses it:
+
+```
+INVALID_FULL_PREFIX_SIGNATURE_FOR_PRECOMPILE
+```
+
+The system contract verifies a key by looking for a signature over the transaction carrying a full
+public-key prefix. The signatures a schedule collects belong to the scheduled transaction and are
+not presented to the system contract in that form, so from inside `0x167` the governance account's
+key is simply not there — no matter how many council members signed.
+
+**What works is making the contract itself the key.** A Hedera token key can be a *contract id*, and
+the network grants that key to whoever is executing that contract's code. So the token's pause and
+freeze keys are set to `TokenAdmin`'s contract id, and `TokenAdmin` accepts calls only from the
+executor — whose `execute` is reachable only after m of n council members sign. Authority stops
+being something a signature proves to HTS and becomes something the call path proves.
+
+```mermaid
+flowchart LR
+  Council["m of n council<br/>sign the schedule"] --> Gov["Governance account<br/>(threshold key)"]
+  Gov -- "execute(id)" --> Executor["GovernedExecutor<br/>EXECUTOR_ROLE"]
+  Executor -- "pause(token)" --> Admin["TokenAdmin<br/>msg.sender == executor"]
+  Admin -- "pauseToken" --> HTS["HTS at 0x167<br/>key = TokenAdmin's contract id"]
+  HTS --> Token["Token paused"]
+```
+
+What `0x167` checks is its **immediate caller**, the contract whose code is running when it is
+called — not the payer and not the rest of the chain. That is why the extra hop through the executor
+changes nothing, and it is also the pattern's one hard rule: reaching HTS through a `delegatecall`
+would present the *calling* contract instead, and the key would have to be declared as a
+`delegatableContractId` for that to be accepted.
+
+**Freezing acts on a relationship, not on a token.** `freeze` names a token *and* an account, and
+the two must already be associated. Freezing an account that never associated the token answers:
+
+```
+TOKEN_NOT_ASSOCIATED_TO_ACCOUNT  (184)
+```
+
+Association is the receiving account's own act — a contract deployed through the JSON-RPC relay gets
+unlimited automatic associations, while an account created through the SDK gets none unless asked
+for them. Whoever the demo freezes has to hold the token first.
+
+**HTS answers with a code; `TokenAdmin` turns a refusal into a revert.** The system contract reports
+failure by returning a response code, not by reverting, so a contract that ignores it would let a
+refused operation finish as a successful transaction: the proposal would be marked executed and the
+scheduled transaction carrying the council's approval would be spent on nothing. `TokenAdmin`
+reverts with `HtsRejected(responseCode)` instead, which leaves the proposal pending and
+reschedulable once the cause is fixed, and carries the code out to the Mirror Node for the UI to
+explain.
+
+**The keys are permanent, and that is a choice.** A token created without an admin key can never
+have its keys changed, so its pause and freeze keys point at that one `TokenAdmin` deployment
+forever: redeploying the contract means the token is administered by the old one, and there is no
+way back. This template takes that deliberately — the point is that governance cannot be walked
+back — but a deployment that needs an escape hatch gives the token an admin key held by the same
+contract and an operation to re-point the keys, which is one more governed operation, not a
+loophole.
+
+**Cost.** Measured on testnet through the full chain, each operation consumes 65k–68k gas, refusals
+included, which puts the schedule's gas limit at 90,000. The limit is a price, not a ceiling (see
+the table above), so it belongs to the operation: a token-admin proposal is not an upgrade (99k) and
+not a swap (241k).
 
 ## Swap provider
 
