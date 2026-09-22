@@ -33,7 +33,7 @@ NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=...
 
 ## 3. Bootstrap testnet resources
 
-Three commands, in this order. The order is not a preference, it is forced by the chain:
+Three commands, in this order: `yarn setup`, the deploy, and `yarn setup` again. The order is not a preference, it is forced by two dependencies that cross the workspace boundary:
 
 1. `GovernedExecutor` is deployed **against** the governance account — that account's address is a constructor argument, and the proposer list is another — so the account has to exist before any contract does.
 2. The demo token's pause and freeze keys are the `TokenAdmin` **contract id**, and a token created without an admin key can never have its keys changed — so the contract has to exist before the token does.

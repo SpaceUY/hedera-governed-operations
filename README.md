@@ -52,7 +52,17 @@ It is idempotent: ids are kept in `packages/nextjs/setup-state.json` (gitignored
 
 ### Contracts
 
-`packages/hardhat` targets the Hedera JSON-RPC relay (`hederaTestnet`, chain 296) and ships without contracts: add yours under `contracts/` with a matching script under `deploy/`.
+`packages/hardhat` targets the Hedera JSON-RPC relay (`hederaTestnet`, chain 296) and ships the five contracts this template governs:
+
+| Contract            | What it is                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| `GovernedExecutor`  | The proposal registry. Proposing is a role; executing takes the council's m-of-n approval      |
+| `AcmeVault`         | Upgradeable vault behind a UUPS proxy; its upgrades are the operation the council approves     |
+| `AcmeVaultV2`       | The implementation that upgrade points the proxy at — it is what unlocks withdrawals           |
+| `TokenAdmin`        | Holds the demo token's pause and freeze keys, and accepts calls only from the executor         |
+| `SaucerSwapAdapter` | Swaps treasury HBAR on SaucerSwap V2, again only when reached through an approved proposal     |
+
+Add yours under `contracts/` with a matching script under `deploy/`.
 
 ```bash
 yarn hardhat:account:generate          # encrypted deployer key in packages/hardhat/.env, then fund it at the faucet

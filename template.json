@@ -26,13 +26,22 @@
               "text": "packages/nextjs/.env.example → packages/nextjs/.env"
             },
             {
-              "label": "Set the operator and WalletConnect variables",
-              "text": "HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY from a testnet account; NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID from Reown Cloud.",
+              "label": "Set the operator, council and WalletConnect variables",
+              "text": "HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY from a testnet account; HEDERA_COUNCIL_ACCOUNT_ID, your own account id, which becomes one of the three keys that approve proposals; NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID from Reown Cloud.",
               "url": "https://portal.hedera.com"
             },
             {
-              "label": "Bootstrap testnet resources",
-              "text": "Idempotent: creates what is missing and writes the ids to packages/nextjs/.env.local.",
+              "label": "Create the governance account",
+              "text": "First of two runs: creates the topic, the demo accounts and the account holding the council's threshold key, then hands the deploy the values it needs through packages/hardhat/.env and stops, listing what is not deployed yet.",
+              "command": "{run:setup}"
+            },
+            {
+              "label": "Deploy the contracts",
+              "text": "The contracts are deployed against the governance account, so they come after the first run — see Contracts below."
+            },
+            {
+              "label": "Finish the bootstrap",
+              "text": "Second run: creates the HTS token the council administers and leaves one proposal pending for it to approve. Idempotent — a third run creates nothing.",
               "command": "{run:setup}"
             },
             {
