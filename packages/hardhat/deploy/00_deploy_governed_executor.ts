@@ -1,11 +1,8 @@
-import * as fs from "fs";
-import * as path from "path";
-
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
 import type { DeployFunction } from "hardhat-deploy/types";
 
 import { getDeployGasPrice } from "../utils/getDeployGasPrice";
-import { resolveHederaContractId } from "../utils/resolveHederaContractId";
+import { recordHederaContractId } from "../utils/recordHederaContractId";
 
 const CONTRACT = "GovernedExecutor";
 const HEDERA_CHAIN_IDS = new Set([295, 296]);
@@ -55,11 +52,7 @@ const deployGovernedExecutor: DeployFunction = async function (hre: HardhatRunti
   }
 
   // Scheduled transactions target the native contract id, not the EVM address.
-  const hederaContractId = await resolveHederaContractId(deployment.address, chainId);
-  const deploymentPath = path.join(hre.config.paths.deployments, hre.network.name, `${CONTRACT}.json`);
-  const deploymentJson = JSON.parse(fs.readFileSync(deploymentPath, "utf8")) as Record<string, unknown>;
-  deploymentJson.hederaContractId = hederaContractId;
-  fs.writeFileSync(deploymentPath, `${JSON.stringify(deploymentJson, null, 2)}\n`);
+  const hederaContractId = await recordHederaContractId(hre, CONTRACT, deployment.address, chainId);
   console.log(`Resolved Hedera contract id: ${hederaContractId}`);
 };
 
