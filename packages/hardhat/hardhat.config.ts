@@ -76,13 +76,12 @@ const config: HardhatUserConfig = {
       chainId: 295,
     },
   },
-  // Hedera is now supported on the main Sourcify instance (sourcify.dev).
-  // No custom verifier URL required — standard tooling works out of the box.
-  // See: https://hedera.com/blog/smart-contract-verification-sourcify-dev-now-supported
+  // Both hardhat-verify providers are off. Hedera verifies through Sourcify, not Etherscan, but
+  // the plugin's Sourcify client still calls the retired v1 API and fails on its HTML 404 page.
+  // `yarn hardhat:verify:testnet` talks to the v2 API directly — see scripts/verifyDeployed.ts.
   sourcify: {
-    enabled: true,
+    enabled: false,
   },
-  // Disable Etherscan verification (Hedera uses Sourcify only)
   etherscan: {
     enabled: false,
     apiKey: {},
@@ -97,19 +96,6 @@ const config: HardhatUserConfig = {
 task("deploy").setAction(async (args, hre, runSuper) => {
   await runSuper(args);
   await generateTsAbis(hre);
-});
-
-// Extend the verify task to show HashScan link after Sourcify verification.
-task("verify").setAction(async (args, hre, runSuper) => {
-  await runSuper(args);
-
-  const address = args.address;
-  const chainId = hre.network.config.chainId;
-
-  if (address && (chainId === 295 || chainId === 296)) {
-    const network = chainId === 295 ? "mainnet" : "testnet";
-    console.log(`\nHashScan: https://hashscan.io/${network}/contract/${address}`);
-  }
 });
 
 export default config;
