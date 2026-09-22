@@ -1,6 +1,7 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 
 import { getDeployGasPrice } from "../utils/getDeployGasPrice";
+import { HEDERA_MAINNET_CHAIN_ID, HEDERA_TESTNET_CHAIN_ID } from "../utils/hederaChains";
 
 const CONTRACT = "SaucerSwapAdapter";
 
@@ -8,8 +9,8 @@ const CONTRACT = "SaucerSwapAdapter";
 /// `services/swap` configuration carries, written the same way so the two can be compared by eye.
 /// Checked against Mirror Node; the testnet pair is the one this template's swap runs against.
 const SAUCERSWAP: Record<number, { swapRouter: string; whbarToken: string }> = {
-  296: { swapRouter: "0.0.1414040", whbarToken: "0.0.15058" },
-  295: { swapRouter: "0.0.3949434", whbarToken: "0.0.1456986" },
+  [HEDERA_TESTNET_CHAIN_ID]: { swapRouter: "0.0.1414040", whbarToken: "0.0.15058" },
+  [HEDERA_MAINNET_CHAIN_ID]: { swapRouter: "0.0.3949434", whbarToken: "0.0.1456986" },
 };
 
 /// A Hedera entity with no EVM alias of its own is addressed by its entity number, zero-padded to

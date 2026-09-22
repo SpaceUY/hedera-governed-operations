@@ -1,10 +1,10 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 
 import { getDeployGasPrice } from "../utils/getDeployGasPrice";
+import { isHederaChainId } from "../utils/hederaChains";
 import { recordHederaContractId } from "../utils/recordHederaContractId";
 
 const CONTRACT = "TokenAdmin";
-const HEDERA_CHAIN_IDS = new Set([295, 296]);
 
 /// Deploys the contract that administers an HTS token on the council's behalf. It takes its
 /// authority from the executor's address, fixed here and without a setter.
@@ -27,7 +27,7 @@ const deployTokenAdmin: DeployFunction = async function (hre) {
     gasPrice: await getDeployGasPrice(hre),
   });
 
-  if (!HEDERA_CHAIN_IDS.has(chainId) || !deployment.address) {
+  if (!isHederaChainId(chainId) || !deployment.address) {
     return;
   }
 
