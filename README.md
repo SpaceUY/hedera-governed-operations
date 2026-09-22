@@ -35,13 +35,20 @@ cd <your-project>
 yarn install
 
 cp packages/nextjs/.env.example packages/nextjs/.env
-# Fill in HEDERA_OPERATOR_ID, HEDERA_OPERATOR_PRIVATE_KEY and NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID
+# Fill in HEDERA_OPERATOR_ID, HEDERA_OPERATOR_PRIVATE_KEY, HEDERA_COUNCIL_ACCOUNT_ID
+# and NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID
 
-yarn setup       # creates the testnet resources the app needs and writes their ids to packages/nextjs/.env.local
-yarn next:dev    # http://localhost:3000
+yarn setup                                   # testnet resources; stops once the contracts are the next step
+yarn hardhat:deploy --network hederaTestnet  # see Contracts below for the deployer account
+yarn setup                                   # demo token and the first proposal
+yarn next:dev                                # http://localhost:3000
 ```
 
-`yarn setup` creates an HCS topic, two funded ECDSA demo accounts (`alice`, `bob`) associated with testnet USDC (`0.0.5449`), and writes `NEXT_PUBLIC_PROOF_WALL_TOPIC_ID` plus the demo account ids to `packages/nextjs/.env.local`. It is idempotent: ids are kept in `packages/nextjs/setup-state.json` (gitignored, holds the demo keys), verified against the Mirror Node on every run, and only missing pieces are created. It refuses `HEDERA_NETWORK=mainnet`. Product-specific fixtures plug into the hooks in `packages/nextjs/scripts/setup/extensions.ts`. If you prefer to create the resources by hand, open `/admin`, connect HashPack and copy the ids it prints into `packages/nextjs/.env`.
+`yarn setup` creates an HCS topic, two funded ECDSA demo accounts (`alice`, `bob`) associated with testnet USDC (`0.0.5449`), and the governance account: a 2-of-3 threshold key over your own account (`HEDERA_COUNCIL_ACCOUNT_ID`) and those two. Every id lands in `packages/nextjs/.env.local`.
+
+It runs on either side of the deploy because the dependency is circular: the contracts are deployed against the governance account, so it has to exist first, and the demo token's pause and freeze keys are `TokenAdmin`'s contract id, which a token created without an admin key can never change — so the contract has to exist before the token. The first run hands the deploy the two values it needs through `packages/hardhat/.env`; the second creates the token and leaves one proposal pending for the council to approve. [The runbook](docs/RUNBOOK.md) walks all three steps.
+
+It is idempotent: ids are kept in `packages/nextjs/setup-state.json` (gitignored, holds the demo keys), verified against the network on every run, and only missing pieces are created — a third run creates nothing. It refuses `HEDERA_NETWORK=mainnet`. Product-specific fixtures plug into the hooks in `packages/nextjs/scripts/setup/extensions.ts`. If you prefer to create the resources by hand, open `/admin`, connect HashPack and copy the ids it prints into `packages/nextjs/.env`.
 
 ### Contracts
 

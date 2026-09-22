@@ -9,5 +9,9 @@ export function appEnvEntries(state: SetupState): EnvEntries {
     const account = state.demoAccounts[name];
     if (account) entries[`NEXT_PUBLIC_DEMO_ACCOUNT_${name.toUpperCase()}_ID`] = account.accountId;
   }
+  if (state.governance) entries.NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID = state.governance.accountId;
+  if (state.demoTokenId) entries.NEXT_PUBLIC_DEMO_TOKEN_ID = state.demoTokenId;
+  // Proposal ids are registry indexes, so the first one is 0 and a truthiness check would drop it.
+  if (state.seedProposal) entries.NEXT_PUBLIC_SEED_PROPOSAL_ID = String(state.seedProposal.id);
   return entries;
 }
