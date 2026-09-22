@@ -41,3 +41,15 @@ jobs:
 
       - name: Build nextjs
         run: yarn next:build
+
+      - name: Run hardhat lint
+        run: yarn hardhat:lint --max-warnings=0
+
+      - name: Check typings on hardhat
+        run: yarn hardhat:check-types
+
+      - name: Compile contracts
+        run: yarn hardhat:compile
+
+      - name: Run contract tests
+        run: yarn hardhat:test

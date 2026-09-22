@@ -43,6 +43,6 @@ chainValidation:
     browserLocalStorageKey: burnerWallet.pk
 
 templateMetadata:
-  name: scaffold-hbar-template
+  name: governed-operations
   frontend: nextjs-app
-  solidityFramework: none
+  solidityFramework: hardhat

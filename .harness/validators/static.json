@@ -15,18 +15,26 @@
       "package.json",
       "packages/nextjs/package.json",
       "packages/nextjs/.env.example",
+      "packages/hardhat/package.json",
+      "packages/hardhat/hardhat.config.ts",
+      "packages/hardhat/.env.example",
       ".harness/spec.yaml",
       ".harness/prd.md"
     ],
     "forbidden": [
       ".env",
-      "packages/nextjs/.env"
+      "packages/nextjs/.env",
+      "packages/hardhat/.env"
     ]
   },
   "textAssertions": [
     {
       "file": "README.md",
       "contains": ["yarn install", "yarn next:dev"]
+    },
+    {
+      "file": "packages/hardhat/hardhat.config.ts",
+      "contains": ["hederaTestnet", "hederaMainnet", "sourcify"]
     }
   ]
 }

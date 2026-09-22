@@ -1,6 +1,6 @@
-# Scaffold-HBAR Template
+# Hedera Governed Operations
 
-A Hedera-native Scaffold-HBAR template: **Next.js only, no Solidity**, built on HCS, HTS and the Mirror Node, with a reusable HashPack signer, a typed Mirror Node client, a swap provider and an automated testnet setup — all validated with Hedera Harness.
+A Scaffold-HBAR template pairing a **Hardhat workspace** with a Next.js app on HCS, HTS and the Mirror Node: a reusable HashPack signer, a typed Mirror Node client, a swap provider and an automated testnet setup — all validated with Hedera Harness.
 
 <!-- TODO(product): replace the positioning line and the demo description once the shipped feature set is decided. -->
 
@@ -8,7 +8,7 @@ _The final feature set is still being decided. Coming with the first release._
 
 |                    | `blank`                 | `hedera-demo`              | **this template**                                                            |
 | ------------------ | ----------------------- | -------------------------- | ---------------------------------------------------------------------------- |
-| Solidity workspace | yes (Hardhat / Foundry) | no                         | no                                                                           |
+| Solidity workspace | yes (Hardhat / Foundry) | no                         | yes (Hardhat)                                                                |
 | Wallet             | EVM (wagmi)             | HashPack via WalletConnect | HashPack via WalletConnect, reusable signer with sign-only and batch helpers |
 | Reads              | JSON-RPC                | Mirror Node API routes     | typed Mirror Node client + React Query hooks                                 |
 | Swaps              | —                       | —                          | `SwapProvider` interface with a SaucerSwap V2 implementation                 |
@@ -30,7 +30,7 @@ Based on the `hedera-demo` template from [hedera-dev/scaffold-hbar](https://gith
 ### Create, configure, run
 
 ```bash
-npm create scaffold-hbar@latest -- --template SpaceUY/scaffold-hbar-template
+npm create scaffold-hbar@latest -- --template SpaceUY/hedera-governed-operations
 cd <your-project>
 yarn install
 
@@ -42,6 +42,18 @@ yarn next:dev    # http://localhost:3000
 ```
 
 `yarn setup` creates an HCS topic, two funded ECDSA demo accounts (`alice`, `bob`) associated with testnet USDC (`0.0.5449`), and writes `NEXT_PUBLIC_PROOF_WALL_TOPIC_ID` plus the demo account ids to `packages/nextjs/.env.local`. It is idempotent: ids are kept in `packages/nextjs/setup-state.json` (gitignored, holds the demo keys), verified against the Mirror Node on every run, and only missing pieces are created. It refuses `HEDERA_NETWORK=mainnet`. Product-specific fixtures plug into the hooks in `packages/nextjs/scripts/setup/extensions.ts`. If you prefer to create the resources by hand, open `/admin`, connect HashPack and copy the ids it prints into `packages/nextjs/.env`.
+
+### Contracts
+
+`packages/hardhat` targets the Hedera JSON-RPC relay (`hederaTestnet`, chain 296) and ships without contracts: add yours under `contracts/` with a matching script under `deploy/`.
+
+```bash
+yarn hardhat:account:generate          # encrypted deployer key in packages/hardhat/.env, then fund it at the faucet
+yarn hardhat:deploy --network hederaTestnet
+yarn hardhat:verify:testnet            # Sourcify, prints the HashScan link for each contract
+```
+
+Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with the addresses and ABIs the frontend reads. See `packages/hardhat/README.md` for the local forked node and the mainnet commands.
 
 ## What's inside
 
@@ -65,6 +77,7 @@ yarn next:dev    # http://localhost:3000
 | Operator client    | `services/hederaClient.ts`                                  | Server-side Hiero SDK client for operator-signed routes                                                     |
 | Setup script       | `yarn setup`                                                | Idempotent testnet bootstrap that writes `.env.local`                                                       |
 | Harness recipe     | `.harness/`                                                 | Static, command, smoke and semantic checks for the template                                                 |
+| Contracts          | `packages/hardhat/`                                         | Hardhat on the Hedera JSON-RPC relay, deploys that regenerate `contracts/deployedContracts.ts`, Sourcify verification |
 
 ## Scripts
 
@@ -78,6 +91,11 @@ yarn next:dev    # http://localhost:3000
 | `yarn test`                    | Unit tests (Vitest)                                                                  |
 | `yarn format`                  | Prettier                                                                             |
 | `yarn harness:run`             | Full Hedera Harness loop (generate, validate, repair)                                |
+| `yarn hardhat:compile`         | Compile the contracts under `packages/hardhat/contracts/`                            |
+| `yarn hardhat:test`            | Contract tests                                                                       |
+| `yarn hardhat:account:generate`| Create an encrypted deployer key in `packages/hardhat/.env`                          |
+| `yarn hardhat:deploy`          | Deploy and regenerate `packages/nextjs/contracts/deployedContracts.ts`               |
+| `yarn hardhat:verify:testnet`  | Verify the testnet deployments on Sourcify and print their HashScan links            |
 
 ## Make it yours
 

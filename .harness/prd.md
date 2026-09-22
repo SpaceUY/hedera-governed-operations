@@ -18,7 +18,7 @@ Keep this Scaffold-HBAR template healthy as a product: a fresh scaffold must ins
 
 ## Non-goals
 
-- No Solidity workspace (`packages/hardhat` / `packages/foundry`).
+- Do not add a second Solidity framework: `packages/hardhat` is the only one.
 - Do not switch the package manager away from Yarn.
 - Do not remove the Scaffold-HBAR / `AGENTS.md` conventions.
 - Do not commit secrets or `.env` files.
@@ -26,6 +26,7 @@ Keep this Scaffold-HBAR template healthy as a product: a fresh scaffold must ins
 ## Deliverables
 
 - `packages/nextjs` — App Router UI, Hedera SDK + WalletConnect, Mirror Node API routes.
+- `packages/hardhat` — Solidity workspace on the Hedera JSON-RPC relay, with deploy and Sourcify verification scripts.
 - `README.md` and `AGENTS.md` documenting install, run and validation commands.
 
 ## Acceptance
