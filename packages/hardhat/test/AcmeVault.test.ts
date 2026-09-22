@@ -22,10 +22,10 @@ describe("AcmeVault", () => {
   let implementation: AcmeVault;
   let proxyAddress: string;
 
-  /// Deploys an implementation behind a fresh ERC1967 proxy already initialized against `executor`.
-  const deployBehindProxy = async (): Promise<[AcmeVault, AcmeVault]> => {
+  /// Deploys an implementation behind a fresh ERC1967 proxy already initialized against `trusted`.
+  const deployBehindProxy = async (trusted: string): Promise<[AcmeVault, AcmeVault]> => {
     const impl = (await (await ethers.getContractFactory("AcmeVault")).deploy()) as AcmeVault;
-    const initData = impl.interface.encodeFunctionData("initialize", [await executor.getAddress()]);
+    const initData = impl.interface.encodeFunctionData("initialize", [trusted]);
     const proxyFactory = await ethers.getContractFactory(ERC1967Proxy.abi, ERC1967Proxy.bytecode);
     const proxy = await proxyFactory.deploy(await impl.getAddress(), initData);
     return [impl.attach(await proxy.getAddress()) as AcmeVault, impl];
@@ -49,7 +49,7 @@ describe("AcmeVault", () => {
   beforeEach(async () => {
     [gov, proposer, depositor, outsider] = await ethers.getSigners();
     executor = await (await ethers.getContractFactory("GovernedExecutor")).deploy(gov.address, [proposer.address]);
-    [vault, implementation] = await deployBehindProxy();
+    [vault, implementation] = await deployBehindProxy(await executor.getAddress());
     proxyAddress = await vault.getAddress();
   });
 
@@ -67,6 +67,24 @@ describe("AcmeVault", () => {
         implementation,
         "InvalidInitialization",
       );
+    });
+
+    /// Nothing rejects the zero address, and the executor has no setter, so a vault initialized
+    /// this way takes deposits that no upgrade can ever unlock. It is the cost of the binding
+    /// being permanent, and the deploy script is what keeps it from happening.
+    it("accepts the zero address as the executor", async () => {
+      const [stranded] = await deployBehindProxy(ethers.ZeroAddress);
+
+      expect(await stranded.executor()).to.equal(ethers.ZeroAddress);
+    });
+
+    it("leaves a vault initialized against the zero address unupgradeable by anyone", async () => {
+      const [stranded] = await deployBehindProxy(ethers.ZeroAddress);
+      const v2Implementation = await deployVersionTwo();
+
+      await expect(stranded.connect(gov).upgradeToAndCall(await v2Implementation.getAddress(), "0x"))
+        .to.be.revertedWithCustomError(stranded, "NotExecutor")
+        .withArgs(gov.address);
     });
   });
 
@@ -159,6 +177,18 @@ describe("AcmeVault", () => {
       await expect(upgraded.connect(depositor).withdraw(WITHDRAWAL_LIMIT + 1n))
         .to.be.revertedWithCustomError(upgraded, "WithdrawalTooLarge")
         .withArgs(WITHDRAWAL_LIMIT + 1n, WITHDRAWAL_LIMIT);
+    });
+
+    it("logs a withdrawal of zero, which is within every limit and every balance", async () => {
+      await expect(upgraded.connect(depositor).withdraw(0))
+        .to.emit(upgraded, "Withdrawn")
+        .withArgs(depositor.address, 0);
+    });
+
+    it("leaves the balance untouched after a withdrawal of zero", async () => {
+      await upgraded.connect(depositor).withdraw(0);
+
+      expect(await upgraded.balanceOf(depositor.address)).to.equal(DEPOSIT);
     });
 
     it("rejects a withdrawal from an account with no balance", async () => {

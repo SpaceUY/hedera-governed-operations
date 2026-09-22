@@ -69,6 +69,45 @@ describe("GovernedExecutor", () => {
     });
   });
 
+  describe("registry readers", () => {
+    it("counts nothing before the first proposal is registered", async () => {
+      expect(await executor.proposalCount()).to.equal(0);
+    });
+
+    it("numbers proposals by their position in the registry", async () => {
+      const first = await proposeSetValue();
+      const second = await proposeSetValue();
+
+      expect([first, second, await executor.proposalCount()]).to.deep.equal([0n, 1n, 2n]);
+    });
+
+    it("returns the call a pending proposal carries", async () => {
+      const data = target.interface.encodeFunctionData("setValue", [NEW_VALUE]);
+      const id = await proposeSetValue();
+
+      const registered = await executor.proposal(id);
+
+      expect([registered.target, registered.proposer, registered.state, registered.data]).to.deep.equal([
+        await target.getAddress(),
+        proposer.address,
+        PENDING,
+        data,
+      ]);
+    });
+
+    /// Ids are indexes into the array, so one the registry never issued is out of bounds rather
+    /// than an empty proposal: reading it panics instead of answering with a zeroed struct.
+    it("panics on an id the registry never issued", async () => {
+      await proposeSetValue();
+
+      await expect(executor.proposal(1)).to.be.revertedWithPanic(0x32);
+    });
+
+    it("panics when an execution names an id that does not exist", async () => {
+      await expect(executor.connect(gov).execute(0)).to.be.revertedWithPanic(0x32);
+    });
+  });
+
   describe("execute", () => {
     it("runs the proposed call when the governance account executes it", async () => {
       const id = await proposeSetValue();
