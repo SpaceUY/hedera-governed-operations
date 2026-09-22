@@ -48,7 +48,7 @@ async function createDemoAccount(client: Client, name: DemoAccountName): Promise
   };
 }
 
-async function associateToken(client: Client, account: DemoAccount, tokenId: string): Promise<void> {
+export async function associateToken(client: Client, account: DemoAccount, tokenId: string): Promise<void> {
   const transaction = new TokenAssociateTransaction()
     .setAccountId(account.accountId)
     .setTokenIds([tokenId])

@@ -13,11 +13,31 @@ export type DemoAccount = {
   evmAddress: string;
 };
 
+/**
+ * The account holding the m-of-n key. `councilAccountId` is recorded with it because a threshold
+ * key cannot be changed without the council it protects: it is the only way to tell that the
+ * account no longer matches the configuration it was created from.
+ */
+export type GovernanceAccount = {
+  accountId: string;
+  evmAddress: string;
+  councilAccountId: string;
+};
+
+/** The proposal left pending for the demo, tied to the registry that holds it. */
+export type SeedProposal = {
+  id: number;
+  executorContractId: string;
+};
+
 export type SetupState = {
   version: typeof STATE_VERSION;
   network: SetupNetwork;
   topicId?: string;
   demoAccounts: Partial<Record<DemoAccountName, DemoAccount>>;
+  governance?: GovernanceAccount;
+  demoTokenId?: string;
+  seedProposal?: SeedProposal;
 };
 
 const STATE_VERSION = 1;

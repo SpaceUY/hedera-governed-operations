@@ -8,6 +8,7 @@ export type SetupNetwork = "testnet";
 export type SetupEnv = {
   operatorId: string;
   operatorPrivateKey: string;
+  councilAccountId: string;
   network: SetupNetwork;
 };
 
@@ -18,6 +19,22 @@ const DEFAULT_NETWORK: SetupNetwork = "testnet";
 function requireValue(source: EnvSource, name: string): string {
   const value = source[name]?.trim();
   if (!value) throw new Error(`${name} is required in packages/nextjs/.env`);
+  return value;
+}
+
+/**
+ * The one member of the governance account's threshold key that a human holds. It cannot be
+ * derived from the operator: the script signs with the operator, but the council member is
+ * whatever wallet the person installing the template connects with.
+ */
+function readCouncilAccountId(source: EnvSource): string {
+  const value = source.HEDERA_COUNCIL_ACCOUNT_ID?.trim();
+  if (!value) {
+    throw new Error(
+      "HEDERA_COUNCIL_ACCOUNT_ID is required in packages/nextjs/.env: the governance account needs your own " +
+        "Hedera account as one of its three keys, and it is the account you will approve proposals with",
+    );
+  }
   return value;
 }
 
@@ -32,6 +49,7 @@ export function readSetupEnv(source: EnvSource): SetupEnv {
   return {
     operatorId: requireValue(source, "HEDERA_OPERATOR_ID"),
     operatorPrivateKey: requireValue(source, "HEDERA_OPERATOR_PRIVATE_KEY"),
+    councilAccountId: readCouncilAccountId(source),
     network: readNetwork(source),
   };
 }

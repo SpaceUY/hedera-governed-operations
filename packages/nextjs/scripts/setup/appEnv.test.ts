@@ -21,3 +21,33 @@ describe("appEnvEntries", () => {
     });
   });
 });
+
+describe("appEnvEntries for the governed-operations fixtures", () => {
+  const governance = { accountId: "0.0.99", evmAddress: "0x63", councilAccountId: "0.0.5" };
+
+  it("maps the governance account to its own public variable", () => {
+    expect(appEnvEntries({ ...emptyState("testnet"), governance })).toEqual({
+      NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID: "0.0.99",
+    });
+  });
+
+  it("maps the demo token", () => {
+    expect(appEnvEntries({ ...emptyState("testnet"), demoTokenId: "0.0.77" })).toEqual({
+      NEXT_PUBLIC_DEMO_TOKEN_ID: "0.0.77",
+    });
+  });
+
+  it("maps the seed proposal id", () => {
+    const seedProposal = { id: 3, executorContractId: "0.0.11" };
+    expect(appEnvEntries({ ...emptyState("testnet"), seedProposal })).toEqual({
+      NEXT_PUBLIC_SEED_PROPOSAL_ID: "3",
+    });
+  });
+
+  it("maps a seed proposal that is the first of its registry", () => {
+    const seedProposal = { id: 0, executorContractId: "0.0.11" };
+    expect(appEnvEntries({ ...emptyState("testnet"), seedProposal })).toEqual({
+      NEXT_PUBLIC_SEED_PROPOSAL_ID: "0",
+    });
+  });
+});

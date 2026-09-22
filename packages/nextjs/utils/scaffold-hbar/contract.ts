@@ -7,6 +7,8 @@ export type GenericContract = {
   inheritedFunctions?: Record<string, string>;
   external?: true;
   deployedOnBlock?: number;
+  /** Native `0.0.x` id, recorded by the Hedera deploys: a token key or a scheduled call needs it. */
+  hederaContractId?: string;
 };
 
 export type GenericContractsDeclaration = {
