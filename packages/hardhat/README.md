@@ -2,7 +2,8 @@
 
 Hardhat config, contracts, deploy scripts, tests, and Hashscan verification for this monorepo.
 
-The workspace ships without contracts: add your own under `contracts/` and a matching `deploy/` script.
+The workspace ships the five contracts of the governed-operations demo under `contracts/`, each with its
+own script under `deploy/`; add your own the same way.
 Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts`, which is what the frontend reads.
 
 ## Local development

@@ -19,7 +19,7 @@ import "hardhat-deploy-ethers";
 
 import generateTsAbis from "./scripts/generateTsAbis";
 
-// Hedera JSON-RPC URL (testnet default). Set HEDERA_RPC_URL in .env for mainnet.
+// JSON-RPC endpoint the forked local node reads from; the live networks below carry their own URLs.
 const hederaRpcUrl = process.env.HEDERA_RPC_URL || "https://testnet.hashio.io/api";
 
 // Forking the live Hedera network is opt-in (yarn hardhat:chain / yarn hardhat:fork set HEDERA_FORKING=true).
