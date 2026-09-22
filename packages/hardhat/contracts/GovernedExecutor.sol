@@ -29,7 +29,7 @@ contract GovernedExecutor is AccessControlEnumerable {
     Proposal[] private _proposals;
 
     event ProposalCreated(uint256 indexed id, address indexed proposer, address indexed target, bytes data);
-    event Executed(uint256 indexed id, address indexed sender);
+    event Executed(uint256 indexed id, address indexed sender, uint256 value);
     event Cancelled(uint256 indexed id, address indexed sender);
 
     error ProposalNotPending(uint256 id);
@@ -63,12 +63,17 @@ contract GovernedExecutor is AccessControlEnumerable {
     /// @dev A failing target bubbles its revert and rolls the whole call back, leaving the proposal
     /// pending. The scheduled transaction that carried this call is spent either way: retrying means
     /// scheduling `execute` again, not proposing again.
-    function execute(uint256 id) external onlyRole(EXECUTOR_ROLE) {
+    ///
+    /// Payable so that a proposal can move HBAR, which a treasury operation needs: the amount
+    /// arrives as the scheduled transaction's payable amount, paid by the governance account, so it
+    /// is part of what the council signs. The whole of it is forwarded to the target and the
+    /// contract has no `receive`, so it never holds a balance of its own.
+    function execute(uint256 id) external payable onlyRole(EXECUTOR_ROLE) {
         Proposal storage pending = _requirePending(id);
         pending.state = ProposalState.Executed;
 
-        Address.functionCall(pending.target, pending.data);
-        emit Executed(id, msg.sender);
+        Address.functionCallWithValue(pending.target, pending.data, msg.value);
+        emit Executed(id, msg.sender, msg.value);
     }
 
     /// @notice Withdraw a pending proposal, so the council can no longer approve it. Open to the

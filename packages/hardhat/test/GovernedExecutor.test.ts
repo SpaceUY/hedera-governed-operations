@@ -73,7 +73,7 @@ describe("GovernedExecutor", () => {
     it("runs the proposed call when the governance account executes it", async () => {
       const id = await proposeSetValue();
 
-      await expect(executor.connect(gov).execute(id)).to.emit(executor, "Executed").withArgs(id, gov.address);
+      await expect(executor.connect(gov).execute(id)).to.emit(executor, "Executed").withArgs(id, gov.address, 0);
 
       expect(await target.value()).to.equal(NEW_VALUE);
     });
@@ -108,6 +108,71 @@ describe("GovernedExecutor", () => {
       await executor.connect(proposer).createProposal(await target.getAddress(), data);
 
       await expect(executor.connect(gov).execute(0)).to.be.revertedWith("target failed");
+
+      expect((await executor.proposal(0)).state).to.equal(PENDING);
+    });
+  });
+
+  describe("execute with value", () => {
+    /// A treasury operation needs HBAR to reach the target, and the only account that should be
+    /// able to spend it is the governance account: the amount rides along as the scheduled
+    /// transaction's payable amount, which is part of what the council signs.
+    const VALUE = 200_000_000n;
+
+    /// Registers a proposal calling a target that keeps whatever it is paid, and returns its id.
+    const proposeKeepValue = async (): Promise<bigint> => {
+      const data = target.interface.encodeFunctionData("keepValue");
+      const id = await executor.connect(proposer).createProposal.staticCall(await target.getAddress(), data);
+      await executor.connect(proposer).createProposal(await target.getAddress(), data);
+      return id;
+    };
+
+    it("forwards the HBAR it was paid to the target", async () => {
+      const id = await proposeKeepValue();
+
+      await executor.connect(gov).execute(id, { value: VALUE });
+
+      expect(await target.lastValue()).to.equal(VALUE);
+    });
+
+    it("leaves the HBAR with the target, not with itself", async () => {
+      const id = await proposeKeepValue();
+
+      await executor.connect(gov).execute(id, { value: VALUE });
+
+      expect(await ethers.provider.getBalance(await executor.getAddress())).to.equal(0);
+    });
+
+    it("records the amount moved in the Executed event", async () => {
+      const id = await proposeKeepValue();
+
+      await expect(executor.connect(gov).execute(id, { value: VALUE }))
+        .to.emit(executor, "Executed")
+        .withArgs(id, gov.address, VALUE);
+    });
+
+    it("rejects value from an account without EXECUTOR_ROLE", async () => {
+      const id = await proposeKeepValue();
+
+      await expect(executor.connect(proposer).execute(id, { value: VALUE }))
+        .to.be.revertedWithCustomError(executor, "AccessControlUnauthorizedAccount")
+        .withArgs(proposer.address, await executor.EXECUTOR_ROLE());
+    });
+
+    it("keeps no HBAR when the target reverts", async () => {
+      const data = target.interface.encodeFunctionData("boomWithValue");
+      await executor.connect(proposer).createProposal(await target.getAddress(), data);
+
+      await expect(executor.connect(gov).execute(0, { value: VALUE })).to.be.revertedWith("payable target failed");
+
+      expect(await ethers.provider.getBalance(await executor.getAddress())).to.equal(0);
+    });
+
+    it("leaves the proposal pending when the target reverts, so it can be scheduled again", async () => {
+      const data = target.interface.encodeFunctionData("boomWithValue");
+      await executor.connect(proposer).createProposal(await target.getAddress(), data);
+
+      await expect(executor.connect(gov).execute(0, { value: VALUE })).to.be.reverted;
 
       expect((await executor.proposal(0)).state).to.equal(PENDING);
     });
