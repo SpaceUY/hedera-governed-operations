@@ -18,6 +18,7 @@ const deployment: GovernanceDeployment = {
 
 const lookupsWhere = (overrides: Partial<SeedProposalLookups>): SeedProposalLookups => ({
   proposalSettled: vi.fn(async () => false),
+  vaultExecutor: vi.fn(async () => deployment.executorEvm),
   ...overrides,
 });
 
@@ -86,6 +87,43 @@ describe("reconcileSeedProposal", () => {
     const actions = recordingActions();
     await run(withSeed("0.0.previous"), {}, actions);
     expect(actions.createProposal).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the binding off the proxy the proposal targets", async () => {
+    const lookups = lookupsWhere({});
+    await reconcileSeedProposal(emptyState("testnet"), deployment, { lookups, actions: recordingActions() });
+    expect(lookups.vaultExecutor).toHaveBeenCalledWith(deployment.vaultProxyEvm);
+  });
+
+  it("accepts a binding that matches the deployed executor in a different case", async () => {
+    const { step } = await run(emptyState("testnet"), { vaultExecutor: vi.fn(async () => "0xEXEC") });
+    expect(step.outcome).toBe("created");
+  });
+
+  it("refuses a vault that accepts upgrades from a different executor", async () => {
+    await expect(run(emptyState("testnet"), { vaultExecutor: vi.fn(async () => "0xprevious") })).rejects.toThrow(
+      /0xprevious/,
+    );
+  });
+
+  it("explains that the approval would be spent on a call the vault rejects", async () => {
+    await expect(run(emptyState("testnet"), { vaultExecutor: vi.fn(async () => "0xprevious") })).rejects.toThrow(
+      /NotExecutor/,
+    );
+  });
+
+  it("says how to bring the vault back in line", async () => {
+    await expect(run(emptyState("testnet"), { vaultExecutor: vi.fn(async () => "0xprevious") })).rejects.toThrow(
+      /hardhat:deploy/,
+    );
+  });
+
+  it("registers nothing against a vault that trusts another executor", async () => {
+    const actions = recordingActions();
+    await expect(
+      run(emptyState("testnet"), { vaultExecutor: vi.fn(async () => "0xprevious") }, actions),
+    ).rejects.toThrow();
+    expect(actions.createProposal).not.toHaveBeenCalled();
   });
 
   it("does not ask the old registry about a proposal it no longer holds", async () => {

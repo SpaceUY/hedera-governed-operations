@@ -24,6 +24,8 @@ const UPGRADE_ABI = parseAbi(["function upgradeToAndCall(address newImplementati
 export type SeedProposalLookups = {
   /** True once the executor has logged the proposal as executed or cancelled. */
   proposalSettled(executorContractId: string, proposalId: number): Promise<boolean>;
+  /** Executor the deployed vault accepts an upgrade from, read from the proxy's own storage. */
+  vaultExecutor(vaultProxyEvm: string): Promise<string>;
 };
 
 export type SeedProposalActions = {
@@ -51,6 +53,23 @@ export function seedProposalCalldata(implementationEvm: string): string {
   });
 }
 
+/**
+ * The vault fixes its executor in `initialize` and has no setter, so a redeployed `GovernedExecutor`
+ * leaves the proxy trusting the old one. Everything else recovers by itself — `TokenAdmin` and the
+ * swap adapter take the executor in their constructor, so a deploy recreates them against the
+ * current one — which is what makes this the one binding worth reading back from the chain.
+ */
+function requireSameExecutor(vaultProxyEvm: string, trusted: string, executorEvm: string): void {
+  if (trusted.toLowerCase() === executorEvm.toLowerCase()) return;
+  throw new Error(
+    `The vault at ${vaultProxyEvm} accepts upgrades from ${trusted}, and the GovernedExecutor deployed now is ` +
+      `${executorEvm}. The executor is fixed when the proxy is initialized and has no setter, so this proposal ` +
+      "would be approved by the council and then revert with NotExecutor, spending the schedule for nothing. " +
+      "Redeploy the vault against the current executor: delete packages/hardhat/deployments/hederaTestnet/AcmeVault*.json " +
+      "and run yarn hardhat:deploy --network hederaTestnet again.",
+  );
+}
+
 /** A proposal id is an index into one registry, so it means nothing against a different executor. */
 async function isPending(
   existing: SeedProposal | undefined,
@@ -66,8 +85,10 @@ export async function reconcileSeedProposal(
   deployment: GovernanceDeployment,
   services: SeedProposalServices,
 ): Promise<SeedProposalResult> {
-  const { executorContractId, vaultProxyEvm, vaultV2Evm } = deployment;
+  const { executorContractId, executorEvm, vaultProxyEvm, vaultV2Evm } = deployment;
   const existing = state.seedProposal;
+
+  requireSameExecutor(vaultProxyEvm, await services.lookups.vaultExecutor(vaultProxyEvm), executorEvm);
 
   if (await isPending(existing, executorContractId, services.lookups)) {
     const pending = existing as SeedProposal;

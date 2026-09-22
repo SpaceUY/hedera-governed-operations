@@ -241,6 +241,30 @@ included, which puts the schedule's gas limit at 90,000. The limit is a price, n
 the table above), so it belongs to the operation: a token-admin proposal is not an upgrade (99k) and
 not a swap (241k).
 
+## What a redeploy repairs, and what it does not
+
+Every contract here trusts `GovernedExecutor`, and redeploying it splits them in two. `TokenAdmin`
+and `SaucerSwapAdapter` take the executor as a **constructor argument**, so the same
+`yarn hardhat:deploy` that produced a new executor also produces new ones pointing at it: the
+binding is recreated, and nothing has to be checked. `AcmeVault` does not. Its executor is set in
+`initialize`, the state lives in the proxy rather than in the implementation, and there is no setter
+— by design, since a vault that can be re-pointed at another executor is a vault whose governance
+can be swapped out. So a redeployed executor leaves the proxy trusting an address that no longer
+runs anything, and hardhat-deploy has no reason to notice: the proxy is still deployed.
+
+Two more bindings cannot be repaired at all. The demo token's pause and freeze keys are
+`TokenAdmin`'s contract id and the token has no admin key, so a redeployed `TokenAdmin` orphans the
+token for good; the governance account's threshold key cannot be replaced without a transaction the
+council itself signs, so a changed `HEDERA_COUNCIL_ACCOUNT_ID` means a new account.
+
+What makes these worth naming is that they fail late. Nothing rejects a proposal aimed at a stale
+vault: it is registered, the council signs the schedule, the schedule is spent, and the call reverts
+with `NotExecutor` at the very end. `yarn setup` therefore reads both permanent bindings back from
+the chain before it uses them — the token's pause key from consensus, the vault's `executor()`
+through the relay — and stops with the recovery in the message. They are different recoveries:
+the vault is redeployed against the current executor (its deployment records removed first), while
+an orphaned token is replaced by a new one and left on testnet, unusable.
+
 ## Swap provider
 
 `packages/nextjs/services/swap/` is the app's only contact with a DEX. Everything else talks to the `SwapProvider` type in `types.ts`:

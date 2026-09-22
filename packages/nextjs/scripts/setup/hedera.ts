@@ -13,7 +13,7 @@ import {
   TokenAssociateTransaction,
   TopicCreateTransaction,
 } from "@hiero-ledger/sdk";
-import { isMirrorNotFound, mirrorGet } from "~~/services/mirror";
+import { type MirrorTokenBalance, isMirrorNotFound, mirrorGet } from "~~/services/mirror";
 
 /** HBAR sent from the operator to each demo account so it can pay its own fees during a demo. */
 export const DEMO_ACCOUNT_INITIAL_HBAR = 5;
@@ -67,7 +67,7 @@ export function createActions(client: Client): SetupActions {
 }
 
 /** Resolves false only on a 404; any other Mirror Node failure propagates so a flaky read never triggers a re-create. */
-async function mirrorHas(path: string, network: string): Promise<boolean> {
+export async function mirrorHas(path: string, network: string): Promise<boolean> {
   try {
     await mirrorGet<unknown>(path, network);
     return true;
@@ -77,18 +77,30 @@ async function mirrorHas(path: string, network: string): Promise<boolean> {
   }
 }
 
-type MirrorAccountTokens = { tokens: { token_id: string }[] };
+type MirrorAccountTokens = { tokens: MirrorTokenBalance[] };
+
+/** The account's relation to one token, empty when it never associated it. */
+export async function accountTokens(
+  accountId: string,
+  tokenId: string,
+  network: string,
+): Promise<MirrorTokenBalance[]> {
+  const { tokens } = await mirrorGet<MirrorAccountTokens>(
+    `/api/v1/accounts/${accountId}/tokens?token.id=${tokenId}`,
+    network,
+  );
+  return tokens;
+}
+
+export async function accountHasToken(accountId: string, tokenId: string, network: string): Promise<boolean> {
+  const tokens = await accountTokens(accountId, tokenId, network);
+  return tokens.some(token => token.token_id === tokenId);
+}
 
 export function createLookups(env: SetupEnv): MirrorLookups {
   return {
     topicExists: topicId => mirrorHas(`/api/v1/topics/${topicId}`, env.network),
     accountExists: accountId => mirrorHas(`/api/v1/accounts/${accountId}`, env.network),
-    accountHasToken: async (accountId, tokenId) => {
-      const { tokens } = await mirrorGet<MirrorAccountTokens>(
-        `/api/v1/accounts/${accountId}/tokens?token.id=${tokenId}`,
-        env.network,
-      );
-      return tokens.some(token => token.token_id === tokenId);
-    },
+    accountHasToken: (accountId, tokenId) => accountHasToken(accountId, tokenId, env.network),
   };
 }

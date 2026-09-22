@@ -6,7 +6,7 @@
 import { DEMO_TOKEN, type DemoTokenActions, type DemoTokenLookups } from "./demoToken";
 import type { SetupEnv } from "./env";
 import { GOVERNANCE_THRESHOLD, type GovernanceActions, type GovernanceLookups } from "./governance";
-import { associateToken } from "./hedera";
+import { accountHasToken, accountTokens, associateToken, mirrorHas } from "./hedera";
 import { SEED_PROPOSAL_GAS, type SeedProposalActions, type SeedProposalLookups } from "./seedProposal";
 import type { DemoAccount } from "./state";
 import {
@@ -25,7 +25,7 @@ import {
   TransferTransaction,
 } from "@hiero-ledger/sdk";
 import { createPublicClient, http, parseAbi } from "viem";
-import { isMirrorNotFound, mirrorGet } from "~~/services/mirror";
+import { type MirrorAccount, fetchAccount } from "~~/services/mirror";
 
 /**
  * HBAR the governance account starts with. It is the payer of every scheduled approval, and the
@@ -45,16 +45,10 @@ const EXECUTOR_ABI = parseAbi([
   "function proposal(uint256 id) view returns ((address target, address proposer, uint8 state, bytes data))",
 ]);
 
+const VAULT_ABI = parseAbi(["function executor() view returns (address)"]);
+
 /** `ProposalState.Pending`, the first member of the enum the registry stores. */
 const PROPOSAL_PENDING = 0;
-
-type MirrorAccount = {
-  key: { _type: string; key: string } | null;
-  evm_address: string;
-  balance?: { balance: number };
-};
-
-type MirrorAccountTokens = { tokens: { token_id: string; balance: number }[] };
 
 function publicKeyFromMirror(accountId: string, key: MirrorAccount["key"]): PublicKey {
   if (key?._type === "ECDSA_SECP256K1") return PublicKey.fromStringECDSA(key.key);
@@ -66,7 +60,13 @@ function publicKeyFromMirror(accountId: string, key: MirrorAccount["key"]): Publ
 }
 
 async function accountIdentity(accountId: string, network: string) {
-  const account = await mirrorGet<MirrorAccount>(`/api/v1/accounts/${accountId}`, network);
+  const account = await fetchAccount(accountId, { network });
+  if (!account.evm_address) {
+    throw new Error(
+      `The Mirror Node knows no EVM address for account ${accountId}. Every contract here is deployed against one, ` +
+        "so a council member has to be an account created from an ECDSA key, which is what a wallet creates.",
+    );
+  }
   return {
     publicKey: publicKeyFromMirror(accountId, account.key).toStringDer(),
     evmAddress: account.evm_address,
@@ -147,17 +147,6 @@ async function createProposal(
   return result.getUint256(0).toNumber();
 }
 
-/** Resolves false only on a 404; any other Mirror failure propagates so a flaky read never re-creates. */
-async function mirrorHas(path: string, network: string): Promise<boolean> {
-  try {
-    await mirrorGet<unknown>(path, network);
-    return true;
-  } catch (error) {
-    if (isMirrorNotFound(error)) return false;
-    throw error;
-  }
-}
-
 /**
  * Read from consensus rather than from the Mirror Node: Mirror returns a key that points at a
  * contract as an opaque protobuf blob, while the SDK hands back the contract id itself.
@@ -181,25 +170,25 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
     transport: http(process.env.NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL?.trim() || DEFAULT_TESTNET_RPC_URL),
   });
 
-  const accountTokens = (accountId: string, tokenId: string) =>
-    mirrorGet<MirrorAccountTokens>(`/api/v1/accounts/${accountId}/tokens?token.id=${tokenId}`, network);
-
   return {
     accountExists: accountId => mirrorHas(`/api/v1/accounts/${accountId}`, network),
     accountIdentity: accountId => accountIdentity(accountId, network),
     accountHbarBalance: async accountId => {
-      const account = await mirrorGet<MirrorAccount>(`/api/v1/accounts/${accountId}`, network);
+      const account = await fetchAccount(accountId, { network });
       return (account.balance?.balance ?? 0) / TINYBAR_PER_HBAR;
     },
     tokenPauseKeyContractId: tokenId => tokenPauseKeyContractId(client, network, tokenId),
-    accountHasToken: async (accountId, tokenId) => {
-      const { tokens } = await accountTokens(accountId, tokenId);
-      return tokens.some(token => token.token_id === tokenId);
-    },
+    accountHasToken: (accountId, tokenId) => accountHasToken(accountId, tokenId, network),
     accountTokenBalance: async (accountId, tokenId) => {
-      const { tokens } = await accountTokens(accountId, tokenId);
+      const tokens = await accountTokens(accountId, tokenId, network);
       return tokens.find(token => token.token_id === tokenId)?.balance ?? 0;
     },
+    vaultExecutor: vaultProxyEvm =>
+      relay.readContract({
+        address: vaultProxyEvm as `0x${string}`,
+        abi: VAULT_ABI,
+        functionName: "executor",
+      }),
     proposalSettled: async (executorContractId, proposalId) => {
       const executorEvm = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as `0x${string}`;
       const registered = await relay.readContract({
