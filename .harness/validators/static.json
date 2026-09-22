@@ -17,6 +17,7 @@
       "packages/nextjs/.env.example",
       "packages/hardhat/package.json",
       "packages/hardhat/hardhat.config.ts",
+      "packages/hardhat/contracts/GovernedExecutor.sol",
       "packages/hardhat/.env.example",
       ".harness/spec.yaml",
       ".harness/prd.md"

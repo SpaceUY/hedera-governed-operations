@@ -37,6 +37,9 @@ const config: HardhatUserConfig = {
       {
         version: "0.8.28",
         settings: {
+          // OpenZeppelin 5.x emits `mcopy`, which needs Cancun. Hedera has run the Cancun EVM
+          // since services 0.50, so the default `paris` would only hold the contracts back.
+          evmVersion: "cancun",
           optimizer: {
             enabled: true,
             runs: 200,
