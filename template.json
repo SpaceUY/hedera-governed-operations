@@ -1,6 +1,6 @@
 {
-  "name": "scaffold-hbar-template",
-  "description": "Hedera-native Next.js template (HCS, HTS, Mirror Node) without local Solidity workspaces.",
+  "name": "governed-operations",
+  "description": "Hedera template with a Hardhat workspace and a Next.js app: HCS, HTS, Mirror Node reads and HashPack signing.",
   "version": "0.1.0",
   "create-scaffold-hbar": {
     "requirements": {
@@ -8,23 +8,16 @@
     },
     "capabilities": {
       "frontend": ["nextjs-app"],
-      "solidityFramework": ["none"],
+      "solidityFramework": ["hardhat"],
       "packageManager": ["yarn"]
     },
     "defaults": {
       "frontend": "nextjs-app",
-      "solidityFramework": "none",
+      "solidityFramework": "hardhat",
       "packageManager": "yarn"
     },
     "outro": {
       "sections": [
-        {
-          "steps": [
-            {
-              "text": "Hedera native services only (HCS, HTS, Mirror Node): no contract deploy is required."
-            }
-          ]
-        },
         {
           "title": "Quick start",
           "steps": [
@@ -49,6 +42,27 @@
             {
               "label": "Try the demo",
               "text": "Connect HashPack, post a proof on the home page and watch it appear in the feed."
+            }
+          ]
+        },
+        {
+          "title": "Contracts",
+          "steps": [
+            {
+              "label": "Create a deployer account",
+              "text": "Stores an encrypted key in packages/hardhat/.env, then fund it from the testnet faucet.",
+              "command": "{run:framework:account:generate}",
+              "url": "https://portal.hedera.com/faucet"
+            },
+            {
+              "label": "Deploy to Hedera testnet",
+              "text": "Every deploy regenerates packages/nextjs/contracts/deployedContracts.ts, which is what the frontend reads.",
+              "command": "{run:framework:deploy} --network hederaTestnet"
+            },
+            {
+              "label": "Verify on HashScan",
+              "text": "Submits the deployed contracts to Sourcify and prints their HashScan links.",
+              "command": "{run:framework:verify:testnet}"
             }
           ]
         },

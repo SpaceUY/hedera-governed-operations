@@ -1,6 +1,6 @@
 {
   "name": "template-baseline-eval",
-  "template": "scaffold-hbar-template",
+  "template": "governed-operations",
   "prd": ".harness/prd.md",
   "version": 1,
   "routes": ["/", "/admin", "/explorer"],

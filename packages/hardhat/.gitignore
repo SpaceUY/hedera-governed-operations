@@ -1,0 +1,26 @@
+# dependencies
+node_modules
+
+# env files
+.env
+
+# coverage
+coverage
+coverage.json
+
+# typechain
+typechain
+typechain-types
+
+# hardhat files
+cache
+artifacts
+
+# deployments
+deployments
+
+# typescript
+*.tsbuildinfo
+
+# other
+temp
