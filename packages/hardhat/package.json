@@ -17,7 +17,6 @@
     "lint": "eslint",
     "lint-staged": "eslint",
     "test": "REPORT_GAS=true hardhat test",
-    "verify": "hardhat verify",
     "verify:testnet": "hardhat run scripts/verifyDeployed.ts --network hederaTestnet",
     "verify:mainnet": "hardhat run scripts/verifyDeployed.ts --network hederaMainnet"
   },
