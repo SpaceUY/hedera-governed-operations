@@ -22,21 +22,75 @@ Fill in:
 ```dotenv
 HEDERA_OPERATOR_ID=0.0.xxxxx
 HEDERA_OPERATOR_PRIVATE_KEY=...
+HEDERA_COUNCIL_ACCOUNT_ID=0.0.xxxxx
 HEDERA_NETWORK=testnet
 NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=...
 ```
 
 - `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` comes from [cloud.reown.com](https://cloud.reown.com) (create a project, copy its id).
 - The operator key is only read by server code (`services/hederaClient.ts`, `yarn setup`). Never prefix it with `NEXT_PUBLIC_`.
+- `HEDERA_COUNCIL_ACCOUNT_ID` is **your own account** — the one you will connect with HashPack in step 5. It becomes one of the three keys on the governance account and is granted `PROPOSER_ROLE`, so without it you could watch the demo but not take part in it. It can be the operator account if you have no other, but then no human signature is involved in an approval. Changing it after step 3 means a new governance account and a fresh deployment, so pick it now.
 
 ## 3. Bootstrap testnet resources
+
+Three commands, in this order. The order is not a preference, it is forced by the chain:
+
+1. `GovernedExecutor` is deployed **against** the governance account — that account's address is a constructor argument, and the proposer list is another — so the account has to exist before any contract does.
+2. The demo token's pause and freeze keys are the `TokenAdmin` **contract id**, and a token created without an admin key can never have its keys changed — so the contract has to exist before the token does.
+
+`yarn setup` therefore runs twice, on either side of the deploy. It is idempotent: every run verifies what it already knows against the network and creates only what is missing, and it refuses to run against anything but testnet.
+
+### 3.1 Governance account and demo accounts
 
 ```bash
 yarn install
 yarn setup
 ```
 
-`yarn setup` creates the resources the app needs (the Proof Wall topic and two funded demo accounts, `alice` and `bob`, associated with testnet USDC), reusing anything that already exists, and writes their ids to `packages/nextjs/.env.local`. The badge token is created from `/admin` with a connected wallet. Run it again at any time; it is idempotent and refuses to run against anything but testnet.
+This creates the Proof Wall topic, two funded demo accounts (`alice` and `bob`, associated with testnet USDC) and the **governance account**: a 2-of-3 threshold key over your own account plus those two. It then writes `GOVERNANCE_ACCOUNT_ADDRESS` and `INITIAL_PROPOSERS` into `packages/hardhat/.env` — the two values the deploy refuses to run without — and stops, telling you what is not deployed yet.
+
+Nothing else can be created at this point, and the run says so:
+
+```
+  Not deployed yet: GovernedExecutor, AcmeVault, AcmeVaultV2, SaucerSwapAdapter, TokenAdmin. …
+```
+
+### 3.2 Deploy the contracts
+
+The deploy signs with its own account, separate from the operator and encrypted on disk. Create it and fund it with test HBAR (the [portal](https://portal.hedera.com) faucet, or a transfer to the address it prints):
+
+```bash
+yarn hardhat:account:generate     # prints the deployer address; asks for a password
+yarn hardhat:account              # shows its balance once you have funded it
+```
+
+Then deploy all five contracts, in the order their dependencies impose:
+
+```bash
+yarn hardhat:deploy --network hederaTestnet
+```
+
+This rewrites `packages/nextjs/contracts/deployedContracts.ts` with every address, ABI and native `0.0.x` contract id. Optionally verify the sources on Sourcify:
+
+```bash
+yarn hardhat:verify:testnet
+```
+
+### 3.3 Demo token and the first proposal
+
+```bash
+yarn setup
+```
+
+The second run finds the contracts and finishes the fixtures: the HTS token whose pause and freeze keys are the `TokenAdmin` contract, a balance for `bob` so the freeze in the demo has something to act on, and one **pending proposal** — an upgrade of `AcmeVault` to `AcmeVaultV2` — for the council to approve. Every id lands in `packages/nextjs/.env.local`.
+
+A third run creates nothing. That is the check that the bootstrap is complete:
+
+```
+  = Governance account 0.0.xxxxx (2-of-3) (reused)
+  = Demo token 0.0.xxxxx (reused)
+  = Seed proposal #0 (upgrade AcmeVault to AcmeVaultV2) (reused)
+```
 
 Verify the topic exists on the Mirror Node:
 
@@ -142,5 +196,10 @@ The test signer only activates on testnet. In a production build (`yarn next:bui
 | `validate-semantic` fails with `failed to provision ephemeral signer: … BUSY`              | Testnet nodes throttle the `AccountBalanceQuery` the harness uses to reuse the signer saved in `chain-signer.json`, while transactions still pass | Delete that account (`AccountDeleteTransaction` signed with the key in `chain-signer.json`, balance back to the operator), remove `chain-signer.json` and rerun: a fresh signer needs no balance query |
 | Test signer account `0x…` not found on testnet                                             | The account was never created with that key, or the Mirror Node has not indexed it yet                                                            | Create it with `setECDSAKeyWithAlias` (step 7) and reload after ~20 s; the app retries the alias lookup for about 20 s                                                                                 |
 | `Badge checks require HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY` (503)            | Operator not configured on the server                                                                                                             | Set both in `packages/nextjs/.env` and restart; proofs still work without it, only badges are skipped                                                                                                  |
+| `yarn setup` stops at `Not deployed yet: GovernedExecutor, …`                               | Expected on a first run: the contracts are deployed against the governance account this run just created                                          | Deploy them (`yarn hardhat:deploy --network hederaTestnet`) and run `yarn setup` again (step 3)                                                    |
+| Deploy fails with `Set GOVERNANCE_ACCOUNT_ADDRESS to the EVM address…`                      | The deploy ran before `yarn setup` created the governance account, so `packages/hardhat/.env` has neither value                                    | Run `yarn setup` first; it writes both into that file                                                                                              |
+| `HEDERA_COUNCIL_ACCOUNT_ID is required in packages/nextjs/.env`                             | The governance account needs an account of yours as one of its three keys and cannot guess which                                                   | Set it to the account you will connect with (step 2)                                                                                               |
+| `The governance account 0.0.x holds a key built for council member 0.0.y`                   | `HEDERA_COUNCIL_ACCOUNT_ID` changed after the account was created; a threshold key cannot be re-keyed without the council it protects              | Put the original value back, or delete `packages/nextjs/setup-state.json` and redeploy everything against a new governance account                 |
+| `Demo token 0.0.x has its pause key on 0.0.y, and the TokenAdmin deployed now is 0.0.z`     | `TokenAdmin` was redeployed; the token has no admin key, so its pause and freeze keys can never be pointed at the new contract                      | Remove `demoTokenId` from `packages/nextjs/setup-state.json` and rerun `yarn setup`; the old token stays on testnet, unusable                      |
 | `yarn setup` refuses to run                                                                | `HEDERA_NETWORK` is not `testnet` or the operator variables are empty                                                                             | Set `HEDERA_NETWORK=testnet` and both operator variables                                                                                                                                               |
 | Wallet signing fails with a node-id or `INVALID_NODE_ACCOUNT` error                        | Transaction not frozen with a network `Client` before signing                                                                                     | Freeze with `Client.forTestnet()`; `freezeWithSigner` does not set node ids (see `docs/ARCHITECTURE.md`)                                                                                               |
