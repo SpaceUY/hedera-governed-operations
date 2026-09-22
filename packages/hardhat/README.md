@@ -49,10 +49,6 @@ You need a deployer account with HBAR on the target network. Without funds, depl
    ```bash
    yarn hardhat:deploy --network hederaTestnet
    ```
-   or
-   ```bash
-   yarn hardhat:deploy --network hedera_testnet
-   ```
    You will be prompted to enter the password to decrypt your deployer key.
 
 4. **Verify on Hashscan** (reads `deployments/<network>/` and submits to Sourcify):
@@ -60,9 +56,14 @@ You need a deployer account with HBAR on the target network. Without funds, depl
    yarn hardhat:verify:testnet   # chain 296
    yarn hardhat:verify:mainnet   # chain 295
    ```
-   Requires a prior deploy on that network so `deployments/<network>/<Contract>.json` exists, and a
-   compile so the build info is there. Re-running on an already verified contract is a no-op.
-   Stale deployment JSON from other templates is skipped automatically.
+   Requires a prior deploy on that network, since each `deployments/<network>/<Contract>.json`
+   carries the standard JSON input and the compiler version the verification is submitted with.
+   Re-running on an already verified contract is a no-op. A record whose sources this checkout no
+   longer holds is skipped with the reason.
+
+   Every distinct address is verified once, the proxy and its implementation included: what is
+   submitted comes from the record rather than from the contract's name, so a proxy is verified as
+   the proxy it was compiled as.
 
    `scripts/verifyDeployed.ts` calls the Sourcify v2 API directly rather than going through
    `hardhat verify`: that plugin still targets Sourcify's retired v1 endpoints. Point

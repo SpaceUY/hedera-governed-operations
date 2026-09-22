@@ -2,10 +2,10 @@ import type { HardhatRuntimeEnvironment } from "hardhat/types";
 import type { DeployFunction } from "hardhat-deploy/types";
 
 import { getDeployGasPrice } from "../utils/getDeployGasPrice";
+import { isHederaChainId } from "../utils/hederaChains";
 import { recordHederaContractId } from "../utils/recordHederaContractId";
 
 const CONTRACT = "GovernedExecutor";
-const HEDERA_CHAIN_IDS = new Set([295, 296]);
 
 /// The governance account must be the one holding the threshold key: it is the only `EXECUTOR_ROLE`
 /// member, and giving that role to a single-signer account would skip the m-of-n approval entirely.
@@ -34,7 +34,7 @@ const readConstructorArgs = (deployer: string, isHedera: boolean): [string, stri
 const deployGovernedExecutor: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
   const chainId = Number(await hre.network.provider.send("eth_chainId", []));
-  const isHedera = HEDERA_CHAIN_IDS.has(chainId);
+  const isHedera = isHederaChainId(chainId);
 
   const [governanceAccount, initialProposers] = readConstructorArgs(deployer, isHedera);
 

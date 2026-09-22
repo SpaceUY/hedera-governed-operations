@@ -5,7 +5,11 @@
  * how setup knows it is being run before the contracts exist.
  */
 
-/** Hedera testnet, the only chain `yarn setup` is allowed to touch. */
+/**
+ * Hedera testnet, the only chain `yarn setup` is allowed to touch. The deploy scripts share the
+ * same ids through `packages/hardhat/utils/hederaChains.ts`; this workspace cannot import from
+ * there, so the value is repeated here on purpose.
+ */
 export const HEDERA_TESTNET_CHAIN_ID = 296;
 
 /**
