@@ -21,7 +21,8 @@ export const DEMO_ACCOUNT_INITIAL_HBAR = 5;
 const TOPIC_MEMO = "scaffold-hbar receipts / decision log";
 
 export function createClient(env: SetupEnv): Client {
-  return Client.forName(env.network).setOperator(env.operatorId, env.operatorPrivateKey);
+  const operatorKey = PrivateKey.fromStringECDSA(env.operatorPrivateKey);
+  return Client.forName(env.network).setOperator(env.operatorId, operatorKey);
 }
 
 async function createTopic(client: Client): Promise<string> {
