@@ -1,4 +1,5 @@
-import { type MirrorRequestOptions, mirrorRequest } from "./client";
+import { type MirrorRequestOptions, assertValidEntityId, mirrorRequest } from "./client";
+import type { MirrorKey } from "./schedules";
 import { normalizeTransactionId } from "./transactions";
 
 export type MirrorContractLog = {
@@ -38,4 +39,35 @@ export async function fetchContractResult(
 ): Promise<MirrorContractResult> {
   const id = toContractResultId(transactionIdOrHash);
   return mirrorRequest<MirrorContractResult>(`/api/v1/contracts/results/${encodeURIComponent(id)}`, options);
+}
+
+/** Contract entity from GET /api/v1/contracts/{id} (subset). */
+export type MirrorContract = {
+  contract_id: string;
+  evm_address: string;
+  admin_key: MirrorKey | null;
+  auto_renew_account: string | null;
+  created_timestamp: string;
+  expiration_timestamp: string | null;
+  deleted: boolean;
+  memo: string;
+  nonce: number;
+  max_automatic_token_associations: number;
+  /**
+   * The deployed code, and the only field a release manifest can be checked against:
+   * `bytecode` holds the creation code and comes back empty for a contract deployed
+   * through the EVM rather than from a HAPI file.
+   */
+  runtime_bytecode: string;
+  bytecode: string;
+};
+
+/** Accepts a `0.0.x` contract id or a `0x…` EVM address. */
+export async function fetchContract(
+  contractIdOrAddress: string,
+  options: MirrorRequestOptions = {},
+): Promise<MirrorContract> {
+  const id = contractIdOrAddress.trim();
+  if (!id.startsWith("0x")) assertValidEntityId(id, "contract ID");
+  return mirrorRequest<MirrorContract>(`/api/v1/contracts/${encodeURIComponent(id)}`, options);
 }
