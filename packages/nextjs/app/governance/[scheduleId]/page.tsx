@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Hbar } from "@hiero-ledger/sdk";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
@@ -14,6 +13,7 @@ import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalAc
 import { approvalsLabel, registryLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
 import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { WALLET_REJECTED_MESSAGE, isWalletRejection } from "~~/services/web3/hederaSigner";
+import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
 const toFriendlyMessage = (error: unknown) =>
   isWalletRejection(error)
@@ -89,7 +89,7 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
             {operation.payableTinybars > 0n && (
               <>
                 <dt className="text-base-content/60">HBAR sent by the treasury</dt>
-                <dd>{Hbar.fromTinybars(operation.payableTinybars.toString()).toString()}</dd>
+                <dd>{formatTinybars(operation.payableTinybars)}</dd>
               </>
             )}
             <dt className="text-base-content/60">Gas limit (paid in full by the treasury)</dt>

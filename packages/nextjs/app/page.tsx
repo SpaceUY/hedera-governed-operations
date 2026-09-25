@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Hbar } from "@hiero-ledger/sdk";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
@@ -10,6 +9,7 @@ import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { approvalsLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
 import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
+import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 import { type HederaNetworkName, getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
 
 type GovernanceHomeProps = {
@@ -67,13 +67,13 @@ function GovernanceHome({
         <div className="stat">
           <div className="stat-title">HBAR</div>
           <div className="stat-value text-lg">
-            {treasury.data ? Hbar.fromTinybars(treasury.data.hbarBalanceTinybar).toString() : "…"}
+            {treasury.data ? formatTinybars(treasury.data.hbarBalanceTinybar) : "…"}
           </div>
         </div>
         <div className="stat">
           <div className="stat-title">Vault reserve</div>
           <div className="stat-value text-lg">
-            {treasury.data ? Hbar.fromTinybars(treasury.data.vaultReserveTinybar.toString()).toString() : "…"}
+            {treasury.data ? formatTinybars(treasury.data.vaultReserveTinybar) : "…"}
           </div>
         </div>
         <div className="stat">

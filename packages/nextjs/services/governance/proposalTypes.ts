@@ -9,7 +9,7 @@
  * in two layers, `ScheduledOperation` and `RegistryOperation`.
  */
 import type { CouncilKey } from "./council";
-import { Hbar } from "@hiero-ledger/sdk";
+import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
 /** The three that go through `GovernedExecutor`, so they leave a registry entry and burn gas. */
 export type ContractProposalKind = "upgrade" | "treasurySwap" | "tokenAdmin";
@@ -126,7 +126,7 @@ export function describeScheduledOperation(operation: ScheduledOperation): strin
       const credited = [
         ...operation.hbar
           .filter(transfer => transfer.tinybars > 0n)
-          .map(transfer => `${Hbar.fromTinybars(transfer.tinybars.toString()).toString()} to ${transfer.accountId}`),
+          .map(transfer => `${formatTinybars(transfer.tinybars)} to ${transfer.accountId}`),
         ...operation.tokens
           .filter(transfer => transfer.amount > 0n)
           .map(transfer => `${transfer.amount} of token ${transfer.tokenId} to ${transfer.accountId}`),
@@ -154,7 +154,7 @@ export function describeRegistryOperation(operation: RegistryOperation): string 
       return `Upgrade ${operation.target} to the implementation at ${operation.implementation}`;
     case "treasurySwap":
       return (
-        `Swap ${Hbar.fromTinybars(operation.amountInTinybars.toString()).toString()} for at least ` +
+        `Swap ${formatTinybars(operation.amountInTinybars)} for at least ` +
         `${operation.amountOutMinimum} of ${operation.tokenOut}, paid out to ${operation.recipient}`
       );
     case "tokenAdmin":
