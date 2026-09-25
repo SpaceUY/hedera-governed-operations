@@ -2,7 +2,8 @@ import { createQueryWrapper } from "./testUtils";
 import { useProposalLookup } from "./useProposalLookup";
 import { proto } from "@hiero-ledger/proto";
 import { PrivateKey } from "@hiero-ledger/sdk";
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import Long from "long";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import recorded from "~~/services/governance/__fixtures__/scheduled-bodies.json";
@@ -50,6 +51,7 @@ const baseSchedule = {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.mocked(fetchSchedule).mockReset();
   vi.mocked(fetchAccount).mockReset();
   vi.mocked(fetchRegistryEntries).mockReset();
@@ -167,5 +169,22 @@ describe("useProposalLookup", () => {
 
     await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
     expect(result.current.proposal?.state.status).toBe("deleted");
+  });
+
+  it("drops the delayed re-read once the page is gone", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.mocked(fetchSchedule).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchAccount).mockReturnValue(new Promise(() => {}));
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+
+    const { result, unmount } = lookup();
+    act(() => result.current.refresh());
+    const immediateReads = invalidate.mock.calls.length;
+    unmount();
+    vi.runAllTimers();
+
+    expect(immediateReads).toBeGreaterThan(0);
+    expect(invalidate).toHaveBeenCalledTimes(immediateReads);
+    invalidate.mockRestore();
   });
 });

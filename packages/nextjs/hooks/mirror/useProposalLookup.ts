@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   DEFAULT_PENDING_POLL_MS,
   getDefaultMirrorNetwork,
@@ -38,6 +39,13 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
   const hederaNetwork = toHederaNetworkName(network);
   const council = useCouncil(options);
   const queryClient = useQueryClient();
+  const delayedRefresh = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (delayedRefresh.current) clearTimeout(delayedRefresh.current);
+    },
+    [],
+  );
   const scheduleKey = mirrorQueryKey(network, "schedule", scheduleId);
 
   const scheduleQuery = useQuery({
@@ -118,7 +126,8 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
       void queryClient.invalidateQueries({ queryKey: registryKey });
     };
     invalidate();
-    setTimeout(invalidate, DEFAULT_PENDING_POLL_MS);
+    if (delayedRefresh.current) clearTimeout(delayedRefresh.current);
+    delayedRefresh.current = setTimeout(invalidate, DEFAULT_PENDING_POLL_MS);
   };
 
   return { proposal, isLoading, error, refresh };
