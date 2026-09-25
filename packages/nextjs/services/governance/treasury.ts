@@ -1,6 +1,7 @@
 import { ContractId } from "@hiero-ledger/sdk";
-import { type Address, createPublicClient, http, parseAbi } from "viem";
+import { type Address, parseAbi } from "viem";
 import { fetchAccount } from "~~/services/mirror";
+import { createRelayClient } from "~~/services/web3/relayClient";
 
 const ACME_VAULT_ABI = parseAbi(["function totalDeposits() view returns (uint256)"]);
 
@@ -36,7 +37,7 @@ export async function fetchTreasuryFigures({
 }: FetchTreasuryFiguresOptions): Promise<TreasuryFigures> {
   const [account, vaultReserve] = await Promise.all([
     fetchAccount(governanceAccountId, { network }),
-    createPublicClient({ transport: http(rpcUrl) }).readContract({
+    createRelayClient(rpcUrl).readContract({
       address: `0x${ContractId.fromString(vaultContractId).toEvmAddress()}` as Address,
       abi: ACME_VAULT_ABI,
       functionName: "totalDeposits",
