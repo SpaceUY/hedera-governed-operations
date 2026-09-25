@@ -14,6 +14,7 @@ import {
 } from "~~/services/governance/schedules";
 import { fetchContractResult, fetchTransaction } from "~~/services/mirror";
 import { getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
+import { MIRROR_INDEXING_RETRY_DELAYS_MS, waitForMirrorIndexing } from "~~/utils/scaffold-hbar/waitForMirrorIndexing";
 
 export type CreateProposalInput = { executorContractId: string; proposal: RegistryProposal; memo: string };
 
@@ -31,12 +32,18 @@ export function useCreateProposal() {
       const proposerId = requireAccountId();
 
       const createResult = await executeTransaction(buildCreateProposalCall(executorContractId, proposal));
-      const contractResult = await fetchContractResult(createResult.transactionId, { network });
-      // `proposalIdFromContractResult` itself throws if the registration actually reverted; null
-      // here means only that Mirror has not indexed the return value yet.
-      const registryProposalId = proposalIdFromContractResult(contractResult);
+      // `proposalIdFromContractResult` itself throws if the registration actually reverted, which
+      // ends the polling at once; null (or a 404) means only that Mirror has not indexed it yet.
+      const registryProposalId = await waitForMirrorIndexing(
+        async () => proposalIdFromContractResult(await fetchContractResult(createResult.transactionId, { network })),
+        MIRROR_INDEXING_RETRY_DELAYS_MS,
+      );
       if (registryProposalId == null) {
-        throw new Error("createProposal's result is not yet indexed on Mirror — poll again before retrying");
+        // The registration is on chain: calling createProposal again would register a duplicate.
+        throw new Error(
+          `createProposal (transaction ${createResult.transactionId}) is not yet indexed on Mirror after polling. ` +
+            "Its entry is registered: read the id from that transaction and schedule it, do not register it again.",
+        );
       }
 
       const adminKey = await fetchAccountPublicKey(proposerId, network);
@@ -53,10 +60,15 @@ export function useCreateProposal() {
           memo,
         }),
       );
-      const rows = await fetchTransaction(scheduleResult.transactionId, { network });
-      const scheduleId = scheduleIdFromTransaction(rows);
+      const scheduleId = await waitForMirrorIndexing(
+        async () => scheduleIdFromTransaction(await fetchTransaction(scheduleResult.transactionId, { network })),
+        MIRROR_INDEXING_RETRY_DELAYS_MS,
+      );
       if (!scheduleId) {
-        throw new Error("ScheduleCreate did not leave a SCHEDULECREATE row — check Mirror indexing");
+        throw new Error(
+          `The schedule for registry entry ${registryProposalId} (transaction ${scheduleResult.transactionId}) ` +
+            "is not yet indexed on Mirror after polling. Read its schedule id from that transaction rather than scheduling again.",
+        );
       }
 
       return { registryProposalId, scheduleId };

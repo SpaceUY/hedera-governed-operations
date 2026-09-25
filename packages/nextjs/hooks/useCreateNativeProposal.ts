@@ -12,6 +12,7 @@ import {
 } from "~~/services/governance/schedules";
 import { fetchTransaction } from "~~/services/mirror";
 import { getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
+import { MIRROR_INDEXING_RETRY_DELAYS_MS, waitForMirrorIndexing } from "~~/utils/scaffold-hbar/waitForMirrorIndexing";
 
 export type CreateNativeProposalInput = { innerTransaction: Transaction; memo: string };
 
@@ -35,9 +36,16 @@ export function useCreateNativeProposal() {
           memo,
         }),
       );
-      const rows = await fetchTransaction(result.transactionId, { network });
-      const scheduleId = scheduleIdFromTransaction(rows);
-      if (!scheduleId) throw new Error("ScheduleCreate did not leave a SCHEDULECREATE row — check Mirror indexing");
+      const scheduleId = await waitForMirrorIndexing(
+        async () => scheduleIdFromTransaction(await fetchTransaction(result.transactionId, { network })),
+        MIRROR_INDEXING_RETRY_DELAYS_MS,
+      );
+      if (!scheduleId) {
+        throw new Error(
+          `The schedule (transaction ${result.transactionId}) is not yet indexed on Mirror after polling. ` +
+            "Read its schedule id from that transaction rather than scheduling again.",
+        );
+      }
       return { scheduleId };
     },
   });
