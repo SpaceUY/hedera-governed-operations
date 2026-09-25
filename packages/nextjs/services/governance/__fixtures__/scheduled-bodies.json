@@ -1,0 +1,17 @@
+{
+  "registryCall": {
+    "scheduleId": "0.0.10716564",
+    "memo": "upgrade at 150000 gas",
+    "transactionBody": "CICEr18aMQoFGLSoiwUQ8JMJIiT+DZTBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc="
+  },
+  "councilRotation": {
+    "scheduleId": "0.0.10716509",
+    "memo": "A10 council rotation",
+    "transactionBody": "CICEr19SfhIFGNyKjgUadSpzCAISbwojOiEDVIkBItmuAIlFQHNXHV8wTneJX8x/NuMZ6i85Bta3Ae8KIzohAsauKDkjtnLGxtONDapi7IRJtysFBUlymEPbBZusRxkWCiM6IQMZtCUF8HvZ0Sxpvhgt6gFn9HfH0+oi9AjhLgmfTyLDVA=="
+  },
+  "treasuryTransfer": {
+    "scheduleId": "0.0.10716772",
+    "memo": "fixture: treasury transfer",
+    "transactionBody": "CIDC1y9KIAoeCg0KBRishfQDEP/Jte4BCg0KBRjPio4FEIDKte4B"
+  }
+}

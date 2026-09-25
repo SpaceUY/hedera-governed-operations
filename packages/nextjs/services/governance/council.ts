@@ -87,7 +87,12 @@ function memberKeyOf(member: proto.IKey): string {
   return toBase64(publicKey);
 }
 
-function councilKeyOf(key: proto.IKey): CouncilKey {
+/**
+ * The council a key describes. Exported because a council rotation proposes its next composition as
+ * a `Key` inside the scheduled body, and reading that is the same problem as reading the current one
+ * off the governance account.
+ */
+export function councilKeyOf(key: proto.IKey): CouncilKey {
   const { thresholdKey, keyList } = key;
   if (thresholdKey?.keys?.keys?.length && thresholdKey.threshold) {
     return { threshold: thresholdKey.threshold, memberKeys: thresholdKey.keys.keys.map(memberKeyOf) };
