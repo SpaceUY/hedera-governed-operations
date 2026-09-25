@@ -2,7 +2,7 @@
 
 Working plan for the Governed Operations interface (the live map, the proposal wizard, and everything around them). The mechanism and screens are specified in the design prompt used to brief the prototype tool (v0/Lovable/Figma Make); this document is the engineering-facing counterpart — how that screen maps onto this codebase.
 
-**Starting point:** the backend side of this feature is already implemented and is the source of truth — `GovernedExecutor`, `AcmeVault`/`AcmeVaultV2`, `TokenAdmin`, `SaucerSwapAdapter` (all in `packages/hardhat/contracts/`), and the transaction builders in `packages/nextjs/services/governance/schedules.ts`. **Council reads and proposal listing are real and merged** — `services/governance/council.ts`, `services/governance/proposals.ts` (the inbox), `hooks/mirror/useCouncil.ts`, `hooks/mirror/useProposals.ts`. **A full decode/encode layer for all five operation types is real but not yet merged** — `services/governance/decode.ts`, `encode.ts`, `proposalTypes.ts`, and an extended `registry.ts` — see below; treat it as the source of truth for anything to do with reading what a proposal *is* or building one, not something to rebuild. There is still no page, no wizard, and no treasury-figures read path. Everything below builds on top of that code rather than duplicating it, using the same services → hooks → components layering the Proof Wall module already uses (see "How to add an operation" in `AGENTS.md`).
+**Starting point:** the backend side of this feature is already implemented and is the source of truth — `GovernedExecutor`, `AcmeVault`/`AcmeVaultV2`, `TokenAdmin`, `SaucerSwapAdapter` (all in `packages/hardhat/contracts/`), and the transaction builders in `packages/nextjs/services/governance/schedules.ts`. **Council reads and proposal listing are real and merged** — `services/governance/council.ts`, `services/governance/proposals.ts` (the inbox), `hooks/mirror/useCouncil.ts`, `hooks/mirror/useProposals.ts`. **A full decode/encode layer for all five operation types is real and merged** — `services/governance/decode.ts`, `encode.ts`, `proposalTypes.ts`, and an extended `registry.ts` — see below; treat it as the source of truth for anything to do with reading what a proposal *is* or building one, not something to rebuild. **The base screens are built too**: the governance home at `/` (treasury figures, threshold, pending proposals), the detail page at `/governance/[scheduleId]` with Sign / Withdraw / Cancel, `services/governance/treasury.ts`, `useTreasuryFigures`, `useProposalLookup` and the five mutation hooks. The live map and the wizard are still to be built. Everything below builds on top of that code rather than duplicating it, using the same services → hooks → components layering the Proof Wall module already uses (see "How to add an operation" in `AGENTS.md`).
 
 ## Routing decision
 
@@ -51,10 +51,10 @@ packages/nextjs/
       WithdrawCancelActions.tsx   # two distinct actions: ScheduleDelete vs GovernedExecutor.cancel
 
   hooks/mirror/                   # read hooks live alongside useSchedule/useCouncil/useProposals — the existing convention for Mirror-backed reads
-    useCouncil.ts                 # already implemented: key + threshold + proposerAccountIds
+    useCouncil.ts                 # already implemented: key + threshold + proposerAccountIds + unresolvableProposers
     useProposals.ts               # already implemented: the inbox, each row carrying its decoded operation, outgoing/incoming progress and registry cross-check
-    useProposalLookup.ts          # one proposal by schedule id, for a direct link not necessarily inside the inbox's page window
-    useTreasuryFigures.ts         # HBAR / USDC / ACME / vault reserve
+    useProposalLookup.ts          # already implemented: one proposal by schedule id, for a direct link not necessarily inside the inbox's page window
+    useTreasuryFigures.ts         # already implemented: HBAR / USDC / ACME / vault reserve
 
   hooks/                          # mutation hooks live flat, matching useSubmitProof.ts/useCreateTopic.ts's existing convention
     useCreateProposal.ts          # contract types: createProposal + ScheduleCreate(execute), given an already-encoded RegistryProposal
@@ -65,20 +65,20 @@ packages/nextjs/
 
   services/governance/
     schedules.ts                  # already implemented, extended: buildExecuteProposalCall now takes payableTinybars for a treasury swap
-    council.ts                    # already implemented: fetchCouncilKey/countThresholdSignatures/fetchProposerAccountIds/councilKeyOf — see below
+    council.ts                    # already implemented: fetchCouncilKey/isSignedByKey/countThresholdSignatures/fetchProposerAccountIds/councilKeyOf — see below
     proposalTypes.ts              # already implemented: the five operation kinds, their gas figures, ScheduledOperation/RegistryOperation shapes
     decode.ts                     # already implemented: decodeScheduledOperation/decodeRegistryOperation for all five kinds, from raw bytes only
     encode.ts                     # already implemented: one encoder per kind, chain invariants enforced here (see below)
     registry.ts                   # already implemented, extended: proposalIdFromContractResult, fetchRegistryEntries (registry↔schedule cross-check), buildCancelProposalCall
     proposals.ts                  # already implemented: the inbox — fetchProposalInbox, each row crossed against the registry
-    treasury.ts                   # NEW: balance aggregation (HBAR, ACME HTS balance, USDC balance, vault reserve view call)
+    treasury.ts                   # already implemented: balance aggregation (HBAR, ACME HTS balance, USDC balance, vault reserve view call)
 
-  config/governanceConfig.ts      # NEW: entity ids/env — mirrors config/proofWallConfig.ts. Gas figures and cancel's gas live in proposalTypes.ts/registry.ts, not duplicated here.
+  config/governanceConfig.ts      # already implemented: entity ids/env — mirrors config/proofWallConfig.ts. Gas figures and cancel's gas live in proposalTypes.ts/registry.ts, not duplicated here.
 ```
 
 The graph/animation pieces from the original design prompt (`components/governance/graph/*`, `services/store/graphUiStore.ts`, `useProposalAnimationSync.ts`) are the real prototype's territory, not this base-structure pass — see the implementation plan's Scope boundaries.
 
-Most of the services layer needs no new files at all — the decode/encode/registry work above already covers reading and building every one of the five operation types. What's left to build is small: treasury figures (nothing else reads them), a lookup for a single schedule not in the inbox's visible window, the write-path mutation hooks, and the two pages.
+The services layer needs no new files for the remaining screens — decode/encode/registry cover reading and building every one of the five operation types, and treasury figures, the lookup by schedule id, the mutation hooks and the two base pages already exist. What's left is presentation: the live map and the wizard.
 
 ## Componentization principles
 
@@ -116,8 +116,12 @@ export type CouncilKey = {
 export type ThresholdProgress = { signed: number; threshold: number; signedBy: string[] };
 
 export async function fetchCouncilKey(governanceAccountId: string, network: HederaNetworkName): Promise<CouncilKey>;
+/** Whether any signature on the schedule matches this key (hex, no `0x`). The one rule approval counting is built on. */
+export function isSignedByKey(schedule: MirrorSchedule, publicKeyHex: string): boolean;
 export function countThresholdSignatures(schedule: MirrorSchedule, council: CouncilKey): ThresholdProgress;
-export async function fetchProposerAccountIds(options: { executorContractId: string; network: HederaNetworkName; rpcUrl: string }): Promise<string[]>;
+
+export type ProposerAccounts = { accountIds: string[]; unresolvable: string[] };
+export async function fetchProposerAccountIds(options: { executorContractId: string; network: HederaNetworkName; rpcUrl: string }): Promise<ProposerAccounts>;
 /** Turns an already-decoded proto.IKey into a CouncilKey — shared with decode.ts's council-rotation case. */
 export function councilKeyOf(key: proto.IKey): CouncilKey;
 ```
@@ -126,7 +130,11 @@ It hand-walks `proto.IKey`'s `thresholdKey`/`keyList` fields directly rather tha
 
 **Matching a member to a signature happens in hex, not base64.** `MirrorScheduleSignature.public_key_prefix` genuinely can be a *prefix*, and base64 does not preserve byte-prefix boundaries (it packs 3 bytes into 4 characters) — `council.ts`'s own tests prove the general rule: a signature carrying only the first two bytes (`"A8ZO"`, base64) correctly matches a member's full key.
 
-**Counting approvals, not signature rows.** `signatures.length` is not `m` — Mirror adds a row for the `ScheduleCreate` payer and another for every `ScheduleSign` payer, neither of which counts toward the threshold unless that payer also happens to hold a council seat. `countThresholdSignatures` counts **members**, not rows, dedupes a member appearing in multiple rows, and returns `signedBy` in the council's own stable order. See `docs/ARCHITECTURE.md`'s "Counting approvals, not signatures" for the full writeup.
+**A proposer that is not an account does not break the council read.** `grantRole` accepts any address, and an EVM address is only a Hedera account once something funds it, so Mirror can answer 404 for a role holder. `fetchProposerAccountIds` keeps those addresses in `unresolvable` instead of failing; `useCouncil` exposes them as `unresolvableProposers` and the inbox folds them into `unreachableProposers`. **The inbox is allowed to be partial**, and `unreachableProposers` covers both causes (Mirror unreadable for a proposer, or no account behind the address). Any screen listing proposals has to say so when it is non-empty rather than present a short list as complete; the home page shows a warning for this.
+
+**Every read through the JSON-RPC relay uses `createRelayClient`** (`services/web3/relayClient.ts`), never a hand-built `createPublicClient`. It sets one retry instead of viem's default three, because these reads already sit under React Query polling: extra retries only hold a read open, and a relay that stays down is asked again on the next poll anyway. A new relay read (a vault view, a registry call) goes through it.
+
+**Counting approvals, not signature rows.** `signatures.length` is not `m` — Mirror adds a row for the `ScheduleCreate` payer and another for every `ScheduleSign` payer, neither of which counts toward the threshold unless that payer also happens to hold a council seat. `countThresholdSignatures` counts **members**, not rows, dedupes a member appearing in multiple rows, and returns `signedBy` in the council's own stable order. Matching one key (for example the connected wallet's, to show "you have signed") goes through `isSignedByKey`, not a second copy of the prefix comparison. See `docs/ARCHITECTURE.md`'s "Counting approvals, not signatures" for the full writeup.
 
 **Every one of the five operation types decodes from raw bytes**, `services/governance/decode.ts` + `proposalTypes.ts`:
 
@@ -166,6 +174,6 @@ Nothing here throws on a body it does not recognize — anyone can open a schedu
 
 - **Everything above is solved,** not open — listed in this document so a later reader has the full picture in one place, not because any of it is still to design.
 - **`.harness/prd.md` and `.harness/eval.json`** don't reference this feature at all yet — once the screens exist, they need the new routes and assertions added per "How to add a harness eval assertion" in `AGENTS.md`, or `validate`/`validate-semantic` will keep testing only the Proof Wall paths.
-- **Treasury figure sourcing** (`services/governance/treasury.ts`) still needs its exact read list nailed down: HBAR and ACME balance are plain Mirror account reads, but the vault reserve is a contract view call and the USDC-from-swaps figure needs its own definition (running total from `TreasurySwap` events, vs. current token balance) — pick one and document why in the file.
+- **Treasury figure sourcing is settled** in `services/governance/treasury.ts`: HBAR, ACME and USDC are the governance account's current balances from one Mirror account read, and the vault reserve is `AcmeVault.totalDeposits()` through the relay (a running total, so an upgrade that allows withdrawals keeps reporting the right figure).
 - **A contract-type proposal registered but never scheduled** (the setup script's own seed proposal is one — `createProposal` only, no `ScheduleCreate`) has no detail page in this pass, now that the canonical route param is the schedule id: there is no schedule id to route on until it is scheduled. Accepted, documented scope choice — see the implementation plan's Scope boundaries — not an oversight.
-- **A schedule not present in the inbox's visible page window** (older than the per-proposer cutoff, or a native proposal opened by an account outside `PROPOSER_ROLE`) still needs a way to be looked up directly by schedule id for the detail page — a small, separate read, not a rebuild of the inbox's own logic.
+- **A schedule not present in the inbox's visible page window** (older than the per-proposer cutoff, or a native proposal opened by an account outside `PROPOSER_ROLE`) is looked up directly by `useProposalLookup`, which returns the same `Proposal` shape as the inbox and refuses a schedule the governance account does not pay for.
