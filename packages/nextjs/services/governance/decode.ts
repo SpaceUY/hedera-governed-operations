@@ -162,6 +162,9 @@ export function decodeScheduledOperation(transactionBody: string): ScheduledOper
  * What a registry entry does, from the call it stores. A selector match names the operation; it does
  * not prove `target` is one of this template's contracts, so the target travels with the answer and
  * anything that gates on it — the co-signing agent's allowlist — checks it separately.
+ *
+ * Addresses come back EIP-55 checksummed whatever casing the calldata carried, so compare them
+ * case-insensitively rather than with `===` against something read elsewhere.
  */
 export function decodeRegistryOperation(target: string, calldata: string): RegistryOperation {
   const unknown = (reason: string): RegistryOperation => ({ kind: "unrecognized", target, calldata, reason });

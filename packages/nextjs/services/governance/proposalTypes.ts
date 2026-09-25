@@ -11,23 +11,23 @@
 import type { CouncilKey } from "./council";
 import { Hbar } from "@hiero-ledger/sdk";
 
-export type ProposalKind = "upgrade" | "treasurySwap" | "tokenAdmin" | "treasuryTransfer" | "councilRotation";
+/** The three that go through `GovernedExecutor`, so they leave a registry entry and burn gas. */
+export type ContractProposalKind = "upgrade" | "treasurySwap" | "tokenAdmin";
 
-export type ProposalType = {
-  label: string;
-  /**
-   * Gas limit for the scheduled `execute(id)` that runs this kind, or null for the two native kinds,
-   * which run no contract code at all.
-   *
-   * A scheduled call that succeeds is charged its whole limit, so these are not headroom to be
-   * generous with: the governance account pays for every unit left unused. Each one is measured
-   * consumption on testnet plus about a third, the same margin the swap and the token operations
-   * were already verified at.
-   */
-  executeGas: number | null;
-};
+/** The two the network runs itself, with no contract and no registry entry behind them. */
+export type NativeProposalKind = "treasuryTransfer" | "councilRotation";
 
-export const PROPOSAL_TYPES: Record<ProposalKind, ProposalType> = {
+export type ProposalKind = ContractProposalKind | NativeProposalKind;
+
+/**
+ * `executeGas` is the limit of the scheduled `execute(id)` that runs the operation, and only the
+ * contract-backed kinds have one. A scheduled call that succeeds is charged its whole limit, so
+ * these are not headroom to be generous with: the governance account pays for every unit left
+ * unused. Each is measured consumption on testnet plus about a third, the margin the swap and the
+ * token operations were already verified at.
+ */
+export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; executeGas: number }> &
+  Record<NativeProposalKind, { label: string; executeGas: null }> = {
   /** Measured: 65,410 with no initializer, 99,015 with one nested in the upgrade call. */
   upgrade: { label: "Contract upgrade", executeGas: 150_000 },
   /** Measured: 241k through the executor, the adapter and the router, on a single-hop pool. */
