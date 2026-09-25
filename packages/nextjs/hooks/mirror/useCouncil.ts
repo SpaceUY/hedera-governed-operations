@@ -15,6 +15,8 @@ export type CouncilQueryData = {
   key: CouncilKey;
   /** Whose schedules make up the inbox, since Mirror can only list schedules by their creator. */
   proposerAccountIds: string[];
+  /** Role holders that resolved to no account, so the inbox can say it is missing their proposals. */
+  unresolvableProposers: string[];
 };
 
 export type CouncilOptions = MirrorQueryOptions & {
@@ -30,7 +32,7 @@ export function useCouncil({ governanceAccountId, executorContractId, ...options
   return useQuery<CouncilQueryData, Error>({
     queryKey: mirrorQueryKey(network, "council", governanceAccountId, executorContractId),
     queryFn: async () => {
-      const [key, proposerAccountIds] = await Promise.all([
+      const [key, proposers] = await Promise.all([
         fetchCouncilKey(governanceAccountId, hederaNetwork),
         fetchProposerAccountIds({
           executorContractId,
@@ -38,7 +40,7 @@ export function useCouncil({ governanceAccountId, executorContractId, ...options
           rpcUrl: getHederaRpcUrl(hederaNetwork),
         }),
       ]);
-      return { key, proposerAccountIds };
+      return { key, proposerAccountIds: proposers.accountIds, unresolvableProposers: proposers.unresolvable };
     },
     enabled: (options.enabled ?? true) && governanceAccountId.length > 0 && executorContractId.length > 0,
     staleTime: COUNCIL_STALE_MS,

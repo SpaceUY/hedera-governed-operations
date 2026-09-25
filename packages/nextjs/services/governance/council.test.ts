@@ -116,6 +116,11 @@ describe("countThresholdSignatures", () => {
 describe("fetchProposerAccountIds", () => {
   const EXECUTOR = "0.0.10671156";
   const PROPOSER_EVM = "0x000000000000000000000000000000000000a2d4";
+  /**
+   * An address the role names that never became a Hedera account, so Mirror answers 404 for it.
+   * Spelled EIP-55 checksummed because that is how it comes back out of the role read.
+   */
+  const STRANGER_EVM = "0x00000000000000000000000000000000DeaDBeef";
   /** keccak256("PROPOSER_ROLE"), the identifier the executor declares for the role. */
   const PROPOSER_ROLE = "b09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1";
 
@@ -131,6 +136,22 @@ describe("fetchProposerAccountIds", () => {
       .mockResolvedValue(new Response(JSON.stringify({ ...governanceAccount, account: accountId })));
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
+  }
+
+  /** Two role members, the second an address Mirror has no account for. */
+  function stubProposerAndStranger(accountId: string) {
+    const account = new Response(JSON.stringify({ ...governanceAccount, account: accountId }));
+    const notFound = new Response("Not found", { status: 404 });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonRpc(word("2")))
+        .mockResolvedValueOnce(jsonRpc(word(PROPOSER_EVM)))
+        .mockResolvedValueOnce(jsonRpc(word(STRANGER_EVM)))
+        .mockResolvedValueOnce(account)
+        .mockResolvedValueOnce(notFound),
+    );
   }
 
   it("asks the executor for the holders of PROPOSER_ROLE", async () => {
@@ -150,6 +171,30 @@ describe("fetchProposerAccountIds", () => {
       rpcUrl: "https://relay.test",
     });
 
-    expect(proposers).toEqual(["0.0.10671142"]);
+    expect(proposers.accountIds).toEqual(["0.0.10671142"]);
+  });
+
+  it("keeps the proposers it could resolve when one address belongs to no account", async () => {
+    stubProposerAndStranger("0.0.10671142");
+
+    const proposers = await fetchProposerAccountIds({
+      executorContractId: EXECUTOR,
+      network: "testnet",
+      rpcUrl: "https://relay.test",
+    });
+
+    expect(proposers.accountIds).toEqual(["0.0.10671142"]);
+  });
+
+  it("names the address it could not resolve, so the inbox can say it is partial", async () => {
+    stubProposerAndStranger("0.0.10671142");
+
+    const proposers = await fetchProposerAccountIds({
+      executorContractId: EXECUTOR,
+      network: "testnet",
+      rpcUrl: "https://relay.test",
+    });
+
+    expect(proposers.unresolvable).toEqual([STRANGER_EVM]);
   });
 });

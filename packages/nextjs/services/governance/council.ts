@@ -148,6 +148,17 @@ export type ProposerLookup = {
   rpcUrl: string;
 };
 
+export type ProposerAccounts = {
+  /** Whose schedules the inbox is assembled from. */
+  accountIds: string[];
+  /**
+   * Role holders whose address the Mirror Node has no account for, kept as the addresses they were
+   * granted under. Their proposals are missing from the inbox, which is the same partial answer a
+   * proposer Mirror cannot be read for already produces.
+   */
+  unresolvable: string[];
+};
+
 /**
  * The accounts allowed to register proposals, which is also the set the inbox is assembled from:
  * Mirror can only list schedules by their creator, so knowing who proposes is what makes the list
@@ -156,12 +167,17 @@ export type ProposerLookup = {
  * The role holds EVM addresses and Mirror wants `0.0.x` account ids, and the two are not
  * interconvertible here — an account created from an ECDSA key is reached by a key-derived alias,
  * not by the long-zero form of its id — so each address is resolved through the Mirror Node.
+ *
+ * An address the role names need not be an account at all: `grantRole` takes any address, and an
+ * EVM address only becomes a Hedera entity once something funds it, so Mirror answers 404 for one
+ * that was granted the role early or by mistake. That is one proposer missing from the list, not a
+ * reason to leave the screen with no council: the council key itself read fine.
  */
 export async function fetchProposerAccountIds({
   executorContractId,
   network,
   rpcUrl,
-}: ProposerLookup): Promise<string[]> {
+}: ProposerLookup): Promise<ProposerAccounts> {
   const relay = createPublicClient({ transport: http(rpcUrl) });
   const address = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as Address;
   const readRole = { address, abi: EXECUTOR_ROLES_ABI } as const;
@@ -178,9 +194,12 @@ export async function fetchProposerAccountIds({
     ),
   );
 
-  const accountIds = await Promise.all(
-    addresses.map(async member => (await fetchAccount(member, { network })).account),
-  );
-  // The same account can hold the role under both its long-zero address and its alias.
-  return [...new Set(accountIds)];
+  const readings = await Promise.allSettled(addresses.map(member => fetchAccount(member, { network })));
+
+  const accountIds = readings.flatMap(reading => (reading.status === "fulfilled" ? [reading.value.account] : []));
+  return {
+    // The same account can hold the role under both its long-zero address and its alias.
+    accountIds: [...new Set(accountIds)],
+    unresolvable: addresses.filter((_unused, index) => readings[index].status === "rejected"),
+  };
 }
