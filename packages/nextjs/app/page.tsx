@@ -97,6 +97,12 @@ function GovernanceHome({
       <section aria-label="Pending proposals" className="card border border-base-300 bg-base-100 shadow-sm">
         <div className="card-body py-5">
           <h2 className="card-title text-base">Pending proposals</h2>
+          {inbox.data && inbox.data.unreachableProposers.length > 0 && (
+            <p role="status" className="text-sm text-warning">
+              This list may be incomplete: proposals from {inbox.data.unreachableProposers.join(", ")} could not be
+              read.
+            </p>
+          )}
           {inbox.data?.proposals.length === 0 && <p className="text-sm text-base-content/60">No proposals yet.</p>}
           {inbox.data ? (
             <ul className="flex flex-col gap-2">
