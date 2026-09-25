@@ -3,6 +3,8 @@ export * from "./useCouncil";
 export * from "./useProposalLookup";
 export * from "./useProposals";
 export * from "./useSchedule";
+export * from "./useToken";
+export * from "./useTokenRelationship";
 export * from "./useTreasuryFigures";
 export * from "./useTopicMessagesFeed";
 export * from "./useTransaction";
