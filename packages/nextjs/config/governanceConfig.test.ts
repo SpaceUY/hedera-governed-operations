@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({
   contracts: {
-    296: { GovernedExecutor: { address: "0xabc", abi: [], hederaContractId: "0.0.10671250" } },
+    296: {
+      GovernedExecutor: { address: "0xabc", abi: [], hederaContractId: "0.0.10671250" },
+      TokenAdmin: { address: "0xdef", abi: [] },
+    },
   },
 }));
 
@@ -42,5 +45,9 @@ describe("getDeployedContract", () => {
 
   it("throws a clear, actionable error when the chain has no deployment", () => {
     expect(() => getDeployedContract(296, "AcmeVault")).toThrow(/AcmeVault is not deployed on chain 296/);
+  });
+
+  it("treats an entry without a Hedera contract id as not deployed rather than returning undefined", () => {
+    expect(() => getDeployedContract(296, "TokenAdmin")).toThrow(/TokenAdmin on chain 296 has no Hedera contract id/);
   });
 });

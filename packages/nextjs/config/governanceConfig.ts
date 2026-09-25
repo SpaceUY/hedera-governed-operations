@@ -29,12 +29,20 @@ export function getGovernanceEntityIds(): GovernanceEntityIds {
   return { governanceAccountId, demoTokenId, seedProposalId: parsedSeedProposalId };
 }
 
-export function getDeployedContract(chainId: number, name: string): GenericContract {
+/** A deployed contract as the governance screens need it: with the native id a scheduled call targets. */
+export type HederaDeployedContract = GenericContract & { hederaContractId: string };
+
+export function getDeployedContract(chainId: number, name: string): HederaDeployedContract {
   const entry = contracts?.[chainId]?.[name];
   if (!entry) {
     throw new Error(
       `${name} is not deployed on chain ${chainId}. Run \`yarn hardhat:deploy --network hederaTestnet\`.`,
     );
   }
-  return entry;
+  if (!entry.hederaContractId) {
+    throw new Error(
+      `${name} on chain ${chainId} has no Hedera contract id. Re-run \`yarn hardhat:deploy --network hederaTestnet\`.`,
+    );
+  }
+  return { ...entry, hederaContractId: entry.hederaContractId };
 }

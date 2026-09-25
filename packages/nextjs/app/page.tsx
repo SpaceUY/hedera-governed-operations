@@ -26,8 +26,8 @@ export default function GovernanceHomePage() {
     props = {
       governanceAccountId,
       demoTokenId,
-      vaultContractId: getDeployedContract(targetNetwork.id, "AcmeVault").hederaContractId!,
-      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId!,
+      vaultContractId: getDeployedContract(targetNetwork.id, "AcmeVault").hederaContractId,
+      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId,
     };
   } catch (error) {
     return <SetupNotice error={error} />;

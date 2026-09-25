@@ -52,7 +52,7 @@ export default function ProposalDetailPage() {
   try {
     props = {
       governanceAccountId: getGovernanceEntityIds().governanceAccountId,
-      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId!,
+      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId,
       scheduleId: params.scheduleId,
     };
   } catch (error) {
