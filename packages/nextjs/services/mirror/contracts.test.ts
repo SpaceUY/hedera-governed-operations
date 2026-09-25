@@ -33,8 +33,17 @@ describe("fetchContract", () => {
 
     const result = await fetchContract(CONTRACT_ID);
 
-    expect(result.runtime_bytecode.startsWith("0x60806040")).toBe(true);
+    expect(result.runtime_bytecode?.startsWith("0x60806040")).toBe(true);
     expect(result.bytecode).toBe("0x");
+  });
+
+  it("hands back a null code rather than crashing, for a contract Mirror reports without one", async () => {
+    const withoutCode = { ...contract, runtime_bytecode: null, bytecode: null };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(withoutCode))));
+
+    const result = await fetchContract(CONTRACT_ID);
+
+    expect(result.runtime_bytecode).toBeNull();
   });
 
   it("does not call fetch when the id is invalid", async () => {
@@ -42,6 +51,14 @@ describe("fetchContract", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchContract("nope")).rejects.toThrow("Invalid contract ID");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a transaction hash, which the neighbouring result lookup does take", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchContract(`0x${"11".repeat(32)}`)).rejects.toThrow("Invalid contract ID");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
