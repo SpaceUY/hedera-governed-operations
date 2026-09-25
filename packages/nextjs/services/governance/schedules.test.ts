@@ -1,4 +1,5 @@
 // @vitest-environment node
+import scheduleCreateTransaction from "../mirror/__fixtures__/transaction.json";
 import {
   MAX_PROPOSAL_EXPIRY_SECONDS,
   MAX_SCHEDULE_MEMO_BYTES,
@@ -8,6 +9,7 @@ import {
   buildScheduleDelete,
   buildScheduleSign,
   fetchAccountPublicKey,
+  scheduleIdFromTransaction,
 } from "./schedules";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { encodeFunctionData, parseAbi } from "viem";
@@ -27,6 +29,9 @@ const GAS = 300_000;
 
 const proposerKey = PrivateKey.generateECDSA().publicKey;
 const mockedFetchAccount = vi.mocked(fetchAccount);
+
+/** A recorded create whose proposal executed, so Mirror answers with the create and its child call. */
+const scheduleCreateRows = scheduleCreateTransaction.transactions;
 
 const mirrorAccountWith = (key: { _type: string; key: string } | null) =>
   ({ key }) as Awaited<ReturnType<typeof fetchAccount>>;
@@ -114,6 +119,16 @@ describe("buildExecuteProposalCall", () => {
 
   it("carries the gas the proposed operation needs", () => {
     expect(call.gas?.toNumber()).toBe(GAS);
+  });
+});
+
+describe("scheduleIdFromTransaction", () => {
+  it("reads the schedule id from the create row rather than from the scheduled child", () => {
+    expect(scheduleIdFromTransaction(scheduleCreateRows)).toBe("0.0.10590552");
+  });
+
+  it("reports nothing while Mirror has not indexed the create yet", () => {
+    expect(scheduleIdFromTransaction([])).toBeNull();
   });
 });
 

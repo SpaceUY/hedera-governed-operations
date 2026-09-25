@@ -19,7 +19,7 @@ import {
   Timestamp,
   type Transaction,
 } from "@hiero-ledger/sdk";
-import { fetchAccount } from "~~/services/mirror";
+import { type MirrorTransaction, fetchAccount } from "~~/services/mirror";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /** How long a proposal stays open for signatures. Seven days is what the demo runs on. */
@@ -29,6 +29,9 @@ export const PROPOSAL_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
 export const MAX_PROPOSAL_EXPIRY_SECONDS = 62 * 24 * 60 * 60;
 
 export const MAX_SCHEDULE_MEMO_BYTES = 100;
+
+/** How Mirror names the row of a `ScheduleCreate`. */
+const SCHEDULE_CREATE_ROW = "SCHEDULECREATE";
 
 export type ProposalScheduleOptions = {
   /** What the council approves. It has to be unfrozen: `setScheduledTransaction` rejects a frozen one. */
@@ -122,6 +125,16 @@ export function buildScheduleSign(scheduleId: string): ScheduleSignTransaction {
  */
 export function buildScheduleDelete(scheduleId: string): ScheduleDeleteTransaction {
   return new ScheduleDeleteTransaction().setScheduleId(scheduleId);
+}
+
+/**
+ * The id of the proposal a create left behind: signers return a transaction id, and the schedule id is
+ * what identifies a proposal everywhere else. One transaction id can yield several Mirror rows — the
+ * create, plus the scheduled child once the council's signatures run it — and only the create row
+ * carries the schedule. Null while Mirror is still indexing.
+ */
+export function scheduleIdFromTransaction(rows: MirrorTransaction[]): string | null {
+  return rows.find(row => row.name === SCHEDULE_CREATE_ROW)?.entity_id ?? null;
 }
 
 /**
