@@ -6,9 +6,7 @@ This is a **Hedera template with two workspaces**: `packages/nextjs` (HCS topics
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
-The governance UI now owns `/`: a minimal governance home (treasury figures, the council's threshold, the pending proposals) and a proposal detail page at `/governance/[scheduleId]` with Sign, Withdraw and Cancel, backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`. The live map of the on-chain entities and the proposal wizard are still to be built on top of that substrate. See `docs/GOVERNANCE_UI.md` for the frontend architecture plan (directory layout, componentization, state management, and the confirmed approach for decoding the council's threshold key from Mirror) before starting work in this area.
-
-<!-- TODO(agents): once the rest of docs/GOVERNANCE_UI.md (live map, wizard) is implemented, update the Layout section (new hooks/components/services) and the "planned" framing in the docs/ list below. -->
+The governance UI owns `/`: a governance home (treasury figures, the council's threshold, the pending proposals) and a proposal detail page at `/governance/[scheduleId]` with Sign, Withdraw and Cancel, backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`. No screen opens a proposal yet: the two create hooks are complete and tested but not called from `app/`. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
 
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
@@ -100,6 +98,9 @@ packages/nextjs/
       encode.ts             Form values to transactions: the five encoders, the registration gas, createProposal
       decode.ts             Scheduled body and registry calldata back to a described operation
       registry.ts           GovernedExecutor: the entry behind a proposal, cancel, and the id a create returned
+      treasury.ts           Treasury balances plus the vault's reserve
+      proposalActions.ts    Which actions a proposal offers (Sign, Withdraw), and to whom
+      proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)
@@ -113,7 +114,7 @@ packages/hardhat/
   scripts/                Deployer account management, ABI generation, Sourcify verification
   hardhat.config.ts       Networks (hardhat, localhost, hederaTestnet, hederaMainnet), Sourcify, typechain
 .harness/                 Hedera Harness recipe (spec, prd, validators, eval)
-docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_UI.md (planned frontend architecture)
+docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_UI.md (governance screens)
 ```
 
 ## Hedera integration patterns
