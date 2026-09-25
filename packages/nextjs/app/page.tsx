@@ -109,7 +109,8 @@ function GovernanceHome({
             </p>
           )}
           {inbox.data?.proposals.length === 0 && <p className="text-sm text-base-content/60">No proposals yet.</p>}
-          {inbox.data ? (
+          {!inbox.data && <span className="loading loading-spinner loading-sm" aria-label="Loading proposals" />}
+          {inbox.data && inbox.data.proposals.length > 0 && (
             <ul className="flex flex-col gap-2">
               {inbox.data.proposals.map(proposal => (
                 <li key={proposal.schedule.schedule_id}>
@@ -120,8 +121,6 @@ function GovernanceHome({
                 </li>
               ))}
             </ul>
-          ) : (
-            <span className="loading loading-spinner loading-sm" aria-label="Loading proposals" />
           )}
         </div>
       </section>
