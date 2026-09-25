@@ -5,6 +5,7 @@
  * Mirror lags consensus by a few seconds: freshly submitted entities may 404
  * and state such as a schedule's `executed_timestamp` needs polling.
  */
+import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 const MIRROR_BASE: Record<string, string> = {
   testnet: process.env.HEDERA_MIRROR_TESTNET_URL?.trim() || "https://testnet.mirrornode.hedera.com",
@@ -126,6 +127,21 @@ export function assertValidEntityId(entityId: string, label: string): void {
 
 export function isValidEntityId(entityId: string): boolean {
   return ENTITY_ID_REGEX.test(entityId);
+}
+
+/**
+ * Both forms an id reaches these endpoints in: a `0.0.x` id, or the EVM address a decoded proposal
+ * carries. Mirror resolves either on the account, token and contract lookups, so this is the check a
+ * read or a query gate uses — never `isValidEntityId` alone, which would leave a card that was handed
+ * a perfectly good address loading forever.
+ */
+export function isMirrorEntityRef(value: string): boolean {
+  return isValidEntityId(value) || isEvmAddress(value);
+}
+
+export function assertMirrorEntityRef(value: string, label: string): void {
+  if (isMirrorEntityRef(value)) return;
+  throw new Error(`Invalid ${label}: expected format 0.0.xxxxx or an EVM address, got ${value}`);
 }
 
 /** Mirror timestamps are `seconds.nanos` strings; precision below milliseconds is dropped. */

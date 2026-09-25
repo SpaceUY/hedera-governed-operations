@@ -2,14 +2,9 @@
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { useQuery } from "@tanstack/react-query";
-import { type MirrorTokenRelationship, fetchTokenRelationship, isValidEntityId } from "~~/services/mirror";
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
+import { type MirrorTokenRelationship, fetchTokenRelationship, isMirrorEntityRef } from "~~/services/mirror";
 
 type TokenRelationshipQueryOptions = Omit<MirrorQueryOptions, "pollIntervalMs">;
-
-function isMirrorEntityRef(value: string): boolean {
-  return isValidEntityId(value) || isEvmAddress(value);
-}
 
 /**
  * Reads how one account stands with one token, which is what a freeze or unfreeze

@@ -2,8 +2,7 @@
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { useQuery } from "@tanstack/react-query";
-import { type MirrorToken, fetchToken, isValidEntityId, parseTokenDecimals } from "~~/services/mirror";
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
+import { type MirrorToken, fetchToken, isMirrorEntityRef, parseTokenDecimals } from "~~/services/mirror";
 
 export type TokenQueryData = {
   token: MirrorToken;
@@ -27,7 +26,7 @@ export function useToken(tokenId: string | null | undefined, options: TokenQuery
       const token = await fetchToken(id, { network });
       return { token, decimals: parseTokenDecimals(token.decimals) };
     },
-    enabled: (options.enabled ?? true) && (isValidEntityId(id) || isEvmAddress(id)),
+    enabled: (options.enabled ?? true) && isMirrorEntityRef(id),
     retry: false,
   });
 }

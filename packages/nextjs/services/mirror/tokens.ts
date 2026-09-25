@@ -1,6 +1,11 @@
-import { type MirrorPage, type MirrorRequestOptions, isValidEntityId, mirrorRequest } from "./client";
+import {
+  type MirrorPage,
+  type MirrorRequestOptions,
+  assertMirrorEntityRef,
+  isValidEntityId,
+  mirrorRequest,
+} from "./client";
 import type { MirrorKey } from "./schedules";
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 /**
  * Upper bound this template's amount fields work with. It is not a network rule:
@@ -81,12 +86,6 @@ function toDecimalCount(decimals: string | number): number {
   if (typeof decimals === "number") return decimals;
   if (typeof decimals === "string" && /^\d+$/.test(decimals.trim())) return Number(decimals.trim());
   return Number.NaN;
-}
-
-/** Both forms an id reaches a screen in: a `0.0.x` id, or the EVM address a decoded proposal carries. */
-function assertMirrorEntityRef(value: string, label: string): void {
-  if (isValidEntityId(value) || isEvmAddress(value)) return;
-  throw new Error(`Invalid ${label}: expected format 0.0.xxxxx or an EVM address, got ${value}`);
 }
 
 /** Accepts a `0.0.x` token id or a `0x…` EVM address; Mirror resolves either. */
