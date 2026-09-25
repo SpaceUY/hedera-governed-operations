@@ -11,6 +11,10 @@ defaults:
 routes:
   - name: home
     path: /
+  - name: proposal-detail
+    # Any schedule id: SMOKE runs without a .env, so the page renders the setup notice rather than
+    # a proposal, and what it checks is that the dynamic route boots.
+    path: /governance/0.0.10590552
   - name: proof-wall
     path: /proof-wall
   - name: explorer

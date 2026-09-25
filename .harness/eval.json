@@ -6,7 +6,6 @@
   "routes": [
     "/",
     "/proof-wall",
-    "/governance/0.0.10590552",
     "/admin",
     "/explorer"
   ],
