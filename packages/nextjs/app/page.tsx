@@ -73,7 +73,7 @@ function GovernanceHome({
         <div className="stat">
           <div className="stat-title">Vault reserve</div>
           <div className="stat-value text-lg">
-            {treasury.data ? Hbar.fromTinybars(treasury.data.vaultReserveTinybar).toString() : "…"}
+            {treasury.data ? Hbar.fromTinybars(treasury.data.vaultReserveTinybar.toString()).toString() : "…"}
           </div>
         </div>
         <div className="stat">

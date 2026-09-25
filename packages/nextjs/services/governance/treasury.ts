@@ -9,7 +9,8 @@ export type TreasuryFigures = {
   hbarBalanceTinybar: number;
   acmeBalance: number;
   usdcBalance: number;
-  vaultReserveTinybar: number;
+  /** A `uint256` read from the vault, kept as a bigint so a large reserve is not rounded. */
+  vaultReserveTinybar: bigint;
 };
 
 export type FetchTreasuryFiguresOptions = {
@@ -48,6 +49,6 @@ export async function fetchTreasuryFigures({
     hbarBalanceTinybar: account.balance.balance,
     acmeBalance: tokenBalance(account.balance.tokens, demoTokenId),
     usdcBalance: tokenBalance(account.balance.tokens, usdcTokenId),
-    vaultReserveTinybar: Number(vaultReserve),
+    vaultReserveTinybar: vaultReserve,
   };
 }

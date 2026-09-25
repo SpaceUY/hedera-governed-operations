@@ -51,7 +51,7 @@ describe("fetchTreasuryFigures", () => {
       hbarBalanceTinybar: 123_00000000,
       acmeBalance: 42,
       usdcBalance: 7,
-      vaultReserveTinybar: 9_00000000,
+      vaultReserveTinybar: 9_00000000n,
     });
     expect(mockReadContract).toHaveBeenCalledWith(
       expect.objectContaining({ address: `0x${ContractId.fromString(VAULT_CONTRACT_ID).toEvmAddress()}` }),
@@ -73,5 +73,22 @@ describe("fetchTreasuryFigures", () => {
     });
     expect(figures.acmeBalance).toBe(0);
     expect(figures.usdcBalance).toBe(0);
+  });
+
+  it("keeps a reserve above Number.MAX_SAFE_INTEGER exact", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      balance: { balance: 0, timestamp: "0", tokens: [] },
+    } as never);
+    const reserve = 5_000_000_000_000_000_001n;
+    mockReadContract.mockResolvedValue(reserve);
+
+    const figures = await fetchTreasuryFigures({
+      governanceAccountId: GOVERNANCE_ACCOUNT_ID,
+      vaultContractId: VAULT_CONTRACT_ID,
+      demoTokenId: DEMO_TOKEN_ID,
+      usdcTokenId: USDC_TOKEN_ID,
+      rpcUrl: RPC_URL,
+    });
+    expect(figures.vaultReserveTinybar).toBe(reserve);
   });
 });

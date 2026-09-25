@@ -17,7 +17,7 @@ describe("useTreasuryFigures", () => {
       hbarBalanceTinybar: 1,
       acmeBalance: 2,
       usdcBalance: 3,
-      vaultReserveTinybar: 4,
+      vaultReserveTinybar: 4n,
     });
 
     const { result } = renderHook(
@@ -31,7 +31,7 @@ describe("useTreasuryFigures", () => {
       { wrapper: createQueryWrapper() },
     );
 
-    await waitFor(() => expect(result.current.data?.vaultReserveTinybar).toBe(4));
+    await waitFor(() => expect(result.current.data?.vaultReserveTinybar).toBe(4n));
     expect(vi.mocked(fetchTreasuryFigures)).toHaveBeenCalledWith(
       expect.objectContaining({ vaultContractId: "0.0.10671260", demoTokenId: "0.0.10671333" }),
     );
