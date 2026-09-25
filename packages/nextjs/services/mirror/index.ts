@@ -4,3 +4,4 @@ export * from "./schedules";
 export * from "./transactions";
 export * from "./accounts";
 export * from "./contracts";
+export * from "./tokens";

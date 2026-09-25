@@ -1,0 +1,16 @@
+{
+  "tokens": [
+    {
+      "automatic_association": false,
+      "balance": 900,
+      "created_timestamp": "1790112244.709983647",
+      "decimals": 0,
+      "token_id": "0.0.10671171",
+      "freeze_status": "UNFROZEN",
+      "kyc_status": "NOT_APPLICABLE"
+    }
+  ],
+  "links": {
+    "next": null
+  }
+}

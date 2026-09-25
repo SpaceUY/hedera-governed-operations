@@ -115,7 +115,8 @@ export type RegistryOperation =
  * A plain sentence for a decoded operation, so a log line or a test has something to read. It is a
  * default and not the screen's copy: the UI renders the fields above, which carry the same facts
  * typed. Addresses stay as they come out of the calldata — turning one back into a `0.0.x` id takes
- * a Mirror Node lookup, which belongs to whoever is rendering, not to a pure description.
+ * a Mirror Node lookup, which belongs to whoever is rendering, not to a pure description. Reading the
+ * token or the contract behind one needs no conversion: those Mirror endpoints take the address as it is.
  */
 export function describeScheduledOperation(operation: ScheduledOperation): string {
   switch (operation.kind) {
