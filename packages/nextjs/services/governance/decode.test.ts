@@ -2,7 +2,7 @@
 import recorded from "./__fixtures__/scheduled-bodies.json";
 import { decodeRegistryOperation, decodeScheduledOperation } from "./decode";
 import { describeRegistryOperation, describeScheduledOperation } from "./proposalTypes";
-import { scheduledBodyOf } from "./testUtils";
+import { scheduledBodyOf } from "./scheduledBody";
 import { proto } from "@hiero-ledger/proto";
 import {
   AccountId,

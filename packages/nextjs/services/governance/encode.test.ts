@@ -12,8 +12,8 @@ import {
   resolveCouncilMembers,
 } from "./encode";
 import { PROPOSAL_TYPES } from "./proposalTypes";
+import { scheduledBodyOf } from "./scheduledBody";
 import { PROPOSAL_EXPIRY_SECONDS, buildExecuteProposalCall } from "./schedules";
-import { scheduledBodyOf } from "./testUtils";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchAccount } from "~~/services/mirror";
