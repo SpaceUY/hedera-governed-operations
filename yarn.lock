@@ -3970,6 +3970,7 @@ __metadata:
   dependencies:
     "@hashgraph/hedera-wallet-connect": ^2.1.1
     "@heroicons/react": ^2.1.5
+    "@hiero-ledger/proto": 2.26.0-beta.3
     "@hiero-ledger/sdk": ^2.80.0
     "@metamask/connect-evm": ^0.9.0
     "@react-native-async-storage/async-storage": ^2.2.0
