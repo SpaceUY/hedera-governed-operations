@@ -39,12 +39,12 @@ reads, since a limit its author believes is in force and nothing enforces is the
 }
 ```
 
-| Rule | Limits |
-| --- | --- |
-| `upgrade` | `targets`, `implementations`, and `allowInitializer` (off by default) |
-| `treasurySwap` | `maxAmountInTinybars`, `tokensOut`, `recipients` |
-| `tokenAdmin` | `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens` |
-| `treasuryTransfer` | `maxTinybars`, `recipients`, and `tokens` for HTS transfers |
+| Rule               | Limits                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `upgrade`          | `targets`, then `implementations` or `manifestTopicId` (one is required), and `allowInitializer` (off by default) |
+| `treasurySwap`     | `maxAmountInTinybars`, `tokensOut`, `recipients`                                                                  |
+| `tokenAdmin`       | `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens`                                                 |
+| `treasuryTransfer` | `maxTinybars`, `recipients`, and `tokens` for HTS transfers                                                       |
 
 Three properties are worth more than the individual limits:
 
@@ -55,6 +55,32 @@ Three properties are worth more than the individual limits:
   decides who governs — including whether this agent keeps its seat.
 - **Amounts are tinybars in a string.** JSON numbers are doubles and would round a real balance
   above 2^53 without saying so.
+
+### Which implementation an upgrade may point at
+
+An upgrade proposal says "point the proxy at 0xabc…", and there are two ways for a policy to answer
+whether that address is trustworthy. `implementations` is a list of addresses. `manifestTopicId`
+names an HCS topic carrying release manifests, and the agent then checks that the code **deployed at**
+the proposed address hashes to what a release published for it. One of the two is required; a rule
+with neither would approve any implementation at all for a listed proxy, and `parsePolicy` refuses to
+start on it.
+
+The manifest is the stronger of the two, because an allowlist answers "is this address blessed" and
+cannot answer "is the code at it the build we blessed". Verified on testnet, all three outcomes:
+
+|                                             |                                                                               |
+| ------------------------------------------- | ----------------------------------------------------------------------------- |
+| the deployed code matches a release         | `approved` — the reason names the version                                     |
+| no release names the address                | `refused` — "no release on topic 0.0.… names the implementation 0x…"          |
+| a release names it, the code does not match | `refused` — "the code at 0x… does not match the release published for v2.0.0" |
+
+A check that could not be run is a refusal too. Not run is not passed.
+
+Publishing is `yarn release:publish --contract AcmeVault --version v2.0.0`, which reads the
+implementation address `yarn hardhat:deploy` recorded, hashes the runtime bytecode the Mirror Node
+reports for it, and submits the manifest to the topic `yarn setup` created. Anyone can repeat the
+check from HashScan: read the topic, take the `bytecodeHash`, and compare it against
+`GET /contracts/{id}` for the address.
 
 The agent also refuses anything it cannot fully read: a body that did not decode, a registry entry
 that is missing, cancelled, or could not be fetched, or a call to some other executor. An approver
@@ -100,10 +126,11 @@ will not sign for them.
 
 ## Layout
 
-| File | |
-| --- | --- |
-| `src/policy.ts` | the limits, one typed check per kind — a map, not a rule engine |
-| `src/operation.ts` | proposal → the flat operation a policy is written against, and every reason one cannot be read |
-| `src/review.ts` | one pass over the inbox: decide, then sign what passed |
-| `src/config.ts` | environment and policy file, validated at boot |
-| `src/index.ts` | the loop, the Hedera client, and the log |
+| File                                  |                                                                                                |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `src/policy.ts`                       | the limits, one typed check per kind — a map, not a rule engine                                |
+| `src/operation.ts`                    | proposal → the flat operation a policy is written against, and every reason one cannot be read |
+| `src/review.ts`                       | one pass over the inbox: decide, then sign what passed                                         |
+| `src/config.ts`                       | environment and policy file, validated at boot                                                 |
+| `@sh/core/governance/releaseManifest` | the manifest itself: what a release publishes, and the check against the deployed code         |
+| `src/index.ts`                        | the loop, the Hedera client, and the log                                                       |

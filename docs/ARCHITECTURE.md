@@ -492,6 +492,36 @@ testnet: without a memory of what this process has already signed, the agent sig
 again and the receipt comes back `SCHEDULE_ALREADY_EXECUTED` — one wasted fee per pass until Mirror
 catches up, and a duplicate `ScheduleSign` on any proposal still short of its threshold.
 
+### Release manifests
+
+An upgrade proposal names an implementation address, and an address on its own is unanswerable: the
+council can read it and cannot read what is at it. An allowlist in the agent's policy only moves the
+question to whoever edits the policy — it says an address is blessed, never that the code still
+sitting there is the build that was blessed.
+
+A release manifest closes that. At release time `yarn release:publish` submits, to the HCS topic
+`yarn setup` created, a record of `{version, contract, implementation, bytecodeHash, commit,
+publishedAt}`; the hash is keccak256 of the **runtime bytecode the Mirror Node reports** for that
+address. Before signing an upgrade the agent fetches the deployed code for the proposed
+implementation, hashes it the same way, and looks for a manifest that names the address *and*
+matches the hash. Three outcomes, all verified on testnet:
+
+| | |
+| --- | --- |
+| deployed code matches a release | signed, with the version in the reason |
+| no release names the address | refused |
+| a release names it and the code does not match | refused, quoting both hashes |
+
+Hashing what the network reports, on both sides, is what makes this work at all. The local artifact's
+`deployedBytecode` differs from the deployed code — immutable variables and the metadata suffix are
+settled at deploy time — so a publisher that hashed the artifact would produce manifests nothing ever
+matched. It also makes the check repeatable by hand: read the topic on HashScan, take the
+`bytecodeHash`, and compare it against `GET /contracts/{id}` for the address.
+
+What a manifest does not attest is the source. That is Sourcify's job, and the two compose: Sourcify
+says the source matches the deployed code, the manifest says the deployed code is the build the team
+published for this version.
+
 Custody in the demo is a private key in the environment, which is right for a testnet fixture and
 wrong for anything else. Signing is a single injected function (`SignSchedule`), so a real seat
 moves behind an HSM or a custody provider without touching the policy or the review loop. The seat
