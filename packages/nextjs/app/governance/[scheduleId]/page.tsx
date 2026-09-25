@@ -9,8 +9,8 @@ import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
+import { canBeSigned } from "~~/services/governance/proposalActions";
 import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
-import type { Proposal } from "~~/services/governance/proposals";
 import { isWalletRejection } from "~~/services/web3/hederaSigner";
 
 const REJECTED_MESSAGE = "Request rejected in the wallet.";
@@ -26,22 +26,6 @@ const MutationError = ({ error }: { error: unknown }) =>
       {toFriendlyMessage(error)}
     </p>
   ) : null;
-
-/**
- * A council member is only asked to sign a proposal the app can vouch for: a native kind (no
- * registry entry), or a registry call whose entry is still pending and decodes to an operation this
- * template knows. A missing, cancelled, unreadable or unrecognised entry gets no Sign button.
- */
-function canBeSigned({ state, operation, registry }: Proposal): boolean {
-  if (state.status !== "pending") return false;
-  if (operation.kind === "treasuryTransfer" || operation.kind === "councilRotation") {
-    return registry.status === "notApplicable";
-  }
-  if (operation.kind !== "registryCall") return false;
-  return (
-    registry.status === "read" && registry.entry.state === "pending" && registry.entry.operation.kind !== "unrecognized"
-  );
-}
 
 type ProposalDetailProps = { governanceAccountId: string; executorContractId: string; scheduleId: string };
 
