@@ -7,9 +7,10 @@ import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanc
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
+import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
-import { canBeSigned } from "~~/services/governance/proposalActions";
+import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalActions";
 import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { isWalletRejection } from "~~/services/web3/hederaSigner";
 
@@ -51,6 +52,7 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
     executorContractId,
     scheduleId,
   });
+  const { accountId } = useHederaSigner();
   const sign = useSignProposal();
   const withdraw = useWithdrawProposal();
   const cancel = useCancelProposal();
@@ -62,6 +64,7 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
   const { operation, registry } = proposal;
   const registryDescription = registry.status === "read" ? describeRegistryOperation(registry.entry.operation) : null;
   const isPending = proposal.state.status === "pending";
+  const isWithdrawable = canBeWithdrawnBy(proposal, accountId);
   // Cancel only once the schedule is gone without running: deleting a live schedule comes first, or
   // it could still reach threshold on a cancelled entry and charge the governance account the gas.
   const cancellableProposalId =
@@ -115,20 +118,24 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
                 Sign
               </button>
             )}
-            <button
-              className="btn btn-ghost"
-              onClick={() => withdraw.mutate(proposal.schedule.schedule_id, { onSuccess: refresh })}
-              disabled={withdraw.isPending}
-            >
-              Withdraw this proposal
-            </button>
+            {isWithdrawable && (
+              <button
+                className="btn btn-ghost"
+                onClick={() => withdraw.mutate(proposal.schedule.schedule_id, { onSuccess: refresh })}
+                disabled={withdraw.isPending}
+              >
+                Withdraw this proposal
+              </button>
+            )}
           </div>
           <MutationError error={sign.error} />
           <MutationError error={withdraw.error} />
-          <p className="text-sm text-base-content/60">
-            Withdrawing deletes the schedule and every approval on it; only the proposer can do it.
-            {operation.kind === "registryCall" && " Cancelling the registry entry becomes available afterwards."}
-          </p>
+          {isWithdrawable && (
+            <p className="text-sm text-base-content/60">
+              Withdrawing deletes the schedule and every approval on it; only you, as the proposer, can do it.
+              {operation.kind === "registryCall" && " Cancelling the registry entry becomes available afterwards."}
+            </p>
+          )}
         </div>
       )}
 

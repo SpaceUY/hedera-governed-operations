@@ -18,3 +18,15 @@ export function canBeSigned({ state, operation, registry }: SignableFacts): bool
     registry.status === "read" && registry.entry.state === "pending" && registry.entry.operation.kind !== "unrecognized"
   );
 }
+
+/**
+ * Only the proposer can withdraw: their key is the schedule's admin key, and the one who created the
+ * schedule is the one whose key was named there. Offering it to anyone else is a wallet prompt the
+ * network then refuses.
+ */
+export function canBeWithdrawnBy(
+  { schedule, state }: Pick<Proposal, "schedule" | "state">,
+  accountId: string | null,
+): boolean {
+  return state.status === "pending" && accountId !== null && schedule.creator_account_id === accountId;
+}

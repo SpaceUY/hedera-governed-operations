@@ -1,8 +1,9 @@
-import { canBeSigned } from "./proposalActions";
+import { canBeSigned, canBeWithdrawnBy } from "./proposalActions";
 import type { ScheduledOperation } from "./proposalTypes";
 import type { RegistryCrossCheck, RegistryEntry } from "./registry";
 import { describe, expect, it } from "vitest";
-import type { ScheduleState, ScheduleStatus } from "~~/services/mirror";
+import type { MirrorSchedule, ScheduleState, ScheduleStatus } from "~~/services/mirror";
+import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 const stateOf = (status: ScheduleStatus): ScheduleState => ({
   status,
@@ -84,5 +85,26 @@ describe("canBeSigned", () => {
   it("refuses a scheduled body the decoder did not understand", () => {
     const operation: ScheduledOperation = { kind: "unrecognized", reason: "unknown body" };
     expect(canBeSigned({ state: stateOf("pending"), operation, registry: { status: "notApplicable" } })).toBe(false);
+  });
+});
+
+describe("canBeWithdrawnBy", () => {
+  const PROPOSER = "0.0.10671142";
+  const schedule: MirrorSchedule = { ...executedSchedule, creator_account_id: PROPOSER };
+
+  it("lets the proposer withdraw a pending proposal, since their key is the schedule's admin key", () => {
+    expect(canBeWithdrawnBy({ schedule, state: stateOf("pending") }, PROPOSER)).toBe(true);
+  });
+
+  it("hides the action from any other account, whose ScheduleDelete the network would refuse", () => {
+    expect(canBeWithdrawnBy({ schedule, state: stateOf("pending") }, "0.0.10671144")).toBe(false);
+  });
+
+  it("hides the action when no wallet is connected", () => {
+    expect(canBeWithdrawnBy({ schedule, state: stateOf("pending") }, null)).toBe(false);
+  });
+
+  it("hides the action once the schedule has settled", () => {
+    expect(canBeWithdrawnBy({ schedule, state: stateOf("executed") }, PROPOSER)).toBe(false);
   });
 });
