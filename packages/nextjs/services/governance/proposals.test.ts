@@ -99,9 +99,10 @@ const stubRegistryStates = (...states: (number | Error)[]) => {
   relayAnswers = states;
 };
 
-function inboxOf(proposerAccountIds: string[]) {
+function inboxOf(proposerAccountIds: string[], unresolvableProposers: string[] = []) {
   return fetchProposalInbox({
     proposerAccountIds,
+    unresolvableProposers,
     governanceAccountId: GOVERNANCE_ACCOUNT_ID,
     council,
     network: "testnet",
@@ -164,6 +165,14 @@ describe("fetchProposalInbox", () => {
     const { unreachableProposers } = await inboxOf([ALICE, BOB]);
 
     expect(unreachableProposers).toEqual([BOB]);
+  });
+
+  it("names a role holder that resolved to no account alongside the ones Mirror refused", async () => {
+    stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+
+    const { unreachableProposers } = await inboxOf([ALICE], ["0x00000000000000000000000000000000DeaDBeef"]);
+
+    expect(unreachableProposers).toEqual(["0x00000000000000000000000000000000DeaDBeef"]);
   });
 
   it("reads at most one page per proposer", async () => {

@@ -1,7 +1,6 @@
-import { type MirrorRequestOptions, isValidEntityId, mirrorRequest } from "./client";
+import { type MirrorRequestOptions, assertMirrorEntityRef, mirrorRequest } from "./client";
 import type { MirrorKey } from "./schedules";
 import { normalizeTransactionId } from "./transactions";
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 export type MirrorContractLog = {
   address: string;
@@ -69,8 +68,6 @@ export async function fetchContract(
   options: MirrorRequestOptions = {},
 ): Promise<MirrorContract> {
   const id = contractIdOrAddress.trim();
-  if (!isValidEntityId(id) && !isEvmAddress(id)) {
-    throw new Error(`Invalid contract ID: expected format 0.0.xxxxx or an EVM address, got ${id}`);
-  }
+  assertMirrorEntityRef(id, "contract ID");
   return mirrorRequest<MirrorContract>(`/api/v1/contracts/${encodeURIComponent(id)}`, options);
 }

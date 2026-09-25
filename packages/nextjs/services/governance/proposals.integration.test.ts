@@ -86,7 +86,7 @@ describe.skipIf(!fixtures)("the proposal inbox on testnet", () => {
         rpcUrl: getHederaRpcUrl(NETWORK),
       });
 
-      expect(proposers.length).toBeGreaterThan(0);
+      expect(proposers.accountIds.length).toBeGreaterThan(0);
     },
     STEP_TIMEOUT_MS,
   );
@@ -144,7 +144,7 @@ describe.skipIf(!fixtures)("the proposal inbox on testnet", () => {
   );
 
   async function readInbox() {
-    const [council, proposerAccountIds] = await Promise.all([
+    const [council, proposers] = await Promise.all([
       fetchCouncilKey(ids.governanceAccountId, NETWORK),
       fetchProposerAccountIds({
         executorContractId: ids.executorContractId,
@@ -154,7 +154,8 @@ describe.skipIf(!fixtures)("the proposal inbox on testnet", () => {
     ]);
 
     const inbox = await fetchProposalInbox({
-      proposerAccountIds,
+      proposerAccountIds: proposers.accountIds,
+      unresolvableProposers: proposers.unresolvable,
       governanceAccountId: ids.governanceAccountId,
       council,
       network: NETWORK,

@@ -2,8 +2,7 @@
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { useQuery } from "@tanstack/react-query";
-import { type MirrorAccount, fetchAccount, isValidEntityId } from "~~/services/mirror";
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
+import { type MirrorAccount, fetchAccount, isMirrorEntityRef } from "~~/services/mirror";
 
 type AccountQueryOptions = Omit<MirrorQueryOptions, "pollIntervalMs">;
 
@@ -15,7 +14,7 @@ export function useAccount(accountIdOrEvm: string | null | undefined, options: A
   return useQuery<MirrorAccount, Error>({
     queryKey: mirrorQueryKey(network, "account", id),
     queryFn: () => fetchAccount(id, { network }),
-    enabled: (options.enabled ?? true) && (isValidEntityId(id) || isEvmAddress(id)),
+    enabled: (options.enabled ?? true) && isMirrorEntityRef(id),
     retry: false,
   });
 }
