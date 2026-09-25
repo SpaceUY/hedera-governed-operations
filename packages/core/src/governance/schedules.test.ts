@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { fetchAccount } from "../mirror";
 import scheduleCreateTransaction from "../mirror/__fixtures__/transaction.json";
 import {
   MAX_PROPOSAL_EXPIRY_SECONDS,
@@ -14,10 +15,9 @@ import {
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { encodeFunctionData, parseAbi } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchAccount } from "~~/services/mirror";
 
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("../mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("../mirror")>()),
   fetchAccount: vi.fn(),
 }));
 

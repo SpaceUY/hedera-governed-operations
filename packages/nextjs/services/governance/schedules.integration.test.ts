@@ -9,7 +9,8 @@
  * Nothing here is charged to the governance account: the proposal never reaches its threshold, so the
  * scheduled call is withdrawn instead of executed and the seed proposal stays pending for the demo.
  */
-import { isSignedByKey } from "./council";
+import { Client, PrivateKey } from "@hiero-ledger/sdk";
+import { isSignedByKey } from "@sh/core/governance/council";
 import {
   buildExecuteProposalCall,
   buildProposalSchedule,
@@ -17,12 +18,11 @@ import {
   buildScheduleSign,
   fetchAccountPublicKey,
   scheduleIdFromTransaction,
-} from "./schedules";
-import { Client, PrivateKey } from "@hiero-ledger/sdk";
+} from "@sh/core/governance/schedules";
+import { deriveScheduleState, fetchSchedule, fetchTransaction } from "@sh/core/mirror";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadState } from "~~/scripts/setup/state";
-import { deriveScheduleState, fetchSchedule, fetchTransaction } from "~~/services/mirror";
 import { type BurnerSigner, createBurnerSigner } from "~~/services/web3/burnerSigner";
 
 const STATE_FILE = fileURLToPath(new URL("../../setup-state.json", import.meta.url));

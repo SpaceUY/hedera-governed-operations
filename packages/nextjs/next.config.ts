@@ -9,7 +9,7 @@ const { ProvidePlugin } = nodeRequire("webpack") as {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
-  transpilePackages: ["@hashgraph/hedera-wallet-connect", "@scaffold-hbar-ui/components"],
+  transpilePackages: ["@hashgraph/hedera-wallet-connect", "@scaffold-hbar-ui/components", "@sh/core"],
   typescript: {
     ignoreBuildErrors: process.env.NEXT_PUBLIC_IGNORE_BUILD_ERROR === "true",
   },

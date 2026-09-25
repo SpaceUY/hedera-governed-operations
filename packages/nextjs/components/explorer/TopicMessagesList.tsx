@@ -1,8 +1,8 @@
 "use client";
 
+import type { DecodedTopicMessage } from "@sh/core/mirror";
+import { isValidEntityId, mirrorTimestampToDate } from "@sh/core/mirror";
 import { useTopicMessagesFeed } from "~~/hooks/mirror";
-import type { DecodedTopicMessage } from "~~/services/mirror";
-import { isValidEntityId, mirrorTimestampToDate } from "~~/services/mirror";
 
 const FEED_LIMIT = 20;
 

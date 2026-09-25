@@ -13,7 +13,7 @@ import {
   TokenAssociateTransaction,
   TopicCreateTransaction,
 } from "@hiero-ledger/sdk";
-import { type MirrorTokenBalance, isMirrorNotFound, mirrorGet } from "~~/services/mirror";
+import { type MirrorTokenBalance, isMirrorNotFound, mirrorGet } from "@sh/core/mirror";
 import { parseOperatorKey } from "~~/services/operatorKey";
 
 /** HBAR sent from the operator to each demo account so it can pay its own fees during a demo. */

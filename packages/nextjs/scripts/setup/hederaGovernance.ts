@@ -24,8 +24,8 @@ import {
   TokenType,
   TransferTransaction,
 } from "@hiero-ledger/sdk";
+import { type MirrorAccount, fetchAccount } from "@sh/core/mirror";
 import { createPublicClient, http, parseAbi } from "viem";
-import { type MirrorAccount, fetchAccount } from "~~/services/mirror";
 
 /**
  * HBAR the governance account starts with. It is the payer of every scheduled approval, and the

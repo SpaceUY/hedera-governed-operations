@@ -1,8 +1,8 @@
 "use client";
 
 import { useHederaSigner } from "./useHederaSigner";
+import { buildScheduleSign } from "@sh/core/governance/schedules";
 import { useMutation } from "@tanstack/react-query";
-import { buildScheduleSign } from "~~/services/governance/schedules";
 
 /** One council member's approval. For a rotation this counts toward whichever side (outgoing or
  * incoming) the signer's key belongs to. */

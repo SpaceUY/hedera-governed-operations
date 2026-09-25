@@ -1,8 +1,8 @@
 import { SAUCERSWAP_V2_QUOTER_ABI } from "./saucerSwapV2Abi";
 import type { SaucerSwapQuoter } from "./saucerSwapV2Provider";
 import { ContractId } from "@hiero-ledger/sdk";
+import { createRelayClient } from "@sh/core/relayClient";
 import type { Address } from "viem";
-import { createRelayClient } from "~~/services/web3/relayClient";
 
 export type JsonRpcQuoterOptions = {
   rpcUrl: string;

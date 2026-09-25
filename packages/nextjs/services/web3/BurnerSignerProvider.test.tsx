@@ -1,14 +1,14 @@
 import { BurnerSignerProvider, useBurnerSigner } from "./BurnerSignerProvider";
 import { BURNER_PRIVATE_KEY_STORAGE_KEY } from "./burnerSigner";
 import { PrivateKey } from "@hiero-ledger/sdk";
+import { fetchAccount } from "@sh/core/mirror";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import * as chains from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { fetchAccount } from "~~/services/mirror";
 
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
   fetchAccount: vi.fn(),
 }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: vi.fn() }));

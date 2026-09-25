@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
+import { isEvmAddress, truncateIdentity } from "@sh/core/identity";
 import { BlockieAvatar } from "~~/components/scaffold-hbar";
 import { proofWallConfig } from "~~/config/proofWallConfig";
 import type { TopicMessage } from "~~/hooks/useTopicMessages";
-import { isEvmAddress, truncateIdentity } from "~~/utils/scaffold-hbar/identity";
 
 type ProofCardProps = {
   message: TopicMessage;

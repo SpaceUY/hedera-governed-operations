@@ -1,8 +1,8 @@
 import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useAccount } from "./useAccount";
+import account from "@sh/core/mirror/__fixtures__/account.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import account from "~~/services/mirror/__fixtures__/account.json";
 
 afterEach(() => {
   cleanup();

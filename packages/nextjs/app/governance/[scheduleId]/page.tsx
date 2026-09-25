@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { Hbar } from "@hiero-ledger/sdk";
+import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
@@ -12,7 +13,6 @@ import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalActions";
 import { approvalsLabel, registryLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
-import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { WALLET_REJECTED_MESSAGE, isWalletRejection } from "~~/services/web3/hederaSigner";
 
 const toFriendlyMessage = (error: unknown) =>

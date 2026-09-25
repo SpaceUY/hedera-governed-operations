@@ -1,4 +1,6 @@
 // @vitest-environment node
+import type { MirrorSchedule } from "../mirror";
+import executedSchedule from "../mirror/__fixtures__/schedule-executed.json";
 import recorded from "./__fixtures__/scheduled-bodies.json";
 import type { CouncilKey } from "./council";
 import { fetchProposalInbox } from "./proposals";
@@ -6,8 +8,6 @@ import { REGISTRY_ABI } from "./registry";
 import { proto } from "@hiero-ledger/proto";
 import { encodeFunctionData, encodeFunctionResult, hexToBytes, parseAbi } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MirrorSchedule } from "~~/services/mirror";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.10590498";
 const ALICE = "0.0.10671142";

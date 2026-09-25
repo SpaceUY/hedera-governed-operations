@@ -1,14 +1,14 @@
 import { useCreateNativeProposal } from "./useCreateNativeProposal";
 import { AccountId, Hbar, PrivateKey, TransferTransaction } from "@hiero-ledger/sdk";
+import { MirrorNodeError, fetchTransaction } from "@sh/core/mirror";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueryWrapper } from "~~/hooks/mirror/testUtils";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
-import { MirrorNodeError, fetchTransaction } from "~~/services/mirror";
 
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
   fetchTransaction: vi.fn(),
   fetchAccount: vi.fn(),
 }));
@@ -34,7 +34,7 @@ describe("useCreateNativeProposal", () => {
     const executeTransaction = vi.fn().mockResolvedValue({ transactionId: `${PROPOSER_ID}@1.0` });
     vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
 
-    const { fetchAccount } = await import("~~/services/mirror");
+    const { fetchAccount } = await import("@sh/core/mirror");
     vi.mocked(fetchAccount).mockResolvedValue({
       key: { _type: "ECDSA_SECP256K1", key: PrivateKey.generateECDSA().publicKey.toStringRaw() },
     } as never);
@@ -60,7 +60,7 @@ describe("useCreateNativeProposal", () => {
     const executeTransaction = vi.fn().mockResolvedValue({ transactionId: `${PROPOSER_ID}@1.0` });
     vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
 
-    const { fetchAccount } = await import("~~/services/mirror");
+    const { fetchAccount } = await import("@sh/core/mirror");
     vi.mocked(fetchAccount).mockResolvedValue({
       key: { _type: "ECDSA_SECP256K1", key: PrivateKey.generateECDSA().publicKey.toStringRaw() },
     } as never);

@@ -7,11 +7,11 @@ import {
   resolveBurnerAccountId,
 } from "./burnerSigner";
 import { Client, Hbar, PrivateKey, TopicCreateTransaction, TransferTransaction } from "@hiero-ledger/sdk";
+import { MirrorNodeError, fetchAccount } from "@sh/core/mirror";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MirrorNodeError, fetchAccount } from "~~/services/mirror";
 
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
   fetchAccount: vi.fn(),
 }));
 

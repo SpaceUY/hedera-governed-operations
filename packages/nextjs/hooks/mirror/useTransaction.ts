@@ -7,8 +7,8 @@ import {
   mirrorQueryKey,
   resolvePendingRefetchInterval,
 } from "./mirrorQuery";
+import { type MirrorTransaction, fetchTransaction, isTransactionId } from "@sh/core/mirror";
 import { useQuery } from "@tanstack/react-query";
-import { type MirrorTransaction, fetchTransaction, isTransactionId } from "~~/services/mirror";
 
 function hasRows(rows: MirrorTransaction[] | undefined): boolean | undefined {
   if (rows === undefined) return undefined;

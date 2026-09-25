@@ -1,9 +1,9 @@
 "use client";
 
+import type { ScheduleStatus } from "@sh/core/mirror";
+import { isMirrorNotFound, isValidEntityId } from "@sh/core/mirror";
 import { proofWallConfig } from "~~/config/proofWallConfig";
 import { useSchedule } from "~~/hooks/mirror";
-import type { ScheduleStatus } from "~~/services/mirror";
-import { isMirrorNotFound, isValidEntityId } from "~~/services/mirror";
 
 const STATUS_BADGE_CLASS: Record<ScheduleStatus, string> = {
   pending: "badge-warning",

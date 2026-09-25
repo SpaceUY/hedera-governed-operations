@@ -1,8 +1,8 @@
 "use client";
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
+import { type MirrorToken, fetchToken, isMirrorEntityRef, parseTokenDecimals } from "@sh/core/mirror";
 import { useQuery } from "@tanstack/react-query";
-import { type MirrorToken, fetchToken, isMirrorEntityRef, parseTokenDecimals } from "~~/services/mirror";
 
 export type TokenQueryData = {
   token: MirrorToken;

@@ -1,4 +1,4 @@
-import type { Proposal } from "./proposals";
+import type { Proposal } from "@sh/core/governance/proposals";
 
 type SignableFacts = Pick<Proposal, "state" | "operation" | "registry">;
 
