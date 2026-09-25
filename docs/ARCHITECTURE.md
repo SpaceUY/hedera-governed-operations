@@ -138,6 +138,7 @@ Rules that make this work (verified on testnet):
 | Wallet signer    | `services/web3/hederaSigner.ts`                                                                                                                              | WalletConnect calls: sign-and-execute, sign-only, batch inner-transaction helpers                        |
 | Wallet bootstrap | `services/web3/appKitHedera.ts`, `hederaWalletConnect.tsx`, `NativeTransactionSignerBridge.tsx`                                                              | AppKit + `HederaProvider` singletons, session context, bridge to `@scaffold-hbar-ui/hooks`               |
 | Mirror client    | `services/mirrorNode.ts`, `hooks/mirror/*`                                                                                                                   | Typed REST client (HTTP only) and React Query hooks; all reads go through here                           |
+| Proposals        | `services/governance/schedules.ts`                                                                                                                           | A proposal as a scheduled transaction: create with the governance account as payer, sign, withdraw |
 | Swap provider    | `services/swap/*`                                                                                                                                            | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
 | Operator client  | `services/hederaClient.ts`                                                                                                                                   | Server-side `Client` with the operator key; used only by route handlers                                  |
 | Setup script     | root `yarn setup`                                                                                                                                            | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
@@ -155,6 +156,7 @@ Rules that make this work (verified on testnet):
 | **Batch inner txs never set node ids** | `setNodeAccountIds` blocks `freeze()` from pinning node `0.0.0`, which HIP-551 inner transactions require                                                                  |
 | **HTS keys can be a contract id**       | A council cannot sign an HTS operation: scheduling one is refused outright and a scheduled contract call cannot present the governance key to `0x167`. The token's keys point at `TokenAdmin` instead — see [Governing an HTS token](#governing-an-hts-token-the-contract-as-the-tokens-key) |
 | **Schedules are indexed by creator**   | Mirror `/schedules?account.id=` filters by `creator_account_id`, and it lists the payer's signature, which does not count toward a threshold key                           |
+| **The proposer withdraws a proposal**  | A schedule is deletable only through an admin key fixed at creation, and that key must sign the creation — so it is the proposer's, not the council's. See [Withdrawing a proposal](#withdrawing-a-proposal-schedule-or-registry) |
 | **On-chain quoting for swaps**         | SaucerSwap API reserves do not reflect concentrated-liquidity prices; `amountOutMinimum` must come from `QuoterV2` or the pool's `sqrtRatioX96`                            |
 | **Test signer is testnet-only**        | The burner signs with a key stored in the browser; `burnerSignerPolicy.ts` ignores it on mainnet and, in production builds, unless `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` |
 | **Setup targets testnet only**         | `yarn setup` spends operator HBAR and creates entities; it refuses other networks so a misconfigured `.env` cannot touch mainnet                                           |
@@ -240,6 +242,29 @@ loophole.
 included, which puts the schedule's gas limit at 90,000. The limit is a price, not a ceiling (see
 the table above), so it belongs to the operation: a token-admin proposal is not an upgrade (99k) and
 not a swap (241k).
+
+## Withdrawing a proposal: schedule or registry
+
+A pending proposal exists twice — as an entry in `GovernedExecutor` and as the scheduled transaction
+the council signs — and each one is retracted differently.
+
+**The schedule.** Hedera deletes a schedule only through an admin key fixed when the schedule is
+created; without one, `ScheduleDelete` comes back `SCHEDULE_IS_IMMUTABLE` and the only way out is
+waiting for the expiry. And naming a key that does not sign the `ScheduleCreate` fails with
+`INVALID_SIGNATURE`, which settles whose key it is: the governance account's threshold key in that
+slot would make opening a proposal an m-of-n vote of its own, so the admin key is the proposer's own
+key, read from the Mirror Node at creation time (`fetchAccountPublicKey`). Deleting ends **one round
+of approval**: the registry entry stays pending and anyone may schedule `execute(id)` again.
+
+**The registry.** `cancel(id)` ends the proposal itself, and the proposer can call it directly — no
+schedule, no quorum — because the contract grants cancellation to the proposer and to the governance
+account. For the council, cancelling is a proposal like any other.
+
+The two have to move in that order. A schedule left alive for an already cancelled proposal is a
+trap: when its threshold is reached, `execute` reverts with `ProposalNotPending` and the governance
+account pays for the gas the revert consumed. So the app deletes the schedule first and cancels
+afterwards. A native proposal — rotating the council through an `AccountUpdate` — has no registry
+entry at all, and there the delete is the only retraction there is.
 
 ## What a redeploy repairs, and what it does not
 
