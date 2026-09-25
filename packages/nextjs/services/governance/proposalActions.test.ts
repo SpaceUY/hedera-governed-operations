@@ -1,4 +1,4 @@
-import { canBeSigned, canBeWithdrawnBy } from "./proposalActions";
+import { canBeSigned, canBeWithdrawnBy, canOpenProposal } from "./proposalActions";
 import type { ScheduledOperation } from "./proposalTypes";
 import type { RegistryCrossCheck, RegistryEntry } from "./registry";
 import { describe, expect, it } from "vitest";
@@ -106,5 +106,22 @@ describe("canBeWithdrawnBy", () => {
 
   it("hides the action once the schedule has settled", () => {
     expect(canBeWithdrawnBy({ schedule, state: stateOf("executed") }, PROPOSER)).toBe(false);
+  });
+});
+
+describe("canOpenProposal", () => {
+  const proposers = ["0.0.1001"];
+
+  it("needs a connected account", () => {
+    expect(canOpenProposal("treasuryTransfer", null, proposers)).toBe(false);
+  });
+
+  it("lets any connected account open a native proposal", () => {
+    expect(canOpenProposal("treasuryTransfer", "0.0.5555", proposers)).toBe(true);
+  });
+
+  it("needs PROPOSER_ROLE for a registry proposal, since createProposal reverts without it", () => {
+    expect(canOpenProposal("upgrade", "0.0.5555", proposers)).toBe(false);
+    expect(canOpenProposal("upgrade", "0.0.1001", proposers)).toBe(true);
   });
 });

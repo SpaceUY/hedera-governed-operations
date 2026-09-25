@@ -19,6 +19,17 @@ export type NativeProposalKind = "treasuryTransfer" | "councilRotation";
 
 export type ProposalKind = ContractProposalKind | NativeProposalKind;
 
+export const CONTRACT_PROPOSAL_KINDS = [
+  "upgrade",
+  "treasurySwap",
+  "tokenAdmin",
+] as const satisfies readonly ContractProposalKind[];
+
+/** Whether a kind goes through `GovernedExecutor`, and so needs `PROPOSER_ROLE` and a registry entry. */
+export function isContractProposalKind(kind: ProposalKind): kind is ContractProposalKind {
+  return (CONTRACT_PROPOSAL_KINDS as readonly ProposalKind[]).includes(kind);
+}
+
 /**
  * `executeGas` is the limit of the scheduled `execute(id)` that runs the operation, and only the
  * contract-backed kinds have one. A scheduled call that succeeds is charged its whole limit, so
