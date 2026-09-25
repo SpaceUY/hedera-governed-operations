@@ -30,6 +30,18 @@ describe("useToken", () => {
     expect(result.current.data?.decimals).toBe(0);
   });
 
+  it("runs for the EVM address a decoded proposal carries", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(token));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useToken("0x0000000000000000000000000000000000A2d443"), {
+      wrapper: createQueryWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/tokens/0x0000000000000000000000000000000000A2d443");
+  });
+
   it("surfaces a 404 as an error instead of polling", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({}, 404)));
 

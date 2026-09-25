@@ -3,13 +3,21 @@
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { useQuery } from "@tanstack/react-query";
 import { type MirrorTokenRelationship, fetchTokenRelationship, isValidEntityId } from "~~/services/mirror";
+import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 type TokenRelationshipQueryOptions = Omit<MirrorQueryOptions, "pollIntervalMs">;
 
+function isMirrorEntityRef(value: string): boolean {
+  return isValidEntityId(value) || isEvmAddress(value);
+}
+
 /**
  * Reads how one account stands with one token, which is what a freeze or unfreeze
- * proposal acts on. `null` data means the account never associated the token — a
- * successful read, and the reason freezing it would be refused.
+ * proposal acts on. Either id may be a `0.0.x` id or the EVM address a decoded
+ * proposal carries.
+ *
+ * `null` data is a successful read with no relationship to show, and the reason
+ * freezing that account would be refused.
  */
 export function useTokenRelationship(
   accountId: string | null | undefined,
@@ -23,7 +31,7 @@ export function useTokenRelationship(
   return useQuery<MirrorTokenRelationship | null, Error>({
     queryKey: mirrorQueryKey(network, "token-relationship", account, token),
     queryFn: () => fetchTokenRelationship(account, token, { network }),
-    enabled: (options.enabled ?? true) && isValidEntityId(account) && isValidEntityId(token),
+    enabled: (options.enabled ?? true) && isMirrorEntityRef(account) && isMirrorEntityRef(token),
     retry: false,
   });
 }

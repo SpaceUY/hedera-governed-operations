@@ -3,6 +3,7 @@
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { useQuery } from "@tanstack/react-query";
 import { type MirrorToken, fetchToken, isValidEntityId, parseTokenDecimals } from "~~/services/mirror";
+import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 export type TokenQueryData = {
   token: MirrorToken;
@@ -12,7 +13,10 @@ export type TokenQueryData = {
 
 type TokenQueryOptions = Omit<MirrorQueryOptions, "pollIntervalMs">;
 
-/** Reads a token's metadata and pause state. Not polled: only a passed proposal changes them. */
+/**
+ * Reads a token's metadata and pause state by `0.0.x` id or EVM address — a decoded
+ * proposal names its token in the second form. Not polled: only a passed proposal changes them.
+ */
 export function useToken(tokenId: string | null | undefined, options: TokenQueryOptions = {}) {
   const network = options.network ?? getDefaultMirrorNetwork();
   const id = tokenId?.trim() ?? "";
@@ -23,7 +27,7 @@ export function useToken(tokenId: string | null | undefined, options: TokenQuery
       const token = await fetchToken(id, { network });
       return { token, decimals: parseTokenDecimals(token.decimals) };
     },
-    enabled: (options.enabled ?? true) && isValidEntityId(id),
+    enabled: (options.enabled ?? true) && (isValidEntityId(id) || isEvmAddress(id)),
     retry: false,
   });
 }

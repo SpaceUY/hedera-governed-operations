@@ -33,6 +33,23 @@ describe("useTokenRelationship", () => {
     expect(result.current.data?.freeze_status).toBe("UNFROZEN");
   });
 
+  it("runs for the EVM addresses a decoded freeze proposal carries", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(tokenRelationships));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(
+      () =>
+        useTokenRelationship(
+          "0x00000000000000000000000000000000007d02ac",
+          "0x0000000000000000000000000000000000A2d443",
+        ),
+      { wrapper: createQueryWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("succeeds with no relationship when the account never associated the token", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ tokens: [], links: { next: null } })));
 
