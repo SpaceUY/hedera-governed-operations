@@ -425,7 +425,7 @@ HEDERA_NETWORK=testnet`;
           </section>
 
           <p className="text-center text-sm text-base-content/50">
-            <Link href="/" className="link link-primary">
+            <Link href="/proof-wall" className="link link-primary">
               ← Back to Proof Wall
             </Link>
           </p>

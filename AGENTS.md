@@ -6,9 +6,9 @@ This is a **Hedera template with two workspaces**: `packages/nextjs` (HCS topics
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
-The governance UI (a live map of the on-chain entities plus a proposal wizard, replacing Proof Wall as `/`) is planned but not yet built — no hooks, components, or routes exist for it. See `docs/GOVERNANCE_UI.md` for the frontend architecture plan (directory layout, componentization, state management, and the confirmed approach for decoding the council's threshold key from Mirror) before starting work in this area.
+The governance UI now owns `/`: a minimal governance home (treasury figures, the council's threshold, the pending proposals) and a proposal detail page at `/governance/[scheduleId]` with Sign, Withdraw and Cancel, backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`. The live map of the on-chain entities and the proposal wizard are still to be built on top of that substrate. See `docs/GOVERNANCE_UI.md` for the frontend architecture plan (directory layout, componentization, state management, and the confirmed approach for decoding the council's threshold key from Mirror) before starting work in this area.
 
-<!-- TODO(agents): once docs/GOVERNANCE_UI.md is implemented, update the App overview route table, the Layout section (new hooks/components/services), and remove the "planned" framing above and in the docs/ list below. -->
+<!-- TODO(agents): once the rest of docs/GOVERNANCE_UI.md (live map, wizard) is implemented, update the Layout section (new hooks/components/services) and the "planned" framing in the docs/ list below. -->
 
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
@@ -38,15 +38,17 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 ## App overview
 
-| Route           | Purpose                                                               |
-| --------------- | --------------------------------------------------------------------- |
-| `/`             | Proof Wall — submit proofs, browse HCS feed for the active topic      |
-| `/my-proofs`    | Proofs filtered by connected account; badge display                   |
-| `/admin`        | Create HCS topic and HTS badge token (wallet-signed)                  |
-| `/explorer`     | Read-only Mirror Node view: decoded topic messages and schedule state |
-| `/api/hedera/*` | Mirror Node proxies, operator status, badge airdrop (operator-signed) |
+| Route                      | Purpose                                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                        | Governance home — treasury figures, council threshold, pending proposals; a setup notice until `yarn setup` and the deploy have run |
+| `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)   |
+| `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                    |
+| `/my-proofs`               | Proofs filtered by connected account; badge display                                                                                 |
+| `/admin`                   | Create HCS topic and HTS badge token (wallet-signed)                                                                                |
+| `/explorer`                | Read-only Mirror Node view: decoded topic messages and schedule state                                                               |
+| `/api/hedera/*`            | Mirror Node proxies, operator status, badge airdrop (operator-signed)                                                               |
 
-Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env).
+Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env) and `packages/nextjs/config/governanceConfig.ts` (the ids `yarn setup` writes, deployed contract lookup).
 
 ## Layout
 

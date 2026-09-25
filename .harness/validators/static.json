@@ -22,16 +22,20 @@
       ".harness/spec.yaml",
       ".harness/prd.md"
     ],
-    "forbidden": [
-      ".env",
-      "packages/nextjs/.env",
-      "packages/hardhat/.env"
-    ]
+    "forbidden": [".env", "packages/nextjs/.env", "packages/hardhat/.env"]
   },
   "textAssertions": [
     {
       "file": "README.md",
       "contains": ["yarn install", "yarn next:dev"]
+    },
+    {
+      "file": "packages/nextjs/app/page.tsx",
+      "contains": ["Governed Operations", "Pending proposals"]
+    },
+    {
+      "file": "packages/nextjs/components/SetupNotice.tsx",
+      "contains": ["Governance is not set up yet"]
     },
     {
       "file": "packages/hardhat/hardhat.config.ts",
