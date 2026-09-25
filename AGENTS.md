@@ -64,6 +64,8 @@ packages/nextjs/
     useBadgeTokens.ts     Badge balance / eligibility
     mirror/               React Query hooks over services/mirror
       useSchedule.ts        Schedule + derived state; polls while pending
+      useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
+      useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
       useTransaction.ts     Mirror rows for a tx id; polls until indexed
       useAccount.ts         Account by 0.0.x id or EVM address
       useTopicMessagesFeed.ts  Decoded topic messages straight from Mirror
@@ -87,6 +89,8 @@ packages/nextjs/
       __fixtures__/         Recorded Mirror responses used by the tests
     governance/           Proposals as scheduled transactions
       schedules.ts          ScheduleCreate with the governance account as payer, ScheduleSign, ScheduleDelete
+      council.ts            Threshold key (who approves) and PROPOSER_ROLE (who proposes), read from the ledger
+      proposals.ts          The inbox: schedules by proposer, narrowed to the governance account's, with m-of-n
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)
@@ -100,7 +104,7 @@ packages/hardhat/
   scripts/                Deployer account management, ABI generation, Sourcify verification
   hardhat.config.ts       Networks (hardhat, localhost, hederaTestnet, hederaMainnet), Sourcify, typechain
 .harness/                 Hedera Harness recipe (spec, prd, validators, eval)
-docs/                     ARCHITECTURE.md, RUNBOOK.md, GOVERNANCE_UI.md (planned frontend architecture)
+docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_UI.md (planned frontend architecture)
 ```
 
 ## Hedera integration patterns
@@ -127,7 +131,10 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GOVERNANCE_UI.md (planned
 
 - `DAppSigner.freezeWithSigner` (`hedera-wallet-connect` 2.1.x) does **not** set node account ids; freeze with a `Client.forTestnet()` / `forMainnet()` before `executeWithSigner` or the wallet call fails.
 - Mirror `GET /schedules?account.id=X` filters by **creator** of the schedule (`creator_account_id`), not by `payer_account_id`; querying with the payer returns an empty list. See `fetchSchedulesByCreator`.
-- Mirror lists the **payer's signature** on a schedule too (added implicitly by `ScheduleCreate`); it does not count toward a threshold key, so `signatures.length` is an upper bound. Filter signatures by the keys that make up the threshold key.
+- **A schedule's `m of n` is not `signatures.length`.** Mirror records a row for every key that signed anything touching the schedule, and two kinds never count toward the threshold: the row `ScheduleCreate` adds for whoever paid to open the proposal, and the row every `ScheduleSign` adds for whoever paid to submit it. Measured on testnet, an executed 2-of-3 proposal shows **four** rows — two members and the payer twice. Count **council members, not rows** (`countThresholdSignatures`): a member is in or out however many rows carry its key. Do not discard every creator signature either — when the proposer holds a seat, which is what the demo does, it counts once and legitimately.
+- **The members of a threshold key come back as an opaque blob.** Mirror returns the governance account's key as `_type: "ProtobufEncoded"`, so `fetchCouncilKey` decodes it with `@hiero-ledger/proto` — the package the Hiero SDK already depends on, so it adds nothing to the bundle, and its version has to follow the SDK's. Read it from the ledger, never from env: rotating the council is itself a proposal. Match a signature to a member in **hex**, since `public_key_prefix` is a prefix and base64 packs three bytes into four characters.
+- **Mirror has no query for "proposals of the governance account".** `GET /schedules?account.id=X` filters by creator, and a proposal is defined by its payer, so the inbox is the union of the schedules each `PROPOSER_ROLE` holder created, narrowed to the ones the governance account pays for. A native proposal needs no role, so one opened outside it is never listed — accepted, and reachable by its schedule id.
+- Reading a contract from the browser goes through the **JSON-RPC relay** (`createPublicClient` + `getHederaRpcUrl`), not `ContractCallQuery`: there is no operator key on the client. Under jsdom viem's fetch fails on a cross-realm `AbortSignal`, so tests that read a contract run with `// @vitest-environment node`.
 - Mirror Node lag: reads right after consensus return 404 or stale pages. Retry with backoff (`utils/scaffold-hbar/resolve*`) instead of failing.
 - Swap quoting must be **on-chain** (`QuoterV2` or the pool's `sqrtRatioX96`). Reserve numbers from the SaucerSwap API do not give the concentrated-liquidity price; using them for `amountOutMinimum` reverts with `Too little received`. `QuoterV2.quoteExactInputSingle` is not `view` — it simulates the swap and reverts internally — so it has to go through the relay's `eth_call` (`createJsonRpcQuoter`); the SDK's `ContractCallQuery` rejects it in precheck with `INSUFFICIENT_GAS` at any gas value.
 - **The gas limit on a scheduled contract call is a price, not a ceiling.** A scheduled call that succeeds is charged the whole limit; one that reverts is charged only what it consumed. Measured on testnet at 109 tinybar per gas unit: the same treasury swap cost 1.6350 HBAR with a 1,500,000 limit and 0.3161 HBAR with a 290,000 one, and the vault upgrade consumed 99,015 of a 300,000 limit and still paid for all 300,000. So the limit belongs to the operation, not to a shared constant — an upgrade proposal and a swap proposal are 99k and 241k of work, and the governance account pays the difference for any headroom left unused.

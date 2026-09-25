@@ -178,6 +178,7 @@ _Release demo evidence: coming with the first release._
 
 - [Architecture](docs/ARCHITECTURE.md) — signing flows, module map, verified network constraints
 - [Runbook](docs/RUNBOOK.md) — step-by-step reproduction on testnet, harness stages, troubleshooting
+- [Glossary](docs/GLOSSARY.md) — Hedera terms as used in this template
 - [AGENTS.md](AGENTS.md) — briefing for coding agents (Cursor, Claude Code, Codex)
 
 ## Links

@@ -139,6 +139,8 @@ Rules that make this work (verified on testnet):
 | Wallet bootstrap | `services/web3/appKitHedera.ts`, `hederaWalletConnect.tsx`, `NativeTransactionSignerBridge.tsx`                                                              | AppKit + `HederaProvider` singletons, session context, bridge to `@scaffold-hbar-ui/hooks`               |
 | Mirror client    | `services/mirrorNode.ts`, `hooks/mirror/*`                                                                                                                   | Typed REST client (HTTP only) and React Query hooks; all reads go through here                           |
 | Proposals        | `services/governance/schedules.ts`                                                                                                                           | A proposal as a scheduled transaction: create with the governance account as payer, sign, withdraw |
+| Council          | `services/governance/council.ts`, `hooks/mirror/useCouncil.ts`                                                                                               | Who approves (the threshold key) and who may propose (`PROPOSER_ROLE`), read from the ledger |
+| Proposal inbox   | `services/governance/proposals.ts`, `hooks/mirror/useProposals.ts`                                                                                           | The council's open proposals and each one's progress — see [The proposal inbox](#the-proposal-inbox) |
 | Swap provider    | `services/swap/*`                                                                                                                                            | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
 | Operator client  | `services/hederaClient.ts`                                                                                                                                   | Server-side `Client` with the operator key; used only by route handlers                                  |
 | Setup script     | root `yarn setup`                                                                                                                                            | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
@@ -242,6 +244,54 @@ loophole.
 included, which puts the schedule's gas limit at 90,000. The limit is a price, not a ceiling (see
 the table above), so it belongs to the operation: a token-admin proposal is not an upgrade (99k) and
 not a swap (241k).
+
+## The proposal inbox
+
+Listing what the council has open runs into a Mirror Node constraint: `GET /schedules?account.id=X`
+matches the **creator** of a schedule, never its payer. A proposal is defined by its payer — the
+governance account — so there is no single query that returns them. The list is assembled the other
+way round: ask the executor who holds `PROPOSER_ROLE`, read the schedules each of them created, and
+keep the ones the governance account pays for.
+
+Reading the role needs `AccessControlEnumerable` rather than plain `AccessControl`, which only
+answers whether a given account holds a role. It goes through the JSON-RPC relay, because the
+browser has no operator key to sign a `ContractCallQuery` with. The role stores EVM addresses while
+Mirror wants `0.0.x` ids, and an account created from an ECDSA key is reached by a key-derived alias
+rather than by the long-zero form of its id, so each address is resolved through the Mirror Node.
+
+**The blind spot this leaves, accepted and mitigated.** A native proposal needs no `PROPOSER_ROLE`:
+anyone can open a schedule the governance account pays for. Such a proposal is not in the list. It
+is not a security hole — without the threshold it cannot run, and the payer's key is what gates the
+spending — and any proposal remains inspectable by its schedule id.
+
+One proposer Mirror cannot be read for yields a partial list naming that proposer, rather than an
+empty screen: with several proposers, a transient failure on one should not hide the rest.
+
+### Counting approvals, not signatures
+
+`m of n` cannot be read off `signatures.length`. Mirror records a signature row for every key that
+signed any transaction touching the schedule, and two kinds of row never count toward the threshold:
+the one `ScheduleCreate` adds for whoever paid to open the proposal, and the one every
+`ScheduleSign` adds for whoever paid to submit it. Measured on testnet, an executed 2-of-3 proposal
+shows **four** rows — two council members, and the payer twice.
+
+The rule that survives this is to count **council members, not rows**: a member is in or out however
+many rows carry its key. It also gets right the case the demo runs on, where the same person opens a
+proposal and approves it — there the creator's signature counts, once, because the creator holds a
+seat. Treating every creator signature as noise would show `0 of 2` for a proposal that really has
+one approval.
+
+The members come from the governance account's key, read from the ledger rather than from
+configuration: rotating the council is itself a proposal, so a value in the environment would start
+lying the moment one passed. Mirror returns that key as `ProtobufEncoded`, an opaque blob, so
+decoding it uses `@hiero-ledger/proto` — the package the Hiero SDK already ships, which is why it
+adds nothing to the bundle. Matching a signature to a member happens in hex, since
+`public_key_prefix` is a prefix and base64 packs three bytes into four characters.
+
+**What the inbox does not know.** Its state comes from the schedule: pending, executed, deleted or
+expired. A proposal whose registry entry was cancelled on its own leaves a schedule that still looks
+open — see [Withdrawing a proposal](#withdrawing-a-proposal-schedule-or-registry). Telling the two
+apart needs the proposal id, which is inside the scheduled transaction body.
 
 ## Withdrawing a proposal: schedule or registry
 
