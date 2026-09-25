@@ -1,4 +1,6 @@
 export * from "./useAccount";
+export * from "./useCouncil";
+export * from "./useProposals";
 export * from "./useSchedule";
 export * from "./useTopicMessagesFeed";
 export * from "./useTransaction";

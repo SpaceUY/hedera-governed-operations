@@ -42,3 +42,21 @@ export function getHederaNetworkNameFromChainId(chainId: number): HederaNetworkN
   if (chainId === chains.hederaTestnet.id) return "testnet";
   throw new Error(`Unsupported Hedera chain ID: ${chainId}`);
 }
+
+/**
+ * Narrows the free-form network name the env carries (`NEXT_PUBLIC_HEDERA_NETWORK`) to the two the
+ * app supports, falling back to testnet the way the Mirror Node client already does.
+ */
+export function toHederaNetworkName(network: string): HederaNetworkName {
+  return network.toLowerCase() === "mainnet" ? "mainnet" : "testnet";
+}
+
+const HEDERA_CHAIN_ID = {
+  testnet: chains.hederaTestnet.id,
+  mainnet: chains.hedera.id,
+} as const satisfies Record<HederaNetworkName, number>;
+
+/** JSON-RPC relay endpoint, for reading a contract without an operator key. Overridden from env in `scaffold.config.ts`. */
+export function getHederaRpcUrl(network: HederaNetworkName): string {
+  return scaffoldConfig.rpcOverrides[HEDERA_CHAIN_ID[network]];
+}
