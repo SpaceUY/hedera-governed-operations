@@ -141,6 +141,8 @@ Rules that make this work (verified on testnet):
 | Proposals        | `services/governance/schedules.ts`                                                                                                                           | A proposal as a scheduled transaction: create with the governance account as payer, sign, withdraw |
 | Council          | `services/governance/council.ts`, `hooks/mirror/useCouncil.ts`                                                                                               | Who approves (the threshold key) and who may propose (`PROPOSER_ROLE`), read from the ledger |
 | Proposal inbox   | `services/governance/proposals.ts`, `hooks/mirror/useProposals.ts`                                                                                           | The council's open proposals and each one's progress — see [The proposal inbox](#the-proposal-inbox) |
+| Proposal kinds   | `services/governance/proposalTypes.ts`, `encode.ts`, `decode.ts`                                                                                             | The five kinds: form values to transactions, and a scheduled body back to a described operation — see [Reading a proposal](#reading-a-proposal-two-layers) |
+| Proposal registry | `services/governance/registry.ts`                                                                                                                           | `GovernedExecutor`: the entry behind a proposal, retiring one, and the id a registration returned |
 | Swap provider    | `services/swap/*`                                                                                                                                            | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
 | Operator client  | `services/hederaClient.ts`                                                                                                                                   | Server-side `Client` with the operator key; used only by route handlers                                  |
 | Setup script     | root `yarn setup`                                                                                                                                            | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
@@ -288,10 +290,53 @@ decoding it uses `@hiero-ledger/proto` — the package the Hiero SDK already shi
 adds nothing to the bundle. Matching a signature to a member happens in hex, since
 `public_key_prefix` is a prefix and base64 packs three bytes into four characters.
 
-**What the inbox does not know.** Its state comes from the schedule: pending, executed, deleted or
-expired. A proposal whose registry entry was cancelled on its own leaves a schedule that still looks
-open — see [Withdrawing a proposal](#withdrawing-a-proposal-schedule-or-registry). Telling the two
-apart needs the proposal id, which is inside the scheduled transaction body.
+**Two records of the same proposal.** The schedule's own state — pending, executed, deleted or
+expired — does not know whether the registry entry behind it was cancelled on its own, which leaves
+a schedule that still looks open. Telling the two apart needs the proposal id, which is inside the
+scheduled transaction body: see [Reading a proposal](#reading-a-proposal-two-layers).
+
+## Reading a proposal: two layers
+
+A schedule carries its payload as a base64 `SchedulableTransactionBody`. Without decoding it the
+council is asked to approve a blob, so the inbox and the detail screen decode every body they list.
+
+Two of the five kinds are readable straight from that body. A treasury transfer is a
+`CryptoTransfer` and a council rotation a `CryptoUpdate` on the governance account itself, and both
+are on the scheduling whitelist, so the council approves the operation directly. The other three —
+upgrade, treasury swap and token administration — are a `ContractCall` to `execute(id)`, which names
+only the registry entry that holds the real operation. Describing one of those takes a second step:
+read `proposal(id)` from `GovernedExecutor` through the relay and decode the call it stores.
+
+That second read is also the cross-check. `proposal(id)` returns the target, the stored calldata and
+the state in one answer, so asking what a proposal does and asking whether it is still alive are the
+same relay call, made once per pending proposal.
+
+**Nothing throws on a body it does not understand.** Anyone can open a schedule the governance
+account pays for, so the inbox will meet bodies that are none of the five kinds. Every failure comes
+back as an `unrecognized` result carrying the reason, for the screen to show beside the raw body,
+because a decoder that threw on one row would take the whole list down with it. The same holds a
+layer down: a registry entry may store a call to any target, which is the point of a general
+registry, and one whose selector matches nothing here is shown with its target and calldata rather
+than hidden.
+
+**The memo is never read back.** It is free text written by whoever opened the proposal, so it can
+say "upgrade" over a body that moves the treasury somewhere else. It is a label for a human scanning
+HashScan, and the decoded body is the evidence.
+
+**A selector names an operation; it does not prove a target.** The decoder classifies by function
+selector alone, so the target always travels with the answer. Gating on it — refusing to approve a
+call to an unknown contract — is the co-signing agent's job, not the decoder's.
+
+### A rotation collects signatures from two councils
+
+Changing who approves is itself a proposal, and it is the one kind whose progress is not a single
+`m of n`. Measured on testnet: a scheduled `AccountUpdate` that replaces a threshold key does not run
+on the outgoing council's threshold alone — the schedule stays pending — and runs once the incoming
+key's own threshold is also met. Each side needs its own threshold rather than all of its members,
+so a 2-of-3 council rotating to another 2-of-3 needs four signatures in total, two from each.
+
+The incoming council comes out of the decoded body in the same shape `fetchCouncilKey` returns for
+the current one, so both are counted with `countThresholdSignatures` and a rotation shows two bars.
 
 ## Withdrawing a proposal: schedule or registry
 
