@@ -1,91 +1,96 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import { ProofWall } from "~~/components/ProofWall";
-import { SubmitProofForm } from "~~/components/SubmitProofForm";
-import { TopicSelector } from "~~/components/TopicSelector";
-import { proofWallConfig } from "~~/config/proofWallConfig";
-import { useTopicMessages } from "~~/hooks/useTopicMessages";
+import Link from "next/link";
+import { Hbar } from "@hiero-ledger/sdk";
+import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
+import { useProposals } from "~~/hooks/mirror/useProposals";
+import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
+import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
+import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
+import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
+import { toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
-export default function ProofWallPage() {
-  const [topicId, setTopicId] = useState(proofWallConfig.topicId);
-  const effectiveTopicId = topicId || proofWallConfig.topicId;
-  const { data, isLoading, error, refetch, onNewMessage } = useTopicMessages(effectiveTopicId, {
-    refetchInterval: 15_000,
+export default function GovernanceHomePage() {
+  const { targetNetwork } = useTargetNetwork();
+  const vault = getDeployedContract(targetNetwork.id, "AcmeVault");
+  const executor = getDeployedContract(targetNetwork.id, "GovernedExecutor");
+  const { governanceAccountId, demoTokenId } = getGovernanceEntityIds();
+  const usdcTokenId = SAUCERSWAP_V2_CONFIG[toHederaNetworkName("testnet")].usdcToken;
+
+  const { inbox, council } = useProposals({ governanceAccountId, executorContractId: executor.hederaContractId! });
+  const treasury = useTreasuryFigures({
+    governanceAccountId,
+    vaultContractId: vault.hederaContractId!,
+    demoTokenId,
+    usdcTokenId,
   });
 
   return (
-    <div className="flex flex-col grow">
-      <div className="w-full max-w-5xl mx-auto px-4 py-6 sm:py-8">
-        <header className="hero rounded-2xl hedera-gradient text-white shadow-lg mb-6 sm:mb-8 overflow-hidden">
-          <div className="hero-content w-full flex-col md:flex-row items-start md:items-center justify-between gap-4 py-7 sm:py-8">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight m-0">Proof Wall</h1>
-              <p className="text-white/90 mt-2 mb-0 max-w-2xl">
-                Post a timestamped proof on Hedera. Every message is an HCS consensus message — permanent and verifiable
-                on HashScan.
-              </p>
-            </div>
-            <Image
-              src="/Hedera-Icon-White.svg"
-              alt="Hedera"
-              width={64}
-              height={64}
-              className="hidden sm:block opacity-90"
-            />
-          </div>
-        </header>
+    <div className="w-full max-w-5xl mx-auto px-4 py-6 sm:py-8">
+      <h1 className="text-3xl font-bold mb-6">Governed Operations</h1>
 
-        <div className="stats stats-vertical sm:stats-horizontal w-full shadow-sm border border-base-300 bg-base-100 mb-6">
-          <div className="stat">
-            <div className="stat-title">Network</div>
-            <div className="stat-value text-base sm:text-lg">Hedera Testnet</div>
-          </div>
-          <div className="stat">
-            <div className="stat-title">Topic</div>
-            <div className="stat-value text-sm font-mono">{effectiveTopicId || "Not configured"}</div>
+      <section
+        aria-label="Treasury"
+        className="stats stats-vertical sm:stats-horizontal w-full shadow-sm border border-base-300 bg-base-100 mb-6"
+      >
+        <div className="stat">
+          <div className="stat-title">HBAR</div>
+          <div className="stat-value text-lg">
+            {treasury.data ? Hbar.fromTinybars(treasury.data.hbarBalanceTinybar).toString() : "…"}
           </div>
         </div>
-
-        <div className="card border border-base-300 bg-base-100 shadow-sm mb-6">
-          <div className="card-body py-5">
-            <h2 className="card-title text-base">Active Topic</h2>
-            <TopicSelector topicId={effectiveTopicId} onTopicIdChange={setTopicId} />
+        <div className="stat">
+          <div className="stat-title">Vault reserve</div>
+          <div className="stat-value text-lg">
+            {treasury.data ? Hbar.fromTinybars(treasury.data.vaultReserveTinybar).toString() : "…"}
           </div>
         </div>
+        <div className="stat">
+          <div className="stat-title">ACME</div>
+          <div className="stat-value text-lg">{treasury.data?.acmeBalance ?? "…"}</div>
+        </div>
+        <div className="stat">
+          <div className="stat-title">USDC</div>
+          <div className="stat-value text-lg">{treasury.data?.usdcBalance ?? "…"}</div>
+        </div>
+      </section>
 
-        {effectiveTopicId ? (
-          <>
-            <section className="mt-6" aria-label="Submit a proof">
-              <SubmitProofForm
-                topicId={effectiveTopicId}
-                onSuccess={result => onNewMessage(result.sequenceNumber ? Number(result.sequenceNumber) : undefined)}
-              />
-            </section>
-            <div className="divider my-8 text-base-content/60">Recent proofs</div>
-            <section aria-label="Proof feed">
-              <ProofWall
-                messages={data?.messages ?? []}
-                isLoading={isLoading}
-                error={error ?? null}
-                onRetry={() => void refetch()}
-              />
-            </section>
-          </>
-        ) : (
-          <div className="mt-6 alert alert-warning shadow-sm">
-            <span>
-              Set <code className="text-sm bg-base-300 px-1.5 py-0.5 rounded">NEXT_PUBLIC_PROOF_WALL_TOPIC_ID</code> or
-              create a topic in the{" "}
-              <a href="/admin" className="link link-primary font-medium">
-                Admin
-              </a>{" "}
-              page.
-            </span>
-          </div>
-        )}
-      </div>
+      <section aria-label="Council" className="card border border-base-300 bg-base-100 shadow-sm mb-6">
+        <div className="card-body py-5">
+          <h2 className="card-title text-base">Council</h2>
+          {council.data ? (
+            <p>
+              {council.data.key.threshold} of {council.data.key.memberKeys.length} signatures required
+            </p>
+          ) : (
+            <span className="loading loading-spinner loading-sm" aria-label="Loading council" />
+          )}
+        </div>
+      </section>
+
+      <section aria-label="Pending proposals" className="card border border-base-300 bg-base-100 shadow-sm">
+        <div className="card-body py-5">
+          <h2 className="card-title text-base">Pending proposals</h2>
+          {inbox.data ? (
+            <ul className="flex flex-col gap-2">
+              {inbox.data.proposals.map(proposal => (
+                <li key={proposal.schedule.schedule_id}>
+                  <Link href={`/governance/${proposal.schedule.schedule_id}`} className="link link-primary">
+                    {describeScheduledOperation(proposal.operation)} — {proposal.state.status} —{" "}
+                    {proposal.progress.signed} of {proposal.progress.threshold}
+                    {proposal.incomingProgress
+                      ? ` (+ ${proposal.incomingProgress.signed} of ${proposal.incomingProgress.threshold} incoming)`
+                      : ""}
+                  </Link>
+                </li>
+              ))}
+              {inbox.data.proposals.length === 0 && <p className="text-sm text-base-content/60">No proposals yet.</p>}
+            </ul>
+          ) : (
+            <span className="loading loading-spinner loading-sm" aria-label="Loading proposals" />
+          )}
+        </div>
+      </section>
     </div>
   );
 }
