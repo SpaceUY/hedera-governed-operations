@@ -10,7 +10,7 @@
  * it costs nothing in the bundle and its version follows the SDK's.
  */
 import { proto } from "@hiero-ledger/proto";
-import { fetchAccount } from "~~/services/mirror";
+import { type MirrorSchedule, fetchAccount } from "~~/services/mirror";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /** How Mirror labels a key it cannot express as one public key: a key list, with or without a threshold. */
@@ -19,11 +19,17 @@ const PROTOBUF_ENCODED = "ProtobufEncoded";
 export type CouncilKey = {
   /** Signatures the network waits for before it runs a proposal: the m of "m of n". */
   threshold: number;
-  /**
-   * The n member keys, base64-encoded exactly as Mirror writes `public_key_prefix` on a schedule's
-   * signatures, so matching a signature against a member is a string comparison.
-   */
+  /** The n member keys, base64-encoded the way Mirror writes a schedule's `public_key_prefix`. */
   memberKeys: string[];
+};
+
+export type ThresholdProgress = {
+  /** Council members that have signed: the numerator of "m of n". */
+  signed: number;
+  /** Signatures the proposal needs before the network runs it. */
+  threshold: number;
+  /** Which members signed, in the council's own order so the list does not reshuffle between polls. */
+  signedBy: string[];
 };
 
 function hexToBytes(hex: string): Uint8Array {
@@ -38,6 +44,20 @@ function toBase64(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
+}
+
+/**
+ * Comparing a signature to a member happens in hex because `public_key_prefix` is a prefix: every
+ * signer we see sends the whole key, but a shorter one is legal, and base64 packs three bytes into
+ * four characters, so a prefix of the bytes is not a prefix of the base64.
+ */
+function base64ToHex(base64: string): string {
+  const binary = atob(base64);
+  let hex = "";
+  for (let index = 0; index < binary.length; index += 1) {
+    hex += binary.charCodeAt(index).toString(16).padStart(2, "0");
+  }
+  return hex;
 }
 
 /**
@@ -81,4 +101,25 @@ export async function fetchCouncilKey(governanceAccountId: string, network: Hede
     );
   }
   return councilKeyOf(proto.Key.decode(hexToBytes(key.key)));
+}
+
+/**
+ * How far a proposal is from running, which is not how many signatures Mirror lists. Two entries
+ * there never count: the one `ScheduleCreate` adds for whoever paid to open the proposal, and the
+ * one every `ScheduleSign` adds for whoever paid to submit it. Both are payers, and paying is not
+ * approving.
+ *
+ * The rule that survives both is to count council members, not signatures: a member is either in or
+ * out, however many rows carry its key, and a payer that happens to be a member — which is the
+ * common case, since the same person usually opens a proposal and approves it — is counted once and
+ * legitimately. `signatures.length` would have said two for a proposal one member has approved.
+ */
+export function countThresholdSignatures(schedule: MirrorSchedule, council: CouncilKey): ThresholdProgress {
+  const prefixes = schedule.signatures.map(signature => base64ToHex(signature.public_key_prefix));
+  const signedBy = council.memberKeys.filter(member => {
+    const memberKey = base64ToHex(member);
+    return prefixes.some(prefix => prefix.length > 0 && memberKey.startsWith(prefix));
+  });
+
+  return { signed: signedBy.length, threshold: council.threshold, signedBy };
 }

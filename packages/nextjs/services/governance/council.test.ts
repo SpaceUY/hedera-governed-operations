@@ -1,6 +1,8 @@
-import { fetchCouncilKey } from "./council";
+import { type CouncilKey, countThresholdSignatures, fetchCouncilKey } from "./council";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MirrorSchedule } from "~~/services/mirror";
 import governanceAccount from "~~/services/mirror/__fixtures__/account.json";
+import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 /** The three members of the fixture's 2-of-3 key, as Mirror writes them on a schedule's signatures. */
 const MEMBER_KEYS = [
@@ -58,5 +60,54 @@ describe("fetchCouncilKey", () => {
     stubAccountKey({ _type: "ProtobufEncoded", key: NESTED_MEMBER });
 
     await expect(fetchCouncilKey("0.0.10590498", "testnet")).rejects.toThrow("not a single public key");
+  });
+});
+
+describe("countThresholdSignatures", () => {
+  const council: CouncilKey = { threshold: 2, memberKeys: MEMBER_KEYS };
+  const [firstMember, secondMember] = MEMBER_KEYS;
+  /** The account that paid to open every proposal in the fixtures, and holds no seat. */
+  const PAYER = "AoSpRFf/h2qFC+yvgDbEhqRkgSZ5IJzANkz+2d4pqDIa";
+
+  function scheduleSignedBy(...publicKeyPrefixes: string[]): MirrorSchedule {
+    return {
+      ...executedSchedule,
+      signatures: publicKeyPrefixes.map(publicKeyPrefix => ({
+        consensus_timestamp: executedSchedule.consensus_timestamp,
+        public_key_prefix: publicKeyPrefix,
+        signature: "",
+        type: "ECDSA_SECP256K1",
+      })),
+    };
+  }
+
+  it("ignores the signature of a payer who holds no seat on the council", () => {
+    expect(countThresholdSignatures(executedSchedule, council).signed).toBe(2);
+  });
+
+  it("counts the proposal's creator when the creator is also a member", () => {
+    expect(countThresholdSignatures(scheduleSignedBy(secondMember), council).signed).toBe(1);
+  });
+
+  it("counts a member once however many signatures carry its key", () => {
+    expect(countThresholdSignatures(scheduleSignedBy(secondMember, PAYER, secondMember), council).signed).toBe(1);
+  });
+
+  it("reports no progress when only non-members have signed", () => {
+    expect(countThresholdSignatures(scheduleSignedBy(PAYER), council).signed).toBe(0);
+  });
+
+  it("matches a signature that carries only the first bytes of a member's key", () => {
+    expect(countThresholdSignatures(scheduleSignedBy("A8ZO"), council).signedBy).toEqual([secondMember]);
+  });
+
+  it("lets no member be matched by an empty prefix", () => {
+    expect(countThresholdSignatures(scheduleSignedBy(""), council).signed).toBe(0);
+  });
+
+  it("names the members who signed in the council's own order", () => {
+    const progress = countThresholdSignatures(scheduleSignedBy(secondMember, firstMember), council);
+
+    expect(progress.signedBy).toEqual([firstMember, secondMember]);
   });
 });
