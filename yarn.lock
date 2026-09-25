@@ -3939,6 +3939,28 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@sh/agent@workspace:packages/agent":
+  version: 0.0.0-use.local
+  resolution: "@sh/agent@workspace:packages/agent"
+  dependencies:
+    "@eslint/eslintrc": ~3.3.0
+    "@hiero-ledger/sdk": ^2.80.0
+    "@sh/core": "workspace:*"
+    "@trivago/prettier-plugin-sort-imports": ^4.3.0
+    "@types/node": ^18.19.50
+    "@typescript-eslint/eslint-plugin": ~8.27.0
+    "@typescript-eslint/parser": ~8.27.0
+    eslint: ~9.23.0
+    eslint-config-prettier: ~10.1.1
+    eslint-plugin-prettier: ~5.2.4
+    globals: ~16.0.0
+    prettier: ^3.5.3
+    tsx: ^4.23.15
+    typescript: ^5.8.2
+    vitest: ^3
+  languageName: unknown
+  linkType: soft
+
 "@sh/core@workspace:*, @sh/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@sh/core@workspace:packages/core"

@@ -14,6 +14,13 @@ const buildCoreEslintCommand = (filenames) =>
 
 const checkTypesCoreCommand = () => "yarn core:check-types";
 
+const buildAgentEslintCommand = (filenames) =>
+  `yarn agent:lint-staged --fix ${filenames
+    .map((f) => path.relative(path.join("packages", "agent"), f))
+    .join(" ")}`;
+
+const checkTypesAgentCommand = () => "yarn agent:check-types";
+
 const buildHardhatEslintCommand = (filenames) =>
   `yarn hardhat:lint-staged --fix ${filenames
     .map((f) => path.relative(path.join("packages", "hardhat"), f))
@@ -21,6 +28,7 @@ const buildHardhatEslintCommand = (filenames) =>
 
 module.exports = {
   "packages/core/**/*.ts": [buildCoreEslintCommand, checkTypesCoreCommand],
+  "packages/agent/**/*.ts": [buildAgentEslintCommand, checkTypesAgentCommand],
   "packages/nextjs/**/*.{ts,tsx}": [
     buildNextEslintCommand,
     checkTypesNextCommand,
