@@ -13,6 +13,7 @@
  */
 import { fetchCouncilKey, fetchProposerAccountIds } from "./council";
 import { fetchProposalInbox } from "./proposals";
+import { fetchRegistryEntries } from "./registry";
 import { PublicKey } from "@hiero-ledger/sdk";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -27,6 +28,8 @@ const STEP_TIMEOUT_MS = 60_000;
 type Fixtures = {
   governanceAccountId: string;
   executorContractId: string;
+  /** The entry `yarn setup` leaves pending, so a fresh install opens on something to approve. */
+  seedProposalId: number;
   /** Base64 of the demo members' public keys, the encoding Mirror uses for a signature's prefix. */
   demoMemberKeys: string[];
 };
@@ -43,6 +46,7 @@ function loadFixtures(): Fixtures | null {
   return {
     governanceAccountId: governance.accountId,
     executorContractId: seedProposal.executorContractId,
+    seedProposalId: seedProposal.id,
     demoMemberKeys: [demoAccounts.alice.publicKey, demoAccounts.bob.publicKey].map(toMemberKey),
   };
 }
@@ -123,6 +127,22 @@ describe.skipIf(!fixtures)("the proposal inbox on testnet", () => {
     STEP_TIMEOUT_MS,
   );
 
+  it(
+    "describes the seed proposal from what the deployed registry actually stores",
+    async () => {
+      const entries = await fetchRegistryEntries([ids.seedProposalId], {
+        executorContractId: ids.executorContractId,
+        rpcUrl: getHederaRpcUrl(NETWORK),
+      });
+
+      expect(entries.get(ids.seedProposalId)).toMatchObject({
+        status: "read",
+        entry: { state: "pending", operation: { kind: "upgrade" } },
+      });
+    },
+    STEP_TIMEOUT_MS,
+  );
+
   async function readInbox() {
     const [council, proposerAccountIds] = await Promise.all([
       fetchCouncilKey(ids.governanceAccountId, NETWORK),
@@ -138,6 +158,7 @@ describe.skipIf(!fixtures)("the proposal inbox on testnet", () => {
       governanceAccountId: ids.governanceAccountId,
       council,
       network: NETWORK,
+      registry: { executorContractId: ids.executorContractId, rpcUrl: getHederaRpcUrl(NETWORK) },
     });
 
     return { ...inbox, council };

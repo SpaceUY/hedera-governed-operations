@@ -16,6 +16,7 @@
  * decoder never reads back, so the default lives with the screen, next to `PROPOSAL_TYPES[kind].label`.
  */
 import { PROPOSAL_TYPES, type TokenAdminOperation } from "./proposalTypes";
+import { REGISTRY_ABI } from "./registry";
 import { PROPOSAL_EXPIRY_SECONDS, fetchAccountPublicKey } from "./schedules";
 import {
   AccountId,
@@ -46,8 +47,6 @@ export const PROPOSAL_REGISTRATION_BASE_GAS = 120_000;
 export const PROPOSAL_REGISTRATION_GAS_PER_WORD = 30_000;
 
 const BYTES_PER_WORD = 32;
-
-const REGISTRY_ABI = parseAbi(["function createProposal(address target, bytes data)"]);
 
 const UPGRADE_ABI = parseAbi(["function upgradeToAndCall(address newImplementation, bytes data)"]);
 

@@ -1,5 +1,9 @@
+// @vitest-environment node
+import recorded from "./__fixtures__/scheduled-bodies.json";
 import type { CouncilKey } from "./council";
 import { fetchProposalInbox } from "./proposals";
+import { REGISTRY_ABI } from "./registry";
+import { encodeFunctionData, encodeFunctionResult, parseAbi } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MirrorSchedule } from "~~/services/mirror";
 import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
@@ -7,6 +11,11 @@ import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.
 const GOVERNANCE_ACCOUNT_ID = "0.0.10590498";
 const ALICE = "0.0.10671142";
 const BOB = "0.0.10671144";
+/** The executor the recorded `registryCall` body names, so the inbox accepts the id it carries. */
+const EXECUTOR = "0.0.10671156";
+const RPC_URL = "https://relay.test/api";
+const VAULT_PROXY = "0x3f806946439c3521eeD7d740c3f84E09888C0419";
+const FAR_FUTURE = "9999999999.000000000";
 
 const council: CouncilKey = {
   threshold: 2,
@@ -26,19 +35,66 @@ function scheduleOf(scheduleId: string, overrides: Partial<MirrorSchedule> = {})
   };
 }
 
-/** One Mirror page per proposer, in the order the proposers are asked for. */
+/** A proposal still collecting signatures, carrying the recorded `execute(id)` body of entry 7. */
+const pendingRegistryProposal = (scheduleId: string) =>
+  scheduleOf(scheduleId, {
+    executed_timestamp: null,
+    deleted: false,
+    expiration_time: FAR_FUTURE,
+    transaction_body: recorded.registryCall.transactionBody,
+  });
+
+const registryEntry = (state: number) =>
+  encodeFunctionResult({
+    abi: REGISTRY_ABI,
+    functionName: "proposal",
+    result: {
+      target: VAULT_PROXY,
+      proposer: ALICE_EVM,
+      state,
+      data: encodeFunctionData({
+        abi: parseAbi(["function upgradeToAndCall(address newImplementation, bytes data)"]),
+        functionName: "upgradeToAndCall",
+        args: [VAULT_PROXY, "0x"],
+      }),
+    },
+  });
+
+const ALICE_EVM = "0x3353e89f1f9fef7a0881e5e92f8a0a7fd3a13097";
+
+/**
+ * Mirror answers are served in the order the proposers are asked for; relay answers are routed by
+ * URL, because a registry read and a schedule page are not interchangeable.
+ */
+const urlOf = (input: unknown): string => {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return (input as { url?: string })?.url ?? "";
+};
+
 function stubSchedulesPerProposer(...pages: (unknown[] | Error)[]) {
-  const fetchMock = vi.fn();
-  for (const page of pages) {
-    if (page instanceof Error) {
-      fetchMock.mockResolvedValueOnce(new Response("not found", { status: 404 }));
-      continue;
-    }
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ schedules: page, links: { next: null } })));
-  }
+  const mirrorAnswers = [...pages];
+  const fetchMock = vi.fn((input: unknown) => {
+    if (urlOf(input).startsWith(RPC_URL)) return Promise.resolve(nextRelayAnswer());
+    const page = mirrorAnswers.shift();
+    if (page instanceof Error || page === undefined) return Promise.resolve(new Response("not found", { status: 404 }));
+    return Promise.resolve(new Response(JSON.stringify({ schedules: page, links: { next: null } })));
+  });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
+
+let relayAnswers: (number | Error)[] = [];
+
+const nextRelayAnswer = (): Response => {
+  const answer = relayAnswers.shift();
+  if (answer === undefined || answer instanceof Error) return new Response("upstream error", { status: 502 });
+  return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: registryEntry(answer) }));
+};
+
+const stubRegistryStates = (...states: (number | Error)[]) => {
+  relayAnswers = states;
+};
 
 function inboxOf(proposerAccountIds: string[]) {
   return fetchProposalInbox({
@@ -46,11 +102,13 @@ function inboxOf(proposerAccountIds: string[]) {
     governanceAccountId: GOVERNANCE_ACCOUNT_ID,
     council,
     network: "testnet",
+    registry: { executorContractId: EXECUTOR, rpcUrl: RPC_URL },
   });
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  relayAnswers = [];
 });
 
 describe("fetchProposalInbox", () => {
@@ -127,5 +185,75 @@ describe("fetchProposalInbox", () => {
     const [proposal] = (await inboxOf([ALICE])).proposals;
 
     expect(proposal.state.status).toBe("deleted");
+  });
+
+  it("says what each proposal does, decoded from its own body", async () => {
+    stubSchedulesPerProposer([pendingRegistryProposal("0.0.1")]);
+    stubRegistryStates(0);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.operation).toMatchObject({ kind: "registryCall", proposalId: 7 });
+  });
+});
+
+/**
+ * A proposer can call `cancel(id)` straight, with no schedule and no quorum, which kills the entry
+ * while its schedule goes on looking open. Without this cross the inbox would invite the council to
+ * sign a proposal that reverts with `ProposalNotPending` and charges the governance account for it.
+ */
+describe("crossing a proposal with its registry entry", () => {
+  it("marks a pending proposal dead when its entry was already cancelled", async () => {
+    stubSchedulesPerProposer([pendingRegistryProposal("0.0.1")]);
+    stubRegistryStates(2);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
+  });
+
+  it("leaves a settled proposal uncrossed, since its round is over either way", async () => {
+    const fetchMock = stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect([proposal.registry.status, fetchMock.mock.calls.length]).toEqual(["notApplicable", 1]);
+  });
+
+  it("leaves a native proposal uncrossed, since it has no entry at all", async () => {
+    stubSchedulesPerProposer([
+      pendingRegistryProposal("0.0.1"),
+      { ...pendingRegistryProposal("0.0.2"), transaction_body: recorded.councilRotation.transactionBody },
+    ]);
+    stubRegistryStates(0);
+
+    const { proposals } = await inboxOf([ALICE]);
+
+    expect(proposals.find(proposal => proposal.schedule.schedule_id === "0.0.2")?.registry.status).toBe(
+      "notApplicable",
+    );
+  });
+
+  it("ignores an id that came from a call to some other contract", async () => {
+    stubSchedulesPerProposer([pendingRegistryProposal("0.0.1")]);
+
+    const { proposals } = await fetchProposalInbox({
+      proposerAccountIds: [ALICE],
+      governanceAccountId: GOVERNANCE_ACCOUNT_ID,
+      council,
+      network: "testnet",
+      registry: { executorContractId: "0.0.9999999", rpcUrl: RPC_URL },
+    });
+
+    expect(proposals[0].registry.status).toBe("notApplicable");
+  });
+
+  it("leaves the row uncrossed rather than failing the inbox when the relay is down", async () => {
+    stubSchedulesPerProposer([pendingRegistryProposal("0.0.1")]);
+    stubRegistryStates(new Error("relay is down"));
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.registry.status).toBe("unreachable");
   });
 });

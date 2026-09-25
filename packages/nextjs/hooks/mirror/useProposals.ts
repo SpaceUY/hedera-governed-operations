@@ -4,7 +4,7 @@ import { DEFAULT_PENDING_POLL_MS, getDefaultMirrorNetwork, mirrorQueryKey } from
 import { type CouncilOptions, useCouncil } from "./useCouncil";
 import { useQuery } from "@tanstack/react-query";
 import { type ProposalInbox, fetchProposalInbox } from "~~/services/governance/proposals";
-import { toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
+import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /**
  * How often the inbox is re-read once every proposal has settled. Unlike a single schedule, a list
@@ -33,11 +33,13 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
     queryKey: mirrorQueryKey(network, "proposals", governanceAccountId, ...(council.data?.proposerAccountIds ?? [])),
     queryFn: () => {
       if (!council.data) throw new Error("The council has to be known before its proposals can be listed");
+      const hederaNetwork = toHederaNetworkName(network);
       return fetchProposalInbox({
         proposerAccountIds: council.data.proposerAccountIds,
         governanceAccountId,
         council: council.data.key,
-        network: toHederaNetworkName(network),
+        network: hederaNetwork,
+        registry: { executorContractId: options.executorContractId, rpcUrl: getHederaRpcUrl(hederaNetwork) },
       });
     },
     enabled: (options.enabled ?? true) && council.data !== undefined,
