@@ -1,20 +1,32 @@
 /**
- * Who approves. The governance account's key is a threshold key — m of n member keys — and it alone
- * decides whether a proposal runs, so this reads it from the ledger instead of from configuration:
- * rotating the council is itself a proposal, and an environment variable would start lying the
- * moment one is approved.
+ * Who governs, read from the two layers that answer it. Who *approves* is the governance account's
+ * threshold key, a native Hedera key the network evaluates; who may *propose* is `PROPOSER_ROLE` on
+ * the executor, an EVM role. Both are read from the ledger rather than from configuration, because
+ * rotating the council and granting the role are themselves proposals: an environment variable
+ * would start lying the moment one is approved.
  *
- * The Mirror Node returns such a key as `ProtobufEncoded`, an opaque blob, because it is not a
+ * The Mirror Node returns a threshold key as `ProtobufEncoded`, an opaque blob, because it is not a
  * single public key. Decoding it needs the protobuf definitions the network is built from, which is
  * why `@hiero-ledger/proto` is a dependency here; the Hiero SDK already ships the same package, so
  * it costs nothing in the bundle and its version follows the SDK's.
  */
 import { proto } from "@hiero-ledger/proto";
+import { ContractId } from "@hiero-ledger/sdk";
+import { type Address, createPublicClient, http, keccak256, parseAbi, toHex } from "viem";
 import { type MirrorSchedule, fetchAccount } from "~~/services/mirror";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /** How Mirror labels a key it cannot express as one public key: a key list, with or without a threshold. */
 const PROTOBUF_ENCODED = "ProtobufEncoded";
+
+/** `AccessControlEnumerable` is what makes the role enumerable; plain `AccessControl` only answers yes or no. */
+const EXECUTOR_ROLES_ABI = parseAbi([
+  "function getRoleMemberCount(bytes32 role) view returns (uint256)",
+  "function getRoleMember(bytes32 role, uint256 index) view returns (address)",
+]);
+
+/** A role is identified by the hash of its name, the way the contract declares it. */
+const PROPOSER_ROLE = keccak256(toHex("PROPOSER_ROLE"));
 
 export type CouncilKey = {
   /** Signatures the network waits for before it runs a proposal: the m of "m of n". */
@@ -122,4 +134,48 @@ export function countThresholdSignatures(schedule: MirrorSchedule, council: Coun
   });
 
   return { signed: signedBy.length, threshold: council.threshold, signedBy };
+}
+
+export type ProposerLookup = {
+  executorContractId: string;
+  network: HederaNetworkName;
+  /** JSON-RPC relay endpoint; the browser holds no operator key, so a `ContractCallQuery` is not an option. */
+  rpcUrl: string;
+};
+
+/**
+ * The accounts allowed to register proposals, which is also the set the inbox is assembled from:
+ * Mirror can only list schedules by their creator, so knowing who proposes is what makes the list
+ * possible at all.
+ *
+ * The role holds EVM addresses and Mirror wants `0.0.x` account ids, and the two are not
+ * interconvertible here — an account created from an ECDSA key is reached by a key-derived alias,
+ * not by the long-zero form of its id — so each address is resolved through the Mirror Node.
+ */
+export async function fetchProposerAccountIds({
+  executorContractId,
+  network,
+  rpcUrl,
+}: ProposerLookup): Promise<string[]> {
+  const relay = createPublicClient({ transport: http(rpcUrl) });
+  const address = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as Address;
+  const readRole = { address, abi: EXECUTOR_ROLES_ABI } as const;
+
+  const memberCount = await relay.readContract({
+    ...readRole,
+    functionName: "getRoleMemberCount",
+    args: [PROPOSER_ROLE],
+  });
+
+  const addresses = await Promise.all(
+    Array.from({ length: Number(memberCount) }, (_unused, index) =>
+      relay.readContract({ ...readRole, functionName: "getRoleMember", args: [PROPOSER_ROLE, BigInt(index)] }),
+    ),
+  );
+
+  const accountIds = await Promise.all(
+    addresses.map(async member => (await fetchAccount(member, { network })).account),
+  );
+  // The same account can hold the role under both its long-zero address and its alias.
+  return [...new Set(accountIds)];
 }

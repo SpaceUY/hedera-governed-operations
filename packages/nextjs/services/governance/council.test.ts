@@ -1,4 +1,5 @@
-import { type CouncilKey, countThresholdSignatures, fetchCouncilKey } from "./council";
+// @vitest-environment node
+import { type CouncilKey, countThresholdSignatures, fetchCouncilKey, fetchProposerAccountIds } from "./council";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MirrorSchedule } from "~~/services/mirror";
 import governanceAccount from "~~/services/mirror/__fixtures__/account.json";
@@ -109,5 +110,46 @@ describe("countThresholdSignatures", () => {
     const progress = countThresholdSignatures(scheduleSignedBy(secondMember, firstMember), council);
 
     expect(progress.signedBy).toEqual([firstMember, secondMember]);
+  });
+});
+
+describe("fetchProposerAccountIds", () => {
+  const EXECUTOR = "0.0.10671156";
+  const PROPOSER_EVM = "0x000000000000000000000000000000000000a2d4";
+  /** keccak256("PROPOSER_ROLE"), the identifier the executor declares for the role. */
+  const PROPOSER_ROLE = "b09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1";
+
+  const word = (value: string) => `0x${value.replace("0x", "").padStart(64, "0")}`;
+  const jsonRpc = (result: string) => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }));
+
+  /** One role member, then the Mirror read that turns its address into an account id. */
+  function stubOneProposer(accountId: string) {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonRpc(word("1")))
+      .mockResolvedValueOnce(jsonRpc(word(PROPOSER_EVM)))
+      .mockResolvedValue(new Response(JSON.stringify({ ...governanceAccount, account: accountId })));
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("asks the executor for the holders of PROPOSER_ROLE", async () => {
+    const fetchMock = stubOneProposer("0.0.10671142");
+
+    await fetchProposerAccountIds({ executorContractId: EXECUTOR, network: "testnet", rpcUrl: "https://relay.test" });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).params[0].data).toContain(PROPOSER_ROLE);
+  });
+
+  it("returns account ids, which is what Mirror lists schedules by", async () => {
+    stubOneProposer("0.0.10671142");
+
+    const proposers = await fetchProposerAccountIds({
+      executorContractId: EXECUTOR,
+      network: "testnet",
+      rpcUrl: "https://relay.test",
+    });
+
+    expect(proposers).toEqual(["0.0.10671142"]);
   });
 });
