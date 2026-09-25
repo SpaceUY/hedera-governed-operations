@@ -7,15 +7,19 @@
  * defaults to three retries with exponential backoff, so a relay that answers 502 is asked four
  * times over about a second before the failure surfaces.
  *
- * That default is kept here deliberately rather than by omission, in one place, because the callers
- * sit under React Query — `retry: false` with a 5 s poll — and the layering is worth seeing: a
- * transient blip is absorbed here, and anything longer is reported as unreachable and retried by the
- * next poll rather than held open.
+ * A second of that is the wrong trade here, because the callers already sit under React Query with
+ * `retry: false` and a 5 s poll: a relay that stays down is asked again by the next poll whatever
+ * this does, so the only thing three retries buy is holding the read open. One retry absorbs a
+ * single blip and anything longer surfaces as unreachable, which is the degradation the inbox and
+ * the registry cross-check are built around.
  */
 import { type PublicClient, createPublicClient, http } from "viem";
 
-/** viem's own default, written down so changing it is a decision and not an upgrade's side effect. */
-export const RELAY_RETRY_COUNT = 3;
+/**
+ * Two attempts, roughly 150 ms. Written down rather than inherited: viem's default of 3 is a
+ * sensible choice for a one-shot read and the wrong one under a poll.
+ */
+export const RELAY_RETRY_COUNT = 1;
 
 export function createRelayClient(rpcUrl: string): PublicClient {
   return createPublicClient({ transport: http(rpcUrl, { retryCount: RELAY_RETRY_COUNT }) });
