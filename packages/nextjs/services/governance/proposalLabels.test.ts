@@ -1,4 +1,5 @@
 import {
+  PROPOSAL_KIND_COPY,
   approvalsLabel,
   approverLabel,
   councilRuleLabel,
@@ -9,6 +10,7 @@ import {
   scheduleStatusLabel,
 } from "./proposalLabels";
 import type { RegistryCrossCheck } from "./registry";
+import { MAX_SCHEDULE_MEMO_BYTES } from "./schedules";
 import { describe, expect, it } from "vitest";
 
 const progress = (signed: number, threshold: number) => ({ signed, threshold, signedBy: [] });
@@ -79,5 +81,13 @@ describe("wizard words", () => {
   it("names one or two transactions depending on the path", () => {
     expect(openProposalCopy("upgrade").cta).toBe("Register and schedule with your wallet");
     expect(openProposalCopy("treasuryTransfer").cta).toBe("Schedule with your wallet");
+  });
+});
+
+describe("PROPOSAL_KIND_COPY", () => {
+  it("gives every kind a title that fits a schedule memo", () => {
+    for (const { title } of Object.values(PROPOSAL_KIND_COPY)) {
+      expect(new TextEncoder().encode(title).length).toBeLessThanOrEqual(MAX_SCHEDULE_MEMO_BYTES);
+    }
   });
 });
