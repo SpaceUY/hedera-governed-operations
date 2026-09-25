@@ -11,6 +11,7 @@ import {
   ContractExecuteTransaction,
   ContractFunctionParameters,
   ContractId,
+  Hbar,
   type Key,
   PublicKey,
   ScheduleCreateTransaction,
@@ -59,6 +60,12 @@ export type ExecuteProposalCallOptions = {
    * governance account pays for any headroom left unused.
    */
   gas: number;
+  /**
+   * HBAR the call carries, in tinybars, paid by the governance account as part of what the council
+   * signs. A treasury swap moves its HBAR this way rather than in its calldata, so the amount is
+   * approved together with the operation instead of reaching the contract some other way.
+   */
+  payableTinybars?: bigint;
 };
 
 function requireMemoFits(memo: string): void {
@@ -103,11 +110,15 @@ export function buildExecuteProposalCall({
   executorContractId,
   proposalId,
   gas,
+  payableTinybars = 0n,
 }: ExecuteProposalCallOptions): ContractExecuteTransaction {
-  return new ContractExecuteTransaction()
+  const call = new ContractExecuteTransaction()
     .setContractId(ContractId.fromString(executorContractId))
     .setGas(gas)
     .setFunction("execute", new ContractFunctionParameters().addUint256(proposalId));
+
+  if (payableTinybars > 0n) call.setPayableAmount(Hbar.fromTinybars(payableTinybars.toString()));
+  return call;
 }
 
 /**
