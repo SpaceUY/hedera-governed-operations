@@ -1,5 +1,6 @@
 export * from "./useAccount";
 export * from "./useCouncil";
+export * from "./useProposalLookup";
 export * from "./useProposals";
 export * from "./useSchedule";
 export * from "./useTreasuryFigures";
