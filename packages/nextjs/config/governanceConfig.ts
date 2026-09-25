@@ -46,3 +46,17 @@ export function getDeployedContract(chainId: number, name: string): HederaDeploy
   }
   return { ...entry, hederaContractId: entry.hederaContractId };
 }
+
+/** The deployment names of the contracts the governance screens read, written once. */
+export const GOVERNANCE_CONTRACTS = {
+  executor: "GovernedExecutor",
+  vault: "AcmeVault",
+  /** Deployed but not live: pointing the vault's proxy at it is the upgrade the council approves. */
+  vaultNextImplementation: "AcmeVaultV2",
+} as const;
+
+export const GOVERNANCE_ROUTES = {
+  home: "/",
+  newProposal: "/governance/new",
+  proposal: (scheduleId: string) => `/governance/${scheduleId}`,
+} as const;

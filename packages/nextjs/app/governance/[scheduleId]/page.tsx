@@ -2,7 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { SetupNotice } from "~~/components/SetupNotice";
-import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
+import { MutationError } from "~~/components/governance/MutationError";
+import { GOVERNANCE_CONTRACTS, getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
@@ -12,20 +13,7 @@ import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalActions";
 import { approvalsLabel, registryLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
 import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
-import { WALLET_REJECTED_MESSAGE, isWalletRejection } from "~~/services/web3/hederaSigner";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
-
-const toFriendlyMessage = (error: unknown) =>
-  isWalletRejection(error)
-    ? WALLET_REJECTED_MESSAGE
-    : `Transaction failed: ${error instanceof Error ? error.message : "unknown error"}`;
-
-const MutationError = ({ error }: { error: unknown }) =>
-  error ? (
-    <p role="alert" className="text-sm text-error">
-      {toFriendlyMessage(error)}
-    </p>
-  ) : null;
 
 type ProposalDetailProps = { governanceAccountId: string; executorContractId: string; scheduleId: string };
 
@@ -36,7 +24,7 @@ export default function ProposalDetailPage() {
   try {
     props = {
       governanceAccountId: getGovernanceEntityIds().governanceAccountId,
-      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId,
+      executorContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.executor).hederaContractId,
       scheduleId: params.scheduleId,
     };
   } catch (error) {

@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { SetupNotice } from "~~/components/SetupNotice";
-import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
+import {
+  GOVERNANCE_CONTRACTS,
+  GOVERNANCE_ROUTES,
+  getDeployedContract,
+  getGovernanceEntityIds,
+} from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
@@ -29,8 +34,8 @@ export default function GovernanceHomePage() {
       network: getHederaNetworkNameFromChainId(targetNetwork.id),
       governanceAccountId,
       demoTokenId,
-      vaultContractId: getDeployedContract(targetNetwork.id, "AcmeVault").hederaContractId,
-      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId,
+      vaultContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.vault).hederaContractId,
+      executorContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.executor).hederaContractId,
     };
   } catch (error) {
     return <SetupNotice error={error} />;
@@ -101,7 +106,12 @@ function GovernanceHome({
 
       <section aria-label="Pending proposals" className="card border border-base-300 bg-base-100 shadow-sm">
         <div className="card-body py-5">
-          <h2 className="card-title text-base">Pending proposals</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="card-title text-base">Pending proposals</h2>
+            <Link href={GOVERNANCE_ROUTES.newProposal} className="btn btn-primary btn-sm">
+              New proposal
+            </Link>
+          </div>
           {inbox.data && inbox.data.unreachableProposers.length > 0 && (
             <p role="status" className="text-sm text-warning">
               This list may be incomplete: proposals from {inbox.data.unreachableProposers.join(", ")} could not be
@@ -114,7 +124,7 @@ function GovernanceHome({
             <ul className="flex flex-col gap-2">
               {inbox.data.proposals.map(proposal => (
                 <li key={proposal.schedule.schedule_id}>
-                  <Link href={`/governance/${proposal.schedule.schedule_id}`} className="link link-primary">
+                  <Link href={GOVERNANCE_ROUTES.proposal(proposal.schedule.schedule_id)} className="link link-primary">
                     {describeScheduledOperation(proposal.operation)} — {scheduleStatusLabel(proposal.state.status)} —{" "}
                     {approvalsLabel(proposal.progress, proposal.incomingProgress)}
                   </Link>

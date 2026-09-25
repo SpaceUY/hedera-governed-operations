@@ -1,4 +1,4 @@
-import { getDeployedContract, getGovernanceEntityIds } from "./governanceConfig";
+import { GOVERNANCE_ROUTES, getDeployedContract, getGovernanceEntityIds } from "./governanceConfig";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({
@@ -49,5 +49,11 @@ describe("getDeployedContract", () => {
 
   it("treats an entry without a Hedera contract id as not deployed rather than returning undefined", () => {
     expect(() => getDeployedContract(296, "TokenAdmin")).toThrow(/TokenAdmin on chain 296 has no Hedera contract id/);
+  });
+});
+
+describe("GOVERNANCE_ROUTES", () => {
+  it("builds a proposal path from its schedule id", () => {
+    expect(GOVERNANCE_ROUTES.proposal("0.0.777")).toBe("/governance/0.0.777");
   });
 });
