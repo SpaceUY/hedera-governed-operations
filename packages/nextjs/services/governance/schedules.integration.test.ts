@@ -9,6 +9,7 @@
  * Nothing here is charged to the governance account: the proposal never reaches its threshold, so the
  * scheduled call is withdrawn instead of executed and the seed proposal stays pending for the demo.
  */
+import { isSignedByKey } from "./council";
 import {
   buildExecuteProposalCall,
   buildProposalSchedule,
@@ -17,11 +18,11 @@ import {
   fetchAccountPublicKey,
   scheduleIdFromTransaction,
 } from "./schedules";
-import { Client, PrivateKey, type PublicKey } from "@hiero-ledger/sdk";
+import { Client, PrivateKey } from "@hiero-ledger/sdk";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadState } from "~~/scripts/setup/state";
-import { type MirrorSchedule, deriveScheduleState, fetchSchedule, fetchTransaction } from "~~/services/mirror";
+import { deriveScheduleState, fetchSchedule, fetchTransaction } from "~~/services/mirror";
 import { type BurnerSigner, createBurnerSigner } from "~~/services/web3/burnerSigner";
 
 const STATE_FILE = fileURLToPath(new URL("../../setup-state.json", import.meta.url));
@@ -80,14 +81,6 @@ async function waitFor<T>(read: () => Promise<T>, ready: (value: T) => boolean):
     await sleep(MIRROR_DELAY_MS);
   }
   throw new Error("The Mirror Node did not catch up in time");
-}
-
-/** Mirror reports a signature by a prefix of the public key that produced it, base64 encoded. */
-function isSignedBy(schedule: MirrorSchedule, publicKey: PublicKey): boolean {
-  const key = publicKey.toStringRaw();
-  return schedule.signatures.some(({ public_key_prefix }) =>
-    key.startsWith(Buffer.from(public_key_prefix, "base64").toString("hex")),
-  );
 }
 
 /** A client per signer: `createBurnerSigner` makes its key the operator of the client it is given. */
@@ -154,7 +147,7 @@ describe.skipIf(!fixtures)("the proposal lifecycle on testnet", () => {
 
       const schedule = await waitFor(
         () => fetchSchedule(scheduleId, { network: NETWORK }),
-        schedule => isSignedBy(schedule, ids.councilMemberKey.publicKey),
+        schedule => isSignedByKey(schedule, ids.councilMemberKey.publicKey.toStringRaw()),
       );
 
       expect(deriveScheduleState(schedule).status).toBe("pending");

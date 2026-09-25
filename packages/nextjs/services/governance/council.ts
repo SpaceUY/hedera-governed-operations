@@ -58,11 +58,7 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/**
- * Comparing a signature to a member happens in hex because `public_key_prefix` is a prefix: every
- * signer we see sends the whole key, but a shorter one is legal, and base64 packs three bytes into
- * four characters, so a prefix of the bytes is not a prefix of the base64.
- */
+/** The form keys are compared in; see `isSignedByKey` for why it is not base64. */
 function base64ToHex(base64: string): string {
   const binary = atob(base64);
   let hex = "";
@@ -121,6 +117,22 @@ export async function fetchCouncilKey(governanceAccountId: string, network: Hede
 }
 
 /**
+ * Whether a schedule carries a signature by this key, which is the one rule everything about
+ * approval is built on. The key is hex without `0x`, the form `PublicKey.toStringRaw` returns.
+ *
+ * The comparison happens in hex because `public_key_prefix` is a prefix: every signer seen so far
+ * sends the whole key, but a shorter one is legal, and base64 packs three bytes into four
+ * characters, so a prefix of the bytes is not a prefix of the base64. An empty prefix matches
+ * nothing rather than everything.
+ */
+export function isSignedByKey(schedule: MirrorSchedule, publicKeyHex: string): boolean {
+  return schedule.signatures.some(({ public_key_prefix }) => {
+    const prefix = base64ToHex(public_key_prefix);
+    return prefix.length > 0 && publicKeyHex.startsWith(prefix);
+  });
+}
+
+/**
  * How far a proposal is from running, which is not how many signatures Mirror lists. Two entries
  * there never count: the one `ScheduleCreate` adds for whoever paid to open the proposal, and the
  * one every `ScheduleSign` adds for whoever paid to submit it. Both are payers, and paying is not
@@ -132,11 +144,7 @@ export async function fetchCouncilKey(governanceAccountId: string, network: Hede
  * legitimately. `signatures.length` would have said two for a proposal one member has approved.
  */
 export function countThresholdSignatures(schedule: MirrorSchedule, council: CouncilKey): ThresholdProgress {
-  const prefixes = schedule.signatures.map(signature => base64ToHex(signature.public_key_prefix));
-  const signedBy = council.memberKeys.filter(member => {
-    const memberKey = base64ToHex(member);
-    return prefixes.some(prefix => prefix.length > 0 && memberKey.startsWith(prefix));
-  });
+  const signedBy = council.memberKeys.filter(member => isSignedByKey(schedule, base64ToHex(member)));
 
   return { signed: signedBy.length, threshold: council.threshold, signedBy };
 }

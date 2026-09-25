@@ -1,5 +1,11 @@
 // @vitest-environment node
-import { type CouncilKey, countThresholdSignatures, fetchCouncilKey, fetchProposerAccountIds } from "./council";
+import {
+  type CouncilKey,
+  countThresholdSignatures,
+  fetchCouncilKey,
+  fetchProposerAccountIds,
+  isSignedByKey,
+} from "./council";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MirrorSchedule } from "~~/services/mirror";
 import governanceAccount from "~~/services/mirror/__fixtures__/account.json";
@@ -110,6 +116,27 @@ describe("countThresholdSignatures", () => {
     const progress = countThresholdSignatures(scheduleSignedBy(secondMember, firstMember), council);
 
     expect(progress.signedBy).toEqual([firstMember, secondMember]);
+  });
+
+  describe("isSignedByKey, the rule the count is built on", () => {
+    /** The second member's key in hex, the form `PublicKey.toStringRaw` returns. */
+    const secondMemberHex = Buffer.from(secondMember, "base64").toString("hex");
+
+    it("recognises the key that signed", () => {
+      expect(isSignedByKey(scheduleSignedBy(secondMember), secondMemberHex)).toBe(true);
+    });
+
+    it("recognises a signature carrying only the first bytes of that key", () => {
+      expect(isSignedByKey(scheduleSignedBy("A8ZO"), secondMemberHex)).toBe(true);
+    });
+
+    it("does not recognise a key that signed nothing", () => {
+      expect(isSignedByKey(scheduleSignedBy(PAYER), secondMemberHex)).toBe(false);
+    });
+
+    it("is not satisfied by an empty prefix", () => {
+      expect(isSignedByKey(scheduleSignedBy(""), secondMemberHex)).toBe(false);
+    });
   });
 });
 
