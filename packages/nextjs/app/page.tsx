@@ -7,6 +7,7 @@ import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanc
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
+import { approvalsLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
 import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 import { type HederaNetworkName, getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
@@ -113,11 +114,8 @@ function GovernanceHome({
               {inbox.data.proposals.map(proposal => (
                 <li key={proposal.schedule.schedule_id}>
                   <Link href={`/governance/${proposal.schedule.schedule_id}`} className="link link-primary">
-                    {describeScheduledOperation(proposal.operation)} — {proposal.state.status} —{" "}
-                    {proposal.progress.signed} of {proposal.progress.threshold}
-                    {proposal.incomingProgress
-                      ? ` (+ ${proposal.incomingProgress.signed} of ${proposal.incomingProgress.threshold} incoming)`
-                      : ""}
+                    {describeScheduledOperation(proposal.operation)} — {scheduleStatusLabel(proposal.state.status)} —{" "}
+                    {approvalsLabel(proposal.progress, proposal.incomingProgress)}
                   </Link>
                 </li>
               ))}

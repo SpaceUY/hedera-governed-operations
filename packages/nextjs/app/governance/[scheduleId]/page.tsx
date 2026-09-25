@@ -11,6 +11,7 @@ import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalActions";
+import { approvalsLabel, registryLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
 import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { WALLET_REJECTED_MESSAGE, isWalletRejection } from "~~/services/web3/hederaSigner";
 
@@ -79,10 +80,10 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
       {registryDescription && <p className="mb-4 text-base-content/70">{registryDescription}</p>}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mb-6">
-        <dt className="text-base-content/60">Schedule status</dt>
-        <dd>{proposal.state.status}</dd>
-        <dt className="text-base-content/60">Registry</dt>
-        <dd>{registry.status === "read" ? registry.entry.state : registry.status}</dd>
+        <dt className="text-base-content/60">Status</dt>
+        <dd>{scheduleStatusLabel(proposal.state.status)}</dd>
+        <dt className="text-base-content/60">Registry entry</dt>
+        <dd>{registryLabel(registry)}</dd>
         {operation.kind === "registryCall" && (
           <>
             {operation.payableTinybars > 0n && (
@@ -96,13 +97,25 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
           </>
         )}
         <dt className="text-base-content/60">Approvals</dt>
-        <dd>
-          {proposal.progress.signed} of {proposal.progress.threshold} outgoing
-          {proposal.incomingProgress
-            ? ` · ${proposal.incomingProgress.signed} of ${proposal.incomingProgress.threshold} incoming`
-            : ""}
-        </dd>
+        <dd>{approvalsLabel(proposal.progress, proposal.incomingProgress)}</dd>
       </dl>
+
+      {isPending && (
+        <div className="text-sm text-base-content/70 mb-6 flex flex-col gap-1">
+          <p>
+            The network runs the operation as soon as the threshold is reached.{" "}
+            {proposal.state.expiresAt
+              ? `If it isn't reached by ${proposal.state.expiresAt.toLocaleString()}, the proposal expires and nothing runs.`
+              : "If it isn't reached before the schedule expires, nothing runs."}
+          </p>
+          {proposal.incomingProgress && (
+            <p>
+              Replacing the council needs signatures from both sides: the current council&apos;s threshold and the
+              incoming council&apos;s own.
+            </p>
+          )}
+        </div>
+      )}
 
       {isPending && (
         <div className="flex flex-col gap-2 mb-4">
