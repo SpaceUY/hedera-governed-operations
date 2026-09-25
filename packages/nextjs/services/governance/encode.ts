@@ -133,6 +133,11 @@ export type TreasurySwapProposalOptions = {
   /**
    * Unix seconds after which the DEX refuses the swap. It defaults to the proposal's own expiry,
    * because anything shorter would go stale while the council is still collecting signatures.
+   *
+   * The default is counted from **now**, when the proposal is encoded, not from when its schedule is
+   * created. Registering and scheduling are two transactions and nothing forces them to be minutes
+   * apart, so a proposal registered long before it is scheduled ends up with a deadline earlier than
+   * its own expiry. Pass one explicitly when the two steps are not back to back.
    */
   deadline?: number;
 };

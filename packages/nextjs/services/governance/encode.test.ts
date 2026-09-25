@@ -157,19 +157,20 @@ describe("encodeTreasurySwap", () => {
     const proposal = swap();
     const scheduled = scheduledExecuteOf(proposal);
     const registered = decodeRegistryOperation(proposal.target, proposal.calldata);
+    // Narrowed first: comparing two `kind === ... && field` expressions would pass on two falses,
+    // which is exactly the regression this test exists to catch.
+    if (scheduled.kind !== "registryCall") throw new Error(`scheduled body decoded as ${scheduled.kind}`);
+    if (registered.kind !== "treasurySwap") throw new Error(`registry entry decoded as ${registered.kind}`);
 
-    expect(scheduled.kind === "registryCall" && scheduled.payableTinybars).toBe(
-      registered.kind === "treasurySwap" && registered.amountInTinybars,
-    );
+    expect(scheduled.payableTinybars).toBe(registered.amountInTinybars);
   });
 
   it("gives the DEX until the proposal expires, not until a few minutes from now", () => {
     const proposal = swap();
     const registered = decodeRegistryOperation(proposal.target, proposal.calldata);
+    if (registered.kind !== "treasurySwap") throw new Error(`registry entry decoded as ${registered.kind}`);
 
-    expect(registered.kind === "treasurySwap" && registered.deadline).toBe(
-      Math.floor(NOW.getTime() / 1000) + PROPOSAL_EXPIRY_SECONDS,
-    );
+    expect(registered.deadline).toBe(Math.floor(NOW.getTime() / 1000) + PROPOSAL_EXPIRY_SECONDS);
   });
 
   it("refuses to sell nothing", () => {
@@ -290,8 +291,9 @@ describe("buildCouncilRotation", () => {
       threshold: 3,
     });
     const operation = decodeScheduledOperation(scheduledBodyOf(rotation));
+    if (operation.kind !== "councilRotation") throw new Error(`rotation decoded as ${operation.kind}`);
 
-    expect(operation.kind === "councilRotation" && operation.council.memberKeys).toHaveLength(5);
+    expect(operation.council.memberKeys).toHaveLength(5);
   });
 
   it("refuses a threshold no number of signatures could reach", () => {

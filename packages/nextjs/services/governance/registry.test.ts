@@ -15,6 +15,8 @@ const RPC_URL = "https://relay.test/api";
 const VAULT_PROXY = "0x3f806946439c3521eeD7d740c3f84E09888C0419";
 const VAULT_V2 = "0xF3111f1480f088c19CB80096f698E5f1B42Cb9A6";
 const PROPOSER = "0xf2b17e6774b48f1073a94b78791aaa02698d1620";
+/** `AccessControlUnauthorizedAccount`, what registering without the role reverts with. */
+const ACCESS_CONTROL_ERROR = `0xe2517d3f${"00".repeat(12)}${PROPOSER.slice(2)}${"00".repeat(32)}`;
 
 const registry = { executorContractId: EXECUTOR, rpcUrl: RPC_URL };
 
@@ -33,17 +35,25 @@ const entryResponse = (state: number) =>
     result: { target: VAULT_PROXY, proposer: PROPOSER, state, data: upgradeCalldata },
   });
 
-/** One JSON-RPC answer per relay call, in order; an Error stands for a relay that refused. */
-function stubRelay(...answers: (number | Error)[]) {
+/** `Panic(0x32)`, which is what reading past the end of the registry's array produces. */
+const ARRAY_OUT_OF_BOUNDS = `0x4e487b71${"00".repeat(31)}32`;
+
+/**
+ * One JSON-RPC answer per relay call, in order: a number is the entry's state, an Error is a relay
+ * that refused, and "revert" is the contract itself refusing.
+ */
+function stubRelay(...answers: (number | Error | "revert")[]) {
   const fetchMock = vi.fn();
   for (const answer of answers) {
     if (answer instanceof Error) {
       fetchMock.mockResolvedValueOnce(new Response("upstream error", { status: 502 }));
       continue;
     }
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: entryResponse(answer) })),
-    );
+    const payload =
+      answer === "revert"
+        ? { jsonrpc: "2.0", id: 1, error: { code: 3, message: "execution reverted", data: ARRAY_OUT_OF_BOUNDS } }
+        : { jsonrpc: "2.0", id: 1, result: entryResponse(answer) };
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(payload)));
   }
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -64,6 +74,21 @@ describe("proposalIdFromContractResult", () => {
 
   it("reads the first entry of a registry as zero, not as nothing", () => {
     expect(proposalIdFromContractResult(contractResultWith(toHex(0n, { size: 32 })))).toBe(0);
+  });
+
+  /**
+   * A revert leaves its error payload in `call_result`, so reading it as a number would either blow
+   * up or hand back something that can never be an entry, leaving the caller polling forever.
+   * Registering without `PROPOSER_ROLE` is exactly that case.
+   */
+  it("refuses to read an id out of a registration that reverted", () => {
+    const reverted = { call_result: ACCESS_CONTROL_ERROR, error_message: ACCESS_CONTROL_ERROR } as MirrorContractResult;
+
+    expect(() => proposalIdFromContractResult(reverted)).toThrow(/failed on chain/);
+  });
+
+  it("waits rather than guessing when the result is not a uint256 at all", () => {
+    expect(proposalIdFromContractResult(contractResultWith("0xe2517d3f"))).toBeNull();
   });
 });
 
@@ -111,6 +136,27 @@ describe("fetchRegistryEntries", () => {
     const entries = await fetchRegistryEntries([7], registry);
 
     expect(entries.get(7)?.status).toBe("unreachable");
+  });
+
+  /**
+   * A revert is the registry answering, not the relay failing. Signing a schedule for an entry that
+   * was never registered spends the council's approval on a call that reverts and charges the
+   * governance account, so it cannot be shown as the same "could not check" as a relay outage.
+   */
+  it("reports an id the registry holds no entry for as missing, not as unreachable", async () => {
+    stubRelay("revert");
+
+    const entries = await fetchRegistryEntries([999], registry);
+
+    expect(entries.get(999)).toMatchObject({ status: "missing", reason: expect.stringContaining("999") });
+  });
+
+  it("refuses to guess when the registry reports a state it does not know", async () => {
+    stubRelay(7);
+
+    const entries = await fetchRegistryEntries([7], registry);
+
+    expect(entries.get(7)?.status).toBe("missing");
   });
 
   it("crosses the entries it could read even when another one failed", async () => {

@@ -10,6 +10,7 @@ import {
   ContractExecuteTransaction,
   ContractFunctionParameters,
   ContractId,
+  Hbar,
   KeyList,
   NftId,
   PrivateKey,
@@ -22,7 +23,9 @@ import { encodeFunctionData, hexToBytes, parseAbi } from "viem";
 import { describe, expect, it } from "vitest";
 
 const EXECUTOR = "0.0.10671156";
+const EXECUTOR_EVM = "0x3cd48d7eAAD9e9b6E2DAaA14862aFDa5811f62Fe";
 const GOVERNANCE_ACCOUNT = "0.0.10671146";
+const EXECUTE_SELECTOR = "0xfe0d94c1";
 const VAULT_PROXY = "0x3f806946439c3521eeD7d740c3f84E09888C0419";
 const VAULT_V2 = "0xF3111f1480f088c19CB80096f698E5f1B42Cb9A6";
 const USDC = "0x0000000000000000000000000000000000001549";
@@ -32,6 +35,20 @@ const HOLDER = "0x3353E89f1f9feF7A0881E5E92f8A0A7fd3A13097";
 /** Bodies with no numeric field, for the degenerate shapes no SDK transaction can be built into. */
 const rawBody = (body: proto.ISchedulableTransactionBody): string =>
   Buffer.from(proto.SchedulableTransactionBody.encode(body).finish()).toString("base64");
+
+/** A rotation that changes nothing but the key, to be loaded with extra fields by the tests that need it. */
+const rotationOf = (): AccountUpdateTransaction =>
+  new AccountUpdateTransaction()
+    .setAccountId(AccountId.fromString(GOVERNANCE_ACCOUNT))
+    .setKey(new KeyList([PrivateKey.generateECDSA().publicKey, PrivateKey.generateECDSA().publicKey], 2));
+
+const executeBodyWith = (calldata: string): string =>
+  scheduledBodyOf(
+    new ContractExecuteTransaction()
+      .setContractId(ContractId.fromString(EXECUTOR))
+      .setGas(90_000)
+      .setFunctionParameters(hexToBytes(calldata as `0x${string}`)),
+  );
 
 const reasonOf = (body: string): string => {
   const operation = decodeScheduledOperation(body);
@@ -180,6 +197,63 @@ describe("decodeScheduledOperation on bodies it cannot describe", () => {
   it("refuses an account update that names no account", () => {
     expect(reasonOf(rawBody({ cryptoUpdateAccount: {} }))).toContain("names no account");
   });
+
+  /**
+   * A body with the right selector says nothing about its argument, and one bad row must not take
+   * the inbox down with it.
+   */
+  it("refuses an execute(uint256) whose argument is not there", () => {
+    expect(reasonOf(executeBodyWith(EXECUTE_SELECTOR))).toContain("no readable proposal id");
+  });
+
+  it("refuses an execute(uint256) whose argument is truncated", () => {
+    expect(reasonOf(executeBodyWith(`${EXECUTE_SELECTOR}${"00".repeat(16)}`))).toContain("no readable proposal id");
+  });
+
+  /**
+   * `CryptoUpdate` carries around twenty fields. A rotation that quietly also moved the account's
+   * expiry or its association slots would be approved as "changes who approves".
+   */
+  it("refuses an account update that changes the key and something else as well", () => {
+    const body = scheduledBodyOf(rotationOf().setReceiverSignatureRequired(true).setAccountMemo("treasury"));
+
+    expect(reasonOf(body)).toContain("something else about the account");
+  });
+
+  it("still reads a rotation that changes nothing but the key", () => {
+    expect(decodeScheduledOperation(scheduledBodyOf(rotationOf()))).toMatchObject({
+      kind: "councilRotation",
+      council: { threshold: 2 },
+    });
+  });
+});
+
+/**
+ * An entity can be named by an EVM address or a key alias instead of a number. Reading only the
+ * number would render every one of them as `0.0.0` — which is a real account, and the wrong one.
+ */
+describe("decodeScheduledOperation on entities named by address", () => {
+  it("keeps the EVM address of a contract that was not named by id", () => {
+    const body = scheduledBodyOf(
+      new ContractExecuteTransaction()
+        .setContractId(ContractId.fromEvmAddress(0, 0, EXECUTOR_EVM))
+        .setGas(150_000)
+        .setFunctionParameters(hexToBytes(`${EXECUTE_SELECTOR}${"00".repeat(31)}07`)),
+    );
+
+    expect(decodeScheduledOperation(body)).toMatchObject({ executorContractId: EXECUTOR_EVM.toLowerCase() });
+  });
+
+  it("keeps the alias of an account that has no number yet", () => {
+    const transfer = new TransferTransaction()
+      .addHbarTransfer(AccountId.fromString(GOVERNANCE_ACCOUNT), Hbar.fromTinybars(-250_000_000))
+      .addHbarTransfer(AccountId.fromEvmAddress(0, 0, HOLDER), Hbar.fromTinybars(250_000_000));
+    const operation = decodeScheduledOperation(scheduledBodyOf(transfer));
+
+    expect(operation.kind === "treasuryTransfer" && operation.hbar.map(move => move.accountId)).toContain(
+      HOLDER.toLowerCase(),
+    );
+  });
 });
 
 describe("decodeRegistryOperation", () => {
@@ -271,9 +345,9 @@ describe("the default description", () => {
     );
   });
 
-  it("leaves the debited side out of a transfer, which is the governance account itself", () => {
+  it("names the account a transfer takes the money out of", () => {
     expect(describeScheduledOperation(decodeScheduledOperation(recorded.treasuryTransfer.transactionBody))).toBe(
-      "Transfer 2.5 ℏ to 0.0.10716495",
+      "Transfer 2.5 ℏ to 0.0.10716495 out of 0.0.8192684",
     );
   });
 

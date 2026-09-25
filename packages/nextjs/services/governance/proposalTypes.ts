@@ -122,7 +122,7 @@ export function describeScheduledOperation(operation: ScheduledOperation): strin
     case "registryCall":
       return `Run entry ${operation.proposalId} of the registry at ${operation.executorContractId}`;
     case "treasuryTransfer": {
-      const moves = [
+      const credited = [
         ...operation.hbar
           .filter(transfer => transfer.tinybars > 0n)
           .map(transfer => `${Hbar.fromTinybars(transfer.tinybars.toString()).toString()} to ${transfer.accountId}`),
@@ -130,7 +130,15 @@ export function describeScheduledOperation(operation: ScheduledOperation): strin
           .filter(transfer => transfer.amount > 0n)
           .map(transfer => `${transfer.amount} of token ${transfer.tokenId} to ${transfer.accountId}`),
       ];
-      return `Transfer ${moves.join(", ")}`;
+      // Never assume the debited side is the treasury: a body can move value out of any account
+      // whose key the schedule collects, so whose money it is has to be said out loud.
+      const debited = [
+        ...new Set([
+          ...operation.hbar.filter(transfer => transfer.tinybars < 0n).map(transfer => transfer.accountId),
+          ...operation.tokens.filter(transfer => transfer.amount < 0n).map(transfer => transfer.accountId),
+        ]),
+      ];
+      return `Transfer ${credited.join(", ")} out of ${debited.join(", ")}`;
     }
     case "councilRotation":
       return `Rotate the council of ${operation.accountId} to ${operation.council.threshold} of ${operation.council.memberKeys.length}`;

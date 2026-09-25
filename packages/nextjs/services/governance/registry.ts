@@ -17,7 +17,7 @@
 import { decodeRegistryOperation } from "./decode";
 import type { RegistryOperation } from "./proposalTypes";
 import { ContractExecuteTransaction, ContractFunctionParameters, ContractId } from "@hiero-ledger/sdk";
-import { type Address, type Hex, createPublicClient, decodeFunctionResult, http, parseAbi } from "viem";
+import { type Address, type Hex, createPublicClient, decodeFunctionResult, http, parseAbi, size } from "viem";
 import type { MirrorContractResult } from "~~/services/mirror";
 
 export const REGISTRY_ABI = parseAbi([
@@ -25,6 +25,9 @@ export const REGISTRY_ABI = parseAbi([
   "function cancel(uint256 id)",
   "function proposal(uint256 id) view returns ((address target, address proposer, uint8 state, bytes data))",
 ]);
+
+/** A `uint256` return value; anything else in `call_result` is not an id. */
+const UINT256_BYTES = 32;
 
 /** Measured on testnet: retiring an entry writes one slot and logs an event, and consumes 30,684. */
 export const CANCEL_PROPOSAL_GAS = 60_000;
@@ -44,12 +47,19 @@ export type RegistryEntry = {
 };
 
 /**
- * Whether a proposal's registry entry could be crossed with its schedule. `notApplicable` covers the
- * two native kinds, which have no entry at all, and anything whose body never named this executor.
+ * Whether a proposal's registry entry could be crossed with its schedule.
+ *
+ * `missing` and `unreachable` are deliberately not the same answer. `missing` is the registry
+ * itself saying there is no usable entry — a proposal id that was never registered makes
+ * `proposal(id)` revert — and signing such a schedule spends the council's approval on a call that
+ * reverts and charges the governance account. `unreachable` only means the question could not be
+ * asked. So a screen should refuse to sign on `missing` the way it does on a cancelled entry, and
+ * merely warn on `unreachable`.
  */
 export type RegistryCrossCheck =
   | { status: "notApplicable" }
   | { status: "read"; entry: RegistryEntry }
+  | { status: "missing"; reason: string }
   | { status: "unreachable"; reason: string };
 
 export type RegistryLookup = {
@@ -75,18 +85,29 @@ export function buildCancelProposalCall(executorContractId: string, proposalId: 
  * The id `createProposal` returned, which the app needs to schedule `execute(id)` next and which no
  * signer hands back: a wallet returns a transaction id and nothing else. It comes from the contract
  * result the Mirror Node records, the same shape `scheduleIdFromTransaction` solves for a schedule.
- * Null while Mirror is still indexing and the result carries no return value yet.
+ *
+ * Null means "not yet": Mirror has recorded no return value. A registration that **failed** is a
+ * different answer and throws, because the two are indistinguishable in the result otherwise — a
+ * revert leaves its error payload in `call_result`, and reading that as a number would either blow
+ * up or return a number so large it can never be an entry, leaving a caller polling for an id that
+ * is never coming. A proposer without `PROPOSER_ROLE` is exactly that case.
  */
 export function proposalIdFromContractResult(result: MirrorContractResult): number | null {
-  if (!result.call_result || result.call_result === "0x") return null;
+  if (result.error_message) {
+    throw new Error(`Registering the proposal failed on chain: ${result.error_message}`);
+  }
+  if (!result.call_result || size(result.call_result as Hex) !== UINT256_BYTES) return null;
 
-  const id = decodeFunctionResult({
-    abi: REGISTRY_ABI,
-    functionName: "createProposal",
-    data: result.call_result as Hex,
-  });
-
-  return id > BigInt(Number.MAX_SAFE_INTEGER) ? null : Number(id);
+  try {
+    const id = decodeFunctionResult({
+      abi: REGISTRY_ABI,
+      functionName: "createProposal",
+      data: result.call_result as Hex,
+    });
+    return id > BigInt(Number.MAX_SAFE_INTEGER) ? null : Number(id);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -114,26 +135,46 @@ export async function fetchRegistryEntries(
   return new Map(
     unique.map((proposalId, index): [number, RegistryCrossCheck] => {
       const reading = readings[index];
-      if (reading.status === "rejected") {
-        return [proposalId, { status: "unreachable", reason: reasonOf(reading.reason) }];
-      }
+      if (reading.status === "rejected") return [proposalId, failureOf(proposalId, reading.reason)];
 
       const { target, state, data } = reading.value;
+      const known = REGISTRY_STATES[state];
+      if (!known) {
+        return [
+          proposalId,
+          { status: "missing", reason: `the registry reported state ${state}, which this app does not know` },
+        ];
+      }
+
       return [
         proposalId,
         {
           status: "read",
-          entry: {
-            proposalId,
-            state: REGISTRY_STATES[state] ?? "pending",
-            target,
-            calldata: data,
-            operation: decodeRegistryOperation(target, data),
-          },
+          entry: { proposalId, state: known, target, calldata: data, operation: decodeRegistryOperation(target, data) },
         },
       ];
     }),
   );
+}
+
+/** viem nests the cause, so the kind of failure is found by walking it rather than by its top type. */
+type WalkableError = { walk?: (matches: (error: unknown) => boolean) => unknown };
+
+const isRevert = (error: unknown): boolean => {
+  const { walk } = (error ?? {}) as WalkableError;
+  if (typeof walk !== "function") return false;
+  return walk.call(error, nested => (nested as Error)?.name === "ContractFunctionRevertedError") !== null;
+};
+
+/**
+ * A revert is the registry answering, not the relay failing: `proposal(id)` reverts on an id that
+ * was never registered, which is a proposal nobody should be asked to sign.
+ */
+function failureOf(proposalId: number, error: unknown): RegistryCrossCheck {
+  if (isRevert(error)) {
+    return { status: "missing", reason: `the registry holds no entry ${proposalId}` };
+  }
+  return { status: "unreachable", reason: reasonOf(error) };
 }
 
 const reasonOf = (error: unknown): string =>

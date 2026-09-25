@@ -3,7 +3,8 @@ import recorded from "./__fixtures__/scheduled-bodies.json";
 import type { CouncilKey } from "./council";
 import { fetchProposalInbox } from "./proposals";
 import { REGISTRY_ABI } from "./registry";
-import { encodeFunctionData, encodeFunctionResult, parseAbi } from "viem";
+import { proto } from "@hiero-ledger/proto";
+import { encodeFunctionData, encodeFunctionResult, hexToBytes, parseAbi } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MirrorSchedule } from "~~/services/mirror";
 import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
@@ -15,6 +16,8 @@ const BOB = "0.0.10671144";
 const EXECUTOR = "0.0.10671156";
 const RPC_URL = "https://relay.test/api";
 const VAULT_PROXY = "0x3f806946439c3521eeD7d740c3f84E09888C0419";
+/** The same executor as EXECUTOR, named the other way a scheduled call can name a contract. */
+const EXECUTOR_EVM = "0x0000000000000000000000000000000000a2d434";
 const FAR_FUTURE = "9999999999.000000000";
 
 const council: CouncilKey = {
@@ -187,6 +190,29 @@ describe("fetchProposalInbox", () => {
     expect(proposal.state.status).toBe("deleted");
   });
 
+  /**
+   * A rotation needs the incoming council's threshold as well as the current one's, so a single
+   * count would leave a bar stuck at its threshold while the proposal is still waiting.
+   */
+  it("counts a rotation against the council it proposes, as well as the current one", async () => {
+    stubSchedulesPerProposer([
+      { ...pendingRegistryProposal("0.0.1"), transaction_body: recorded.councilRotation.transactionBody },
+    ]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.incomingProgress).toMatchObject({ threshold: 2 });
+  });
+
+  it("has no second count for a proposal that changes no council", async () => {
+    stubSchedulesPerProposer([pendingRegistryProposal("0.0.1")]);
+    stubRegistryStates(0);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.incomingProgress).toBeNull();
+  });
+
   it("says what each proposal does, decoded from its own body", async () => {
     stubSchedulesPerProposer([pendingRegistryProposal("0.0.1")]);
     stubRegistryStates(0);
@@ -203,6 +229,23 @@ describe("fetchProposalInbox", () => {
  * sign a proposal that reverts with `ProposalNotPending` and charges the governance account for it.
  */
 describe("crossing a proposal with its registry entry", () => {
+  it("crosses a proposal whose body names the executor by its EVM address", async () => {
+    const body = Buffer.from(
+      proto.SchedulableTransactionBody.encode({
+        contractCall: {
+          contractID: { evmAddress: hexToBytes(EXECUTOR_EVM) },
+          functionParameters: hexToBytes(`0xfe0d94c1${"00".repeat(31)}07`),
+        },
+      }).finish(),
+    ).toString("base64");
+    stubSchedulesPerProposer([{ ...pendingRegistryProposal("0.0.1"), transaction_body: body }]);
+    stubRegistryStates(2);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
+  });
+
   it("marks a pending proposal dead when its entry was already cancelled", async () => {
     stubSchedulesPerProposer([pendingRegistryProposal("0.0.1")]);
     stubRegistryStates(2);

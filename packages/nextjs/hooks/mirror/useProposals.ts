@@ -30,7 +30,15 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
   const council = useCouncil(options);
 
   const inbox = useQuery<ProposalInbox, Error>({
-    queryKey: mirrorQueryKey(network, "proposals", governanceAccountId, ...(council.data?.proposerAccountIds ?? [])),
+    // The executor belongs in the key: the inbox is crossed against its registry, so pointing the app
+    // at a different one has to invalidate the list and not just the council.
+    queryKey: mirrorQueryKey(
+      network,
+      "proposals",
+      governanceAccountId,
+      options.executorContractId,
+      ...(council.data?.proposerAccountIds ?? []),
+    ),
     queryFn: () => {
       if (!council.data) throw new Error("The council has to be known before its proposals can be listed");
       const hederaNetwork = toHederaNetworkName(network);

@@ -319,6 +319,18 @@ layer down: a registry entry may store a call to any target, which is the point 
 registry, and one whose selector matches nothing here is shown with its target and calldata rather
 than hidden.
 
+**And a field the decoder does not read makes the body unrecognised.** That is what lets the decoded
+body be the evidence the memo is not. Matching a selector says nothing about the argument behind it,
+and `CryptoUpdate` carries around twenty fields besides the key — the account's own expiry, its
+automatic association slots, its staking — so a rotation that quietly also set one of those would be
+approved as "changes who approves". The bodies that can carry more than one operation are checked by
+re-encoding what was understood and comparing it against what arrived.
+
+**An entity named by an address stays an address.** A contract or an account can arrive as an EVM
+address or a key alias rather than a number, and converting one to the other needs the Mirror Node.
+Reading only the number would render every one of them as `0.0.0`, which is a real account and the
+wrong one, so the address is carried through and the cross-check matches a contract in either form.
+
 **The memo is never read back.** It is free text written by whoever opened the proposal, so it can
 say "upgrade" over a body that moves the treasury somewhere else. It is a label for a human scanning
 HashScan, and the decoded body is the evidence.
@@ -336,7 +348,9 @@ key's own threshold is also met. Each side needs its own threshold rather than a
 so a 2-of-3 council rotating to another 2-of-3 needs four signatures in total, two from each.
 
 The incoming council comes out of the decoded body in the same shape `fetchCouncilKey` returns for
-the current one, so both are counted with `countThresholdSignatures` and a rotation shows two bars.
+the current one, so `countThresholdSignatures` runs over both: a rotation's row carries `progress`
+against the council that exists and `incomingProgress` against the one it proposes, and every other
+kind carries `null` for the second. Rendering the two is the inbox screen's job.
 
 ## Withdrawing a proposal: schedule or registry
 

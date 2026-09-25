@@ -11,6 +11,12 @@
  * The schedule's memo is deliberately not consulted. It is free text written by whoever opened the
  * proposal, so it can say "upgrade" over a body that transfers the treasury somewhere else. It is a
  * label, never evidence.
+ *
+ * Which is only true if the decoded body *is* evidence, and that takes a rule: **a field this file
+ * does not read has to make the body unrecognised.** A description that silently drops part of a
+ * transaction is worse than no description, because the council approves what it was shown. So the
+ * bodies that carry more than one operation are checked by re-encoding what was understood and
+ * comparing it to what arrived.
  */
 import { councilKeyOf } from "./council";
 import type { HbarTransfer, RegistryOperation, ScheduledOperation, TokenTransfer } from "./proposalTypes";
@@ -59,9 +65,17 @@ const bigIntOf = (value: unknown): bigint => BigInt(value?.toString() ?? 0);
 const entityId = (shard: unknown, realm: unknown, num: unknown): string =>
   `${numeric(shard)}.${numeric(realm)}.${numeric(num)}`;
 
-const contractId = (id: proto.IContractID): string => entityId(id.shardNum, id.realmNum, id.contractNum);
+/**
+ * A contract or an account can arrive named by an EVM address or a key alias instead of a number,
+ * and there is no converting one to the other without asking the Mirror Node. Reading only the
+ * number would render every one of them as `0.0.0` — a real account, and the wrong one — so the
+ * address is carried through as it came and resolving it is left to whoever is rendering.
+ */
+const contractId = (id: proto.IContractID): string =>
+  id.evmAddress?.length ? bytesToHex(id.evmAddress) : entityId(id.shardNum, id.realmNum, id.contractNum);
 
-const accountId = (id: proto.IAccountID): string => entityId(id.shardNum, id.realmNum, id.accountNum);
+const accountId = (id: proto.IAccountID): string =>
+  id.alias?.length ? bytesToHex(id.alias) : entityId(id.shardNum, id.realmNum, id.accountNum);
 
 const tokenId = (id: proto.ITokenID): string => entityId(id.shardNum, id.realmNum, id.tokenNum);
 
@@ -76,7 +90,14 @@ function decodeContractCall(call: proto.IContractCallTransactionBody): Scheduled
     return unrecognized(`the call starts with ${calldata.slice(0, 10)}, which is not execute(uint256)`);
   }
 
-  const { args } = decodeFunctionData({ abi: EXECUTE_ABI, data: calldata });
+  // The selector matching says nothing about the argument: a truncated or absent one makes viem
+  // throw, and one bad row would take down the whole inbox.
+  let args: readonly [bigint];
+  try {
+    ({ args } = decodeFunctionData({ abi: EXECUTE_ABI, data: calldata }));
+  } catch {
+    return unrecognized(`the call is execute(uint256) but carries no readable proposal id`);
+  }
   const [id] = args;
   if (id > BigInt(Number.MAX_SAFE_INTEGER))
     return unrecognized(`the proposal id ${id} is too large to be a registry entry`);
@@ -120,10 +141,32 @@ function decodeTransfer(transfer: proto.ICryptoTransferTransactionBody): Schedul
   return { kind: "treasuryTransfer", hbar, tokens };
 }
 
+/**
+ * True when the update changes nothing beyond the account it names and its key. `CryptoUpdate`
+ * carries around twenty fields — the account's own expiry, its automatic association slots, whether
+ * it requires a receiver signature, its staking — and a rotation that quietly also set one of those
+ * would be approved as "changes who approves". Re-encoding the two fields that were read and
+ * comparing the bytes catches every one of them, including any the protocol adds later.
+ */
+function changesOnlyTheKey(update: proto.ICryptoUpdateTransactionBody): boolean {
+  const arrived = proto.CryptoUpdateTransactionBody.encode(update).finish();
+  const understood = proto.CryptoUpdateTransactionBody.encode({
+    accountIDToUpdate: update.accountIDToUpdate,
+    key: update.key,
+  }).finish();
+  return Buffer.from(arrived).equals(Buffer.from(understood));
+}
+
 function decodeAccountUpdate(update: proto.ICryptoUpdateTransactionBody): ScheduledOperation {
   if (!update.accountIDToUpdate) return unrecognized("the account update names no account");
   if (!update.key) {
     return unrecognized("the account update changes something other than the key, so it rotates no council");
+  }
+  if (!changesOnlyTheKey(update)) {
+    return unrecognized(
+      "the account update changes the key and something else about the account as well, so describing it as a " +
+        "council rotation would hide the rest",
+    );
   }
 
   try {

@@ -15,6 +15,7 @@ import { type CouncilKey, type ThresholdProgress, countThresholdSignatures } fro
 import { decodeScheduledOperation } from "./decode";
 import type { ScheduledOperation } from "./proposalTypes";
 import { type RegistryCrossCheck, type RegistryLookup, fetchRegistryEntries } from "./registry";
+import { ContractId } from "@hiero-ledger/sdk";
 import {
   type MirrorSchedule,
   type ScheduleState,
@@ -33,7 +34,17 @@ export type Proposal = {
   schedule: MirrorSchedule;
   /** Status of the approval round: pending, executed, deleted or expired. */
   state: ScheduleState;
+  /** How far the current council is from its threshold. */
   progress: ThresholdProgress;
+  /**
+   * The same count against the council a rotation proposes, and null for every other kind.
+   *
+   * Verified on testnet: a scheduled key change needs the incoming key's own threshold as well as
+   * the outgoing one's, and the schedule waits until it has both. Showing only `progress` for a
+   * rotation would leave a bar stuck at its threshold while the proposal sits there, with nothing
+   * on screen explaining what it is still waiting for.
+   */
+  incomingProgress: ThresholdProgress | null;
   /** What the scheduled body does, decoded without the network. */
   operation: ScheduledOperation;
   /**
@@ -72,6 +83,15 @@ const newestFirst = (left: MirrorSchedule, right: MirrorSchedule): number =>
 type UncrossedProposal = Omit<Proposal, "registry">;
 
 /**
+ * A scheduled call can name its contract by id or by EVM address, and both mean the same contract,
+ * so comparing the text alone would quietly skip the cross-check on half the proposals.
+ */
+function isThisExecutor(named: string, executorContractId: string): boolean {
+  if (named === executorContractId) return true;
+  return named.toLowerCase() === `0x${ContractId.fromString(executorContractId).toEvmAddress()}`.toLowerCase();
+}
+
+/**
  * The entry a row has to be crossed against, or null when there is nothing to cross: the round is
  * already over, the proposal is native, or its body names some other contract — in which case an id
  * from it would point at an unrelated entry of ours.
@@ -79,7 +99,7 @@ type UncrossedProposal = Omit<Proposal, "registry">;
 function registryIdOf(proposal: UncrossedProposal, executorContractId: string): number | null {
   if (proposal.state.isSettled) return null;
   if (proposal.operation.kind !== "registryCall") return null;
-  if (proposal.operation.executorContractId !== executorContractId) return null;
+  if (!isThisExecutor(proposal.operation.executorContractId, executorContractId)) return null;
   return proposal.operation.proposalId;
 }
 
@@ -105,18 +125,24 @@ export async function fetchProposalInbox({
     }
   }
 
-  const uncrossed: UncrossedProposal[] = [...byScheduleId.values()].sort(newestFirst).map(schedule => ({
-    schedule,
-    state: deriveScheduleState(schedule),
-    progress: countThresholdSignatures(schedule, council),
-    operation: decodeScheduledOperation(schedule.transaction_body),
-  }));
+  const uncrossed: UncrossedProposal[] = [...byScheduleId.values()].sort(newestFirst).map(schedule => {
+    const operation = decodeScheduledOperation(schedule.transaction_body);
+    return {
+      schedule,
+      state: deriveScheduleState(schedule),
+      progress: countThresholdSignatures(schedule, council),
+      incomingProgress:
+        operation.kind === "councilRotation" ? countThresholdSignatures(schedule, operation.council) : null,
+      operation,
+    };
+  });
 
   const pendingIds = uncrossed
     .map(proposal => registryIdOf(proposal, registry.executorContractId))
     .filter((id): id is number => id !== null);
 
-  const entries = pendingIds.length > 0 ? await fetchRegistryEntries(pendingIds, registry) : new Map();
+  const entries =
+    pendingIds.length > 0 ? await fetchRegistryEntries(pendingIds, registry) : new Map<number, RegistryCrossCheck>();
 
   return {
     proposals: uncrossed.map(proposal => {
