@@ -12,13 +12,11 @@ import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalActions";
 import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
-import { isWalletRejection } from "~~/services/web3/hederaSigner";
-
-const REJECTED_MESSAGE = "Request rejected in the wallet.";
+import { WALLET_REJECTED_MESSAGE, isWalletRejection } from "~~/services/web3/hederaSigner";
 
 const toFriendlyMessage = (error: unknown) =>
   isWalletRejection(error)
-    ? REJECTED_MESSAGE
+    ? WALLET_REJECTED_MESSAGE
     : `Transaction failed: ${error instanceof Error ? error.message : "unknown error"}`;
 
 const MutationError = ({ error }: { error: unknown }) =>
