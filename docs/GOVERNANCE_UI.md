@@ -1,0 +1,98 @@
+# Governance UI
+
+How the Governed Operations screens are put together: the routes, the layers under them, where each rule lives, and what the screens deliberately do not do yet. The on-chain side — `GovernedExecutor`, `AcmeVault`/`AcmeVaultV2`, `TokenAdmin`, `SaucerSwapAdapter` and the proposal model — is described in `docs/ARCHITECTURE.md`; this document starts where a screen reads from it.
+
+## Routes
+
+| Route                      | What it shows                                                                                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                        | Treasury figures (HBAR, vault reserve, ACME, USDC), the council's threshold, and the council's proposals with their status and approvals                                 |
+| `/governance/[scheduleId]` | One proposal: what it does, the schedule's status, the registry entry behind it, the gas and HBAR the treasury pays, approvals, and Sign / Withdraw / Cancel when they apply |
+| `/proof-wall`              | The Proof Wall demo, moved off the root                                                                                                                                   |
+
+The detail route is keyed by **schedule id**, since a proposal is a schedule the governance account pays for. A registry entry that was registered but never scheduled has no schedule id, and so no page.
+
+## Layout
+
+```
+packages/nextjs/
+  app/
+    page.tsx                        # governance home
+    governance/[scheduleId]/page.tsx  # proposal detail
+    proof-wall/page.tsx
+  components/
+    SetupNotice.tsx                 # rendered in place of a governance page until setup and the deploy have run
+  config/governanceConfig.ts        # ids `yarn setup` writes; deployed contract lookup
+  hooks/mirror/                     # reads (React Query)
+    useCouncil.ts                   # threshold key, members, proposers
+    useProposals.ts                 # the inbox
+    useProposalLookup.ts            # one proposal by schedule id
+    useTreasuryFigures.ts
+  hooks/                            # writes (useMutation), flat like useSubmitProof.ts
+    useCreateProposal.ts            # contract-backed kinds: createProposal, then ScheduleCreate(execute)
+    useCreateNativeProposal.ts      # native kinds: ScheduleCreate(transfer / AccountUpdate)
+    useSignProposal.ts              # ScheduleSign
+    useWithdrawProposal.ts          # ScheduleDelete
+    useCancelProposal.ts            # GovernedExecutor.cancel
+  services/governance/
+    council.ts                      # threshold key decoding, approval counting, proposer list
+    proposals.ts                    # the inbox: schedules by proposer, narrowed and crossed with the registry
+    proposalTypes.ts                # the five kinds, their execute gas, decoded shapes
+    decode.ts / encode.ts           # scheduled body and registry calldata ↔ described operation
+    registry.ts                     # entry reads, cancel, the id createProposal returned
+    schedules.ts                    # ScheduleCreate / Sign / Delete builders
+    treasury.ts                     # balances plus the vault's reserve
+    proposalActions.ts              # which actions a proposal offers, and to whom
+    proposalLabels.ts               # the words a screen uses for a proposal's state
+```
+
+Every operation follows the services → hooks → page layering described in "How to add an operation" in `AGENTS.md`: the service builds and freezes the transaction, the hook wraps it in `useMutation` and calls `requireAccountId()` first, and the page only calls the hook.
+
+## Before setup
+
+A freshly scaffolded app has no `.env.local` and no deployment, and the governance pages have to render anyway. Each page resolves its configuration first — `getGovernanceEntityIds()` and `getDeployedContract(chainId, name)` — and renders `SetupNotice` with the error's message if either throws. Both throw a message naming the command to run. `getDeployedContract` also throws for an entry without a `hederaContractId`, and returns the id typed as a `string`, so a half-written deployment falls into the same notice rather than travelling on as `undefined`.
+
+The network comes from `useTargetNetwork()` through `getHederaNetworkNameFromChainId`, never a literal: a token id from the wrong network's config reads as a balance of 0 rather than an error.
+
+## Reads and state
+
+Server state lives in React Query and nowhere else. Components never write proposal or signature state themselves; they render what the last read returned.
+
+- **Polling** follows `hooks/mirror/mirrorQuery.ts`: queries poll every 5 s while something is pending and slow down or stop once settled. The council is cached, since only an executed proposal changes it.
+- **After a write**, `useProposalLookup().refresh()` invalidates the schedule and the registry entry immediately and again a poll interval later, because Mirror and the JSON-RPC relay both lag consensus by seconds. The delayed read is cleared if the page unmounts first.
+- **The inbox can be partial.** `unreachableProposers` names proposers whose schedules could not be read (Mirror failed, or the address resolves to no account); the home page says the list may be incomplete whenever it is non-empty.
+- **A proposal outside the inbox** — older than `PROPOSALS_PER_PROPOSER`, or a native proposal opened by an account without `PROPOSER_ROLE` — is read directly by `useProposalLookup`, which returns the same `Proposal` shape and refuses a schedule the governance account does not pay for, so a crafted link never reaches a Sign button.
+- **Relay reads** go through `createRelayClient` (`services/web3/relayClient.ts`), with one retry: the polling already asks again.
+- **Amounts from a contract stay `bigint`** until they are rendered, e.g. `Hbar.fromTinybars(reserve.toString())`.
+
+## What a proposal offers
+
+The rules live in `services/governance/proposalActions.ts` and are tested there; the page only calls them.
+
+- **Sign** (`canBeSigned`): the schedule is pending, and either it is a native kind with no registry entry, or it is a registry call whose entry was read, is still pending and decodes to one of this template's operations. A missing, cancelled or unrecognised entry gets no button, and neither does an entry the relay could not be asked about.
+- **Withdraw** (`canBeWithdrawnBy`): the schedule is pending and the connected account created it. The proposer's key is the schedule's admin key, so a `ScheduleDelete` from anyone else is refused by the network; the button is not shown to them, nor with no wallet connected.
+- **Cancel**: offered only once the schedule was withdrawn or expired and the registry entry is still pending. Withdraw comes first because a live schedule on a cancelled entry can still reach its threshold, revert with `ProposalNotPending` and bill the governance account for the gas.
+
+Wallet rejections are shown as `WALLET_REJECTED_MESSAGE` (`services/web3/hederaSigner.ts`, next to `isWalletRejection`) rather than as a failure.
+
+## What a proposal says
+
+The screen that asks for a signature is the one that has to explain the mechanism, so the domain values never reach it as they are. `proposalLabels.ts` turns them into words:
+
+- the schedule's status: "Collecting signatures", "Executed", "Withdrawn", "Expired";
+- the registry entry: its state when it was read, "None: the network runs this operation directly" for a native kind, "No usable entry: do not sign" when the registry has none, "Could not be read right now" when the relay did not answer;
+- approvals as "n of m council signatures", or, for a council rotation, one count for the current council and one for the incoming council, since the schedule waits for both thresholds (see "A rotation collects signatures from two councils" in `docs/ARCHITECTURE.md`).
+
+A pending proposal also says that it runs as soon as the threshold is reached and that it expires, with nothing run, if the threshold is not reached by its expiration time.
+
+## Opening a proposal
+
+`useCreateProposal` sends two transactions: `createProposal` registers the call in `GovernedExecutor`, then a `ScheduleCreate` wraps `execute(id)` for the council to sign, with the proposer's key as admin key. The registry id only comes back through Mirror (`proposalIdFromContractResult`), so the hook waits for indexing with backoff (`waitForMirrorIndexing`). If Mirror still has not indexed the registration, the hook fails with a message saying the entry is registered and must be scheduled, not registered again. `useCreateNativeProposal` schedules a transfer or a council rotation directly, with no registry entry.
+
+Both hooks take an already-encoded proposal from `services/governance/encode.ts`, which enforces the chain invariants (positive amounts, a reachable threshold, no duplicate council key) before anything becomes a transaction.
+
+## Not built yet
+
+- **No screen opens a proposal.** `useCreateProposal` and `useCreateNativeProposal` are complete and tested, but nothing under `app/` calls them yet; until the proposal form exists, proposals are opened by `yarn setup` or a script.
+- **Approvals render as text.** `Proposal.progress` and `Proposal.incomingProgress` carry everything a progress visual needs, including which members signed (`signedBy`).
+- **A registry entry that was never scheduled** — the seed proposal `yarn setup` registers is one — has no detail page, since there is no schedule id to route on.

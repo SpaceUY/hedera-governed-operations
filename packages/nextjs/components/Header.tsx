@@ -9,6 +9,7 @@ import {
   ChatBubbleLeftIcon,
   Cog6ToothIcon,
   MagnifyingGlassIcon,
+  MapIcon,
   UserCircleIcon,
 } from "@heroicons/react/24/outline";
 import { WalletConnectButton } from "~~/components/scaffold-hbar";
@@ -22,8 +23,13 @@ type HeaderMenuLink = {
 
 export const menuLinks: HeaderMenuLink[] = [
   {
-    label: "Proof Wall",
+    label: "Governance",
     href: "/",
+    icon: <MapIcon className="h-4 w-4" />,
+  },
+  {
+    label: "Proof Wall",
+    href: "/proof-wall",
     icon: <ChatBubbleLeftIcon className="h-4 w-4" />,
   },
   {
@@ -101,9 +107,9 @@ export const Header = () => {
             <Image alt="Hedera icon" className="cursor-pointer hidden dark:block" fill src="/Hedera-Icon-White.svg" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold leading-tight text-base">Proof Wall</span>
+            <span className="font-bold leading-tight text-base">Governed Operations</span>
             <span className="hidden md:block text-[10px] tracking-wider uppercase text-base-content/50 font-medium">
-              Wallet-Signed Hedera Demo
+              Council-Approved Hedera Demo
             </span>
           </div>
         </Link>

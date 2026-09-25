@@ -25,6 +25,9 @@ export class WalletRejectedError extends Error {
   }
 }
 
+/** What a screen says when the user declined in the wallet: a choice they made, not a failure. */
+export const WALLET_REJECTED_MESSAGE = "Request rejected in the wallet.";
+
 const WALLET_CONNECT_USER_REJECTED_CODES = new Set([5000, 5001, 5002, 5003]);
 const EIP1193_USER_REJECTED_CODE = 4001;
 const USER_REJECTED_MESSAGE = /user.?reject|rejected by (the )?user/i;

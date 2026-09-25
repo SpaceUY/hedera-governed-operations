@@ -6,6 +6,8 @@ This is a **Hedera template with two workspaces**: `packages/nextjs` (HCS topics
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
+The governance UI owns `/`: a governance home (treasury figures, the council's threshold, the pending proposals) and a proposal detail page at `/governance/[scheduleId]` with Sign, Withdraw and Cancel, backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`. No screen opens a proposal yet: the two create hooks are complete and tested but not called from `app/`. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
+
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
 ## Commands
@@ -34,15 +36,17 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 ## App overview
 
-| Route           | Purpose                                                               |
-| --------------- | --------------------------------------------------------------------- |
-| `/`             | Proof Wall — submit proofs, browse HCS feed for the active topic      |
-| `/my-proofs`    | Proofs filtered by connected account; badge display                   |
-| `/admin`        | Create HCS topic and HTS badge token (wallet-signed)                  |
-| `/explorer`     | Read-only Mirror Node view: decoded topic messages and schedule state |
-| `/api/hedera/*` | Mirror Node proxies, operator status, badge airdrop (operator-signed) |
+| Route                      | Purpose                                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                        | Governance home — treasury figures, council threshold, pending proposals; a setup notice until `yarn setup` and the deploy have run |
+| `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)   |
+| `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                    |
+| `/my-proofs`               | Proofs filtered by connected account; badge display                                                                                 |
+| `/admin`                   | Create HCS topic and HTS badge token (wallet-signed)                                                                                |
+| `/explorer`                | Read-only Mirror Node view: decoded topic messages and schedule state                                                               |
+| `/api/hedera/*`            | Mirror Node proxies, operator status, badge airdrop (operator-signed)                                                               |
 
-Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env).
+Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env) and `packages/nextjs/config/governanceConfig.ts` (the ids `yarn setup` writes, deployed contract lookup).
 
 ## Layout
 
@@ -94,6 +98,9 @@ packages/nextjs/
       encode.ts             Form values to transactions: the five encoders, the registration gas, createProposal
       decode.ts             Scheduled body and registry calldata back to a described operation
       registry.ts           GovernedExecutor: the entry behind a proposal, cancel, and the id a create returned
+      treasury.ts           Treasury balances plus the vault's reserve
+      proposalActions.ts    Which actions a proposal offers (Sign, Withdraw), and to whom
+      proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)
@@ -107,7 +114,7 @@ packages/hardhat/
   scripts/                Deployer account management, ABI generation, Sourcify verification
   hardhat.config.ts       Networks (hardhat, localhost, hederaTestnet, hederaMainnet), Sourcify, typechain
 .harness/                 Hedera Harness recipe (spec, prd, validators, eval)
-docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md
+docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_UI.md (governance screens)
 ```
 
 ## Hedera integration patterns

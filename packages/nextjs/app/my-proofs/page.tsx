@@ -89,7 +89,7 @@ export default function MyProofsPage() {
                 emptyTitle="You haven't posted any proofs yet."
                 emptyDescription="Post your first proof on the Proof Wall — it'll show up here."
                 emptyAction={
-                  <Link href="/" className="btn btn-primary btn-sm">
+                  <Link href="/proof-wall" className="btn btn-primary btn-sm">
                     Go to Proof Wall
                   </Link>
                 }

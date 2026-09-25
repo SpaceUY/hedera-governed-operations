@@ -4,12 +4,11 @@ import { useState } from "react";
 import { hederaNamespace } from "@hashgraph/hedera-wallet-connect";
 import { useAppKit } from "@reown/appkit/react";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
-import { isWalletRejection } from "~~/services/web3/hederaSigner";
+import { WALLET_REJECTED_MESSAGE, isWalletRejection } from "~~/services/web3/hederaSigner";
 
-const REJECTED_MESSAGE = "Request rejected in the wallet.";
 const FAILED_MESSAGE = "Wallet action failed. Try again.";
 
-const toFriendlyMessage = (error: unknown) => (isWalletRejection(error) ? REJECTED_MESSAGE : FAILED_MESSAGE);
+const toFriendlyMessage = (error: unknown) => (isWalletRejection(error) ? WALLET_REJECTED_MESSAGE : FAILED_MESSAGE);
 
 /**
  * Inline HashPack connect control for feature pages: connect, show the `0.0.x` account, disconnect.
