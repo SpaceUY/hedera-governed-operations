@@ -9,9 +9,10 @@ import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
-import { toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
+import { type HederaNetworkName, getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
 
 type GovernanceHomeProps = {
+  network: HederaNetworkName;
   governanceAccountId: string;
   demoTokenId: string;
   vaultContractId: string;
@@ -24,6 +25,7 @@ export default function GovernanceHomePage() {
   try {
     const { governanceAccountId, demoTokenId } = getGovernanceEntityIds();
     props = {
+      network: getHederaNetworkNameFromChainId(targetNetwork.id),
       governanceAccountId,
       demoTokenId,
       vaultContractId: getDeployedContract(targetNetwork.id, "AcmeVault").hederaContractId,
@@ -36,12 +38,13 @@ export default function GovernanceHomePage() {
 }
 
 function GovernanceHome({
+  network,
   governanceAccountId,
   demoTokenId,
   vaultContractId,
   executorContractId,
 }: GovernanceHomeProps) {
-  const usdcTokenId = SAUCERSWAP_V2_CONFIG[toHederaNetworkName("testnet")].usdcToken;
+  const usdcTokenId = SAUCERSWAP_V2_CONFIG[network].usdcToken;
 
   const { inbox, council } = useProposals({ governanceAccountId, executorContractId });
   const treasury = useTreasuryFigures({
@@ -49,6 +52,7 @@ function GovernanceHome({
     vaultContractId,
     demoTokenId,
     usdcTokenId,
+    network,
   });
 
   return (
