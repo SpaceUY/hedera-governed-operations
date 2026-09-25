@@ -6,6 +6,10 @@ This is a **Hedera template with two workspaces**: `packages/nextjs` (HCS topics
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
+The governance UI (a live map of the on-chain entities plus a proposal wizard, replacing Proof Wall as `/`) is planned but not yet built — no hooks, components, or routes exist for it. See `docs/GOVERNANCE_UI.md` for the frontend architecture plan (directory layout, componentization, state management, and the confirmed approach for decoding the council's threshold key from Mirror) before starting work in this area.
+
+<!-- TODO(agents): once docs/GOVERNANCE_UI.md is implemented, update the App overview route table, the Layout section (new hooks/components/services), and remove the "planned" framing above and in the docs/ list below. -->
+
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
 ## Commands
@@ -96,7 +100,7 @@ packages/hardhat/
   scripts/                Deployer account management, ABI generation, Sourcify verification
   hardhat.config.ts       Networks (hardhat, localhost, hederaTestnet, hederaMainnet), Sourcify, typechain
 .harness/                 Hedera Harness recipe (spec, prd, validators, eval)
-docs/                     ARCHITECTURE.md, RUNBOOK.md
+docs/                     ARCHITECTURE.md, RUNBOOK.md, GOVERNANCE_UI.md (planned frontend architecture)
 ```
 
 ## Hedera integration patterns
