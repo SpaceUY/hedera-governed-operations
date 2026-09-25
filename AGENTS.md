@@ -92,7 +92,7 @@ packages/hardhat/
   scripts/                Deployer account management, ABI generation, Sourcify verification
   hardhat.config.ts       Networks (hardhat, localhost, hederaTestnet, hederaMainnet), Sourcify, typechain
 .harness/                 Hedera Harness recipe (spec, prd, validators, eval)
-docs/                     ARCHITECTURE.md, RUNBOOK.md
+docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md
 ```
 
 ## Hedera integration patterns
