@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Hbar } from "@hiero-ledger/sdk";
+import { SetupNotice } from "~~/components/SetupNotice";
 import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
@@ -10,17 +11,42 @@ import { describeScheduledOperation } from "~~/services/governance/proposalTypes
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 import { toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
+type GovernanceHomeProps = {
+  governanceAccountId: string;
+  demoTokenId: string;
+  vaultContractId: string;
+  executorContractId: string;
+};
+
 export default function GovernanceHomePage() {
   const { targetNetwork } = useTargetNetwork();
-  const vault = getDeployedContract(targetNetwork.id, "AcmeVault");
-  const executor = getDeployedContract(targetNetwork.id, "GovernedExecutor");
-  const { governanceAccountId, demoTokenId } = getGovernanceEntityIds();
+  let props: GovernanceHomeProps;
+  try {
+    const { governanceAccountId, demoTokenId } = getGovernanceEntityIds();
+    props = {
+      governanceAccountId,
+      demoTokenId,
+      vaultContractId: getDeployedContract(targetNetwork.id, "AcmeVault").hederaContractId!,
+      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId!,
+    };
+  } catch (error) {
+    return <SetupNotice error={error} />;
+  }
+  return <GovernanceHome {...props} />;
+}
+
+function GovernanceHome({
+  governanceAccountId,
+  demoTokenId,
+  vaultContractId,
+  executorContractId,
+}: GovernanceHomeProps) {
   const usdcTokenId = SAUCERSWAP_V2_CONFIG[toHederaNetworkName("testnet")].usdcToken;
 
-  const { inbox, council } = useProposals({ governanceAccountId, executorContractId: executor.hederaContractId! });
+  const { inbox, council } = useProposals({ governanceAccountId, executorContractId });
   const treasury = useTreasuryFigures({
     governanceAccountId,
-    vaultContractId: vault.hederaContractId!,
+    vaultContractId,
     demoTokenId,
     usdcTokenId,
   });
@@ -71,6 +97,7 @@ export default function GovernanceHomePage() {
       <section aria-label="Pending proposals" className="card border border-base-300 bg-base-100 shadow-sm">
         <div className="card-body py-5">
           <h2 className="card-title text-base">Pending proposals</h2>
+          {inbox.data?.proposals.length === 0 && <p className="text-sm text-base-content/60">No proposals yet.</p>}
           {inbox.data ? (
             <ul className="flex flex-col gap-2">
               {inbox.data.proposals.map(proposal => (
@@ -84,7 +111,6 @@ export default function GovernanceHomePage() {
                   </Link>
                 </li>
               ))}
-              {inbox.data.proposals.length === 0 && <p className="text-sm text-base-content/60">No proposals yet.</p>}
             </ul>
           ) : (
             <span className="loading loading-spinner loading-sm" aria-label="Loading proposals" />

@@ -5,6 +5,8 @@ import { PrivateKey } from "@hiero-ledger/sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import Long from "long";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import recorded from "~~/services/governance/__fixtures__/scheduled-bodies.json";
+import { fetchRegistryEntries } from "~~/services/governance/registry";
 import { fetchAccount, fetchSchedule } from "~~/services/mirror";
 
 vi.mock("~~/services/mirror", async importOriginal => ({
@@ -19,6 +21,11 @@ vi.mock("~~/services/mirror", async importOriginal => ({
 vi.mock("~~/services/governance/council", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/services/governance/council")>()),
   fetchProposerAccountIds: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("~~/services/governance/registry", async importOriginal => ({
+  ...(await importOriginal<typeof import("~~/services/governance/registry")>()),
+  fetchRegistryEntries: vi.fn(),
 }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.10671146";
@@ -45,7 +52,14 @@ afterEach(() => {
   cleanup();
   vi.mocked(fetchSchedule).mockReset();
   vi.mocked(fetchAccount).mockReset();
+  vi.mocked(fetchRegistryEntries).mockReset();
 });
+
+const lookup = (executorContractId = EXECUTOR_CONTRACT_ID) =>
+  renderHook(
+    () => useProposalLookup({ governanceAccountId: GOVERNANCE_ACCOUNT_ID, executorContractId, scheduleId: "0.0.777" }),
+    { wrapper: createQueryWrapper() },
+  );
 
 describe("useProposalLookup", () => {
   it("decodes an unrecognized body without crashing, with no registry check attempted", async () => {
@@ -102,5 +116,56 @@ describe("useProposalLookup", () => {
 
     await waitFor(() => expect(result.current.proposal?.incomingProgress?.signed).toBe(1));
     expect(result.current.proposal?.registry).toEqual({ status: "notApplicable" });
+  });
+
+  it("refuses a schedule the governance account does not pay for", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      payer_account_id: "0.0.424242",
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+
+    const { result } = lookup();
+
+    await waitFor(() => expect(result.current.error?.message).toMatch(/not a governance proposal/));
+    expect(result.current.proposal).toBeUndefined();
+    expect(fetchRegistryEntries).not.toHaveBeenCalled();
+  });
+
+  it("still reads the registry entry once the schedule was deleted, so the proposer can cancel it", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      deleted: true,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(
+      new Map([
+        [
+          7,
+          {
+            status: "read",
+            entry: {
+              proposalId: 7,
+              state: "pending",
+              target: "0x1111111111111111111111111111111111111111",
+              calldata: "0x",
+              operation: { kind: "unrecognized", target: "0x11", calldata: "0x", reason: "test" },
+            },
+          },
+        ],
+      ]),
+    );
+
+    // The recorded body names executor 0.0.10671156.
+    const { result } = lookup("0.0.10671156");
+
+    await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
+    expect(result.current.proposal?.state.status).toBe("deleted");
   });
 });
