@@ -1,6 +1,7 @@
 import type { CouncilKey } from "./council";
 import { fetchProposalInbox } from "./proposals";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MirrorSchedule } from "~~/services/mirror";
 import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.10590498";
@@ -16,7 +17,7 @@ const council: CouncilKey = {
   ],
 };
 
-function scheduleOf(scheduleId: string, overrides: Partial<typeof executedSchedule> = {}) {
+function scheduleOf(scheduleId: string, overrides: Partial<MirrorSchedule> = {}) {
   return {
     ...executedSchedule,
     schedule_id: scheduleId,
