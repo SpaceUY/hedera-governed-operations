@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { MirrorAccountResponse } from "~~/types/hederaFetchJson";
 
 const MIRROR_BASE: Record<string, string> = {
-  testnet: process.env.HEDERA_MIRROR_TESTNET_URL ?? "https://testnet.mirrornode.hedera.com",
-  mainnet: process.env.HEDERA_MIRROR_MAINNET_URL ?? "https://mainnet.mirrornode.hedera.com",
+  testnet: process.env.HEDERA_MIRROR_TESTNET_URL?.trim() || "https://testnet.mirrornode.hedera.com",
+  mainnet: process.env.HEDERA_MIRROR_MAINNET_URL?.trim() || "https://mainnet.mirrornode.hedera.com",
 };
 
 const NATIVE_ACCOUNT_ID_REGEX = /^\d+\.\d+\.\d+$/;

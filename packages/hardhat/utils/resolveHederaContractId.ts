@@ -1,8 +1,8 @@
 import { HEDERA_MAINNET_CHAIN_ID, HEDERA_TESTNET_CHAIN_ID } from "./hederaChains";
 
 const MIRROR_BASE: Record<number, string> = {
-  [HEDERA_MAINNET_CHAIN_ID]: process.env.HEDERA_MIRROR_MAINNET_URL ?? "https://mainnet.mirrornode.hedera.com",
-  [HEDERA_TESTNET_CHAIN_ID]: process.env.HEDERA_MIRROR_TESTNET_URL ?? "https://testnet.mirrornode.hedera.com",
+  [HEDERA_MAINNET_CHAIN_ID]: process.env.HEDERA_MIRROR_MAINNET_URL?.trim() || "https://mainnet.mirrornode.hedera.com",
+  [HEDERA_TESTNET_CHAIN_ID]: process.env.HEDERA_MIRROR_TESTNET_URL?.trim() || "https://testnet.mirrornode.hedera.com",
 };
 
 /**
