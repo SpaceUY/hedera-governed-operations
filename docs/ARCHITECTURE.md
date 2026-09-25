@@ -11,7 +11,7 @@ This template is a Next.js (App Router) app over a framework-free domain workspa
 - **Test signer** — a disposable ECDSA key injected by Hedera Harness (`localStorage["burnerWallet.pk"]`) that signs in place of HashPack during automated validation; same port, see [Signing port](#signing-port-hashpack-or-test-signer).
 - **Hiero SDK** (`@hiero-ledger/sdk`) — builds transactions on the client and on the server.
 
-The governance domain and the Mirror Node client live in `packages/core` (`@sh/core`), which imports no React and no `scaffold.config.ts`: the app is one consumer of it and the co-signing agent is another. The dependency runs one way — the app imports the domain, never the reverse. Contracts live in `packages/hardhat` and reach the network through the Hedera JSON-RPC relay, not the Hiero SDK. Server-side signing happens in Next.js route handlers with an operator key read from the environment, and at deploy time with the encrypted deployer key in `packages/hardhat/.env`.
+The governance domain and the Mirror Node client live in `packages/core` (`@sh/core`), which imports no React and no `scaffold.config.ts`: the app is one consumer of it and the co-signing agent in `packages/agent` is another — see [The co-signing agent](#the-co-signing-agent). The dependency runs one way — the app imports the domain, never the reverse. Contracts live in `packages/hardhat` and reach the network through the Hedera JSON-RPC relay, not the Hiero SDK. Server-side signing happens in Next.js route handlers with an operator key read from the environment, and at deploy time with the encrypted deployer key in `packages/hardhat/.env`.
 
 <!-- TODO(product): add the product-specific flow (governed operations or merchant rails) once the feature set is decided. -->
 
@@ -143,6 +143,7 @@ Rules that make this work (verified on testnet):
 | Proposal inbox   | `@sh/core/governance/proposals`, `hooks/mirror/useProposals.ts`                                                                                           | The council's open proposals and each one's progress — see [The proposal inbox](#the-proposal-inbox) |
 | Proposal kinds   | `@sh/core/governance/proposalTypes`, `encode`, `decode`                                                                                             | The five kinds: form values to transactions, and a scheduled body back to a described operation — see [Reading a proposal](#reading-a-proposal-two-layers) |
 | Proposal registry | `@sh/core/governance/registry`                                                                                                                           | `GovernedExecutor`: the entry behind a proposal, retiring one, and the id a registration returned |
+| Co-signing agent | `packages/agent/*`                                                                                                                                           | One seat on the council, signing under a written policy — see [The co-signing agent](#the-co-signing-agent) |
 | Swap provider    | `services/swap/*`                                                                                                                                            | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
 | Operator client  | `services/hederaClient.ts`                                                                                                                                   | Server-side `Client` with the operator key; used only by route handlers                                  |
 | Setup script     | root `yarn setup`                                                                                                                                            | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
@@ -444,3 +445,56 @@ The two network reads are injected: `SaucerSwapQuoter` (the quoter call) and `Ac
 2. Implement `SwapProvider` in `services/swap/<dex>Provider.ts`. Keep the ABI in one file, quote on-chain, keep the price and slippage math in pure functions and inject any network read so tests stay offline.
 3. Register it in `PROVIDER_FACTORIES` in `createSwapProvider.ts` and extend the `SwapDex` union; callers select it with `createSwapProvider(network, { dex })`.
 4. Verify one real swap on testnet with the final code and note the transaction in the pull request.
+
+## The co-signing agent
+
+`packages/agent` is a service that holds **one of the council's n keys** and signs the proposals a
+written policy allows. It cannot act alone: whatever it approves still needs the rest of the
+threshold from humans, which is what separates an approver from an owner. What it removes is the
+waiting — a routine proposal inside written limits gets its second signature in seconds, and one
+outside them gets a refusal with the limit it failed named in the log.
+
+It is the reason `packages/core` exists. Deciding whether to sign means decoding the scheduled body
+and reading the registry entry behind it, which is exactly what the app's proposal screens do; a
+copy of that logic in a service would be a second answer to "what is the council being asked to
+approve", and the two would drift. The agent imports the same `fetchProposalInbox`,
+`decodeScheduledOperation` and `fetchRegistryEntries` the UI renders from.
+
+```mermaid
+flowchart LR
+  Agent["Agent (packages/agent)<br/>policy per kind of operation"]
+  Core["@sh/core<br/>inbox · decoders · registry"]
+  Mirror["Mirror Node REST"]
+  Hedera["Hedera network"]
+
+  Agent -- "reads the inbox" --> Core
+  Core -- "schedules, bodies" --> Mirror
+  Core -- "registry entry via the relay" --> Hedera
+  Agent -- "ScheduleSign, if the policy allows" --> Hedera
+  Hedera -. "threshold met: the proposal runs" .-> Hedera
+```
+
+Three design decisions are load-bearing, and all three are about what the agent refuses:
+
+- **The policy fails closed.** A kind of operation with no rule is refused rather than allowed, so a
+  policy written for treasury transfers has not silently authorised contract upgrades, and a sixth
+  kind added to the template is refused by every policy written before it existed.
+- **A council rotation is never signed automatically**, and the policy format has no field that
+  could change it. It is the operation that decides who governs, the agent's own seat included.
+- **Anything unreadable is refused**, not skipped: a body that did not decode, a registry entry that
+  is missing or cancelled, an entry the relay could not be asked for, a call to another executor. An
+  approver that cannot tell what it is approving has exactly one safe answer.
+
+One trap is worth recording because it only appears against a live network. Mirror lags consensus by
+a few seconds and the agent polls faster than that, so a signature it has just sent is still absent
+from the schedule on the next pass and the proposal reads as pending and unsigned. Measured on
+testnet: without a memory of what this process has already signed, the agent signs the same proposal
+again and the receipt comes back `SCHEDULE_ALREADY_EXECUTED` — one wasted fee per pass until Mirror
+catches up, and a duplicate `ScheduleSign` on any proposal still short of its threshold.
+
+Custody in the demo is a private key in the environment, which is right for a testnet fixture and
+wrong for anything else. Signing is a single injected function (`SignSchedule`), so a real seat
+moves behind an HSM or a custody provider without touching the policy or the review loop. The seat
+is revocable the same way any other governance change happens: the council rotates its threshold key
+to drop the agent's member key, which is a proposal the humans approve and the agent will not sign
+for them.

@@ -2,7 +2,7 @@
 
 Briefing for coding agents in this app (Cursor, Claude Code, Codex). Claude Code loads it through `CLAUDE.md`.
 
-This is a **Hedera template with three workspaces**: `packages/core` (the governance domain and the Mirror Node client — no React, no Next.js, so the app and any service can share one copy), `packages/nextjs` (HCS topics and messages, HTS tokens, HashPack signing through WalletConnect, a SaucerSwap-backed swap provider) and `packages/hardhat` (Solidity contracts deployed through the Hedera JSON-RPC relay). Native writes are Hiero SDK transactions signed either by the user's wallet or by a server-side operator; contract deploys go through Hardhat and regenerate `packages/nextjs/contracts/deployedContracts.ts`. The Proof Wall pages are a demo of the reusable modules, not the product.
+This is a **Hedera template with four workspaces**: `packages/core` (the governance domain and the Mirror Node client — no React, no Next.js, so the app and any service can share one copy), `packages/agent` (a co-signing service that holds one seat on the council and signs what its policy allows), `packages/nextjs` (HCS topics and messages, HTS tokens, HashPack signing through WalletConnect, a SaucerSwap-backed swap provider) and `packages/hardhat` (Solidity contracts deployed through the Hedera JSON-RPC relay). Native writes are Hiero SDK transactions signed either by the user's wallet or by a server-side operator; contract deploys go through Hardhat and regenerate `packages/nextjs/contracts/deployedContracts.ts`. The Proof Wall pages are a demo of the reusable modules, not the product.
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
@@ -17,13 +17,18 @@ yarn setup              # idempotent testnet bootstrap; writes ids to packages/n
 yarn next:dev           # http://localhost:3000
 yarn next:build
 yarn next:check-types
-yarn lint               # core:lint + next:lint + hardhat:lint
-yarn test               # core:test + next:test (Vitest, *.test.ts(x)) + hardhat:test
+yarn lint               # core:lint + agent:lint + next:lint + hardhat:lint
+yarn test               # core:test + agent:test + next:test (Vitest, *.test.ts(x)) + hardhat:test
 yarn format
 
 yarn core:check-types   # the shared domain under packages/core/
 yarn core:lint
 yarn core:test
+
+yarn agent:start        # the co-signing agent; see packages/agent/README.md
+yarn agent:check-types
+yarn agent:lint
+yarn agent:test
 
 yarn hardhat:compile    # contracts under packages/hardhat/contracts/
 yarn hardhat:test
@@ -76,6 +81,15 @@ packages/core/            @sh/core — the domain, with no framework in it
     relayClient.ts        The viem client every read through the JSON-RPC relay goes through
     identity.ts           EVM address / account id predicates and formatting
     network.ts            HederaNetworkName and the narrowing of an env value to it
+packages/agent/           @sh/agent — one seat on the council, signing under a written policy
+  src/
+    policy.ts             The limits, one typed check per kind of operation
+    operation.ts          Proposal to the flat operation a policy reads, and every reason one cannot be read
+    review.ts             One pass over the inbox: decide, then sign what passed
+    config.ts             Environment and policy file, both validated at boot
+    index.ts              The loop, the Hedera client and the JSON log
+  policy.example.json     The shape of a policy; it is mounted, not baked into the image
+  Dockerfile              Built from the repository root, since the agent shares @sh/core with the app
 packages/nextjs/
   app/                    App Router pages and API routes
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
