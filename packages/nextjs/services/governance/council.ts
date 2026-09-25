@@ -12,8 +12,9 @@
  */
 import { proto } from "@hiero-ledger/proto";
 import { ContractId } from "@hiero-ledger/sdk";
-import { type Address, createPublicClient, http, keccak256, parseAbi, toHex } from "viem";
+import { type Address, keccak256, parseAbi, toHex } from "viem";
 import { type MirrorSchedule, fetchAccount } from "~~/services/mirror";
+import { createRelayClient } from "~~/services/web3/relayClient";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /** How Mirror labels a key it cannot express as one public key: a key list, with or without a threshold. */
@@ -44,7 +45,14 @@ export type ThresholdProgress = {
   signedBy: string[];
 };
 
-function hexToBytes(hex: string): Uint8Array {
+/**
+ * Mirror writes a `ProtobufEncoded` key as bare hex, with no `0x`. viem's `hexToBytes` — which
+ * `encode.ts` next door imports under that exact name — requires the prefix, and handed this input
+ * it throws; this one handed a prefixed string would read `0x` as `NaN` and quietly produce a zero
+ * byte, decoding the council into something plausible and wrong. Hence the name: it says which of
+ * the two forms it takes.
+ */
+function bytesFromUnprefixedHex(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
   for (let index = 0; index < bytes.length; index += 1) {
     bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
@@ -113,7 +121,7 @@ export async function fetchCouncilKey(governanceAccountId: string, network: Hede
         "Anything it pays for would run on a single signature, with no council to approve it.",
     );
   }
-  return councilKeyOf(proto.Key.decode(hexToBytes(key.key)));
+  return councilKeyOf(proto.Key.decode(bytesFromUnprefixedHex(key.key)));
 }
 
 /**
@@ -186,7 +194,7 @@ export async function fetchProposerAccountIds({
   network,
   rpcUrl,
 }: ProposerLookup): Promise<ProposerAccounts> {
-  const relay = createPublicClient({ transport: http(rpcUrl) });
+  const relay = createRelayClient(rpcUrl);
   const address = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as Address;
   const readRole = { address, abi: EXECUTOR_ROLES_ABI } as const;
 

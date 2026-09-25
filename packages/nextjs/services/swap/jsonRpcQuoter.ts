@@ -1,7 +1,8 @@
 import { SAUCERSWAP_V2_QUOTER_ABI } from "./saucerSwapV2Abi";
 import type { SaucerSwapQuoter } from "./saucerSwapV2Provider";
 import { ContractId } from "@hiero-ledger/sdk";
-import { type Address, createPublicClient, http } from "viem";
+import type { Address } from "viem";
+import { createRelayClient } from "~~/services/web3/relayClient";
 
 export type JsonRpcQuoterOptions = {
   rpcUrl: string;
@@ -14,7 +15,7 @@ export type JsonRpcQuoterOptions = {
  * goes through `simulateContract`; it still costs no gas and needs no operator key.
  */
 export const createJsonRpcQuoter = (options: JsonRpcQuoterOptions): SaucerSwapQuoter => {
-  const client = createPublicClient({ transport: http(options.rpcUrl) });
+  const client = createRelayClient(options.rpcUrl);
   const address: Address = `0x${ContractId.fromString(options.quoterContractId).toEvmAddress()}`;
   return {
     async quoteExactInputSingle(params) {
