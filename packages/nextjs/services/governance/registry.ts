@@ -17,8 +17,9 @@
 import { decodeRegistryOperation } from "./decode";
 import type { RegistryOperation } from "./proposalTypes";
 import { ContractExecuteTransaction, ContractFunctionParameters, ContractId } from "@hiero-ledger/sdk";
-import { type Address, type Hex, createPublicClient, decodeFunctionResult, http, parseAbi, size } from "viem";
+import { type Address, type Hex, decodeFunctionResult, parseAbi, size } from "viem";
 import type { MirrorContractResult } from "~~/services/mirror";
+import { createRelayClient } from "~~/services/web3/relayClient";
 
 export const REGISTRY_ABI = parseAbi([
   "function createProposal(address target, bytes data) returns (uint256 id)",
@@ -122,7 +123,7 @@ export async function fetchRegistryEntries(
   proposalIds: number[],
   { executorContractId, rpcUrl }: RegistryLookup,
 ): Promise<Map<number, RegistryCrossCheck>> {
-  const relay = createPublicClient({ transport: http(rpcUrl) });
+  const relay = createRelayClient(rpcUrl);
   const address = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as Address;
   const unique = [...new Set(proposalIds)];
 

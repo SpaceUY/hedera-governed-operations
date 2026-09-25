@@ -59,8 +59,9 @@ export type ProposalInbox = {
   /** Newest first. */
   proposals: Proposal[];
   /**
-   * Proposers Mirror could not be read for, so their proposals are missing from the list. One
-   * unreachable proposer returns a partial inbox rather than no inbox at all.
+   * Proposers whose proposals are missing from the list, either because Mirror could not be read for
+   * them or because their address resolved to no account. One unreachable proposer returns a partial
+   * inbox rather than no inbox at all.
    */
   unreachableProposers: string[];
 };
@@ -68,6 +69,8 @@ export type ProposalInbox = {
 export type ProposalInboxOptions = {
   /** Whose schedules to read, from `fetchProposerAccountIds`. */
   proposerAccountIds: string[];
+  /** Role holders that never became account ids, reported as part of the same partial answer. */
+  unresolvableProposers?: string[];
   /** Payer of a proposal, and the only thing that separates one from any other schedule a proposer opened. */
   governanceAccountId: string;
   council: CouncilKey;
@@ -105,6 +108,7 @@ function registryIdOf(proposal: UncrossedProposal, executorContractId: string): 
 
 export async function fetchProposalInbox({
   proposerAccountIds,
+  unresolvableProposers = [],
   governanceAccountId,
   council,
   network,
@@ -150,6 +154,9 @@ export async function fetchProposalInbox({
       const crossCheck = proposalId === null ? undefined : entries.get(proposalId);
       return { ...proposal, registry: crossCheck ?? { status: "notApplicable" } };
     }),
-    unreachableProposers: proposerAccountIds.filter((_unused, index) => readings[index].status === "rejected"),
+    unreachableProposers: [
+      ...proposerAccountIds.filter((_unused, index) => readings[index].status === "rejected"),
+      ...unresolvableProposers,
+    ],
   };
 }

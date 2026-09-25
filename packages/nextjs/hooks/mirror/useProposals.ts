@@ -44,6 +44,7 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
       const hederaNetwork = toHederaNetworkName(network);
       return fetchProposalInbox({
         proposerAccountIds: council.data.proposerAccountIds,
+        unresolvableProposers: council.data.unresolvableProposers,
         governanceAccountId,
         council: council.data.key,
         network: hederaNetwork,
