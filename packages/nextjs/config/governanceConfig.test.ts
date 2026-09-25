@@ -26,6 +26,13 @@ describe("getGovernanceEntityIds", () => {
     vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "");
     expect(() => getGovernanceEntityIds()).toThrow(/yarn setup/);
   });
+
+  it("rejects a seed proposal id that is not an integer instead of returning NaN", () => {
+    vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "0.0.10671146");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "0.0.10671333");
+    vi.stubEnv("NEXT_PUBLIC_SEED_PROPOSAL_ID", "three");
+    expect(() => getGovernanceEntityIds()).toThrow(/must be an integer/);
+  });
 });
 
 describe("getDeployedContract", () => {
