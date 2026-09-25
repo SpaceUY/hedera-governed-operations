@@ -87,6 +87,10 @@
               "text": "docs/ARCHITECTURE.md — signing flows, module map, verified network constraints."
             },
             {
+              "label": "Glossary",
+              "text": "docs/GLOSSARY.md — Hedera terms as used in this template."
+            },
+            {
               "label": "Validate with Hedera Harness",
               "command": "npx hedera-harness validate"
             }
