@@ -1,10 +1,11 @@
 // @vitest-environment node
 
 /**
- * The inbox against Hedera testnet, on the fixtures `yarn setup` created. Opt-in: it skips itself
- * without `setup-state.json`, so CI and the harness never run it. Unlike the lifecycle suite it
- * needs no operator key — the Mirror Node and the JSON-RPC relay are both public — and it writes
- * nothing, so it cannot disturb the seed proposal or cost the governance account anything.
+ * The inbox against Hedera testnet, on the fixtures `yarn setup` created. It only reads — the Mirror
+ * Node and the JSON-RPC relay are both public — so it cannot disturb the seed proposal or cost the
+ * governance account anything, and it needs no operator key. It is gated on one anyway, so that
+ * every `*.integration.test.ts` skips under the same condition and `yarn test` never reaches the
+ * network on its own.
  *
  * What only the network can settle is that the pieces agree: that the key the council was created
  * with is the key the ledger reports, and that a real proposal's progress counts approvals rather
@@ -34,6 +35,8 @@ const toMemberKey = (der: string) => Buffer.from(PublicKey.fromString(der).toStr
 
 /** Null whenever anything is missing: the suite then skips instead of failing. */
 function loadFixtures(): Fixtures | null {
+  if (!process.env.HEDERA_OPERATOR_ID || !process.env.HEDERA_OPERATOR_PRIVATE_KEY) return null;
+
   const { governance, seedProposal, demoAccounts } = loadState(STATE_FILE, NETWORK);
   if (!governance || !seedProposal || !demoAccounts.alice || !demoAccounts.bob) return null;
 
