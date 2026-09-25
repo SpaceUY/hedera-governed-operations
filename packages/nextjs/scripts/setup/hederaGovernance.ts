@@ -22,6 +22,7 @@ import {
   TokenId,
   TokenInfoQuery,
   TokenType,
+  TopicCreateTransaction,
   TransferTransaction,
 } from "@hiero-ledger/sdk";
 import { type MirrorAccount, fetchAccount } from "@sh/core/mirror";
@@ -162,7 +163,26 @@ export type GovernanceSetupLookups = GovernanceLookups &
   DemoTokenLookups &
   SeedProposalLookups & { accountHbarBalance(accountId: string): Promise<number> };
 
-export type GovernanceSetupActions = GovernanceActions & DemoTokenActions & SeedProposalActions;
+export type ReleaseTopicActions = {
+  /** Creates the topic release manifests are published to. */
+  createReleaseTopic(): Promise<string>;
+};
+
+export type GovernanceSetupActions = GovernanceActions & DemoTokenActions & SeedProposalActions & ReleaseTopicActions;
+
+const RELEASE_TOPIC_MEMO = "governed-operations release manifests";
+
+/**
+ * A topic of its own rather than the demo's. Anyone can read either, but mixing release records
+ * into a feed the demo also writes to would leave the agent's check filtering someone else's
+ * messages out of the answer to "what did this team publish".
+ */
+async function createReleaseTopic(client: Client): Promise<string> {
+  const response = await new TopicCreateTransaction().setTopicMemo(RELEASE_TOPIC_MEMO).execute(client);
+  const { topicId } = await response.getReceipt(client);
+  if (!topicId) throw new Error("Release topic creation returned no topic id");
+  return topicId.toString();
+}
 
 export function createGovernanceLookups(env: SetupEnv, client: Client): GovernanceSetupLookups {
   const { network } = env;
@@ -204,6 +224,7 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
 
 export function createGovernanceActions(env: SetupEnv, client: Client): GovernanceSetupActions {
   return {
+    createReleaseTopic: () => createReleaseTopic(client),
     createGovernanceAccount: members => createGovernanceAccount(client, members),
     createDemoToken: tokenAdminContractId => createDemoToken(client, env, tokenAdminContractId),
     associateToken: (account, tokenId) => associateToken(client, account, tokenId),

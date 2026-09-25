@@ -11,7 +11,12 @@ import type { SetupEnv } from "./env";
 import { upsertEnvFile } from "./envFile";
 import { reconcileGovernance } from "./governance";
 import { HARDHAT_ENV_PATH, hardhatEnvEntries } from "./hardhatEnv";
-import { GOVERNANCE_LOW_BALANCE_HBAR, createGovernanceActions, createGovernanceLookups } from "./hederaGovernance";
+import {
+  GOVERNANCE_LOW_BALANCE_HBAR,
+  type ReleaseTopicActions,
+  createGovernanceActions,
+  createGovernanceLookups,
+} from "./hederaGovernance";
 import type { MirrorLookups } from "./reconcile";
 import { formatSteps } from "./report";
 import { reconcileSeedProposal } from "./seedProposal";
@@ -49,8 +54,9 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
     actions: createGovernanceActions(env, client),
   };
 
-  const { governance, proposers, step } = await reconcileGovernance(ctx.state, env, services);
-  const withGovernance: SetupState = { ...ctx.state, governance };
+  const releaseTopicId = await reconcileReleaseTopic(ctx, services.actions);
+  const { governance, proposers, step } = await reconcileGovernance({ ...ctx.state, releaseTopicId }, env, services);
+  const withGovernance: SetupState = { ...ctx.state, releaseTopicId, governance };
   saveState(withGovernance);
   upsertEnvFile(HARDHAT_ENV_PATH, hardhatEnvEntries(governance, proposers));
   console.log(formatSteps([step]).join("\n"));
@@ -73,6 +79,19 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
 
   console.log(formatSteps([...token.steps, seed.step]).join("\n"));
   await warnOnLowBalance(governance.accountId, services.lookups.accountHbarBalance);
+}
+
+/**
+ * The topic release manifests go to. It is created before anything else here because it is the only
+ * governance fixture with no dependency on the contracts: an upgrade proposal can be checked against
+ * it on the very first release, and a template scaffolded today has somewhere to publish to.
+ */
+async function reconcileReleaseTopic(ctx: SetupContext, actions: ReleaseTopicActions): Promise<string> {
+  const existing = ctx.state.releaseTopicId;
+  const topicId = existing && (await ctx.lookups.topicExists(existing)) ? existing : await actions.createReleaseTopic();
+  const outcome = topicId === existing ? "reused" : "created";
+  console.log(formatSteps([{ label: `Release topic ${topicId}`, outcome }]).join("\n"));
+  return topicId;
 }
 
 function deployNextMessage(missing: string[]): string[] {

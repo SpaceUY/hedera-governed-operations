@@ -9,6 +9,7 @@
     "format": "prettier --write . '!(node_modules|.next|contracts)/**/*'",
     "lint": "next lint",
     "serve": "next start",
+    "release:publish": "tsx scripts/publishRelease.ts",
     "setup": "tsx scripts/setup.ts",
     "start": "next dev",
     "test": "vitest run"

@@ -1,7 +1,7 @@
 {
   "upgrade": {
     "targets": ["0x0000000000000000000000000000000000000000"],
-    "implementations": ["0x0000000000000000000000000000000000000000"]
+    "manifestTopicId": "0.0.0"
   },
   "tokenAdmin": {
     "operations": ["pause", "unpause"],

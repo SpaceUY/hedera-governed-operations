@@ -15,6 +15,13 @@ describe("appEnvEntries", () => {
     });
   });
 
+  it("keeps the release topic separate from the demo's, since the agent reads only one of them", () => {
+    expect(appEnvEntries({ ...emptyState("testnet"), topicId: "0.0.7", releaseTopicId: "0.0.9" })).toEqual({
+      NEXT_PUBLIC_PROOF_WALL_TOPIC_ID: "0.0.7",
+      NEXT_PUBLIC_RELEASE_TOPIC_ID: "0.0.9",
+    });
+  });
+
   it("maps each demo account id to its own public variable and never its key", () => {
     expect(appEnvEntries({ ...emptyState("testnet"), demoAccounts: { alice: account } })).toEqual({
       NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID: "0.0.8",

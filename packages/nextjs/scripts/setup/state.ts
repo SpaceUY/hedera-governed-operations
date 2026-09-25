@@ -34,6 +34,8 @@ export type SetupState = {
   version: typeof STATE_VERSION;
   network: SetupNetwork;
   topicId?: string;
+  /** Topic the release manifests go to; the agent checks an upgrade proposal against it. */
+  releaseTopicId?: string;
   demoAccounts: Partial<Record<DemoAccountName, DemoAccount>>;
   governance?: GovernanceAccount;
   demoTokenId?: string;

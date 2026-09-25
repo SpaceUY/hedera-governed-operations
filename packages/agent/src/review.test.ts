@@ -177,6 +177,53 @@ describe("a proposal the agent cannot read", () => {
   });
 });
 
+describe("verifying a release before signing an upgrade", () => {
+  const inbox = (proposals: Proposal[]): ProposalInbox => ({ proposals, unreachableProposers: [] });
+  const matched = { matched: true, manifest: { version: "v2.0.0" } } as never;
+
+  it("names the release in the reason once the deployed code matches it", async () => {
+    const verify = vi.fn().mockResolvedValue(matched);
+    const result = await reviewInbox(inbox([proposal()]), OPTIONS, null, verify);
+
+    expect(verify).toHaveBeenCalledWith(IMPLEMENTATION);
+    expect(result.decisions[0]).toMatchObject({ outcome: "approved", reason: "within policy, release v2.0.0" });
+  });
+
+  it("turns an approval into a refusal when the code is not what the release published", async () => {
+    const verify = vi.fn().mockResolvedValue({ matched: false, reason: "the code at 0x… does not match" });
+    const sign = vi.fn();
+
+    const result = await reviewInbox(inbox([proposal()]), OPTIONS, sign, verify);
+
+    expect(result.decisions[0]).toMatchObject({ outcome: "refused", reason: "the code at 0x… does not match" });
+    expect(sign).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the check itself could not run: not run is not passed", async () => {
+    const verify = vi.fn().mockRejectedValue(new Error("Mirror 503"));
+    const result = await reviewInbox(inbox([proposal()]), OPTIONS, null, verify);
+    expect(result.decisions[0]).toMatchObject({ outcome: "refused" });
+    expect(result.decisions[0].reason).toContain("could not be verified");
+  });
+
+  it("does not run for a kind that is not an upgrade", async () => {
+    const verify = vi.fn();
+    const transfer = proposal({
+      operation: { kind: "treasuryTransfer", hbar: [], tokens: [] },
+      registry: { status: "notApplicable" },
+    });
+    await reviewInbox(inbox([transfer]), OPTIONS, null, verify);
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("does not run on a proposal the policy already refused", async () => {
+    const verify = vi.fn();
+    const elsewhere = proposal({ operation: { ...registryCall, executorContractId: "0.0.8888" } });
+    await reviewInbox(inbox([elsewhere]), OPTIONS, null, verify);
+    expect(verify).not.toHaveBeenCalled();
+  });
+});
+
 describe("reviewInbox", () => {
   const inbox = (proposals: Proposal[]): ProposalInbox => ({ proposals, unreachableProposers: [] });
 

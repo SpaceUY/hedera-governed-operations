@@ -13,6 +13,7 @@ import { type Policy, reviewOperation } from "./policy";
 import { isSignedByKey } from "@sh/core/governance/council";
 import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { Proposal, ProposalInbox } from "@sh/core/governance/proposals";
+import type { ManifestCheck } from "@sh/core/governance/releaseManifest";
 
 export type DecisionOutcome = "approved" | "refused" | "skipped";
 
@@ -25,6 +26,8 @@ export type Decision = {
   description: string;
   /** Null when the proposal never got far enough to be read as one of the five kinds. */
   kind: GovernedOperation["kind"] | null;
+  /** The operation the decision was made about, for the caller to act on or record. */
+  operation: GovernedOperation | null;
 };
 
 export type ReviewOptions = {
@@ -58,23 +61,52 @@ export function decide(proposal: Proposal, options: ReviewOptions): Decision {
   const scheduleId = proposal.schedule.schedule_id;
   const base = { scheduleId, description: describe(proposal) };
 
+  const nothing = { ...base, kind: null, operation: null };
+
   if (proposal.state.isSettled) {
-    return { ...base, outcome: "skipped", reason: `already ${proposal.state.status}`, kind: null };
+    return { ...nothing, outcome: "skipped", reason: `already ${proposal.state.status}` };
   }
   if (options.signedThisRun.has(scheduleId)) {
-    return { ...base, outcome: "skipped", reason: "signed by this agent, not yet on Mirror", kind: null };
+    return { ...nothing, outcome: "skipped", reason: "signed by this agent, not yet on Mirror" };
   }
   if (isSignedByKey(proposal.schedule, options.agentPublicKeyHex)) {
-    return { ...base, outcome: "skipped", reason: "already signed by this agent", kind: null };
+    return { ...nothing, outcome: "skipped", reason: "already signed by this agent" };
   }
 
   const read = readOperation(proposal, options.executorContractId);
-  if (!read.readable) return { ...base, outcome: "refused", reason: read.reason, kind: null };
+  if (!read.readable) return { ...nothing, outcome: "refused", reason: read.reason };
 
-  const verdict = reviewOperation(read.operation, options.policy);
+  const operation = read.operation;
+  const verdict = reviewOperation(operation, options.policy);
   return verdict.approved
-    ? { ...base, outcome: "approved", reason: "within policy", kind: read.operation.kind }
-    : { ...base, outcome: "refused", reason: verdict.reason, kind: read.operation.kind };
+    ? { ...base, outcome: "approved", reason: "within policy", kind: operation.kind, operation }
+    : { ...base, outcome: "refused", reason: verdict.reason, kind: operation.kind, operation };
+}
+
+/**
+ * The half of an upgrade policy that needs the network: whether the code deployed at the proposed
+ * implementation is a build the release topic published. It is separate from `decide` so the policy
+ * stays a pure function, and it runs only on an upgrade a policy has already approved.
+ */
+export type VerifyRelease = (implementation: string) => Promise<ManifestCheck>;
+
+async function verifyUpgrade(decision: Decision, verify: VerifyRelease): Promise<Decision> {
+  if (decision.outcome !== "approved" || decision.operation?.kind !== "upgrade") return decision;
+
+  try {
+    const check = await verify(decision.operation.implementation);
+    if (check.matched) {
+      return { ...decision, reason: `within policy, release ${check.manifest.version}` };
+    }
+    return { ...decision, outcome: "refused", reason: check.reason };
+  } catch (error) {
+    // A check that could not be run is not a check that passed.
+    return {
+      ...decision,
+      outcome: "refused",
+      reason: `the release could not be verified: ${(error as Error).message}`,
+    };
+  }
 }
 
 /**
@@ -97,14 +129,19 @@ export async function reviewInbox(
   inbox: ProposalInbox,
   options: ReviewOptions,
   sign: SignSchedule | null,
+  verifyRelease: VerifyRelease | null = null,
 ): Promise<ReviewResult> {
-  const decisions = inbox.proposals.map(proposal => decide(proposal, options));
+  const decisions: Decision[] = [];
   const failures: ReviewResult["failures"] = [];
   const signed: string[] = [];
 
   // Sequentially: two signatures from the same account race for the same transaction id window, and
   // the second proposal is usually the one that would have to be retried anyway.
-  for (const decision of decisions) {
+  for (const proposal of inbox.proposals) {
+    const reviewed = decide(proposal, options);
+    const decision = verifyRelease ? await verifyUpgrade(reviewed, verifyRelease) : reviewed;
+    decisions.push(decision);
+
     if (decision.outcome !== "approved" || sign === null) continue;
     try {
       await sign(decision.scheduleId);
