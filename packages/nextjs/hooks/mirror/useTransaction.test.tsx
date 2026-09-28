@@ -1,8 +1,8 @@
 import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useTransaction } from "./useTransaction";
+import transaction from "@sh/core/mirror/__fixtures__/transaction.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import transaction from "~~/services/mirror/__fixtures__/transaction.json";
 
 const SDK_TX_ID = "0.0.8192684@1789670087.589444591";
 const FAST_POLL_MS = 20;

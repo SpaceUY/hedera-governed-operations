@@ -13,6 +13,7 @@
       "README.md",
       "AGENTS.md",
       "package.json",
+      "packages/core/package.json",
       "packages/nextjs/package.json",
       "packages/nextjs/.env.example",
       "packages/hardhat/package.json",

@@ -2,8 +2,8 @@
 
 import { DEFAULT_PENDING_POLL_MS, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
+import { type ProposalInbox, fetchProposalInbox } from "@sh/core/governance/proposals";
 import { useQuery } from "@tanstack/react-query";
-import { type ProposalInbox, fetchProposalInbox } from "~~/services/governance/proposals";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /**

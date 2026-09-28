@@ -1,8 +1,8 @@
 "use client";
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
+import { type CouncilKey, fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
 import { useQuery } from "@tanstack/react-query";
-import { type CouncilKey, fetchCouncilKey, fetchProposerAccountIds } from "~~/services/governance/council";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /**

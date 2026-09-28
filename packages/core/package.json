@@ -1,0 +1,44 @@
+{
+  "name": "@sh/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Governance domain and Mirror Node reads, shared by the app and the co-signing agent.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./identity": "./src/identity.ts",
+    "./network": "./src/network.ts",
+    "./relayClient": "./src/relayClient.ts",
+    "./mirror": "./src/mirror/index.ts",
+    "./mirror/__fixtures__/*": "./src/mirror/__fixtures__/*",
+    "./governance/*": "./src/governance/*.ts",
+    "./governance/__fixtures__/*": "./src/governance/__fixtures__/*"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit --incremental",
+    "format": "prettier --write . '!(node_modules)/**/*'",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "lint-staged": "eslint"
+  },
+  "dependencies": {
+    "@hiero-ledger/proto": "2.26.0-beta.3",
+    "@hiero-ledger/sdk": "^2.80.0",
+    "viem": "2.39.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "~3.3.0",
+    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
+    "@types/node": "^18.19.50",
+    "@typescript-eslint/eslint-plugin": "~8.27.0",
+    "@typescript-eslint/parser": "~8.27.0",
+    "eslint": "~9.23.0",
+    "eslint-config-prettier": "~10.1.1",
+    "eslint-plugin-prettier": "~5.2.4",
+    "globals": "~16.0.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3"
+  },
+  "packageManager": "yarn@3.2.3"
+}

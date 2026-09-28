@@ -1,4 +1,5 @@
 // @vitest-environment node
+import type { MirrorContractResult } from "../mirror";
 import {
   CANCEL_PROPOSAL_GAS,
   REGISTRY_ABI,
@@ -8,7 +9,6 @@ import {
 } from "./registry";
 import { encodeFunctionData, encodeFunctionResult, parseAbi, toHex } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MirrorContractResult } from "~~/services/mirror";
 
 const EXECUTOR = "0.0.10671156";
 const RPC_URL = "https://relay.test/api";

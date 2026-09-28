@@ -1,9 +1,9 @@
 import { canBeSigned, canBeWithdrawnBy } from "./proposalActions";
-import type { ScheduledOperation } from "./proposalTypes";
-import type { RegistryCrossCheck, RegistryEntry } from "./registry";
+import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
+import type { RegistryCrossCheck, RegistryEntry } from "@sh/core/governance/registry";
+import type { MirrorSchedule, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import { describe, expect, it } from "vitest";
-import type { MirrorSchedule, ScheduleState, ScheduleStatus } from "~~/services/mirror";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 const stateOf = (status: ScheduleStatus): ScheduleState => ({
   status,

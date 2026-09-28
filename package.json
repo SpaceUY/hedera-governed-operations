@@ -4,14 +4,20 @@
   "private": true,
   "workspaces": {
     "packages": [
+      "packages/core",
       "packages/hardhat",
       "packages/nextjs"
     ]
   },
   "scripts": {
-    "format": "yarn next:format && yarn hardhat:format",
-    "lint": "yarn next:lint && yarn hardhat:lint",
-    "test": "yarn next:test && yarn hardhat:test",
+    "format": "yarn core:format && yarn next:format && yarn hardhat:format",
+    "lint": "yarn core:lint && yarn next:lint && yarn hardhat:lint",
+    "test": "yarn core:test && yarn next:test && yarn hardhat:test",
+    "core:check-types": "yarn workspace @sh/core check-types",
+    "core:format": "yarn workspace @sh/core format",
+    "core:lint": "yarn workspace @sh/core lint",
+    "core:lint-staged": "yarn workspace @sh/core lint-staged",
+    "core:test": "yarn workspace @sh/core test",
     "postinstall": "husky",
     "precommit": "lint-staged",
     "lint-staged": "lint-staged",

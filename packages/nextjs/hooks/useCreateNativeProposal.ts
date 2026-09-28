@@ -3,14 +3,10 @@
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useHederaSigner } from "./useHederaSigner";
 import type { Transaction } from "@hiero-ledger/sdk";
+import { buildProposalSchedule, fetchAccountPublicKey, scheduleIdFromTransaction } from "@sh/core/governance/schedules";
+import { fetchTransaction } from "@sh/core/mirror";
 import { useMutation } from "@tanstack/react-query";
 import { getGovernanceEntityIds } from "~~/config/governanceConfig";
-import {
-  buildProposalSchedule,
-  fetchAccountPublicKey,
-  scheduleIdFromTransaction,
-} from "~~/services/governance/schedules";
-import { fetchTransaction } from "~~/services/mirror";
 import { getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
 import { MIRROR_INDEXING_RETRY_DELAYS_MS, waitForMirrorIndexing } from "~~/utils/scaffold-hbar/waitForMirrorIndexing";
 

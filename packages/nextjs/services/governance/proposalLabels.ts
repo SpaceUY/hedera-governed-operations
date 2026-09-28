@@ -2,9 +2,9 @@
  * The words a screen uses for a proposal's state. The domain values (`notApplicable`, `deleted`, …)
  * name the data model; these name what a council member needs to know about the proposal.
  */
-import type { ThresholdProgress } from "./council";
-import type { RegistryCrossCheck, RegistryEntryState } from "./registry";
-import type { ScheduleStatus } from "~~/services/mirror";
+import type { ThresholdProgress } from "@sh/core/governance/council";
+import type { RegistryCrossCheck, RegistryEntryState } from "@sh/core/governance/registry";
+import type { ScheduleStatus } from "@sh/core/mirror";
 
 const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
   pending: "Collecting signatures",

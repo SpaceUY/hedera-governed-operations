@@ -14,12 +14,12 @@
  * entry cancelled seconds ago can still read `Pending`; the inbox is eventually consistent here in
  * the same way it already is with the Mirror Node.
  */
+import type { MirrorContractResult } from "../mirror";
+import { createRelayClient } from "../relayClient";
 import { decodeRegistryOperation } from "./decode";
 import type { RegistryOperation } from "./proposalTypes";
 import { ContractExecuteTransaction, ContractFunctionParameters, ContractId } from "@hiero-ledger/sdk";
 import { type Address, type Hex, decodeFunctionResult, parseAbi, size } from "viem";
-import type { MirrorContractResult } from "~~/services/mirror";
-import { createRelayClient } from "~~/services/web3/relayClient";
 
 export const REGISTRY_ABI = parseAbi([
   "function createProposal(address target, bytes data) returns (uint256 id)",

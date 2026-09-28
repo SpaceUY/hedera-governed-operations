@@ -1,8 +1,8 @@
 "use client";
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
+import { type DecodedTopicMessage, fetchDecodedTopicMessages, isValidEntityId } from "@sh/core/mirror";
 import { useQuery } from "@tanstack/react-query";
-import { type DecodedTopicMessage, fetchDecodedTopicMessages, isValidEntityId } from "~~/services/mirror";
 
 const DEFAULT_FEED_REFETCH_MS = 15_000;
 

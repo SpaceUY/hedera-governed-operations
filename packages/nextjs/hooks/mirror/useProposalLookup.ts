@@ -9,12 +9,12 @@ import {
 } from "./mirrorQuery";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
 import { ContractId } from "@hiero-ledger/sdk";
+import { countThresholdSignatures } from "@sh/core/governance/council";
+import { decodeScheduledOperation } from "@sh/core/governance/decode";
+import type { Proposal } from "@sh/core/governance/proposals";
+import { type RegistryCrossCheck, fetchRegistryEntries } from "@sh/core/governance/registry";
+import { deriveScheduleState, fetchSchedule } from "@sh/core/mirror";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { countThresholdSignatures } from "~~/services/governance/council";
-import { decodeScheduledOperation } from "~~/services/governance/decode";
-import type { Proposal } from "~~/services/governance/proposals";
-import { type RegistryCrossCheck, fetchRegistryEntries } from "~~/services/governance/registry";
-import { deriveScheduleState, fetchSchedule } from "~~/services/mirror";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 export type ProposalLookupOptions = CouncilOptions & { scheduleId: string };

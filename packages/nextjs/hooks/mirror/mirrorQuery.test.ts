@@ -1,6 +1,6 @@
 import { resolvePendingRefetchInterval } from "./mirrorQuery";
+import { MirrorNodeError } from "@sh/core/mirror";
 import { describe, expect, it } from "vitest";
-import { MirrorNodeError } from "~~/services/mirror";
 
 const INTERVAL = 5_000;
 const notFound = new MirrorNodeError(404, "https://mirror/x", "Not found");

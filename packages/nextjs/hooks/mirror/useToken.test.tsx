@@ -1,8 +1,8 @@
 import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useToken } from "./useToken";
+import token from "@sh/core/mirror/__fixtures__/token.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import token from "~~/services/mirror/__fixtures__/token.json";
 
 afterEach(() => {
   cleanup();

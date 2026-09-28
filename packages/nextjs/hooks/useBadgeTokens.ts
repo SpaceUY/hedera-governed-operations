@@ -1,9 +1,9 @@
 "use client";
 
+import { isEvmAddress, isHederaAccountId } from "@sh/core/identity";
 import { useQuery } from "@tanstack/react-query";
 import type { HederaAccountLookupApiResponse, HederaTokenBalanceApiResponse } from "~~/types/hederaFetchJson";
 import { extractIdentity } from "~~/utils/scaffold-hbar/hederaIdentity";
-import { isEvmAddress, isHederaAccountId } from "~~/utils/scaffold-hbar/identity";
 
 /**
  * Query HTS badge token balance for an account.

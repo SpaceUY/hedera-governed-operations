@@ -1,5 +1,5 @@
 import { approvalsLabel, registryLabel, scheduleStatusLabel } from "./proposalLabels";
-import type { RegistryCrossCheck } from "./registry";
+import type { RegistryCrossCheck } from "@sh/core/governance/registry";
 import { describe, expect, it } from "vitest";
 
 const progress = (signed: number, threshold: number) => ({ signed, threshold, signedBy: [] });

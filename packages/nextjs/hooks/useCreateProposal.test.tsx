@@ -1,14 +1,14 @@
 import { useCreateProposal } from "./useCreateProposal";
 import { PrivateKey } from "@hiero-ledger/sdk";
+import { MirrorNodeError, fetchContractResult, fetchTransaction } from "@sh/core/mirror";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueryWrapper } from "~~/hooks/mirror/testUtils";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
-import { MirrorNodeError, fetchContractResult, fetchTransaction } from "~~/services/mirror";
 
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
   fetchTransaction: vi.fn(),
   fetchContractResult: vi.fn(),
   fetchAccount: vi.fn(),
@@ -47,7 +47,7 @@ describe("useCreateProposal", () => {
       .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@2.0` });
     vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
 
-    const { fetchAccount } = await import("~~/services/mirror");
+    const { fetchAccount } = await import("@sh/core/mirror");
     vi.mocked(fetchAccount).mockResolvedValue({
       key: { _type: "ECDSA_SECP256K1", key: PrivateKey.generateECDSA().publicKey.toStringRaw() },
     } as never);
@@ -76,7 +76,7 @@ describe("useCreateProposal", () => {
       .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@2.0` });
     vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
 
-    const { fetchAccount } = await import("~~/services/mirror");
+    const { fetchAccount } = await import("@sh/core/mirror");
     vi.mocked(fetchAccount).mockResolvedValue({
       key: { _type: "ECDSA_SECP256K1", key: PrivateKey.generateECDSA().publicKey.toStringRaw() },
     } as never);

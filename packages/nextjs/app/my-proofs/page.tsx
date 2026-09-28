@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { normalizeIdentity } from "@sh/core/identity";
 import { BadgeDisplay } from "~~/components/BadgeDisplay";
 import { ProofWall } from "~~/components/ProofWall";
 import { proofWallConfig } from "~~/config/proofWallConfig";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import type { TopicMessage } from "~~/hooks/useTopicMessages";
 import { useTopicMessages } from "~~/hooks/useTopicMessages";
-import { normalizeIdentity } from "~~/utils/scaffold-hbar/identity";
 
 function filterMessagesByAuthor(messages: TopicMessage[], authors: string[]): TopicMessage[] {
   const normalizedAuthors = authors.map(normalizeIdentity).filter(Boolean);

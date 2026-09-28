@@ -1,4 +1,4 @@
-import { isMirrorNotFound } from "~~/services/mirror";
+import { isMirrorNotFound } from "@sh/core/mirror";
 
 /** Mirror typically indexes a transaction 3–20 s after consensus; these add up to ~21 s. */
 export const MIRROR_INDEXING_RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 3000, 4000, 5000, 6000];

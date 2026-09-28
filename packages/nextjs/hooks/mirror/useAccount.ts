@@ -1,8 +1,8 @@
 "use client";
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
+import { type MirrorAccount, fetchAccount, isMirrorEntityRef } from "@sh/core/mirror";
 import { useQuery } from "@tanstack/react-query";
-import { type MirrorAccount, fetchAccount, isMirrorEntityRef } from "~~/services/mirror";
 
 type AccountQueryOptions = Omit<MirrorQueryOptions, "pollIntervalMs">;
 
