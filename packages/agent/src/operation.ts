@@ -71,7 +71,8 @@ export function readOperation(proposal: Proposal, executorContractId: string): R
           kind: "upgrade",
           target: entry.target,
           implementation: entry.implementation,
-          hasInitializer: entry.initializerCalldata !== "0x" && entry.initializerCalldata.length > 2,
+          // Anything longer than the `0x` an empty calldata decodes to is code nested in the upgrade.
+          hasInitializer: entry.initializerCalldata.length > 2,
         },
       };
     case "treasurySwap":

@@ -21,7 +21,29 @@ const log = (event: string, fields: LogFields = {}): void => {
   console.log(JSON.stringify({ at: new Date().toISOString(), event, ...fields }));
 };
 
-const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+/**
+ * A sleep between passes that a signal can cut short.
+ *
+ * A plain `setTimeout` would hold the process for the rest of the poll interval after SIGTERM, and
+ * a container runtime gives it about ten seconds before SIGKILL — so at the default interval the
+ * agent would usually be killed rather than closing its client.
+ */
+function createInterruptibleSleep(): { sleep: (ms: number) => Promise<void>; interrupt: () => void } {
+  let wake: (() => void) | null = null;
+  return {
+    sleep: ms =>
+      new Promise(resolve => {
+        const finish = (): void => {
+          clearTimeout(timer);
+          wake = null;
+          resolve();
+        };
+        const timer = setTimeout(finish, ms);
+        wake = finish;
+      }),
+    interrupt: () => wake?.(),
+  };
+}
 
 function createClient(config: AgentConfig): Client {
   const client = config.network === "mainnet" ? Client.forMainnet() : Client.forTestnet();
@@ -37,6 +59,9 @@ function createClient(config: AgentConfig): Client {
 function createSigner(client: Client): SignSchedule {
   return async scheduleId => {
     const response = await buildScheduleSign(scheduleId).execute(client);
+    // `getReceipt` already throws on a status other than SUCCESS; this is the belt for the case
+    // where a future SDK hands one back instead, because the contract here is that a signature
+    // which did not land must never be reported as one that did.
     const receipt = await response.getReceipt(client);
     if (receipt.status.toString() !== "SUCCESS") throw new Error(`ScheduleSign returned ${receipt.status.toString()}`);
   };
@@ -92,6 +117,22 @@ async function runOnce(
   if (result.unreachableProposers.length > 0) {
     log("partial-inbox", { unreachableProposers: result.unreachableProposers });
   }
+
+  forgetProposalsOutsideInbox(new Set(result.decisions.map(decision => decision.scheduleId)), signedThisRun, reported);
+}
+
+/**
+ * Both of the agent's memories are about proposals it can still see. A schedule that has left the
+ * inbox is settled or expired, and re-reading it from Mirror would answer the same question again —
+ * so keeping its entry only grows two collections for the life of a process meant to run for months.
+ */
+function forgetProposalsOutsideInbox(
+  inInbox: ReadonlySet<string>,
+  signedThisRun: Set<string>,
+  reported: Reported,
+): void {
+  for (const scheduleId of signedThisRun) if (!inInbox.has(scheduleId)) signedThisRun.delete(scheduleId);
+  for (const scheduleId of reported.keys()) if (!inInbox.has(scheduleId)) reported.delete(scheduleId);
 }
 
 function logDecision(decision: Decision, dryRun: boolean, reported: Reported): void {
@@ -125,9 +166,11 @@ async function main(): Promise<void> {
   });
 
   let running = true;
+  const { sleep, interrupt } = createInterruptibleSleep();
   const stop = (signal: string) => () => {
     log("stopping", { signal });
     running = false;
+    interrupt();
   };
   process.on("SIGINT", stop("SIGINT"));
   process.on("SIGTERM", stop("SIGTERM"));
@@ -143,7 +186,7 @@ async function main(): Promise<void> {
       // eventually consistent, and the next poll is the retry.
       log("pass-failed", { error: (error as Error).message });
     }
-    if (running) await delay(config.pollIntervalMs);
+    if (running) await sleep(config.pollIntervalMs);
   }
 
   client?.close();
