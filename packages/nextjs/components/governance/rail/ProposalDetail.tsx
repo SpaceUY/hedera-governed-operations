@@ -1,6 +1,6 @@
 "use client";
 
-import { type HeadingLevel, ProposalDetailPanel } from "./ProposalDetailPanel";
+import { type PanelVariant, ProposalDetailPanel } from "./ProposalDetailPanel";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
@@ -8,18 +8,18 @@ import { useHederaSigner } from "~~/hooks/useHederaSigner";
 export type ProposalDetailProps = {
   config: GovernanceConfig;
   scheduleId: string;
-  headingLevel?: HeadingLevel;
+  variant?: PanelVariant;
 };
 
 /**
  * One proposal by schedule id: owns the reads and hands the result to `ProposalDetailPanel`. The detail
- * route mounts it as the whole rail; the home page mounts it under the selected card, one heading
- * level down, so both show the same thing.
+ * route mounts it as the whole rail; the home page mounts it under the selected card as the `inline`
+ * variant, so both show the same thing.
  */
 export const ProposalDetail = ({
   config: { governanceAccountId, executor, network },
   scheduleId,
-  headingLevel,
+  variant,
 }: ProposalDetailProps) => {
   const executorContractId = executor.hederaContractId;
   const { proposal, isLoading, error, refresh, markRegistryEntryCancelled } = useProposalLookup({
@@ -43,7 +43,7 @@ export const ProposalDetail = ({
       network={network}
       refresh={refresh}
       markRegistryEntryCancelled={markRegistryEntryCancelled}
-      headingLevel={headingLevel}
+      variant={variant}
     />
   );
 };

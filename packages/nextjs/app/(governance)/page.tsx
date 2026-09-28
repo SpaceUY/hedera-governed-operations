@@ -41,7 +41,7 @@ export default function GovernanceHomePage() {
 
   const knownScheduleIds = new Set(inbox.data?.proposals.map(proposal => proposal.schedule.schedule_id) ?? []);
   const selectedDetail = selectedScheduleId ? (
-    <ProposalDetail config={config} scheduleId={selectedScheduleId} headingLevel={2} />
+    <ProposalDetail config={config} scheduleId={selectedScheduleId} variant="inline" />
   ) : null;
   // A schedule the inbox does not list (found by the search, or named by a link) has no card to open
   // under, so its detail sits right below the search instead.

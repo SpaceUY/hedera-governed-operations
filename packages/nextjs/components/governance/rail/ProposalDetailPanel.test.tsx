@@ -98,13 +98,14 @@ describe("ProposalDetailPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { level: 1, name: "Proposal 0.0.777" })).toBeTruthy();
+    const title = screen.getByRole("heading", { level: 1, name: "Proposal 0.0.777" });
+    expect(title.className).toContain("text-lg");
     expect(screen.getByText("Collecting signatures")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Approvals" })).toBeTruthy();
     expect(screen.getByText("You")).toBeTruthy();
   });
 
-  it("steps its headings down one level when it opens under a card", () => {
+  it("steps its headings down one level and its title below the page's when it opens under a card", () => {
     render(
       <ProposalDetailPanel
         proposal={baseProposal()}
@@ -114,12 +115,15 @@ describe("ProposalDetailPanel", () => {
         network="testnet"
         refresh={vi.fn()}
         markRegistryEntryCancelled={vi.fn()}
-        headingLevel={2}
+        variant="inline"
       />,
     );
 
-    expect(screen.getByRole("heading", { level: 2, name: "Proposal 0.0.777" })).toBeTruthy();
+    const title = screen.getByRole("heading", { level: 2, name: "Proposal 0.0.777" });
     expect(screen.getByRole("heading", { level: 3, name: "Approvals" })).toBeTruthy();
+    // Below the page's text-lg title, and with the narrower padding a card inside the page's own can afford.
+    expect(title.className).toContain("text-base");
+    expect(title.parentElement?.className).toContain("px-3");
   });
 
   it("offers Sign while the proposal can be signed", () => {

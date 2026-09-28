@@ -18,8 +18,17 @@ import {
 } from "~~/services/governance/proposalLabels";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
-/** The panel's title level: 1 where it is the whole rail, 2 where it opens under a card in a list. */
-export type HeadingLevel = 1 | 2;
+/**
+ * Where the panel sits: `page` where it is the whole rail, `inline` where it opens under a card in
+ * the list on `/`. One choice sets the heading levels, the padding and the title size together, so
+ * an inline panel reads one level below the page's own title and fits a phone-width column.
+ */
+export type PanelVariant = "page" | "inline";
+
+const VARIANT_LAYOUT = {
+  page: { Title: "h1", approverHeadingLevel: 2, container: "px-6 py-5", title: "text-lg mb-4" },
+  inline: { Title: "h2", approverHeadingLevel: 3, container: "px-3 py-3", title: "text-base mb-3" },
+} as const satisfies Record<PanelVariant, object>;
 
 export type ProposalDetailPanelProps = {
   proposal: Proposal;
@@ -31,7 +40,7 @@ export type ProposalDetailPanelProps = {
   refresh: () => void;
   /** After Cancel: marks the entry cancelled without waiting on the relay. See `useProposalLookup`. */
   markRegistryEntryCancelled: () => void;
-  headingLevel?: HeadingLevel;
+  variant?: PanelVariant;
 };
 
 /**
@@ -47,7 +56,7 @@ export const ProposalDetailPanel = ({
   network,
   refresh,
   markRegistryEntryCancelled,
-  headingLevel = 1,
+  variant = "page",
 }: ProposalDetailPanelProps) => {
   const { operation, registry } = proposal;
   const registryDescription = registry.status === "read" ? describeRegistryOperation(registry.entry.operation) : null;
@@ -56,13 +65,12 @@ export const ProposalDetailPanel = ({
   const registryUnreachable = operation.kind === "registryCall" && registry.status === "unreachable";
   const sign = useSignProposal();
   const council = useCouncil({ governanceAccountId, executorContractId, network });
-  const Title = headingLevel === 1 ? "h1" : "h2";
-  const approverHeadingLevel = headingLevel === 1 ? 2 : 3;
+  const { Title, approverHeadingLevel, container, title } = VARIANT_LAYOUT[variant];
 
   return (
     // Addresses and ids are single long words; letting them wrap anywhere keeps a phone from scrolling sideways.
-    <div className="px-6 py-5 wrap-anywhere">
-      <Title className="text-lg font-bold mb-4">Proposal {proposal.schedule.schedule_id}</Title>
+    <div className={`${container} wrap-anywhere`}>
+      <Title className={`${title} font-bold`}>Proposal {proposal.schedule.schedule_id}</Title>
       <p className="mb-2">{describeScheduledOperation(operation)}</p>
       {registryDescription && <p className="mb-4 text-base-content/70">{registryDescription}</p>}
 

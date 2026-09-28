@@ -24,9 +24,9 @@ vi.mock("~~/components/governance/GovernanceProvider", () => ({
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/mirror/useProposalLookup", () => ({ useProposalLookup: vi.fn() }));
 vi.mock("~~/components/governance/rail/ProposalDetail", () => ({
-  ProposalDetail: ({ scheduleId, headingLevel }: { scheduleId: string; headingLevel: number }) => (
+  ProposalDetail: ({ scheduleId, variant }: { scheduleId: string; variant: string }) => (
     <p data-testid="proposal-detail">
-      Detail of {scheduleId} at heading level {headingLevel}
+      Detail of {scheduleId} as {variant}
     </p>
   ),
 }));
@@ -146,14 +146,14 @@ describe("GovernanceHomePage", () => {
     expect(screen.getByRole("button", { expanded: true })).toBeTruthy();
   });
 
-  it("opens the selected proposal's detail under its own card, one heading level below the page", () => {
+  it("opens the selected proposal's detail under its own card, as the inline panel", () => {
     showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
     searchParams.value = new URLSearchParams("schedule=0.0.4");
 
     render(<GovernanceHomePage />);
 
     const detail = screen.getByTestId("proposal-detail");
-    expect(detail.textContent).toBe("Detail of 0.0.4 at heading level 2");
+    expect(detail.textContent).toBe("Detail of 0.0.4 as inline");
     const selectedCard = screen.getByRole("button", { expanded: true }).closest("li");
     expect(selectedCard?.contains(detail)).toBe(true);
   });
@@ -190,7 +190,7 @@ describe("GovernanceHomePage", () => {
     render(<GovernanceHomePage />);
 
     const detail = screen.getByTestId("proposal-detail");
-    expect(detail.textContent).toBe("Detail of 0.0.99 at heading level 2");
+    expect(detail.textContent).toBe("Detail of 0.0.99 as inline");
     expect(screen.getByRole("search").compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("button", { expanded: true })).toBeNull();
   });
