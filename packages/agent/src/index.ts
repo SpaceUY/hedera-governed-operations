@@ -262,7 +262,12 @@ async function main(): Promise<void> {
     // Only when a code could actually arrive. A policy that escalates nothing has nothing to
     // confirm, and a port open on a service that will never read from it is surface for no reason.
     approvalServer = config.confirmationSecret ? await startApprovalServer(pass.approvals, config.approval) : null;
-    if (approvalServer) log("approvals-listening", { host: config.approval.host, port: config.approval.port });
+    if (approvalServer) {
+      // The endpoint has no other listener for a runtime error, and an unhandled one would end a
+      // process whose actual job — holding the seat — is unaffected by it.
+      approvalServer.on("error", error => log("approvals-failed", { error: error.message }));
+      log("approvals-listening", { host: config.approval.host, port: config.approval.port });
+    }
 
     let running = true;
     const { sleep, interrupt } = createInterruptibleSleep();

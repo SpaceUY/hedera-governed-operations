@@ -1,7 +1,7 @@
 import { handleApproval, startApprovalServer } from "./approvalServer";
 import { createApprovalStore } from "./approvals";
 import { decodeBase32, totpCode, totpStepAt } from "./totp";
-import type { AddressInfo } from "node:net";
+import { type AddressInfo, connect } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 const SECRET = decodeBase32("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
@@ -87,6 +87,11 @@ describe("a request that is not a confirmation", () => {
     expect(handleApproval(post("/approvals/", '{"code":"000000"}'), waitingStore(), NOW).status).toBe(404);
   });
 
+  it("answers 400 to a path that is not a proposal id, rather than throwing out of the handler", () => {
+    // `decodeURIComponent("%")` throws, and the throw used to reach nothing above this.
+    expect(handleApproval(post("/approvals/%", '{"code":"000000"}'), waitingStore(), NOW).status).toBe(400);
+  });
+
   it("answers 400 to a body that is not the one object this takes", () => {
     expect(handleApproval(post(`/approvals/${UPGRADE}`, ""), waitingStore(), NOW).status).toBe(400);
     expect(handleApproval(post(`/approvals/${UPGRADE}`, "123456"), waitingStore(), NOW).status).toBe(400);
@@ -126,6 +131,39 @@ describe("the endpoint on a socket", () => {
     const response = await fetch(`${base}/approvals/${UPGRADE}`, { method: "POST", body: "x".repeat(2048) });
 
     expect(response.status).toBe(413);
+  });
+
+  it("survives a path that is not a proposal id, which used to end the process", async () => {
+    const base = await start(waitingStore());
+
+    const response = await fetch(`${base}/approvals/%`, { method: "POST", body: '{"code":"000000"}' });
+
+    expect(response.status).toBe(400);
+    await expect(fetch(`${base}/approvals/${UPGRADE}`, { method: "POST", body: "{}" })).resolves.toBeDefined();
+  });
+
+  it("survives a client that hangs up halfway through its body", async () => {
+    // An interrupted curl is enough to produce this, and it used to kill the council seat.
+    const approvals = waitingStore();
+    const base = await start(approvals);
+    const port = Number(new URL(base).port);
+
+    await new Promise<void>(done => {
+      const socket = connect(port, "127.0.0.1", () => {
+        socket.write("POST /approvals/0.0.9001 HTTP/1.1\r\nHost: x\r\nContent-Length: 50\r\n\r\n12345");
+        setTimeout(() => {
+          socket.destroy();
+          done();
+        }, 50);
+      });
+      socket.on("error", () => undefined);
+    });
+
+    const after = await fetch(`${base}/approvals/${UPGRADE}`, {
+      method: "POST",
+      body: JSON.stringify({ code: codeAt(new Date()) }),
+    });
+    expect(after.status).toBe(204);
   });
 
   it("refuses to start twice on the same port, so a bound endpoint is never assumed", async () => {
