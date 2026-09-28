@@ -167,7 +167,7 @@ textarea.textarea {
 
 /*
   The governance map's motion (components/governance/graph). Each duration here is the one
-  `MOTION_MS` in services/governance/mapMotion.ts gives the same moment; the comets take theirs from
+  `MOTION_MS` in services/liveMap/motion/timings.ts gives the same moment; the comets take theirs from
   it inline. Utilities are applied with `motion-safe:`, so reduced motion turns them off live.
 */
 @theme {
