@@ -52,6 +52,8 @@ export const CouncilRotationForm = ({
     setRows(current => [...current, { id, input: "" }]);
   };
 
+  // An empty row blocks the draft; alongside filled rows it says so, since the preview just disappears.
+  const anyMemberTyped = memberInputs.some(input => input !== "");
   const currentRule = council ? councilRuleLabel(council) : null;
   // One seat per row: the rule reads the same whether the rows are keys yet or still being looked up.
   const proposedRule = councilRuleLabel({ threshold, memberKeys: memberInputs });
@@ -87,6 +89,11 @@ export const CouncilRotationForm = ({
             {reads[index]?.isLoading && (
               <span role="status" className="text-sm text-base-content/60">
                 {ACCOUNT_LOOKUP_LABELS.loading(memberInputs[index])}
+              </span>
+            )}
+            {anyMemberTyped && memberInputs[index] === "" && (
+              <span role="status" className="text-sm text-base-content/60">
+                {COUNCIL_ROTATION_COPY.emptyMember(index + 1)}
               </span>
             )}
           </li>

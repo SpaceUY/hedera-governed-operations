@@ -7,6 +7,7 @@ export const COUNCIL_ROTATION_COPY = {
   memberLabel: (position: number) => `Member ${position}`,
   removeMember: (position: number) => `Remove member ${position}`,
   addMember: "Add a member",
+  emptyMember: (position: number) => `Member ${position} is empty: fill it in or remove it.`,
   thresholdLabel: "Signatures required",
   thresholdOf: (seats: number) => `of ${seats}`,
   bothCouncils: (currentRule: string | null, proposedRule: string) =>

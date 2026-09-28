@@ -101,6 +101,22 @@ describe("CouncilRotationForm", () => {
     });
   });
 
+  it("says an empty row among filled ones is why there is no draft yet", () => {
+    const onDraftChange = renderForm();
+
+    expect(screen.queryByText(COUNCIL_ROTATION_COPY.emptyMember(1))).toBeNull();
+    typeMember(0, "0.0.501");
+    fireEvent.click(screen.getByRole("button", { name: COUNCIL_ROTATION_COPY.addMember }));
+
+    expect(screen.getByRole("status").textContent).toBe(COUNCIL_ROTATION_COPY.emptyMember(2));
+    expect(lastResult(onDraftChange)).toEqual({ status: "empty" });
+
+    fireEvent.click(screen.getByRole("button", { name: COUNCIL_ROTATION_COPY.removeMember(2) }));
+
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(lastResult(onDraftChange)?.status).toBe("ready");
+  });
+
   it("removes a member, keeping the others as typed", () => {
     renderForm();
 
