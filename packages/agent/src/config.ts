@@ -8,7 +8,7 @@
  * and the failure mode of a misread limit is a signature nobody authorised.
  */
 import type { Policy, TokenAdminRule } from "./policy";
-import { decodeBase32 } from "./totp";
+import { MIN_SECRET_BYTES, decodeBase32 } from "./totp";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { type HederaNetworkName, parseHederaNetworkName } from "@sh/core/network";
 import { readFileSync } from "node:fs";
@@ -78,7 +78,7 @@ function pollInterval(): number {
   return parsed;
 }
 
-function port(): number {
+export function approvalPort(): number {
   const raw = process.env.AGENT_APPROVAL_PORT?.trim();
   if (!raw) return DEFAULT_APPROVAL_PORT;
   const parsed = Number(raw);
@@ -93,7 +93,7 @@ function port(): number {
  * is the point: a rule asking for a confirmation nobody can give would leave those proposals waiting
  * forever, which reads like an agent that has quietly stopped working.
  */
-function confirmationSecret(policy: Policy): Uint8Array | null {
+export function confirmationSecret(policy: Policy): Uint8Array | null {
   const raw = process.env.AGENT_TOTP_SECRET?.trim();
   const escalates = Object.values(policy).some(rule => rule.requireConfirmation === true);
   if (!raw) {
@@ -105,11 +105,21 @@ function confirmationSecret(policy: Policy): Uint8Array | null {
     }
     return null;
   }
+  let secret: Uint8Array;
   try {
-    return decodeBase32(raw);
+    secret = decodeBase32(raw);
   } catch (error) {
     throw new Error(`AGENT_TOTP_SECRET is not a base32 secret: ${(error as Error).message}`);
   }
+  // A short secret is not a weaker version of a good one, it is a key an attacker can search — and
+  // base32 decodes anything under eight bits of payload to no key at all, which everybody shares.
+  if (secret.length < MIN_SECRET_BYTES) {
+    throw new Error(
+      `AGENT_TOTP_SECRET decodes to ${secret.length} bytes and a confirmation secret needs at least ` +
+        `${MIN_SECRET_BYTES} (RFC 4226 §4 R6); generate one rather than typing it`,
+    );
+  }
+  return secret;
 }
 
 function stringList(value: unknown, field: string): string[] {
@@ -268,6 +278,6 @@ export function loadConfig(): AgentConfig {
     policy,
     decisionTopicId: requiredEnv("AGENT_DECISION_TOPIC_ID"),
     confirmationSecret: confirmationSecret(policy),
-    approval: { host: process.env.AGENT_APPROVAL_HOST?.trim() || DEFAULT_APPROVAL_HOST, port: port() },
+    approval: { host: process.env.AGENT_APPROVAL_HOST?.trim() || DEFAULT_APPROVAL_HOST, port: approvalPort() },
   };
 }

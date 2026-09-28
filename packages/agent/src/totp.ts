@@ -24,6 +24,15 @@ export const TOTP_DRIFT_STEPS = 1;
 
 const DIGITS = 6;
 
+/**
+ * The shortest secret worth calling one. RFC 4226 §4 R6 requires at least 128 bits of shared secret
+ * and recommends 160, which is what every authenticator's own generator produces.
+ *
+ * Without a floor, base32 quietly decodes a short string to very few bytes — and `A` to none at all,
+ * which is an HMAC key everybody has. Codes from it verify like any other.
+ */
+export const MIN_SECRET_BYTES = 16;
+
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 /**
@@ -71,7 +80,7 @@ export function totpCode(secret: Uint8Array, step: number): string {
   return String(truncated % 10 ** DIGITS).padStart(DIGITS, "0");
 }
 
-const isCodeShaped = (code: string): boolean => new RegExp(`^\\d{${DIGITS}}$`).test(code);
+const CODE_SHAPE = new RegExp(`^\\d{${DIGITS}}$`);
 
 /**
  * Which step the code belongs to, or null if it belongs to none within the accepted drift.
@@ -81,7 +90,7 @@ const isCodeShaped = (code: string): boolean => new RegExp(`^\\d{${DIGITS}}$`).t
  * sixty.
  */
 export function matchingTotpStep(code: string, secret: Uint8Array, now: Date): number | null {
-  if (!isCodeShaped(code)) return null;
+  if (!CODE_SHAPE.test(code)) return null;
 
   const supplied = Buffer.from(code, "utf8");
   const current = totpStepAt(now);

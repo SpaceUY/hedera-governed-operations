@@ -1,4 +1,5 @@
-import { parsePolicy } from "./config";
+import { approvalPort, confirmationSecret, parsePolicy } from "./config";
+import type { Policy } from "./policy";
 import { describe, expect, it } from "vitest";
 
 const VAULT = "0x0000000000000000000000000000000000001234";
@@ -90,5 +91,67 @@ describe("parsePolicy on the confirmation a rule can ask for", () => {
     expect(() =>
       parsePolicy(policyOf({ tokenAdmin: { operations: ["pause"], tokens: [VAULT], requireConfirmation: "false" } })),
     ).toThrow(/must be true or false/);
+  });
+});
+
+describe("the secret the confirmation codes come from", () => {
+  const withSecret = <T>(value: string | undefined, read: () => T): T => {
+    const previous = process.env.AGENT_TOTP_SECRET;
+    if (value === undefined) delete process.env.AGENT_TOTP_SECRET;
+    else process.env.AGENT_TOTP_SECRET = value;
+    try {
+      return read();
+    } finally {
+      if (previous === undefined) delete process.env.AGENT_TOTP_SECRET;
+      else process.env.AGENT_TOTP_SECRET = previous;
+    }
+  };
+
+  const escalating: Policy = { tokenAdmin: { operations: ["pause"], tokens: [VAULT], requireConfirmation: true } };
+  const plain: Policy = { tokenAdmin: { operations: ["pause"], tokens: [VAULT] } };
+
+  it("is read from the environment as the bytes of its base32", () => {
+    expect(withSecret("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", () => confirmationSecret(escalating))).toHaveLength(20);
+  });
+
+  it("is nothing at all when no rule asks for a person", () => {
+    expect(withSecret(undefined, () => confirmationSecret(plain))).toBeNull();
+  });
+
+  it("refuses to start a policy that escalates with no secret, since no code could release it", () => {
+    expect(() => withSecret(undefined, () => confirmationSecret(escalating))).toThrow(/AGENT_TOTP_SECRET is unset/);
+  });
+
+  it("refuses a secret short enough to search, and an `A` decodes to no key at all", () => {
+    expect(() => withSecret("A", () => confirmationSecret(escalating))).toThrow(/at least 16/);
+    expect(() => withSecret("GEZDGNBVGY3TQOJQ", () => confirmationSecret(escalating))).toThrow(/10 bytes/);
+  });
+
+  it("refuses a secret that is not base32 rather than decoding a typo", () => {
+    expect(() => withSecret("GEZD1GNBV", () => confirmationSecret(escalating))).toThrow(/not a base32 secret/);
+  });
+});
+
+describe("the port the confirmation endpoint listens on", () => {
+  const withPort = <T>(value: string | undefined, read: () => T): T => {
+    const previous = process.env.AGENT_APPROVAL_PORT;
+    if (value === undefined) delete process.env.AGENT_APPROVAL_PORT;
+    else process.env.AGENT_APPROVAL_PORT = value;
+    try {
+      return read();
+    } finally {
+      if (previous === undefined) delete process.env.AGENT_APPROVAL_PORT;
+      else process.env.AGENT_APPROVAL_PORT = previous;
+    }
+  };
+
+  it("defaults rather than asking every deployment to choose one", () => {
+    expect(withPort(undefined, approvalPort)).toBe(8787);
+  });
+
+  it("refuses anything that is not a port, rather than listening somewhere unexpected", () => {
+    expect(() => withPort("0", approvalPort)).toThrow(/between 1 and 65535/);
+    expect(() => withPort("70000", approvalPort)).toThrow(/between 1 and 65535/);
+    expect(() => withPort("8787x", approvalPort)).toThrow(/between 1 and 65535/);
   });
 });
