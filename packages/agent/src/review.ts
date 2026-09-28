@@ -118,7 +118,9 @@ export function gateOnConfirmation(decision: Decision, confirmed: ReadonlySet<st
   // still open.
   if (decision.outcome !== "approved") return { ...decision, confirmation: "notRequired" };
   if (confirmed.has(decision.scheduleId)) return { ...decision, confirmation: "received" };
-  return { ...decision, outcome: "pending", reason: "within policy, waiting for a confirmation code" };
+  // Appended rather than replacing, so a proposal that is waiting still says which checks it passed
+  // to get there — the release the manifest matched, in particular.
+  return { ...decision, outcome: "pending", reason: `${decision.reason}, waiting for a confirmation code` };
 }
 
 /**

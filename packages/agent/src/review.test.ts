@@ -329,6 +329,16 @@ describe("a proposal whose rule asks for a person as well", () => {
     const result = await reviewInbox(inbox([proposal()]), escalated, null, verify);
 
     expect(result.decisions[0].outcome).toBe("refused");
+    // And it is waiting on nobody, which a confirmation still marked as required would claim.
+    expect(result.decisions[0].confirmation).toBe("notRequired");
+  });
+
+  it("keeps the release it matched in the reason while it waits", async () => {
+    const verify = vi.fn().mockResolvedValue({ matched: true, manifest: { version: "v2.0.0" } } as never);
+
+    const result = await reviewInbox(inbox([proposal()]), escalated, null, verify);
+
+    expect(result.decisions[0].reason).toBe("within policy, release v2.0.0, waiting for a confirmation code");
   });
 
   it("leaves a proposal alone whose own rule asks for nothing", () => {

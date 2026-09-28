@@ -49,47 +49,15 @@ export type AgentDecision = {
   decidedAt: string;
 };
 
-export type PublishedDecision = AgentDecision & {
-  /** Consensus sequence number, which is how a reader cites one on HashScan. */
-  sequenceNumber: number;
-  consensusTimestamp: string;
-};
-
-const OUTCOMES: PublishedOutcome[] = ["approved", "refused", "pending"];
-
-const TEXT_FIELDS = ["scheduleId", "reason", "proposal", "agentAccountId", "decidedAt"] as const;
-
-const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
-
-/** The message a decision publishes. Kept next to the parser so the two cannot drift. */
+/**
+ * The message a decision publishes.
+ *
+ * There is deliberately no reader here yet. The topic is public and a reader is a parse away, but
+ * nothing in this template reads its own decision log, and a parser with no consumer is a contract
+ * nobody is holding to — it belongs in the change that first shows a decision on a screen.
+ */
 export function buildDecisionMessage(decision: AgentDecision): string {
   return JSON.stringify({ schema: AGENT_DECISION_SCHEMA, ...decision });
-}
-
-/**
- * Anything on the topic that is not a well-formed decision of this schema is not one. Returned as
- * null rather than thrown, the way a manifest is: one unreadable message must not blind a reader to
- * the records around it.
- */
-export function parseDecision(payload: unknown): AgentDecision | null {
-  if (typeof payload !== "object" || payload === null) return null;
-  const record = payload as Record<string, unknown>;
-  if (record.schema !== AGENT_DECISION_SCHEMA) return null;
-  if (!TEXT_FIELDS.every(field => isNonEmptyString(record[field]))) return null;
-  if (!OUTCOMES.some(outcome => outcome === record.outcome)) return null;
-  if (typeof record.confirmed !== "boolean") return null;
-  if (record.kind !== null && !isNonEmptyString(record.kind)) return null;
-
-  return {
-    scheduleId: record.scheduleId as string,
-    outcome: record.outcome as PublishedOutcome,
-    reason: record.reason as string,
-    kind: record.kind as ProposalKind | null,
-    proposal: record.proposal as string,
-    confirmed: record.confirmed,
-    agentAccountId: record.agentAccountId as string,
-    decidedAt: record.decidedAt as string,
-  };
 }
 
 /**
@@ -97,10 +65,7 @@ export function parseDecision(payload: unknown): AgentDecision | null {
  * this agent's decisions. It refuses to start rather than publishing into a topic where its record
  * would carry no more weight than a stranger's.
  */
-export async function assertDecisionTopicIsSigned(
-  topicId: string,
-  options: MirrorRequestOptions = {},
-): Promise<MirrorTopic> {
+async function assertDecisionTopicIsSigned(topicId: string, options: MirrorRequestOptions): Promise<MirrorTopic> {
   return assertTopicIsSigned(topicId, "decision", options);
 }
 
