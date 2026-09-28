@@ -1,8 +1,15 @@
-import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, pendingTransferTo } from "../mapFixtures";
+import { TREASURY_OUTLINE, distanceFrom, routeOnMap } from "../geometry";
+import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR, pendingTransferTo } from "../mapFixtures";
 import { composeMap } from "../mapModel";
 import { DEMO_INSPECTOR_COPY, DEMO_NAMES, decorateDemoMap } from "./demoGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GOVERNANCE_ACCOUNT_NODE_ID, externalNodeId, memberNodeId } from "~~/services/governance/graph";
+import {
+  EXECUTOR_NODE_ID,
+  GOVERNANCE_ACCOUNT_NODE_ID,
+  externalNodeId,
+  memberNodeId,
+  proposerNodeId,
+} from "~~/services/governance/graph";
 import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
 
 beforeEach(() => {
@@ -14,11 +21,39 @@ afterEach(() => vi.unstubAllEnvs());
 const labelOf = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id)?.label;
 
 describe("decorateDemoMap", () => {
-  it("names Alice and Bob by the seats their demo accounts hold, and the remaining seat as yours", () => {
+  it("names Alice and Bob by the seats their demo accounts hold; the council account keeps its id", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap);
     expect(labelOf(map, memberNodeId(KEY_B))).toBe(DEMO_NAMES.alice);
     expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
-    expect(labelOf(map, memberNodeId(KEY_A))).toBe(DEMO_NAMES.you);
+    expect(labelOf(map, memberNodeId(KEY_A))).toBe("0.0.4101");
+    expect(map.captions[memberNodeId(KEY_A)]).toBe("council account · proposer");
+  });
+
+  it("names the connected account's seat You, over a demo name too", () => {
+    expect(labelOf(composeMap(MAP_SNAPSHOT, decorateDemoMap, "0.0.4101"), memberNodeId(KEY_A))).toBe("You");
+    const asAlice = composeMap(MAP_SNAPSHOT, decorateDemoMap, "0.0.4102");
+    expect(labelOf(asAlice, memberNodeId(KEY_B))).toBe("You");
+    expect(labelOf(asAlice, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
+  });
+
+  it("names the one proposer without a seat the setup operator", () => {
+    const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap);
+    expect(labelOf(map, proposerNodeId("0.0.4001"))).toBe(DEMO_NAMES.operator);
+  });
+
+  it("routes every PROPOSER_ROLE arc around the treasury, Alice's and Bob's included", () => {
+    const { graph } = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap);
+    const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
+    const treasury = nodesById.get(GOVERNANCE_ACCOUNT_NODE_ID)?.position ?? { x: NaN, y: NaN };
+    const arcs = graph.edges.filter(edge => edge.to === EXECUTOR_NODE_ID && edge.from !== GOVERNANCE_ACCOUNT_NODE_ID);
+
+    expect(arcs.map(arc => arc.from)).toEqual(
+      expect.arrayContaining([memberNodeId(KEY_B), memberNodeId(KEY_C), proposerNodeId("0.0.4001")]),
+    );
+    for (const arc of arcs) {
+      const route = routeOnMap(arc, nodesById);
+      expect(route && distanceFrom(route, treasury)).toBeGreaterThan(TREASURY_OUTLINE);
+    }
   });
 
   it("falls back to the account id when the demo accounts are not configured", () => {

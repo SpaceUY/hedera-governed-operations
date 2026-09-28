@@ -67,15 +67,35 @@ export function genericLabels({ nodes, proposers }: MapContext): Record<string, 
   return labels;
 }
 
-export function composeMap(snapshot: GraphSnapshot, decorate?: MapDecorator): ComposedMap {
+/**
+ * The seat the connected account holds, or undefined. The account is matched to a seat through the
+ * proposer list — the only accounts whose keys the map reads — so a seat whose holder is not a
+ * proposer is never taken for the viewer's.
+ */
+export function viewerSeatOf({ nodes, proposers }: MapContext, viewerAccountId: string): string | undefined {
+  const key = proposers.find(proposer => proposer.accountId === viewerAccountId)?.key;
+  return nodes.find(node => node.role === "member" && node.ref === key)?.id;
+}
+
+/**
+ * `viewerAccountId` is the connected account, if any: the seat it holds is named "You", over any name
+ * the generic labels or a decoration gave it.
+ */
+export function composeMap(
+  snapshot: GraphSnapshot,
+  decorate?: MapDecorator,
+  viewerAccountId?: string | null,
+): ComposedMap {
   const { nodes } = deriveGraphState(snapshot, { ...AUTO_MAP_SIZE, positions: {} });
   const context: MapContext = { nodes, proposers: snapshot.proposers };
   const labels = genericLabels(context);
   const decoration = decorate?.(context);
   const layout = decoration?.layout ?? { ...AUTO_MAP_SIZE, positions: {} };
+  const viewerSeat = viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
+  const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
 
   return {
-    graph: deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels } }),
+    graph: deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } }),
     captions: decoration?.captions ?? {},
     ghosts: decoration?.ghosts ?? [],
   };

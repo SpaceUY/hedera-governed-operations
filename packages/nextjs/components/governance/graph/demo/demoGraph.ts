@@ -1,7 +1,8 @@
 /**
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
- * node sits, the names Alice, Bob and "Your wallet", the co-signing agent that is not a member yet,
- * and the words the inspector will show. Delete this folder and the `decorate={decorateDemoMap}`
+ * node sits, the names Alice, Bob and "Setup operator", the co-signing agent that is not a member
+ * yet, and the words the inspector will show. The seat of whoever is connected is named "You" by the
+ * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
  */
 import type { GhostNode, MapContext, MapDecorator } from "../mapModel";
@@ -20,7 +21,7 @@ const FIXED_POSITIONS: Record<string, Point> = {
   [MAP_ENTITY_IDS.token]: { x: 960, y: 70 },
 };
 
-/** The council column, top to bottom: your seat, then Alice's and Bob's. */
+/** The council column, top to bottom: the council account's seat, then Alice's and Bob's. */
 const MEMBER_SLOTS: Point[] = [
   { x: 90, y: 120 },
   { x: 90, y: 300 },
@@ -31,9 +32,9 @@ const SUPPLIER_SLOT: Point = { x: 300, y: 590 };
 const PROPOSER_ROW = { x: 300, y: 50, step: 170 } as const;
 
 export const DEMO_NAMES = {
-  you: "Your wallet",
   alice: "Alice",
   bob: "Bob",
+  operator: "Setup operator",
   supplier: "Supplier",
   token: "ACME",
   router: "SaucerSwap router",
@@ -74,10 +75,11 @@ function demoAccountIds(): { alice?: string; bob?: string } {
 }
 
 /**
- * Seats named by who holds them. Alice and Bob are proposers too, so their keys come with the
- * proposer list; the one remaining seat is the council account `yarn setup` made yours.
+ * The seats in the order the council column shows them. Alice and Bob are proposers too, so their
+ * keys come with the proposer list; the one remaining seat is the council account `yarn setup` was
+ * given (`HEDERA_COUNCIL_ACCOUNT_ID`), which keeps its account id as its name.
  */
-function memberNames({ nodes, proposers }: MapContext): Array<{ nodeId: string; name: string }> {
+function demoSeats({ nodes, proposers }: MapContext): { council?: string; alice?: string; bob?: string } {
   const ids = demoAccountIds();
   const seatOf = (accountId: string | undefined) => {
     const key = proposers.find(proposer => proposer.accountId === accountId)?.key;
@@ -86,13 +88,7 @@ function memberNames({ nodes, proposers }: MapContext): Array<{ nodeId: string; 
   const alice = seatOf(ids.alice);
   const bob = seatOf(ids.bob);
   const others = nodes.filter(node => node.role === "member" && node.id !== alice && node.id !== bob);
-  const you = others.length === 1 ? others[0].id : undefined;
-
-  return [
-    { nodeId: you, name: DEMO_NAMES.you },
-    { nodeId: alice, name: DEMO_NAMES.alice },
-    { nodeId: bob, name: DEMO_NAMES.bob },
-  ].flatMap(({ nodeId, name }) => (nodeId ? [{ nodeId, name }] : []));
+  return { council: others.length === 1 ? others[0].id : undefined, alice, bob };
 }
 
 export const decorateDemoMap: MapDecorator = context => {
@@ -103,23 +99,29 @@ export const decorateDemoMap: MapDecorator = context => {
   };
   const captions: Partial<Record<string, string>> = { ...CAPTIONS };
 
-  const named = memberNames(context);
-  const unnamed = context.nodes.filter(
-    node => node.role === "member" && !named.some(({ nodeId }) => nodeId === node.id),
-  );
-  [...named.map(({ nodeId }) => nodeId), ...unnamed.map(node => node.id)].forEach((nodeId, slot) => {
+  const seats = demoSeats(context);
+  const known = [seats.council, seats.alice, seats.bob].flatMap(nodeId => (nodeId ? [nodeId] : []));
+  const others = context.nodes.filter(node => node.role === "member" && !known.includes(node.id));
+  [...known, ...others.map(node => node.id)].forEach((nodeId, slot) => {
     if (MEMBER_SLOTS[slot]) positions[nodeId] = MEMBER_SLOTS[slot];
   });
-  for (const { nodeId, name } of named) {
+  if (seats.council) captions[seats.council] = "council account · proposer";
+  const coSigners = [
+    [seats.alice, DEMO_NAMES.alice],
+    [seats.bob, DEMO_NAMES.bob],
+  ] as const;
+  for (const [nodeId, name] of coSigners) {
+    if (!nodeId) continue;
     labels[nodeId] = name;
-    captions[nodeId] = name === DEMO_NAMES.you ? "your council seat · proposer" : "demo co-signer";
+    captions[nodeId] = "demo co-signer";
   }
 
-  context.nodes
-    .filter(node => node.role === "proposer")
-    .forEach((node, index) => {
-      positions[node.id] = { x: PROPOSER_ROW.x + PROPOSER_ROW.step * index, y: PROPOSER_ROW.y };
-    });
+  const unseated = context.nodes.filter(node => node.role === "proposer");
+  unseated.forEach((node, index) => {
+    positions[node.id] = { x: PROPOSER_ROW.x + PROPOSER_ROW.step * index, y: PROPOSER_ROW.y };
+  });
+  // `yarn setup` grants PROPOSER_ROLE to one account without a seat: the operator that ran it.
+  if (unseated.length === 1) labels[unseated[0].id] = DEMO_NAMES.operator;
 
   // The demo's only transfer pays the supplier, so the account a pending transfer names is it.
   const recipient = context.nodes.find(node => node.role === "external" && node.id !== MAP_ENTITY_IDS.router);

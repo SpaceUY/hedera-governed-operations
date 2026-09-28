@@ -2,7 +2,7 @@
 
 import { MapItem } from "./MapItem";
 import { SignatureRing } from "./SignatureRing";
-import { FOCUS_GAP, RING_RADIUS, TREASURY_RADIUS } from "./geometry";
+import { TREASURY_OUTLINE, TREASURY_RADIUS } from "./geometry";
 import { FOCUS_RING_CLASS, type NodeProps, translate } from "./nodeProps";
 
 type TreasuryNodeProps = NodeProps & {
@@ -23,7 +23,7 @@ export function TreasuryNode({ rule, threshold, signed, ...node }: TreasuryNodeP
       onActivate={node.onActivate}
       transform={translate(node.position)}
     >
-      <circle r={RING_RADIUS + FOCUS_GAP + 3} className={FOCUS_RING_CLASS} strokeWidth={2} />
+      <circle r={TREASURY_OUTLINE} className={FOCUS_RING_CLASS} strokeWidth={2} />
       <SignatureRing threshold={threshold} signed={signed} />
       <circle r={TREASURY_RADIUS} className="fill-base-100 stroke-base-content/40" strokeWidth={1.5} />
       <text

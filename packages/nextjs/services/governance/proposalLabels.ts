@@ -219,6 +219,8 @@ export const MAP_LABELS = {
   swapAdapter: "Swap adapter",
   router: "Swap router",
   councilCaption: "council",
+  /** The seat the connected account holds. */
+  you: "You",
 } as const;
 
 /** What a node is, under its name; a demo layout may say it more specifically. */

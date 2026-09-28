@@ -1,9 +1,9 @@
 "use client";
 
 import { MapItem, type MapItemRef } from "./MapItem";
-import { edgeMidpoint, edgePath } from "./geometry";
+import { type EdgeRoute, routePath } from "./geometry";
 import type { RovingFocus } from "./useRovingFocus";
-import type { EdgeKind, EdgePhase, Point } from "~~/services/governance/graph";
+import type { EdgeKind, EdgePhase } from "~~/services/governance/graph";
 
 const PHASE_STROKE: Record<EdgePhase, string> = {
   rest: "stroke-base-content/35",
@@ -27,8 +27,8 @@ type GraphEdgeProps = {
   id: string;
   kind: EdgeKind;
   phase: EdgePhase;
-  from: Point;
-  to: Point;
+  /** Where it runs (`routeOnMap`). */
+  route: EdgeRoute;
   /** The accessible name: kind, both ends and meaning. */
   label: string;
   /** The meaning alone, shown at the midpoint on hover and focus. */
@@ -41,9 +41,9 @@ type GraphEdgeProps = {
  * One edge in any phase. The phase is set by whoever draws the map — a preview, an animation — and
  * the edge only renders it; at rest it is grey, and the coloured phases are meant to pass.
  */
-export function GraphEdge({ id, kind, phase, from, to, label, caption, focus, onActivate }: GraphEdgeProps) {
-  const path = edgePath(from, to);
-  const middle = edgeMidpoint(from, to);
+export function GraphEdge({ id, kind, phase, route, label, caption, focus, onActivate }: GraphEdgeProps) {
+  const path = routePath(route);
+  const { middle } = route;
 
   return (
     <MapItem item={{ kind: "edge", id }} label={label} focus={focus} onActivate={onActivate}>

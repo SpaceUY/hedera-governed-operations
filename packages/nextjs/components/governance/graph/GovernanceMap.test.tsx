@@ -5,9 +5,11 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
+import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/governance/graph";
 
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
+vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({
   contracts: { 296: { SaucerSwapAdapter: { address: "0x5aF0000000000000000000000000000000000003", abi: [] } } },
@@ -35,7 +37,14 @@ const COUNCIL_READ = {
   },
 };
 
-beforeEach(() => vi.mocked(useProposals).mockReset());
+function connect(accountId: string | null) {
+  vi.mocked(useHederaSigner).mockReturnValue({ accountId } as ReturnType<typeof useHederaSigner>);
+}
+
+beforeEach(() => {
+  vi.mocked(useProposals).mockReset();
+  connect(null);
+});
 
 describe("GovernanceMap", () => {
   it("reads the council and the inbox for the configured governance account", () => {
@@ -69,6 +78,17 @@ describe("GovernanceMap", () => {
     render(<GovernanceMap config={CONFIG} decorate={decorate} />);
     expect(screen.getByText("The treasury")).toBeTruthy();
     expect(screen.getByRole("graphics-document").getAttribute("viewBox")).toBe("0 0 500 400");
+  });
+
+  it("names the connected account's seat You, and nobody without a wallet", () => {
+    mockReads(COUNCIL_READ);
+    const { rerender } = render(<GovernanceMap config={CONFIG} />);
+    expect(screen.queryByText("You")).toBeNull();
+
+    connect("0.0.4101");
+    rerender(<GovernanceMap config={CONFIG} />);
+    expect(screen.getByText("You")).toBeTruthy();
+    expect(screen.queryByText("0.0.4101")).toBeNull();
   });
 
   it("says it is reading while the council has not arrived", () => {

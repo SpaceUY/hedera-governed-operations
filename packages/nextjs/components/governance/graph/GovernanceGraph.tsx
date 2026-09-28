@@ -8,6 +8,7 @@ import { Legend } from "./Legend";
 import type { MapItemRef } from "./MapItem";
 import { TokenNode } from "./TokenNode";
 import { TreasuryNode } from "./TreasuryNode";
+import { routeOnMap } from "./geometry";
 import { type GhostNode, readingOrder } from "./mapModel";
 import type { NodeProps } from "./nodeProps";
 import { useRovingFocus } from "./useRovingFocus";
@@ -78,7 +79,8 @@ export function GovernanceGraph({
         {edges.map(edge => {
           const from = nodesById.get(edge.from);
           const to = nodesById.get(edge.to);
-          if (!from || !to) return null;
+          const route = routeOnMap(edge, nodesById);
+          if (!from || !to || !route) return null;
           const caption = mapEdgeCaption(edge.kind, from.role, to.role);
           return (
             <GraphEdge
@@ -86,8 +88,7 @@ export function GovernanceGraph({
               id={edge.id}
               kind={edge.kind}
               phase={phases[edge.id] ?? "rest"}
-              from={from.position}
-              to={to.position}
+              route={route}
               label={mapEdgeLabel(edge.kind, { from: from.label, to: to.label }, caption)}
               caption={caption}
               focus={focus}

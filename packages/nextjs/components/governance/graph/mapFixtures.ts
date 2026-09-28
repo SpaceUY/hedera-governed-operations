@@ -26,6 +26,12 @@ export const MAP_SNAPSHOT: GraphSnapshot = {
   proposals: [],
 };
 
+/** The same system with the proposer `yarn setup` adds that holds no seat: the operator that ran it. */
+export const MAP_SNAPSHOT_WITH_OPERATOR: GraphSnapshot = {
+  ...MAP_SNAPSHOT,
+  proposers: [...MAP_SNAPSHOT.proposers, { accountId: "0.0.4001", key: "b3BlcmF0b3I=" }],
+};
+
 /** A pending transfer of 40 HBAR from the governance account to `recipient`. */
 export function pendingTransferTo(recipient: string): Proposal {
   return {

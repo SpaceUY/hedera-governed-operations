@@ -6,6 +6,7 @@ import { type MapDecorator, composeMap } from "./mapModel";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
+import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { governanceEntitiesOf } from "~~/services/governance/graphEntities";
 import { MAP_LABELS } from "~~/services/governance/proposalLabels";
 
@@ -19,10 +20,12 @@ export type GovernanceMapProps = {
 /**
  * The governance map for the configured deployment: the council and the proposers as the ledger
  * has them, the trust chain down to the contracts, and the accounts a pending proposal would pay.
- * It reads through the same queries as the rest of the screen, so it never polls on its own.
+ * It reads through the same queries as the rest of the screen, so it never polls on its own, and
+ * names the seat the connected account holds "You".
  */
 export function GovernanceMap({ config, decorate }: GovernanceMapProps) {
   const { targetNetwork } = useTargetNetwork();
+  const { accountId: viewerAccountId } = useHederaSigner();
   const { governanceAccountId, network, executor } = config;
   const { inbox, council } = useProposals({
     governanceAccountId,
@@ -43,8 +46,9 @@ export function GovernanceMap({ config, decorate }: GovernanceMapProps) {
         proposals: inbox.data?.proposals ?? [],
       },
       decorate,
+      viewerAccountId,
     );
-  }, [council.data, inbox.data, entities, governanceAccountId, executor, decorate]);
+  }, [council.data, inbox.data, entities, governanceAccountId, executor, decorate, viewerAccountId]);
 
   if (council.error) {
     return (

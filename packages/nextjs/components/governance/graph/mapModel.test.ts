@@ -1,4 +1,4 @@
-import { KEY_A, KEY_B, MAP_SNAPSHOT } from "./mapFixtures";
+import { KEY_A, KEY_B, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR } from "./mapFixtures";
 import { AUTO_MAP_SIZE, type MapDecorator, composeMap, genericLabels, readingOrder } from "./mapModel";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -58,6 +58,24 @@ describe("composeMap", () => {
     // A name the decoration leaves out keeps its generic one.
     expect(graph.nodes.find(node => node.id === EXECUTOR_NODE_ID)?.label).toBe("Proposal registry");
     expect(captions[MAP_ENTITY_IDS.token]).toBe("a token");
+  });
+});
+
+describe("composeMap with a connected account", () => {
+  const labelOf = (map: ReturnType<typeof composeMap>, id: string) =>
+    map.graph.nodes.find(node => node.id === id)?.label;
+
+  it("names the seat whose key the connected proposer holds You, and no other", () => {
+    const map = composeMap(MAP_SNAPSHOT, undefined, "0.0.4102");
+    expect(labelOf(map, memberNodeId(KEY_B))).toBe("You");
+    expect(labelOf(map, memberNodeId(KEY_A))).toBe("0.0.4101");
+  });
+
+  it("names nobody You without a wallet, or for an account that holds no seat", () => {
+    for (const viewer of [undefined, null, "0.0.9999", "0.0.4001"]) {
+      const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, undefined, viewer);
+      expect(map.graph.nodes.some(node => node.label === "You")).toBe(false);
+    }
   });
 });
 
