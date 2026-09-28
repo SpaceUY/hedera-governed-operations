@@ -559,10 +559,12 @@ Three properties are worth more than the mechanism:
 
 - **The gate runs after the release check, not before.** An upgrade whose implementation no release
   vouches for is refused on its own. Nobody should be asked to confirm what was going to be refused.
-- **A code cannot be used twice.** The agent remembers the last time step it accepted a code from and
-  refuses anything at or below it, so a code seen by anyone else is already spent. That counter is
-  global rather than per proposal: a code says nothing about which proposal it is for, so a counter
-  per proposal would let one captured for a transfer release an upgrade inside the same window.
+- **A code cannot be used twice, or guessed at.** The agent remembers the last time step it accepted
+  a code from and refuses anything at or below it, so a code seen by anyone else is already spent.
+  That counter is global rather than per proposal: a code says nothing about which proposal it is
+  for, so a counter per proposal would let one captured for a transfer release an upgrade inside the
+  same window. Against guessing — a million values, three of them valid at once — a step stops being
+  answered after five wrong codes, which is the throttling RFC 6238 §5.2 asks for.
 - **A confirmation does not bypass the policy.** It releases a signature the policy had already
   approved, and the policy is re-run on the pass that signs it.
 

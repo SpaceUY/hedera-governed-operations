@@ -134,7 +134,9 @@ only way to lose the escalation is to leave it out, the same as any other limit.
 RFC 6238 TOTP over HMAC-SHA-1, six digits, a 30-second step, one step of drift accepted either side.
 Those are not preferences — they are what every authenticator app generates, so the secret goes into
 1Password, Google Authenticator or `oathtool` and the codes match. The secret is base32 in
-`AGENT_TOTP_SECRET`, is never logged, and never leaves the process:
+`AGENT_TOTP_SECRET`, is never logged, and never leaves the process. **Generate it; do not type one.**
+RFC 4226 §4 R6 asks for at least 128 bits and the agent refuses to start under sixteen bytes — base32
+decodes a short string to very few, and `A` to no key at all, which is an HMAC key everybody has:
 
 ```bash
 # 20 random bytes as base32, which is what an authenticator takes
@@ -147,6 +149,12 @@ already spent. That memory is deliberately one counter for the whole agent rathe
 proposal: a code is generated from the clock and the secret and says nothing about which proposal it
 is for, so a counter per proposal would let a code captured for one release another inside the same
 window. The cost is that confirming two proposals means waiting for the next 30-second step.
+
+**And it cannot be guessed at.** Six digits is a million and the drift window makes three of them
+valid at once, so a step stops being answered after five wrong codes — the throttling RFC 6238 §5.2
+asks for, which turns the search from hours into decades. It resets with the next code rather than
+locking the endpoint, because an endpoint that can be locked shut from outside denies the very
+approval it guards.
 
 ### Sending one
 
@@ -238,11 +246,16 @@ cp packages/agent/.env.example packages/agent/.env   # then fill it in
 yarn agent:start
 ```
 
+Filling it in includes generating `AGENT_TOTP_SECRET`: `policy.example.json` asks for a confirmation
+on upgrades, and a policy that escalates with no secret refuses to start rather than leaving those
+proposals waiting on a code nobody can produce.
+
 On testnet the seat is one of the demo council members `yarn setup` creates: take
 `demoAccounts.bob` out of `packages/nextjs/setup-state.json`. It is also the key `yarn setup` gives
 the decision topic, so a different seat means a different topic. Set `AGENT_DRY_RUN=true` to watch it
 decide against a real inbox without signing anything and without publishing anything — the way to try
-a new policy.
+a new policy. It still checks the decision topic at boot, because a dry run is for trying a policy
+and not for finding out later that the log it would have written to belongs to somebody else.
 
 The agent pays for what it does out of its own account: a fee per `ScheduleSign` and a fee per
 decision published. A seat with no HBAR decides and then fails at both.
