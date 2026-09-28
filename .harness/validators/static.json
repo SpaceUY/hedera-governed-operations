@@ -34,7 +34,7 @@
     },
     {
       "file": "packages/nextjs/app/page.tsx",
-      "contains": ["Governed Operations", "Pending proposals"]
+      "contains": ["Governed Operations", "Proposals"]
     },
     {
       "file": "packages/nextjs/components/SetupNotice.tsx",

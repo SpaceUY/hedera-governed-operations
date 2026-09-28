@@ -26,7 +26,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "The home route renders the governance home without a wallet, without a .env file and without browser console errors.",
-      "howToVerify": "Navigate to /. Confirm either the \"Governed Operations\" heading with the \"Council\" and \"Pending proposals\" cards (yarn setup and the deploy have run) or the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), no crash banner is shown and the console has no errors."
+      "howToVerify": "Navigate to /. Confirm either the \"Governed Operations\" heading with the \"Council\" and \"Proposals\" cards (yarn setup and the deploy have run) or the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), no crash banner is shown and the console has no errors."
     },
     {
       "id": "E2",
