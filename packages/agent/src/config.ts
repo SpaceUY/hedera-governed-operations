@@ -9,7 +9,7 @@
  */
 import type { Policy, TokenAdminRule } from "./policy";
 import { PrivateKey } from "@hiero-ledger/sdk";
-import { type HederaNetworkName, toHederaNetworkName } from "@sh/core/network";
+import { type HederaNetworkName, parseHederaNetworkName } from "@sh/core/network";
 import { readFileSync } from "node:fs";
 
 const TOKEN_ADMIN_OPERATIONS = ["pause", "unpause", "freeze", "unfreeze"] as const;
@@ -33,7 +33,19 @@ export type AgentConfig = {
   policy: Policy;
 };
 
-function required(name: string): string {
+/**
+ * Testnet is the default because that is what `yarn setup` builds, but a value that is neither name
+ * is refused rather than read as testnet: the agent holds a key for one network, and the failure
+ * mode of a typo is a process watching an inbox that will never contain the proposals it was
+ * pointed at.
+ */
+function agentNetwork(): HederaNetworkName {
+  const raw = process.env.HEDERA_NETWORK?.trim();
+  if (!raw) return "testnet";
+  return parseHederaNetworkName(raw, "HEDERA_NETWORK");
+}
+
+function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required`);
   return value;
@@ -69,7 +81,7 @@ function tinybars(value: unknown, field: string): bigint {
   return BigInt(value);
 }
 
-function record(value: unknown, field: string): Record<string, unknown> {
+function asObject(value: unknown, field: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`policy.${field} must be an object`);
   }
@@ -87,7 +99,7 @@ function tokenAdminOperations(value: unknown): TokenAdminRule["operations"] {
   return names as TokenAdminRule["operations"];
 }
 
-function boolean(value: unknown, field: string): boolean | undefined {
+function optionalBoolean(value: unknown, field: string): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "boolean") throw new Error(`policy.${field} must be true or false`);
   return value;
@@ -109,23 +121,23 @@ export function parsePolicy(source: string): Policy {
   } catch (error) {
     throw new Error(`the policy is not valid JSON: ${(error as Error).message}`);
   }
-  const root = record(parsed, "");
+  const root = asObject(parsed, "");
   rejectUnknownKeys(root, ["upgrade", "treasurySwap", "tokenAdmin", "treasuryTransfer"], "");
 
   const policy: Policy = {};
 
   if (root.upgrade !== undefined) {
-    const rule = record(root.upgrade, "upgrade");
+    const rule = asObject(root.upgrade, "upgrade");
     rejectUnknownKeys(rule, ["targets", "implementations", "allowInitializer"], "upgrade");
     policy.upgrade = {
       targets: stringList(rule.targets, "upgrade.targets"),
       implementations: stringList(rule.implementations, "upgrade.implementations"),
-      allowInitializer: boolean(rule.allowInitializer, "upgrade.allowInitializer"),
+      allowInitializer: optionalBoolean(rule.allowInitializer, "upgrade.allowInitializer"),
     };
   }
 
   if (root.treasurySwap !== undefined) {
-    const rule = record(root.treasurySwap, "treasurySwap");
+    const rule = asObject(root.treasurySwap, "treasurySwap");
     rejectUnknownKeys(rule, ["maxAmountInTinybars", "tokensOut", "recipients"], "treasurySwap");
     policy.treasurySwap = {
       maxAmountInTinybars: tinybars(rule.maxAmountInTinybars, "treasurySwap.maxAmountInTinybars"),
@@ -135,7 +147,7 @@ export function parsePolicy(source: string): Policy {
   }
 
   if (root.tokenAdmin !== undefined) {
-    const rule = record(root.tokenAdmin, "tokenAdmin");
+    const rule = asObject(root.tokenAdmin, "tokenAdmin");
     rejectUnknownKeys(rule, ["operations", "tokens"], "tokenAdmin");
     policy.tokenAdmin = {
       operations: tokenAdminOperations(rule.operations),
@@ -144,7 +156,7 @@ export function parsePolicy(source: string): Policy {
   }
 
   if (root.treasuryTransfer !== undefined) {
-    const rule = record(root.treasuryTransfer, "treasuryTransfer");
+    const rule = asObject(root.treasuryTransfer, "treasuryTransfer");
     rejectUnknownKeys(rule, ["maxTinybars", "recipients", "tokens"], "treasuryTransfer");
     policy.treasuryTransfer = {
       maxTinybars: tinybars(rule.maxTinybars, "treasuryTransfer.maxTinybars"),
@@ -157,7 +169,7 @@ export function parsePolicy(source: string): Policy {
 }
 
 export function loadConfig(): AgentConfig {
-  const policyFile = required("AGENT_POLICY_FILE");
+  const policyFile = requiredEnv("AGENT_POLICY_FILE");
   let source: string;
   try {
     source = readFileSync(policyFile, "utf8");
@@ -166,14 +178,14 @@ export function loadConfig(): AgentConfig {
   }
 
   return {
-    network: toHederaNetworkName(process.env.HEDERA_NETWORK ?? "testnet"),
-    agentAccountId: required("AGENT_ACCOUNT_ID"),
+    network: agentNetwork(),
+    agentAccountId: requiredEnv("AGENT_ACCOUNT_ID"),
     // An ECDSA key is what `yarn setup` writes for the demo council members; a malformed one has to
     // fail here rather than at the first signature, when a proposal is already waiting on it.
-    agentKey: PrivateKey.fromStringECDSA(required("AGENT_PRIVATE_KEY")),
-    governanceAccountId: required("GOVERNANCE_ACCOUNT_ID"),
-    executorContractId: required("EXECUTOR_CONTRACT_ID"),
-    rpcUrl: required("HEDERA_RPC_URL"),
+    agentKey: PrivateKey.fromStringECDSA(requiredEnv("AGENT_PRIVATE_KEY")),
+    governanceAccountId: requiredEnv("GOVERNANCE_ACCOUNT_ID"),
+    executorContractId: requiredEnv("EXECUTOR_CONTRACT_ID"),
+    rpcUrl: requiredEnv("HEDERA_RPC_URL"),
     pollIntervalMs: pollInterval(),
     dryRun: process.env.AGENT_DRY_RUN?.trim() === "true",
     policy: parsePolicy(source),
