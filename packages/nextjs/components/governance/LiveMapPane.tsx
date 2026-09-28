@@ -4,9 +4,9 @@ import { useCallback, useMemo } from "react";
 import { TreasuryStrip } from "~~/components/governance/TreasuryStrip";
 import { GovernanceMap } from "~~/components/governance/graph/GovernanceMap";
 import { MapInspector } from "~~/components/governance/graph/MapInspector";
-import { announceRemoteSignature } from "~~/components/governance/graph/announceRemoteSignature";
 import { inspectorContentOf } from "~~/components/governance/graph/inspector";
 import { type MapDecorator, composeMap } from "~~/components/governance/graph/mapModel";
+import { remoteSignatureNotice } from "~~/components/governance/graph/remoteSignatureNotice";
 import { useMapSelection } from "~~/components/governance/graph/useMapSelection";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
@@ -25,6 +25,8 @@ export type LiveMapPaneProps = {
   config: GovernanceConfig;
   /** A hand-composed layout; without one the map places every node by role (`autoLayout`). */
   decorate?: MapDecorator;
+  /** Told what to say when a read reports a signature this session did not send; the host shows it. */
+  onRemoteSignature?: (notice: string) => void;
 };
 
 /**
@@ -33,10 +35,10 @@ export type LiveMapPaneProps = {
  * and plays what changed between two reads (`useProposalAnimationSync`), so while a sequence plays
  * the map and the figures show the world it started from, and catch up when it lands. The seat the
  * connected account holds is named "You", and a signature this session did not send is announced
- * in a toast as well as played. A click or Enter on a node or edge opens the inspector over the map's
+ * through `onRemoteSignature` (the layout's rail banner) as well as played. A click or Enter on a node or edge opens the inspector over the map's
  * lower left corner (`useMapSelection`), which explains it from the same map.
  */
-export function LiveMapPane({ config, decorate }: LiveMapPaneProps) {
+export function LiveMapPane({ config, decorate, onRemoteSignature }: LiveMapPaneProps) {
   const { targetNetwork } = useTargetNetwork();
   const { accountId: viewerAccountId } = useHederaSigner();
   const { governanceAccountId, network, executor, vault, demoTokenId } = config;
@@ -74,8 +76,8 @@ export function LiveMapPane({ config, decorate }: LiveMapPaneProps) {
   );
   const treasury = treasuryShown(playing, { shown: world, latest: snapshot });
   const announce = useCallback(
-    (approval: ApprovedEvent) => announceRemoteSignature(approval, { map, world: snapshot }),
-    [map, snapshot],
+    (approval: ApprovedEvent) => onRemoteSignature?.(remoteSignatureNotice(approval, { map, world: snapshot })),
+    [map, snapshot, onRemoteSignature],
   );
   useRemoteApprovals({ events, world: snapshot, onRemote: announce });
 

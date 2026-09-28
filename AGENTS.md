@@ -117,7 +117,7 @@ packages/nextjs/
     useBadgeTokens.ts     Badge balance / eligibility
     useProposalAnimationSync.ts  The map's queue: plays each read's events one at a time on a held world
     usePrefersReducedMotion.ts   The reduced-motion setting, followed live
-    useRemoteApprovals.ts  Approvals a read reports that this session did not send (the map's toast)
+    useRemoteApprovals.ts  Approvals a read reports that this session did not send (the rail's banner)
     governanceMutationKeys.ts  Mutation keys of the governance writes, read back with useMutationState
     mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final

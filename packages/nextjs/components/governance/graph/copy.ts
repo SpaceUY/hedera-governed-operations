@@ -76,12 +76,14 @@ export const MAP_LEGEND = {
 } as const;
 
 /**
- * The toast for an approval this screen did not send, which the map read from the ledger like any
+ * The banner for an approval this screen did not send, which the map read from the ledger like any
  * other; `member` is the seat's name on the map, when it has one.
  */
 export function remoteSignatureMessage(member: string | undefined, proposal: string): string {
-  return `${member ?? "A council member"} signed “${proposal}” elsewhere. Nobody pressed anything here: the map read it from the ledger.`;
+  return `${member ?? "A council member"} signed “${proposal}” from their own device. Nobody on this screen pressed anything — the poll saw it.`;
 }
+
+export const REMOTE_SIGNATURE_BANNER = { dismiss: "Dismiss" } as const;
 
 /**
  * The inspector: the card that explains the node or edge someone clicked. Its kickers use the
