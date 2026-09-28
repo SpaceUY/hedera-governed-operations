@@ -1,42 +1,25 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { accountLookup } from "./accountLookup";
+import { TOKEN_ADMIN_COPY, TOKEN_ADMIN_OPERATION_LABELS } from "./copy";
 import { HederaAddressInput } from "@scaffold-hbar-ui/components";
-import type { TokenAdminOperation } from "@sh/core/governance/proposalTypes";
-import type { Chain } from "viem";
-import {
-  ACCOUNT_LOOKUP_LABELS,
-  TOKEN_ADMIN_COPY,
-  TOKEN_ADMIN_OPERATION_LABELS,
-} from "~~/components/governance/wizard/copy";
+import { type TokenAdminOperation, tokenAdminNeedsAccount } from "@sh/core/governance/proposalTypes";
+import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
+import { accountLookup } from "~~/components/governance/wizard/kinds/accountLookup";
+import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useToken } from "~~/hooks/mirror/useToken";
 import { useTokenRelationship } from "~~/hooks/mirror/useTokenRelationship";
-import {
-  type DraftResult,
-  type TokenAdminTargets,
-  draftTokenAdmin,
-  tokenAdminNeedsAccount,
-  tryDraft,
-} from "~~/services/governance/drafts";
-import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
+import { type TokenAdminTargets, draftTokenAdmin, tryDraft } from "~~/services/governance/drafts";
 
 const OPERATIONS = ["pause", "unpause", "freeze", "unfreeze"] as const satisfies readonly TokenAdminOperation[];
-
-type TokenAdminFormProps = {
-  targets: TokenAdminTargets;
-  network: HederaNetworkName;
-  chain: Chain;
-  onDraftChange: (result: DraftResult) => void;
-};
 
 export const TokenAdminForm = ({
   targets: { tokenAdmin, tokenAdminContractId, tokenId },
   network,
   chain,
   onDraftChange,
-}: TokenAdminFormProps) => {
+}: KindFormProps<TokenAdminTargets>) => {
   const name = useId();
   const [operation, setOperation] = useState<TokenAdminOperation>("pause");
   const [accountText, setAccountText] = useState("");

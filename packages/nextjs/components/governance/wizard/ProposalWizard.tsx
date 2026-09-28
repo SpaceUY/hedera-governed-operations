@@ -1,22 +1,16 @@
 "use client";
 
 import { CouncilPreviewPanel, type HeadingLevel } from "./CouncilPreviewPanel";
-import { OperationTypePicker, type WizardKind } from "./OperationTypePicker";
+import { OperationTypePicker } from "./OperationTypePicker";
 import { useProposalWizard } from "./ProposalWizardProvider";
 import { OPEN_PROPOSAL_NOTICES, missingProposerRoleLabel, openProposalCopy } from "./copy";
-import { TokenAdminForm } from "./forms/TokenAdminForm";
-import { TransferForm } from "./forms/TransferForm";
-import { UpgradeVaultForm } from "./forms/UpgradeVaultForm";
+import { WIZARD_KIND_ENTRIES } from "./kinds/registry";
+import type { WizardKind } from "./kinds/wizardKinds";
 import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import type { Chain } from "viem";
 import { ConnectWallet } from "~~/components/ConnectWallet";
 import { MutationError } from "~~/components/governance/MutationError";
-import {
-  GOVERNANCE_CONTRACTS,
-  type GovernanceConfig,
-  type HederaDeployedContract,
-  findDeployedContract,
-} from "~~/config/governanceConfig";
+import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { isPreviewRecognized } from "~~/services/governance/drafts";
@@ -30,18 +24,6 @@ type ProposalWizardProps = {
 };
 
 type CouncilRead = ReturnType<typeof useCouncil>;
-
-type WizardDeployments = {
-  vaultNextImplementation: HederaDeployedContract | null;
-  tokenAdmin: HederaDeployedContract | null;
-};
-
-/** Why a kind cannot be proposed on this network at all: the contract it acts through is not deployed. */
-function missingDeploymentNotice(kind: WizardKind, deployments: WizardDeployments): string | null {
-  if (kind === "upgrade" && !deployments.vaultNextImplementation) return OPEN_PROPOSAL_NOTICES.upgradeTargetMissing;
-  if (kind === "tokenAdmin" && !deployments.tokenAdmin) return OPEN_PROPOSAL_NOTICES.tokenAdminMissing;
-  return null;
-}
 
 /** Why a connected account cannot open this kind yet, or null when nothing stands in the way. */
 function proposerNotice(
@@ -63,18 +45,16 @@ function proposerNotice(
  * its middle and keeps the submit button in view.
  */
 export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardProps) => {
-  const { network, governanceAccountId, vault, demoTokenId } = config;
-  const vaultNextImplementation = findDeployedContract(chain.id, GOVERNANCE_CONTRACTS.vaultNextImplementation);
-  const tokenAdmin = findDeployedContract(chain.id, GOVERNANCE_CONTRACTS.tokenAdmin);
+  const { network, governanceAccountId } = config;
   const { accountId, isConnected } = useHederaSigner();
   const council = useCouncil({ governanceAccountId, executorContractId: config.executor.hederaContractId, network });
   const { kind, chooseKind, draft, setDraft, preview, submitStatus, submitError, submit } = useProposalWizard();
   const submitting = submitStatus === "pending";
 
+  // A kind that cannot be proposed here says why in place of its form, before anything about roles.
+  const opened = WIZARD_KIND_ENTRIES[kind].open({ config, chain });
   const allowed = canOpenProposal(kind, accountId, council.data?.proposerAccountIds ?? []);
-  const notice =
-    missingDeploymentNotice(kind, { vaultNextImplementation, tokenAdmin }) ??
-    proposerNotice(kind, accountId, council, allowed);
+  const notice = opened.status === "unavailable" ? opened.notice : proposerNotice(kind, accountId, council, allowed);
   const canSubmit =
     allowed && preview !== null && isPreviewRecognized(preview) && !submitting && submitStatus !== "success";
   const copy = openProposalCopy(kind);
@@ -94,39 +74,8 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
           <OperationTypePicker value={kind} onChange={chooseKind} />
         </fieldset>
 
-        {kind === "upgrade" && vaultNextImplementation && (
-          <UpgradeVaultForm
-            targets={{
-              proxy: vault.address,
-              proxyContractId: vault.hederaContractId,
-              implementation: vaultNextImplementation.address,
-              implementationAbi: vaultNextImplementation.abi,
-            }}
-            chain={chain}
-            onDraftChange={setDraft}
-          />
-        )}
-        {kind === "tokenAdmin" && tokenAdmin && (
-          <TokenAdminForm
-            targets={{
-              tokenAdmin: tokenAdmin.address,
-              tokenAdminContractId: tokenAdmin.hederaContractId,
-              tokenId: demoTokenId,
-            }}
-            network={network}
-            chain={chain}
-            onDraftChange={setDraft}
-          />
-        )}
-        {kind === "treasuryTransfer" && (
-          <TransferForm
-            governanceAccountId={governanceAccountId}
-            network={network}
-            chain={chain}
-            council={council.data?.key}
-            onDraftChange={setDraft}
-          />
-        )}
+        {opened.status === "available" &&
+          opened.renderForm({ network, chain, council: council.data?.key, onDraftChange: setDraft })}
 
         {draft.status === "invalid" && (
           <p role="alert" className="m-0 text-sm text-error">

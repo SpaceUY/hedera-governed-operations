@@ -105,7 +105,7 @@ packages/nextjs/
     (site)/               layout.tsx adds the footer; proof-wall, my-proofs, admin, explorer
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
+    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
@@ -146,7 +146,7 @@ packages/nextjs/
       treasury.ts           Treasury balances plus the vault's reserve
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
-      drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
+      drafts/               Form values to an encoded draft, one module per kind; draft.ts reads the preview back through decode.ts
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)

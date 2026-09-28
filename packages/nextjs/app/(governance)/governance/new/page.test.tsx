@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
 import { OPEN_PROPOSAL_NOTICES, PROPOSAL_KIND_COPY, openProposalCopy } from "~~/components/governance/wizard/copy";
+import { TOKEN_ADMIN_COPY } from "~~/components/governance/wizard/kinds/tokenAdmin/copy";
+import { VAULT_UPGRADE_COPY } from "~~/components/governance/wizard/kinds/vaultUpgrade/copy";
 import { type GovernanceConfig, findDeployedContract } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
@@ -24,7 +26,7 @@ vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
 vi.mock("~~/hooks/useSubmitProposalDraft", () => ({
   useSubmitProposalDraft: () => ({ mutate, reset, status: "idle", error: null }),
 }));
-vi.mock("~~/components/governance/wizard/forms/TransferForm", async () => {
+vi.mock("~~/components/governance/wizard/kinds/treasuryTransfer/TransferForm", async () => {
   const { useEffect } = await import("react");
   return {
     TransferForm: ({ onDraftChange }: { onDraftChange: (result: unknown) => void }) => {
@@ -35,7 +37,7 @@ vi.mock("~~/components/governance/wizard/forms/TransferForm", async () => {
     },
   };
 });
-vi.mock("~~/components/governance/wizard/forms/UpgradeVaultForm", async () => {
+vi.mock("~~/components/governance/wizard/kinds/vaultUpgrade/UpgradeVaultForm", async () => {
   const { useEffect } = await import("react");
   return {
     UpgradeVaultForm: ({ onDraftChange }: { onDraftChange: (result: unknown) => void }) => {
@@ -46,7 +48,7 @@ vi.mock("~~/components/governance/wizard/forms/UpgradeVaultForm", async () => {
     },
   };
 });
-vi.mock("~~/components/governance/wizard/forms/TokenAdminForm", () => ({
+vi.mock("~~/components/governance/wizard/kinds/tokenAdmin/TokenAdminForm", () => ({
   TokenAdminForm: () => <div>token form</div>,
 }));
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
@@ -133,11 +135,11 @@ describe("NewProposalPage", () => {
     renderPage();
     expect(screen.queryByText("Governance is not set up yet")).toBeNull();
     expect(screen.queryByText("upgrade form")).toBeNull();
-    expect(screen.getByRole("status").textContent).toBe(OPEN_PROPOSAL_NOTICES.upgradeTargetMissing);
+    expect(screen.getByRole("status").textContent).toBe(VAULT_UPGRADE_COPY.targetMissing);
     expect(cta("upgrade").disabled).toBe(true);
 
     pickTransfer();
-    expect(screen.queryByText(OPEN_PROPOSAL_NOTICES.upgradeTargetMissing)).toBeNull();
+    expect(screen.queryByText(VAULT_UPGRADE_COPY.targetMissing)).toBeNull();
     expect(cta("treasuryTransfer").disabled).toBe(false);
   });
 
@@ -148,7 +150,7 @@ describe("NewProposalPage", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.tokenAdmin.title) }));
 
-    expect(screen.getByRole("status").textContent).toBe(OPEN_PROPOSAL_NOTICES.tokenAdminMissing);
+    expect(screen.getByRole("status").textContent).toBe(TOKEN_ADMIN_COPY.contractMissing);
     expect(cta("tokenAdmin").disabled).toBe(true);
   });
 

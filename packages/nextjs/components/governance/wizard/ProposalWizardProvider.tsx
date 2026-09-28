@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react";
-import { WIZARD_KINDS, type WizardKind } from "./OperationTypePicker";
+import { WIZARD_KINDS, type WizardKind } from "./kinds/wizardKinds";
 import type { MutationStatus } from "@tanstack/react-query";
 import { useSubmitProposalDraft } from "~~/hooks/useSubmitProposalDraft";
 import { type DraftPreview, type DraftResult, previewDraft } from "~~/services/governance/drafts";

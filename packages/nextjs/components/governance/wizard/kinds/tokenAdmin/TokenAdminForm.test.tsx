@@ -1,8 +1,8 @@
 import { TokenAdminForm } from "./TokenAdminForm";
+import { TOKEN_ADMIN_COPY, TOKEN_ADMIN_OPERATION_LABELS } from "./copy";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Chain } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TOKEN_ADMIN_COPY, TOKEN_ADMIN_OPERATION_LABELS } from "~~/components/governance/wizard/copy";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useToken } from "~~/hooks/mirror/useToken";
 import { useTokenRelationship } from "~~/hooks/mirror/useTokenRelationship";
@@ -41,7 +41,15 @@ afterEach(() => {
 
 const renderForm = () => {
   const onDraftChange = vi.fn<(result: DraftResult) => void>();
-  render(<TokenAdminForm targets={TARGETS} network="testnet" chain={CHAIN} onDraftChange={onDraftChange} />);
+  render(
+    <TokenAdminForm
+      targets={TARGETS}
+      network="testnet"
+      chain={CHAIN}
+      council={undefined}
+      onDraftChange={onDraftChange}
+    />,
+  );
   return onDraftChange;
 };
 

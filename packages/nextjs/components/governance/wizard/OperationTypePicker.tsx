@@ -1,18 +1,8 @@
-import { type ComponentType, useId } from "react";
-import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
-import { ArrowRightIcon, ArrowUpIcon, PauseIcon } from "@heroicons/react/24/outline";
+import { useId } from "react";
+import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import { PROPOSAL_FAMILY_HEADINGS, PROPOSAL_KIND_COPY } from "~~/components/governance/wizard/copy";
-
-/** The kinds that have a form. Adding one is a form component and an entry here. */
-export const WIZARD_KINDS = ["upgrade", "tokenAdmin", "treasuryTransfer"] as const satisfies readonly ProposalKind[];
-
-export type WizardKind = (typeof WIZARD_KINDS)[number];
-
-const KIND_ICONS: Record<WizardKind, ComponentType<{ className?: string }>> = {
-  upgrade: ArrowUpIcon,
-  tokenAdmin: PauseIcon,
-  treasuryTransfer: ArrowRightIcon,
-};
+import { WIZARD_KIND_ENTRIES } from "~~/components/governance/wizard/kinds/registry";
+import { WIZARD_KINDS, type WizardKind } from "~~/components/governance/wizard/kinds/wizardKinds";
 
 type OperationTypePickerProps = { value: WizardKind; onChange: (kind: WizardKind) => void };
 
@@ -26,7 +16,7 @@ const KindGroup = ({ legend, kinds, name, value, onChange }: KindGroupProps) => 
   <fieldset className="flex flex-col gap-1.5">
     <legend className="mb-1.5 text-sm font-semibold text-base-content/60">{legend}</legend>
     {kinds.map(kind => {
-      const Icon = KIND_ICONS[kind];
+      const Icon = WIZARD_KIND_ENTRIES[kind].icon;
       return (
         <label
           key={kind}

@@ -1,25 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { accountLookup } from "./accountLookup";
 import { HbarInput, HederaAddressInput } from "@scaffold-hbar-ui/components";
-import type { CouncilKey } from "@sh/core/governance/council";
-import type { Chain } from "viem";
 import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
+import { accountLookup } from "~~/components/governance/wizard/kinds/accountLookup";
+import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
 import { useAccount } from "~~/hooks/mirror/useAccount";
-import { type DraftResult, draftTreasuryTransfer, tryDraft } from "~~/services/governance/drafts";
+import { type TreasuryTransferTargets, draftTreasuryTransfer, tryDraft } from "~~/services/governance/drafts";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
-import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
-type TransferFormProps = {
-  governanceAccountId: string;
-  network: HederaNetworkName;
-  chain: Chain;
-  council: CouncilKey | undefined;
-  onDraftChange: (result: DraftResult) => void;
-};
-
-export const TransferForm = ({ governanceAccountId, network, chain, council, onDraftChange }: TransferFormProps) => {
+export const TransferForm = ({
+  targets: { governanceAccountId },
+  network,
+  chain,
+  council,
+  onDraftChange,
+}: KindFormProps<TreasuryTransferTargets>) => {
   const [recipientText, setRecipientText] = useState("");
   const [amount, setAmount] = useState("");
   const recipientInput = recipientText.trim();

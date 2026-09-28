@@ -52,7 +52,7 @@ const renderForm = () => {
   const onDraftChange = vi.fn();
   render(
     <TransferForm
-      governanceAccountId={TREASURY}
+      targets={{ governanceAccountId: TREASURY }}
       network="mainnet"
       chain={CHAIN}
       council={undefined}

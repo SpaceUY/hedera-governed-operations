@@ -35,7 +35,15 @@ afterEach(() => {
 
 const renderForm = () => {
   const onDraftChange = vi.fn<(result: DraftResult) => void>();
-  render(<UpgradeVaultForm targets={TARGETS} chain={CHAIN} onDraftChange={onDraftChange} />);
+  render(
+    <UpgradeVaultForm
+      targets={TARGETS}
+      network="testnet"
+      chain={CHAIN}
+      council={undefined}
+      onDraftChange={onDraftChange}
+    />,
+  );
   return onDraftChange;
 };
 

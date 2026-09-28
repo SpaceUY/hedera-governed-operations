@@ -2,20 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { HbarInput } from "@scaffold-hbar-ui/components";
-import type { Chain } from "viem";
-import { type DraftResult, type VaultUpgradeTargets, draftVaultUpgrade, tryDraft } from "~~/services/governance/drafts";
-
-type UpgradeVaultFormProps = {
-  targets: VaultUpgradeTargets;
-  chain: Chain;
-  onDraftChange: (result: DraftResult) => void;
-};
+import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
+import { type VaultUpgradeTargets, draftVaultUpgrade, tryDraft } from "~~/services/governance/drafts";
 
 export const UpgradeVaultForm = ({
   targets: { proxy, proxyContractId, implementation, implementationAbi },
   chain,
   onDraftChange,
-}: UpgradeVaultFormProps) => {
+}: KindFormProps<VaultUpgradeTargets>) => {
   const [withdrawalLimit, setWithdrawalLimit] = useState("");
 
   // Depends on the fields, not the object: the page rebuilds `targets` every render, while the
