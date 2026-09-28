@@ -155,12 +155,12 @@ describe("fetchProposerAccountIds", () => {
   const jsonRpc = (result: string) => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }));
 
   /** One role member, then the Mirror read that turns its address into an account id. */
-  function stubOneProposer(accountId: string) {
+  function stubOneProposer(accountId: string, key: unknown = governanceAccount.key) {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonRpc(word("1")))
       .mockResolvedValueOnce(jsonRpc(word(PROPOSER_EVM)))
-      .mockResolvedValue(new Response(JSON.stringify({ ...governanceAccount, account: accountId })));
+      .mockResolvedValue(new Response(JSON.stringify({ ...governanceAccount, account: accountId, key })));
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
   }
@@ -199,6 +199,37 @@ describe("fetchProposerAccountIds", () => {
     });
 
     expect(proposers.accountIds).toEqual(["0.0.10671142"]);
+  });
+
+  const lookUpProposers = () =>
+    fetchProposerAccountIds({ executorContractId: EXECUTOR, network: "testnet", rpcUrl: "https://relay.test" });
+
+  it("reads a single-key proposer's key in the form a council seat is written", async () => {
+    stubOneProposer("0.0.10671142", {
+      _type: "ECDSA_SECP256K1",
+      key: "0317f4a36e88217ef559aae2316440abc651a4af39726b99b1e40c649b6fa9cf16",
+    });
+
+    await expect(lookUpProposers()).resolves.toMatchObject({
+      proposers: [{ accountId: "0.0.10671142", key: MEMBER_KEYS[0] }],
+    });
+  });
+
+  it("reads an ED25519 proposer's key as base64 too", async () => {
+    const ed25519 = "11".repeat(32);
+    stubOneProposer("0.0.10671142", { _type: "ED25519", key: ed25519 });
+
+    const { proposers } = await lookUpProposers();
+
+    expect(proposers[0].key).toBe(Buffer.from(ed25519, "hex").toString("base64"));
+  });
+
+  it("gives a proposer whose key is a threshold key no seat key", async () => {
+    stubOneProposer("0.0.10671142");
+
+    await expect(lookUpProposers()).resolves.toMatchObject({
+      proposers: [{ accountId: "0.0.10671142", key: null }],
+    });
   });
 
   it("keeps the proposers it could resolve when one address belongs to no account", async () => {

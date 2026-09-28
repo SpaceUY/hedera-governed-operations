@@ -1,3 +1,4 @@
+import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import type { Proposal } from "@sh/core/governance/proposals";
 
 type SignableFacts = Pick<Proposal, "state" | "operation" | "registry">;
@@ -29,4 +30,31 @@ export function canBeWithdrawnBy(
   accountId: string | null,
 ): boolean {
   return state.status === "pending" && accountId !== null && schedule.creator_account_id === accountId;
+}
+
+/**
+ * Opening a native proposal needs only an account to pay for the schedule. A contract-backed one is
+ * registered first, and `createProposal` reverts for an account without `PROPOSER_ROLE` — after
+ * charging the fee — so the screen does not offer it.
+ */
+export function canOpenProposal(kind: ProposalKind, accountId: string | null, proposerAccountIds: string[]): boolean {
+  if (accountId === null) return false;
+  if (!isContractProposalKind(kind)) return true;
+  return proposerAccountIds.includes(accountId);
+}
+
+/**
+ * The registry entry a Cancel button retires, or null when there is none to offer. Only once no live
+ * schedule points at the entry any more — it was withdrawn, it expired, or it ran and failed, since a
+ * schedule runs once — and the entry is still pending. Cancelling under a live schedule would leave
+ * it to reach its threshold, revert with `ProposalNotPending` and bill the governance account.
+ */
+export function cancellableRegistryId({
+  state,
+  execution,
+  registry,
+}: Pick<Proposal, "state" | "execution" | "registry">): number | null {
+  if (registry.status !== "read" || registry.entry.state !== "pending") return null;
+  const scheduleIsDone = state.status === "deleted" || state.status === "expired" || execution.status === "failed";
+  return scheduleIsDone ? registry.entry.proposalId : null;
 }

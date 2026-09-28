@@ -1,6 +1,16 @@
 import executedSchedule from "./__fixtures__/schedule-executed.json";
+import revertedSchedule from "./__fixtures__/schedule-reverted.json";
+import rowsAtExecution from "./__fixtures__/transactions-at-executed.json";
+import rowsAtRevert from "./__fixtures__/transactions-at-reverted.json";
 import { MirrorNodeError } from "./client";
-import { deriveScheduleState, fetchSchedule, fetchSchedulesByCreator } from "./schedules";
+import {
+  deriveScheduleExecution,
+  deriveScheduleState,
+  fetchSchedule,
+  fetchScheduleExecution,
+  fetchSchedulesByCreator,
+  hasFinalOutcome,
+} from "./schedules";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const BEFORE_EXPIRY = new Date("2026-09-24T00:00:00Z");
@@ -117,5 +127,100 @@ describe("fetchSchedulesByCreator", () => {
     stubTwoPages();
 
     await expect(fetchSchedulesByCreator("0.0.8192684", { limit: 1 })).resolves.toHaveLength(2);
+  });
+});
+
+/**
+ * Recorded on testnet: 0.0.10590552 ran a registry call that succeeded, 0.0.10670585 a TokenAdmin
+ * freeze of an account that never associated the token, which reverted. Mirror reports both schedules
+ * as executed; only the scheduled transaction's row tells them apart.
+ */
+describe("deriveScheduleExecution", () => {
+  it("reports a schedule whose transaction succeeded", () => {
+    expect(deriveScheduleExecution(executedSchedule, rowsAtExecution.transactions)).toMatchObject({
+      status: "succeeded",
+      transaction: { name: "CONTRACTCALL", scheduled: true },
+    });
+  });
+
+  it("reports a schedule whose transaction reverted, with the network's response code", () => {
+    expect(deriveScheduleExecution(revertedSchedule, rowsAtRevert.transactions)).toMatchObject({
+      status: "failed",
+      result: "CONTRACT_REVERT_EXECUTED",
+    });
+  });
+
+  it("says a schedule that never ran has no outcome, whatever the rows say", () => {
+    expect(deriveScheduleExecution(pendingSchedule, rowsAtExecution.transactions)).toEqual({ status: "notRun" });
+  });
+
+  it("leaves the outcome unconfirmed while Mirror has no row for it", () => {
+    expect(deriveScheduleExecution(executedSchedule, [])).toEqual({ status: "unconfirmed" });
+  });
+
+  it("ignores a row that is not the scheduled transaction", () => {
+    const [row] = rowsAtExecution.transactions;
+    expect(deriveScheduleExecution(executedSchedule, [{ ...row, scheduled: false }])).toEqual({
+      status: "unconfirmed",
+    });
+  });
+
+  it("ignores a row recorded at another instant", () => {
+    const [row] = rowsAtRevert.transactions;
+    expect(deriveScheduleExecution(executedSchedule, [row])).toEqual({ status: "unconfirmed" });
+  });
+});
+
+describe("fetchScheduleExecution", () => {
+  it("asks Mirror for the transaction at the schedule's executed_timestamp", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(rowsAtRevert)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchScheduleExecution(revertedSchedule);
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://testnet.mirrornode.hedera.com/api/v1/transactions?timestamp=1790109109.464489702",
+    );
+  });
+
+  it("does not ask Mirror about a schedule that never ran", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchScheduleExecution(pendingSchedule)).resolves.toEqual({ status: "notRun" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("answers unconfirmed rather than throwing when Mirror fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("boom", { status: 500 })));
+
+    await expect(fetchScheduleExecution(executedSchedule)).resolves.toEqual({ status: "unconfirmed" });
+  });
+});
+
+describe("hasFinalOutcome", () => {
+  const executed = deriveScheduleState(executedSchedule, BEFORE_EXPIRY);
+
+  it("is final once an executed schedule's outcome is known", () => {
+    expect(
+      hasFinalOutcome({
+        state: executed,
+        execution: { status: "failed", result: "X", transaction: rowsAtRevert.transactions[0] },
+      }),
+    ).toBe(true);
+  });
+
+  it("is not final while an executed schedule's outcome is unconfirmed", () => {
+    expect(hasFinalOutcome({ state: executed, execution: { status: "unconfirmed" } })).toBe(false);
+  });
+
+  it("is final for a schedule that settled without running", () => {
+    const deleted = deriveScheduleState({ ...pendingSchedule, deleted: true }, BEFORE_EXPIRY);
+    expect(hasFinalOutcome({ state: deleted, execution: { status: "notRun" } })).toBe(true);
+  });
+
+  it("is not final while the schedule is pending", () => {
+    const pending = deriveScheduleState(pendingSchedule, BEFORE_EXPIRY);
+    expect(hasFinalOutcome({ state: pending, execution: { status: "notRun" } })).toBe(false);
   });
 });

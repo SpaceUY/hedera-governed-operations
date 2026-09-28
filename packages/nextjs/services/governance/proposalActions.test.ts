@@ -1,8 +1,9 @@
-import { canBeSigned, canBeWithdrawnBy } from "./proposalActions";
+import { canBeSigned, canBeWithdrawnBy, canOpenProposal, cancellableRegistryId } from "./proposalActions";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck, RegistryEntry } from "@sh/core/governance/registry";
-import type { MirrorSchedule, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
+import type { MirrorSchedule, ScheduleExecution, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
 import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
+import rowsAtRevert from "@sh/core/mirror/__fixtures__/transactions-at-reverted.json";
 import { describe, expect, it } from "vitest";
 
 const stateOf = (status: ScheduleStatus): ScheduleState => ({
@@ -35,6 +36,7 @@ const entryOf = (overrides: Partial<RegistryEntry> = {}): RegistryCrossCheck => 
       target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
       implementation: "0x0000000000000000000000000000000000a2d434",
       initializerCalldata: "0x",
+      initializer: { kind: "none" },
     },
     ...overrides,
   },
@@ -106,5 +108,53 @@ describe("canBeWithdrawnBy", () => {
 
   it("hides the action once the schedule has settled", () => {
     expect(canBeWithdrawnBy({ schedule, state: stateOf("executed") }, PROPOSER)).toBe(false);
+  });
+});
+
+describe("canOpenProposal", () => {
+  const proposers = ["0.0.1001"];
+
+  it("needs a connected account", () => {
+    expect(canOpenProposal("treasuryTransfer", null, proposers)).toBe(false);
+  });
+
+  it("lets any connected account open a native proposal", () => {
+    expect(canOpenProposal("treasuryTransfer", "0.0.5555", proposers)).toBe(true);
+  });
+
+  it("needs PROPOSER_ROLE for a registry proposal, since createProposal reverts without it", () => {
+    expect(canOpenProposal("upgrade", "0.0.5555", proposers)).toBe(false);
+    expect(canOpenProposal("upgrade", "0.0.1001", proposers)).toBe(true);
+  });
+});
+
+describe("cancellableRegistryId", () => {
+  const NOT_RUN: ScheduleExecution = { status: "notRun" };
+  const FAILED: ScheduleExecution = {
+    status: "failed",
+    result: "CONTRACT_REVERT_EXECUTED",
+    transaction: rowsAtRevert.transactions[0],
+  };
+
+  it.each(["deleted", "expired"] as const)("offers to cancel a pending entry once its schedule is %s", status => {
+    expect(cancellableRegistryId({ state: stateOf(status), execution: NOT_RUN, registry: entryOf() })).toBe(7);
+  });
+
+  it("offers to cancel a pending entry once its schedule ran and failed, since a schedule runs once", () => {
+    expect(cancellableRegistryId({ state: stateOf("executed"), execution: FAILED, registry: entryOf() })).toBe(7);
+  });
+
+  it("holds cancel back while a live schedule could still reach its threshold", () => {
+    expect(cancellableRegistryId({ state: stateOf("pending"), execution: NOT_RUN, registry: entryOf() })).toBeNull();
+  });
+
+  it("offers nothing once the entry is no longer pending", () => {
+    const registry = entryOf({ state: "cancelled" });
+    expect(cancellableRegistryId({ state: stateOf("executed"), execution: FAILED, registry })).toBeNull();
+  });
+
+  it("offers nothing for a native kind, which has no entry", () => {
+    const registry: RegistryCrossCheck = { status: "notApplicable" };
+    expect(cancellableRegistryId({ state: stateOf("deleted"), execution: NOT_RUN, registry })).toBeNull();
   });
 });

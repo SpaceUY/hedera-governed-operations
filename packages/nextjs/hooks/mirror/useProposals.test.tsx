@@ -3,6 +3,7 @@ import { useProposals } from "./useProposals";
 import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
 import type { MirrorSchedule } from "@sh/core/mirror";
 import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
+import rowsAtExecution from "@sh/core/mirror/__fixtures__/transactions-at-executed.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -45,9 +46,27 @@ function stubMirrorWith(body: unknown) {
   return fetchMock;
 }
 
+/** Serves the schedules page and, separately, the rows Mirror recorded when a schedule ran. */
+function stubInboxAndOutcome(body: unknown, rows: unknown) {
+  const fetchMock = vi
+    .fn()
+    .mockImplementation((url: string) =>
+      Promise.resolve(jsonResponse(url.includes("/api/v1/transactions") ? rows : body)),
+    );
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+const scheduleReads = (fetchMock: ReturnType<typeof vi.fn>) =>
+  fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/v1/schedules")).length;
+
 beforeEach(() => {
   vi.mocked(fetchCouncilKey).mockResolvedValue(council);
-  vi.mocked(fetchProposerAccountIds).mockResolvedValue({ accountIds: [ALICE], unresolvable: [] });
+  vi.mocked(fetchProposerAccountIds).mockResolvedValue({
+    accountIds: [ALICE],
+    proposers: [{ accountId: ALICE, key: null }],
+    unresolvable: [],
+  });
 });
 
 afterEach(() => {
@@ -84,14 +103,22 @@ describe("useProposals", () => {
     await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(2));
   });
 
-  it("slows down once every proposal has settled", async () => {
-    const fetchMock = stubMirrorWith(proposalPage({}));
+  it("slows down once every proposal has settled and its outcome is known", async () => {
+    const fetchMock = stubInboxAndOutcome(proposalPage({}), rowsAtExecution);
 
     renderHook(() => useProposals(options), { wrapper: createQueryWrapper() });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await new Promise(resolve => setTimeout(resolve, A_FEW_POLLS_MS));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(scheduleReads(fetchMock)).toBe(1);
+  });
+
+  it("keeps polling while an executed proposal's outcome is not indexed yet", async () => {
+    const fetchMock = stubInboxAndOutcome(proposalPage({}), { transactions: [], links: { next: null } });
+
+    renderHook(() => useProposals(options), { wrapper: createQueryWrapper() });
+
+    await waitFor(() => expect(scheduleReads(fetchMock)).toBeGreaterThan(2));
   });
 
   it("exposes the council, so a screen needs no second hook to show m of n", async () => {

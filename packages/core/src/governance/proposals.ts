@@ -11,7 +11,14 @@
  * registry, the state of the entry behind it. Those two can disagree, and where they do the row is
  * dead: see `registry.ts`.
  */
-import { type MirrorSchedule, type ScheduleState, deriveScheduleState, fetchSchedulesByCreator } from "../mirror";
+import {
+  type MirrorSchedule,
+  type ScheduleExecution,
+  type ScheduleState,
+  deriveScheduleState,
+  fetchScheduleExecution,
+  fetchSchedulesByCreator,
+} from "../mirror";
 import type { HederaNetworkName } from "../network";
 import { type CouncilKey, type ThresholdProgress, countThresholdSignatures } from "./council";
 import { decodeScheduledOperation } from "./decode";
@@ -29,6 +36,11 @@ export type Proposal = {
   schedule: MirrorSchedule;
   /** Status of the approval round: pending, executed, deleted or expired. */
   state: ScheduleState;
+  /**
+   * Whether an executed schedule's transaction succeeded or failed, since "executed" only means the
+   * network ran it. `notRun` for every other status; `unconfirmed` until Mirror has the outcome.
+   */
+  execution: ScheduleExecution;
   /** How far the current council is from its threshold. */
   progress: ThresholdProgress;
   /**
@@ -44,8 +56,9 @@ export type Proposal = {
   operation: ScheduledOperation;
   /**
    * The registry entry behind a contract-backed proposal. It is only read for the ones still
-   * pending: an executed schedule implies the entry ran, and a deleted or expired one closed the
-   * round anyway. `notApplicable` for the native kinds, which have no entry at all.
+   * pending and the ones whose execution failed — a revert leaves the entry as it was, usually still
+   * pending — since a successful execution implies the entry ran, and a deleted or expired schedule
+   * closed the round anyway. `notApplicable` for the native kinds, which have no entry at all.
    */
   registry: RegistryCrossCheck;
 };
@@ -72,6 +85,11 @@ export type ProposalInboxOptions = {
   network: HederaNetworkName;
   /** The registry the contract-backed proposals are crossed against. */
   registry: RegistryLookup;
+  /**
+   * The inbox this caller read last. An outcome it already resolved is reused rather than read again,
+   * since the ledger never changes one; without it every settled proposal costs a read per poll.
+   */
+  previous?: ProposalInbox;
 };
 
 /** Seconds and nanoseconds, so comparing them as numbers orders them. */
@@ -95,10 +113,21 @@ function isThisExecutor(named: string, executorContractId: string): boolean {
  * from it would point at an unrelated entry of ours.
  */
 function registryIdOf(proposal: UncrossedProposal, executorContractId: string): number | null {
-  if (proposal.state.isSettled) return null;
+  if (proposal.state.isSettled && proposal.execution.status !== "failed") return null;
   if (proposal.operation.kind !== "registryCall") return null;
   if (!isThisExecutor(proposal.operation.executorContractId, executorContractId)) return null;
   return proposal.operation.proposalId;
+}
+
+/** A known outcome from the previous read, or a fresh read for a schedule whose outcome is still open. */
+function executionOf(
+  schedule: MirrorSchedule,
+  network: HederaNetworkName,
+  previous: ProposalInbox | undefined,
+): Promise<ScheduleExecution> {
+  const known = previous?.proposals.find(proposal => proposal.schedule.schedule_id === schedule.schedule_id)?.execution;
+  if (known?.status === "succeeded" || known?.status === "failed") return Promise.resolve(known);
+  return fetchScheduleExecution(schedule, { network });
 }
 
 export async function fetchProposalInbox({
@@ -108,6 +137,7 @@ export async function fetchProposalInbox({
   council,
   network,
   registry,
+  previous,
 }: ProposalInboxOptions): Promise<ProposalInbox> {
   const readings = await Promise.allSettled(
     proposerAccountIds.map(accountId =>
@@ -124,11 +154,15 @@ export async function fetchProposalInbox({
     }
   }
 
-  const uncrossed: UncrossedProposal[] = [...byScheduleId.values()].sort(newestFirst).map(schedule => {
+  const schedules = [...byScheduleId.values()].sort(newestFirst);
+  const executions = await Promise.all(schedules.map(schedule => executionOf(schedule, network, previous)));
+
+  const uncrossed: UncrossedProposal[] = schedules.map((schedule, index) => {
     const operation = decodeScheduledOperation(schedule.transaction_body);
     return {
       schedule,
       state: deriveScheduleState(schedule),
+      execution: executions[index],
       progress: countThresholdSignatures(schedule, council),
       incomingProgress:
         operation.kind === "councilRotation" ? countThresholdSignatures(schedule, operation.council) : null,

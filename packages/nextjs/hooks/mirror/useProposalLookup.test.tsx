@@ -1,10 +1,12 @@
-import { createQueryWrapper } from "./testUtils";
+import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useProposalLookup } from "./useProposalLookup";
 import { proto } from "@hiero-ledger/proto";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
 import { fetchRegistryEntries } from "@sh/core/governance/registry";
 import { fetchAccount, fetchSchedule } from "@sh/core/mirror";
+import revertedSchedule from "@sh/core/mirror/__fixtures__/schedule-reverted.json";
+import rowsAtRevert from "@sh/core/mirror/__fixtures__/transactions-at-reverted.json";
 import { QueryClient } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import Long from "long";
@@ -52,6 +54,7 @@ const baseSchedule = {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   vi.mocked(fetchSchedule).mockReset();
   vi.mocked(fetchAccount).mockReset();
   vi.mocked(fetchRegistryEntries).mockReset();
@@ -169,6 +172,26 @@ describe("useProposalLookup", () => {
 
     await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
     expect(result.current.proposal?.state.status).toBe("deleted");
+  });
+
+  it("still reads the registry entry once the schedule ran and failed, since the revert left it pending", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      executed_timestamp: revertedSchedule.executed_timestamp,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(rowsAtRevert)));
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(
+      new Map([[7, { status: "read", entry: { proposalId: 7, state: "pending" } } as never]]),
+    );
+
+    const { result } = lookup("0.0.10671156");
+
+    await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
+    expect(result.current.proposal?.execution).toMatchObject({ status: "failed", result: "CONTRACT_REVERT_EXECUTED" });
   });
 
   it("drops the delayed re-read once the page is gone", () => {

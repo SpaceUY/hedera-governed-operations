@@ -1,9 +1,11 @@
 import { useCreateProposal } from "./useCreateProposal";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { MirrorNodeError, fetchContractResult, fetchTransaction } from "@sh/core/mirror";
+import { QueryClient } from "@tanstack/react-query";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueryWrapper } from "~~/hooks/mirror/testUtils";
+import { proposalInboxQueryKey } from "~~/hooks/mirror/useProposals";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
@@ -69,7 +71,7 @@ describe("useCreateProposal", () => {
     expect(fetchContractResult).toHaveBeenCalledTimes(4);
   });
 
-  it("waits out Mirror's lag, then schedules the execute call and returns both ids", async () => {
+  it("waits out Mirror's lag, schedules the execute call, returns both ids and refreshes the inbox", async () => {
     const executeTransaction = vi
       .fn()
       .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@1.0` })
@@ -89,10 +91,15 @@ describe("useCreateProposal", () => {
         { transaction_id: `${PROPOSER_ID}-2-0`, name: "SCHEDULECREATE", entity_id: "0.0.999" } as never,
       ]);
 
-    const { result } = renderHook(() => useCreateProposal(), { wrapper: createQueryWrapper() });
+    const queryClient = new QueryClient();
+    const inboxKey = [...proposalInboxQueryKey("testnet"), "0.0.10671146", EXECUTOR_CONTRACT_ID];
+    queryClient.setQueryData(inboxKey, "inbox");
+
+    const { result } = renderHook(() => useCreateProposal(), { wrapper: createQueryWrapper(queryClient) });
     result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal, memo: "test proposal" });
 
     await waitFor(() => expect(result.current.data).toEqual({ registryProposalId: 5, scheduleId: "0.0.999" }));
+    expect(queryClient.getQueryState(inboxKey)?.isInvalidated).toBe(true);
   });
 
   it("stops polling at once when the registration reverted", async () => {

@@ -2,8 +2,10 @@
 
 import { DEFAULT_PENDING_POLL_MS, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
+import { useRefreshOnSettle } from "./useRefreshOnSettle";
 import { type ProposalInbox, fetchProposalInbox } from "@sh/core/governance/proposals";
-import { useQuery } from "@tanstack/react-query";
+import { hasFinalOutcome } from "@sh/core/mirror";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /**
@@ -11,6 +13,11 @@ import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/net
  * can never stop polling — a proposal someone else opens has to show up — so it slows down instead.
  */
 export const SETTLED_INBOX_POLL_MS = 30_000;
+
+/** The prefix of every inbox on a network, whatever its council: what opening a proposal refreshes. */
+export function proposalInboxQueryKey(network: string): string[] {
+  return mirrorQueryKey(network, "proposals");
+}
 
 export type ProposalsOptions = CouncilOptions & {
   /** Interval while any proposal is still collecting signatures. */
@@ -28,17 +35,18 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
   const { governanceAccountId } = options;
   const network = options.network ?? getDefaultMirrorNetwork();
   const council = useCouncil(options);
+  const queryClient = useQueryClient();
+  // The executor belongs in the key: the inbox is crossed against its registry, so pointing the app
+  // at a different one has to invalidate the list and not just the council.
+  const queryKey = [
+    ...proposalInboxQueryKey(network),
+    governanceAccountId,
+    options.executorContractId,
+    ...(council.data?.proposerAccountIds ?? []),
+  ];
 
   const inbox = useQuery<ProposalInbox, Error>({
-    // The executor belongs in the key: the inbox is crossed against its registry, so pointing the app
-    // at a different one has to invalidate the list and not just the council.
-    queryKey: mirrorQueryKey(
-      network,
-      "proposals",
-      governanceAccountId,
-      options.executorContractId,
-      ...(council.data?.proposerAccountIds ?? []),
-    ),
+    queryKey,
     queryFn: () => {
       if (!council.data) throw new Error("The council has to be known before its proposals can be listed");
       const hederaNetwork = toHederaNetworkName(network);
@@ -49,12 +57,18 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
         council: council.data.key,
         network: hederaNetwork,
         registry: { executorContractId: options.executorContractId, rpcUrl: getHederaRpcUrl(hederaNetwork) },
+        previous: queryClient.getQueryData<ProposalInbox>(queryKey),
       });
     },
     enabled: (options.enabled ?? true) && council.data !== undefined,
     retry: false,
     refetchInterval: query =>
-      query.state.data?.proposals.some(proposal => !proposal.state.isSettled) ? pollIntervalMs : SETTLED_INBOX_POLL_MS,
+      query.state.data?.proposals.some(proposal => !hasFinalOutcome(proposal)) ? pollIntervalMs : SETTLED_INBOX_POLL_MS,
+  });
+  useRefreshOnSettle(inbox.data?.proposals, {
+    network,
+    governanceAccountId,
+    executorContractId: options.executorContractId,
   });
 
   return { inbox, council };

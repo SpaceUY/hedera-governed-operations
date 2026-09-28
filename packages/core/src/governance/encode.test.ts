@@ -13,8 +13,8 @@ import {
   resolveCouncilMembers,
 } from "./encode";
 import { PROPOSAL_TYPES } from "./proposalTypes";
+import { scheduledBodyOf } from "./scheduledBody";
 import { PROPOSAL_EXPIRY_SECONDS, buildExecuteProposalCall } from "./schedules";
-import { scheduledBodyOf } from "./testUtils";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -92,6 +92,7 @@ describe("encodeUpgrade", () => {
       target: VAULT_PROXY,
       implementation: VAULT_V2,
       initializerCalldata: "0x",
+      initializer: { kind: "none" },
     });
   });
 
@@ -227,6 +228,16 @@ describe("buildCreateProposalCall", () => {
 });
 
 describe("buildTreasuryTransfer", () => {
+  it("refuses a transfer from the treasury to itself, which would move nothing", () => {
+    expect(() =>
+      buildTreasuryTransfer({
+        governanceAccountId: GOVERNANCE_ACCOUNT,
+        recipientAccountId: GOVERNANCE_ACCOUNT,
+        amount: 1n,
+      }),
+    ).toThrow(/treasury itself/);
+  });
+
   it("comes back out of the decoder with both sides of an HBAR payment", () => {
     const transfer = buildTreasuryTransfer({
       governanceAccountId: GOVERNANCE_ACCOUNT,

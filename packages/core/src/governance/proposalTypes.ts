@@ -11,6 +11,8 @@
 import type { CouncilKey } from "./council";
 import { Hbar } from "@hiero-ledger/sdk";
 
+const formatTinybars = (tinybars: bigint): string => Hbar.fromTinybars(tinybars.toString()).toString();
+
 /** The three that go through `GovernedExecutor`, so they leave a registry entry and burn gas. */
 export type ContractProposalKind = "upgrade" | "treasurySwap" | "tokenAdmin";
 
@@ -18,6 +20,17 @@ export type ContractProposalKind = "upgrade" | "treasurySwap" | "tokenAdmin";
 export type NativeProposalKind = "treasuryTransfer" | "councilRotation";
 
 export type ProposalKind = ContractProposalKind | NativeProposalKind;
+
+export const CONTRACT_PROPOSAL_KINDS = [
+  "upgrade",
+  "treasurySwap",
+  "tokenAdmin",
+] as const satisfies readonly ContractProposalKind[];
+
+/** Whether a kind goes through `GovernedExecutor`, and so needs `PROPOSER_ROLE` and a registry entry. */
+export function isContractProposalKind(kind: ProposalKind): kind is ContractProposalKind {
+  return (CONTRACT_PROPOSAL_KINDS as readonly ProposalKind[]).includes(kind);
+}
 
 /**
  * `executeGas` is the limit of the scheduled `execute(id)` that runs the operation, and only the
@@ -84,13 +97,27 @@ export type ScheduledOperation =
 export type TokenAdminOperation = "pause" | "unpause" | "freeze" | "unfreeze";
 
 /**
+ * The call an upgrade runs on the new implementation in the same transaction. Only the ones this
+ * template builds are named: any other initializer makes the whole upgrade unrecognised, because it
+ * could run arbitrary code the council would never see described.
+ */
+export type UpgradeInitializer = { kind: "none" } | { kind: "setWithdrawalLimit"; limitTinybars: bigint };
+
+/**
  * What a registry entry does, decoded from the call it stores. The kind is decided by the function
  * selector alone: a match names the operation, it does not prove the target is one of this
  * template's contracts, which is why `target` is always carried along. Gating on the target is the
  * co-signing agent's job, not the decoder's.
  */
 export type RegistryOperation =
-  | { kind: "upgrade"; target: string; implementation: string; initializerCalldata: string }
+  | {
+      kind: "upgrade";
+      target: string;
+      implementation: string;
+      /** The raw call nested in the upgrade, for a screen that shows the calldata as it is. */
+      initializerCalldata: string;
+      initializer: UpgradeInitializer;
+    }
   | {
       kind: "treasurySwap";
       target: string;
@@ -126,7 +153,7 @@ export function describeScheduledOperation(operation: ScheduledOperation): strin
       const credited = [
         ...operation.hbar
           .filter(transfer => transfer.tinybars > 0n)
-          .map(transfer => `${Hbar.fromTinybars(transfer.tinybars.toString()).toString()} to ${transfer.accountId}`),
+          .map(transfer => `${formatTinybars(transfer.tinybars)} to ${transfer.accountId}`),
         ...operation.tokens
           .filter(transfer => transfer.amount > 0n)
           .map(transfer => `${transfer.amount} of token ${transfer.tokenId} to ${transfer.accountId}`),
@@ -150,11 +177,14 @@ export function describeScheduledOperation(operation: ScheduledOperation): strin
 
 export function describeRegistryOperation(operation: RegistryOperation): string {
   switch (operation.kind) {
-    case "upgrade":
-      return `Upgrade ${operation.target} to the implementation at ${operation.implementation}`;
+    case "upgrade": {
+      const upgrade = `Upgrade ${operation.target} to the implementation at ${operation.implementation}`;
+      if (operation.initializer.kind === "none") return upgrade;
+      return `${upgrade}, setting the withdrawal limit to ${formatTinybars(operation.initializer.limitTinybars)}`;
+    }
     case "treasurySwap":
       return (
-        `Swap ${Hbar.fromTinybars(operation.amountInTinybars.toString()).toString()} for at least ` +
+        `Swap ${formatTinybars(operation.amountInTinybars)} for at least ` +
         `${operation.amountOutMinimum} of ${operation.tokenOut}, paid out to ${operation.recipient}`
       );
     case "tokenAdmin":

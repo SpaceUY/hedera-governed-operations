@@ -1,7 +1,7 @@
 "use client";
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
-import { type CouncilKey, fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
+import { type CouncilKey, type Proposer, fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
 import { useQuery } from "@tanstack/react-query";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
@@ -15,6 +15,8 @@ export type CouncilQueryData = {
   key: CouncilKey;
   /** Whose schedules make up the inbox, since Mirror can only list schedules by their creator. */
   proposerAccountIds: string[];
+  /** The same proposers with their keys, so one who holds a seat is recognised as that member. */
+  proposers: Proposer[];
   /** Role holders that resolved to no account, so the inbox can say it is missing their proposals. */
   unresolvableProposers: string[];
 };
@@ -24,13 +26,17 @@ export type CouncilOptions = MirrorQueryOptions & {
   executorContractId: string;
 };
 
+export function councilQueryKey(network: string, governanceAccountId: string, executorContractId: string): string[] {
+  return mirrorQueryKey(network, "council", governanceAccountId, executorContractId);
+}
+
 /** Who approves and who may propose, read from the ledger rather than from configuration. */
 export function useCouncil({ governanceAccountId, executorContractId, ...options }: CouncilOptions) {
   const network = options.network ?? getDefaultMirrorNetwork();
   const hederaNetwork = toHederaNetworkName(network);
 
   return useQuery<CouncilQueryData, Error>({
-    queryKey: mirrorQueryKey(network, "council", governanceAccountId, executorContractId),
+    queryKey: councilQueryKey(network, governanceAccountId, executorContractId),
     queryFn: async () => {
       const [key, proposers] = await Promise.all([
         fetchCouncilKey(governanceAccountId, hederaNetwork),
@@ -40,7 +46,12 @@ export function useCouncil({ governanceAccountId, executorContractId, ...options
           rpcUrl: getHederaRpcUrl(hederaNetwork),
         }),
       ]);
-      return { key, proposerAccountIds: proposers.accountIds, unresolvableProposers: proposers.unresolvable };
+      return {
+        key,
+        proposerAccountIds: proposers.accountIds,
+        proposers: proposers.proposers,
+        unresolvableProposers: proposers.unresolvable,
+      };
     },
     enabled: (options.enabled ?? true) && governanceAccountId.length > 0 && executorContractId.length > 0,
     staleTime: COUNCIL_STALE_MS,

@@ -1,6 +1,6 @@
 /**
- * Test-only bridge from a transaction to the body a schedule carries. `ScheduleCreate` wraps the
- * inner transaction as a `SchedulableTransactionBody`, and that is the base64 the Mirror Node serves
+ * The body a schedule carries, built from the transaction it wraps: what the council will be shown before the proposal exists.
+ * `ScheduleCreate` wraps the inner transaction as a `SchedulableTransactionBody`, and that is the base64 the Mirror Node serves
  * as `transaction_body`, so going through the SDK gives the decoder exactly what it meets in
  * production without a network call.
  *
@@ -14,6 +14,12 @@ import { AccountId, ScheduleCreateTransaction, type Transaction, TransactionId }
 /** Any node and payer will do: neither reaches the scheduled body, and freezing needs both. */
 const NODE_ACCOUNT = new AccountId(3);
 const PAYER_ACCOUNT = new AccountId(2);
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
 
 export function scheduledBodyOf(innerTransaction: Transaction): string {
   const schedule = new ScheduleCreateTransaction()
@@ -29,5 +35,5 @@ export function scheduledBodyOf(innerTransaction: Transaction): string {
   const scheduled = body.scheduleCreate?.scheduledTransactionBody;
   if (!scheduled) throw new Error("the frozen ScheduleCreate carries no scheduled transaction body");
 
-  return Buffer.from(proto.SchedulableTransactionBody.encode(scheduled).finish()).toString("base64");
+  return bytesToBase64(proto.SchedulableTransactionBody.encode(scheduled).finish());
 }

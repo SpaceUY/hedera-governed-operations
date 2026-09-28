@@ -1,56 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { Hbar } from "@hiero-ledger/sdk";
 import { describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { SetupNotice } from "~~/components/SetupNotice";
-import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
+import { GOVERNANCE_ROUTES, type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { approvalsLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
+import { approvalsLabel, proposalStatusLabel } from "~~/services/governance/proposalLabels";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
-import { type HederaNetworkName, getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
-
-type GovernanceHomeProps = {
-  network: HederaNetworkName;
-  governanceAccountId: string;
-  demoTokenId: string;
-  vaultContractId: string;
-  executorContractId: string;
-};
+import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
 export default function GovernanceHomePage() {
   const { targetNetwork } = useTargetNetwork();
-  let props: GovernanceHomeProps;
+  let config: GovernanceConfig;
   try {
-    const { governanceAccountId, demoTokenId } = getGovernanceEntityIds();
-    props = {
-      network: getHederaNetworkNameFromChainId(targetNetwork.id),
-      governanceAccountId,
-      demoTokenId,
-      vaultContractId: getDeployedContract(targetNetwork.id, "AcmeVault").hederaContractId,
-      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId,
-    };
+    config = resolveGovernanceConfig(targetNetwork.id);
   } catch (error) {
     return <SetupNotice error={error} />;
   }
-  return <GovernanceHome {...props} />;
+  return <GovernanceHome config={config} />;
 }
 
-function GovernanceHome({
-  network,
-  governanceAccountId,
-  demoTokenId,
-  vaultContractId,
-  executorContractId,
-}: GovernanceHomeProps) {
+function GovernanceHome({ config }: { config: GovernanceConfig }) {
+  const { network, governanceAccountId, demoTokenId } = config;
+  const executorContractId = config.executor.hederaContractId;
   const usdcTokenId = SAUCERSWAP_V2_CONFIG[network].usdcToken;
 
-  const { inbox, council } = useProposals({ governanceAccountId, executorContractId });
+  const { inbox, council } = useProposals({ governanceAccountId, executorContractId, network });
   const treasury = useTreasuryFigures({
     governanceAccountId,
-    vaultContractId,
+    vaultContractId: config.vault.hederaContractId,
     demoTokenId,
     usdcTokenId,
     network,
@@ -67,13 +47,13 @@ function GovernanceHome({
         <div className="stat">
           <div className="stat-title">HBAR</div>
           <div className="stat-value text-lg">
-            {treasury.data ? Hbar.fromTinybars(treasury.data.hbarBalanceTinybar).toString() : "…"}
+            {treasury.data ? formatTinybars(treasury.data.hbarBalanceTinybar) : "…"}
           </div>
         </div>
         <div className="stat">
           <div className="stat-title">Vault reserve</div>
           <div className="stat-value text-lg">
-            {treasury.data ? Hbar.fromTinybars(treasury.data.vaultReserveTinybar.toString()).toString() : "…"}
+            {treasury.data ? formatTinybars(treasury.data.vaultReserveTinybar) : "…"}
           </div>
         </div>
         <div className="stat">
@@ -101,7 +81,12 @@ function GovernanceHome({
 
       <section aria-label="Pending proposals" className="card border border-base-300 bg-base-100 shadow-sm">
         <div className="card-body py-5">
-          <h2 className="card-title text-base">Pending proposals</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="card-title text-base">Pending proposals</h2>
+            <Link href={GOVERNANCE_ROUTES.newProposal} className="btn btn-primary btn-sm">
+              New proposal
+            </Link>
+          </div>
           {inbox.data && inbox.data.unreachableProposers.length > 0 && (
             <p role="status" className="text-sm text-warning">
               This list may be incomplete: proposals from {inbox.data.unreachableProposers.join(", ")} could not be
@@ -114,8 +99,8 @@ function GovernanceHome({
             <ul className="flex flex-col gap-2">
               {inbox.data.proposals.map(proposal => (
                 <li key={proposal.schedule.schedule_id}>
-                  <Link href={`/governance/${proposal.schedule.schedule_id}`} className="link link-primary">
-                    {describeScheduledOperation(proposal.operation)} — {scheduleStatusLabel(proposal.state.status)} —{" "}
+                  <Link href={GOVERNANCE_ROUTES.proposal(proposal.schedule.schedule_id)} className="link link-primary">
+                    {describeScheduledOperation(proposal.operation)} — {proposalStatusLabel(proposal)} —{" "}
                     {approvalsLabel(proposal.progress, proposal.incomingProgress)}
                   </Link>
                 </li>

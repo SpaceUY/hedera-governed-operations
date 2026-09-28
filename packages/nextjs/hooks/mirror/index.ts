@@ -2,6 +2,7 @@ export * from "./useAccount";
 export * from "./useCouncil";
 export * from "./useProposalLookup";
 export * from "./useProposals";
+export * from "./useRefreshOnSettle";
 export * from "./useSchedule";
 export * from "./useToken";
 export * from "./useTokenRelationship";
