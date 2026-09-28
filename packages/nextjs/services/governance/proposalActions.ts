@@ -60,6 +60,31 @@ export function cancellableRegistryId({
 }
 
 /**
+ * Another schedule of the inbox still collecting signatures for the same registry entry, or null.
+ * Anyone can schedule `execute(id)` again, so a withdrawn round does not mean the entry is free:
+ * cancelling under that other schedule would leave it to reach its threshold, revert with
+ * `ProposalNotPending` and bill the governance account. A pending round on this registry reads as
+ * `read`, or `unreachable` when the relay could not be asked — counted too, since it cannot be ruled
+ * out. Only schedules the inbox lists are known: one opened by an account outside the proposer list
+ * is not.
+ */
+export function otherOpenScheduleOf(
+  { schedule, registry }: Pick<Proposal, "schedule" | "registry">,
+  inbox: readonly Pick<Proposal, "schedule" | "state" | "operation" | "registry">[],
+): string | null {
+  if (registry.status !== "read") return null;
+  const other = inbox.find(
+    candidate =>
+      candidate.schedule.schedule_id !== schedule.schedule_id &&
+      candidate.state.status === "pending" &&
+      candidate.operation.kind === "registryCall" &&
+      candidate.operation.proposalId === registry.entry.proposalId &&
+      (candidate.registry.status === "read" || candidate.registry.status === "unreachable"),
+  );
+  return other?.schedule.schedule_id ?? null;
+}
+
+/**
  * Whether the connected account may call `GovernedExecutor.cancel` on this entry: `cancel` is open
  * to the entry's own proposer and to any `EXECUTOR_ROLE` holder — in this template, only ever the
  * governance account — and to nobody else. That is not the schedule's creator: the two are the same

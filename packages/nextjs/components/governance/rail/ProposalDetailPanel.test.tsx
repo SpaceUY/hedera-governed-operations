@@ -4,12 +4,14 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
+import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 
 vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
+vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/useSignProposal", () => ({ useSignProposal: vi.fn() }));
 vi.mock("~~/hooks/useCancelProposal", () => ({ useCancelProposal: vi.fn() }));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
@@ -73,6 +75,9 @@ function mockHooks() {
   vi.mocked(useAccount).mockReturnValue({ data: undefined, isLoading: false } as unknown as ReturnType<
     typeof useAccount
   >);
+  vi.mocked(useProposals).mockReturnValue({
+    inbox: { data: undefined, isLoading: false },
+  } as unknown as ReturnType<typeof useProposals>);
 }
 
 beforeEach(mockHooks);
@@ -94,7 +99,7 @@ describe("ProposalDetailPanel", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Proposal 0.0.777" })).toBeTruthy();
     expect(screen.getByText("Collecting signatures")).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 3, name: "Approvals" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Approvals" })).toBeTruthy();
     expect(screen.getByText("You")).toBeTruthy();
   });
 
@@ -134,8 +139,8 @@ describe("ProposalDetailPanel", () => {
         markRegistryEntryCancelled={vi.fn()}
       />,
     );
-    expect(screen.getByRole("heading", { level: 3, name: "Current council" })).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 3, name: "Incoming council" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Current council" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Incoming council" })).toBeTruthy();
     expect(screen.getByText(/Replacing the council needs signatures from both sides/)).toBeTruthy();
   });
 

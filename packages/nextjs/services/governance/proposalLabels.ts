@@ -50,8 +50,8 @@ export const requiredSignaturesLabel = ({ signed, threshold }: ThresholdProgress
   `${signed} of ${threshold} required signatures`;
 
 /**
- * A council member by the account that holds its seat — matched the same way the map names a node —
- * or by the start of its key when no proposer holds it. `viewerAccountId` overrides both with "You",
+ * A council member by the account that holds its seat, or by the start of its key when no proposer
+ * holds it — the same name on the map and in a proposal's approver list. `viewerAccountId` overrides both with "You",
  * since the connected account reads better as itself than as its own account id.
  */
 export function memberLabel(memberKey: string, proposers: readonly Proposer[], viewerAccountId: string | null): string {
@@ -136,10 +136,18 @@ export const WITHDRAW_BEFORE_CANCEL_NOTE =
   "expired, or run and failed — so a signature reaching the threshold afterwards can never revert and " +
   "bill the treasury.";
 
-/** The choice a proposer with an open Cancel button actually faces. */
+/**
+ * The choice a proposer with an open Cancel button actually faces. The registry entry has no expiry
+ * of its own: only its schedule does, and a new one can be opened for it at any time.
+ */
 export const CANCEL_VS_EXPIRE_NOTE =
-  "Cancelling ends this proposal for good, right away. Left alone, it lapses the same way on its own at " +
-  "expiry — cancel only if the proposer wants that to happen now instead.";
+  "Cancelling ends this proposal for good. Left alone, the entry stays pending and nothing runs, but anyone " +
+  "can schedule it again for the council to approve; an expired or withdrawn schedule does not end it.";
+
+/** Shown in place of Cancel while another schedule for the same entry could still reach its threshold. */
+export const CANCEL_BLOCKED_BY_OPEN_SCHEDULE_NOTE =
+  "Another schedule for this entry is still collecting signatures. It has to be withdrawn or expire before " +
+  "the entry can be cancelled:";
 
 /** Shown in place of the Cancel button to whoever `GovernedExecutor.cancel` would refuse. */
 export const CANCEL_UNAUTHORIZED_NOTE =

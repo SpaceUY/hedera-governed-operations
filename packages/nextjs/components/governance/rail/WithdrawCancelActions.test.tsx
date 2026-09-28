@@ -3,10 +3,12 @@ import type { Proposal } from "@sh/core/governance/proposals";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
+import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
+vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/useCancelProposal", () => ({ useCancelProposal: vi.fn() }));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
 
@@ -85,6 +87,12 @@ function mockMutations() {
   } as unknown as ReturnType<typeof useWithdrawProposal>);
 }
 
+function mockInbox(proposals: Proposal[]) {
+  vi.mocked(useProposals).mockReturnValue({
+    inbox: { data: { proposals, unreachableProposers: [] }, isLoading: false },
+  } as unknown as ReturnType<typeof useProposals>);
+}
+
 function mockAccounts(accountEvm: string | undefined, governanceEvm: string | undefined) {
   vi.mocked(useAccount).mockImplementation(
     id =>
@@ -98,6 +106,7 @@ function mockAccounts(accountEvm: string | undefined, governanceEvm: string | un
 beforeEach(() => {
   mockMutations();
   mockAccounts(PROPOSER_EVM, GOVERNANCE_EVM);
+  mockInbox([]);
 });
 
 afterEach(cleanup);
@@ -114,6 +123,7 @@ describe("WithdrawCancelActions", () => {
         accountId={PROPOSER_ACCOUNT_ID}
         executorContractId={EXECUTOR_CONTRACT_ID}
         governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        network="testnet"
         onWithdrawn={vi.fn()}
         onCancelled={vi.fn()}
       />,
@@ -129,6 +139,7 @@ describe("WithdrawCancelActions", () => {
         accountId={PROPOSER_ACCOUNT_ID}
         executorContractId={EXECUTOR_CONTRACT_ID}
         governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        network="testnet"
         onWithdrawn={vi.fn()}
         onCancelled={vi.fn()}
       />,
@@ -157,6 +168,7 @@ describe("WithdrawCancelActions", () => {
         accountId={PROPOSER_ACCOUNT_ID}
         executorContractId={EXECUTOR_CONTRACT_ID}
         governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        network="testnet"
         onWithdrawn={vi.fn()}
         onCancelled={onCancelled}
       />,
@@ -171,6 +183,9 @@ describe("WithdrawCancelActions", () => {
       expect.anything(),
     );
     expect(onCancelled).toHaveBeenCalled();
+    // Both accounts are read on the configured network, never on the build's default one.
+    expect(useAccount).toHaveBeenCalledWith(PROPOSER_ACCOUNT_ID, expect.objectContaining({ network: "testnet" }));
+    expect(useAccount).toHaveBeenCalledWith(GOVERNANCE_ACCOUNT_ID, expect.objectContaining({ network: "testnet" }));
   });
 
   it("lets a cancel be called off without sending anything", () => {
@@ -191,6 +206,7 @@ describe("WithdrawCancelActions", () => {
         accountId={PROPOSER_ACCOUNT_ID}
         executorContractId={EXECUTOR_CONTRACT_ID}
         governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        network="testnet"
         onWithdrawn={vi.fn()}
         onCancelled={vi.fn()}
       />,
@@ -214,6 +230,7 @@ describe("WithdrawCancelActions", () => {
         accountId="0.0.9999"
         executorContractId={EXECUTOR_CONTRACT_ID}
         governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        network="testnet"
         onWithdrawn={vi.fn()}
         onCancelled={vi.fn()}
       />,
@@ -234,10 +251,41 @@ describe("WithdrawCancelActions", () => {
         accountId={GOVERNANCE_ACCOUNT_ID}
         executorContractId={EXECUTOR_CONTRACT_ID}
         governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        network="testnet"
         onWithdrawn={vi.fn()}
         onCancelled={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "Cancel this proposal" })).toBeTruthy();
+  });
+
+  /**
+   * Withdrawing one round does not free the entry when another schedule of `execute(id)` is still
+   * open: cancelling under it would leave it to reach its threshold and revert at the treasury's cost.
+   */
+  it("holds Cancel back, pointing at it, while another schedule for the entry is still open", () => {
+    const withdrawn = baseProposal({
+      state: { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true },
+      registry: cancellableEntry(PROPOSER_EVM),
+    });
+    const stillOpen = baseProposal({
+      schedule: schedule({ schedule_id: "0.0.778" }),
+      registry: cancellableEntry(PROPOSER_EVM),
+    });
+    mockInbox([withdrawn, stillOpen]);
+    render(
+      <WithdrawCancelActions
+        proposal={withdrawn}
+        accountId={PROPOSER_ACCOUNT_ID}
+        executorContractId={EXECUTOR_CONTRACT_ID}
+        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        network="testnet"
+        onWithdrawn={vi.fn()}
+        onCancelled={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Cancel this proposal" })).toBeNull();
+    expect(screen.getByText(/Another schedule for this entry is still collecting signatures/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "0.0.778" }).getAttribute("href")).toBe("/governance/0.0.778");
   });
 });

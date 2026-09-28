@@ -1,17 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
 import { useAccount } from "~~/hooks/mirror/useAccount";
+import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import {
   canBeWithdrawnBy,
   canCancelRegistryEntry,
   cancellableRegistryId,
+  otherOpenScheduleOf,
 } from "~~/services/governance/proposalActions";
 import {
+  CANCEL_BLOCKED_BY_OPEN_SCHEDULE_NOTE,
   CANCEL_UNAUTHORIZED_NOTE,
   CANCEL_VS_EXPIRE_NOTE,
   WITHDRAW_BEFORE_CANCEL_NOTE,
@@ -22,6 +26,7 @@ export type WithdrawCancelActionsProps = {
   accountId: string | null;
   executorContractId: string;
   governanceAccountId: string;
+  network: string;
   onWithdrawn: () => void;
   onCancelled: () => void;
 };
@@ -40,6 +45,7 @@ export const WithdrawCancelActions = ({
   accountId,
   executorContractId,
   governanceAccountId,
+  network,
   onWithdrawn,
   onCancelled,
 }: WithdrawCancelActionsProps) => {
@@ -51,9 +57,14 @@ export const WithdrawCancelActions = ({
   const cancellableProposalId = cancellableRegistryId(proposal);
   const entryProposer = proposal.registry.status === "read" ? proposal.registry.entry.proposer : null;
 
-  const account = useAccount(accountId, { enabled: cancellableProposalId != null });
-  const governance = useAccount(governanceAccountId, { enabled: cancellableProposalId != null });
-  const authorizingCancel = cancellableProposalId != null && (account.isLoading || governance.isLoading);
+  const readsForCancel = { network, enabled: cancellableProposalId != null };
+  const account = useAccount(accountId, readsForCancel);
+  const governance = useAccount(governanceAccountId, readsForCancel);
+  // The same inbox query the map already keeps polling, so this adds no read of its own.
+  const { inbox } = useProposals({ governanceAccountId, executorContractId, ...readsForCancel });
+  const openSchedule = otherOpenScheduleOf(proposal, inbox.data?.proposals ?? []);
+  const authorizingCancel =
+    cancellableProposalId != null && (account.isLoading || governance.isLoading || inbox.isLoading);
   const authorizedToCancel =
     cancellableProposalId != null &&
     entryProposer !== null &&
@@ -84,6 +95,13 @@ export const WithdrawCancelActions = ({
         <div className="flex flex-col gap-1">
           {authorizingCancel ? (
             <span className="loading loading-spinner loading-sm" aria-label="Checking who can cancel" />
+          ) : openSchedule ? (
+            <p className="text-sm text-base-content/60">
+              {CANCEL_BLOCKED_BY_OPEN_SCHEDULE_NOTE}{" "}
+              <Link className="link" href={`/governance/${openSchedule}`}>
+                {openSchedule}
+              </Link>
+            </p>
           ) : authorizedToCancel ? (
             confirmingCancel ? (
               <div className="flex items-center gap-2 flex-wrap">
