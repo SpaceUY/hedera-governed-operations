@@ -32,6 +32,8 @@ export function registryLabel(registry: RegistryCrossCheck): string {
       return REGISTRY_ENTRY_LABELS[registry.entry.state];
     case "notApplicable":
       return "None: the network runs this operation directly";
+    case "notRead":
+      return "Not read: the proposal is no longer collecting signatures";
     case "missing":
       return "No usable entry: do not sign";
     case "unreachable":
@@ -39,12 +41,19 @@ export function registryLabel(registry: RegistryCrossCheck): string {
   }
 }
 
+/**
+ * Signatures collected out of the threshold, never out of the council's size: a bare "2 of 2" beside
+ * a 2-of-3 council reads as a council of two, so the count says what it is counted against.
+ */
+const requiredSignaturesLabel = ({ signed, threshold }: ThresholdProgress): string =>
+  `${signed} of ${threshold} required signatures`;
+
 /** A rotation is counted against both councils, since the schedule waits for each one's threshold. */
 export function approvalsLabel(progress: ThresholdProgress, incomingProgress: ThresholdProgress | null): string {
-  if (!incomingProgress) return `${progress.signed} of ${progress.threshold} council signatures`;
+  if (!incomingProgress) return requiredSignaturesLabel(progress);
   return (
-    `Current council: ${progress.signed} of ${progress.threshold} signatures · ` +
-    `Incoming council: ${incomingProgress.signed} of ${incomingProgress.threshold} signatures`
+    `Current council: ${requiredSignaturesLabel(progress)} · ` +
+    `Incoming council: ${requiredSignaturesLabel(incomingProgress)}`
   );
 }
 
@@ -168,7 +177,7 @@ export function executionFailureLabel({
     `The network ran it and answered ${execution.result}: nothing changed, ` +
     "and the governance account still paid its fee.";
   if (operation.kind !== "registryCall") return `${outcome} To try again, schedule the same operation again.`;
-  if (registry.status === "unreachable") {
+  if (registry.status === "unreachable" || registry.status === "notRead") {
     return `${outcome} The registry entry could not be read, so whether it can run again is not known yet.`;
   }
   if (registry.status !== "read") {

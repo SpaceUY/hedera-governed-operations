@@ -58,7 +58,8 @@ export type Proposal = {
    * The registry entry behind a contract-backed proposal. It is only read for the ones still
    * pending and the ones whose execution failed — a revert leaves the entry as it was, usually still
    * pending — since a successful execution implies the entry ran, and a deleted or expired schedule
-   * closed the round anyway. `notApplicable` for the native kinds, which have no entry at all.
+   * closed the round anyway. `notRead` for those settled registry calls, `missing` for a call to some
+   * other contract, and `notApplicable` for the native kinds, which have no entry at all.
    */
   registry: RegistryCrossCheck;
 };
@@ -113,10 +114,27 @@ export function isThisExecutor(named: string, executorContractId: string): boole
  * from it would point at an unrelated entry of ours.
  */
 function registryIdOf(proposal: UncrossedProposal, executorContractId: string): number | null {
-  if (proposal.state.isSettled && proposal.execution.status !== "failed") return null;
+  if (!isRoundOpen(proposal)) return null;
   if (proposal.operation.kind !== "registryCall") return null;
   if (!isThisExecutor(proposal.operation.executorContractId, executorContractId)) return null;
   return proposal.operation.proposalId;
+}
+
+/** Still collecting signatures, or ran and failed, which leaves the entry for another round. */
+const isRoundOpen = ({ state, execution }: UncrossedProposal): boolean =>
+  !state.isSettled || execution.status === "failed";
+
+/**
+ * What a proposal whose entry was not read says about it. A native kind has none; a call to some
+ * other contract has none in this registry, which is not the same as having no entry at all; and a
+ * call to this executor left unread, because its round is over, still has one.
+ */
+export function unreadRegistry(operation: ScheduledOperation, executorContractId: string): RegistryCrossCheck {
+  if (operation.kind !== "registryCall") return { status: "notApplicable" };
+  if (!isThisExecutor(operation.executorContractId, executorContractId)) {
+    return { status: "missing", reason: `the call names ${operation.executorContractId}, not this registry` };
+  }
+  return { status: "notRead" };
 }
 
 /** A known outcome from the previous read, or a fresh read for a schedule whose outcome is still open. */
@@ -181,7 +199,7 @@ export async function fetchProposalInbox({
     proposals: uncrossed.map(proposal => {
       const proposalId = registryIdOf(proposal, registry.executorContractId);
       const crossCheck = proposalId === null ? undefined : entries.get(proposalId);
-      return { ...proposal, registry: crossCheck ?? { status: "notApplicable" } };
+      return { ...proposal, registry: crossCheck ?? unreadRegistry(proposal.operation, registry.executorContractId) };
     }),
     unreachableProposers: [
       ...proposerAccountIds.filter((_unused, index) => readings[index].status === "rejected"),

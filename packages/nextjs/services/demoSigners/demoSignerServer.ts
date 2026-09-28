@@ -18,7 +18,7 @@ import { countThresholdSignatures, fetchCouncilKey } from "~~/services/governanc
 import { decodeScheduledOperation } from "~~/services/governance/decode";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import type { ScheduledOperation } from "~~/services/governance/proposalTypes";
-import { isThisExecutor } from "~~/services/governance/proposals";
+import { isThisExecutor, unreadRegistry } from "~~/services/governance/proposals";
 import { type RegistryCrossCheck, fetchRegistryEntries } from "~~/services/governance/registry";
 import { buildScheduleSign } from "~~/services/governance/schedules";
 import { deriveScheduleState, fetchSchedule, isMirrorNotFound, isValidEntityId } from "~~/services/mirror";
@@ -128,14 +128,14 @@ async function readSchedule(scheduleId: string) {
 
 /**
  * The registry entry behind a call to our executor, read the way the detail page reads it. A body
- * that names any other contract stays `notApplicable`, which `canBeSigned` refuses for a registry call.
+ * that names any other contract comes back `missing`, which `canBeSigned` refuses.
  */
 async function readRegistryEntry(
   operation: ScheduledOperation,
   executorContractId: string,
 ): Promise<RegistryCrossCheck> {
   if (operation.kind !== "registryCall" || !isThisExecutor(operation.executorContractId, executorContractId)) {
-    return { status: "notApplicable" };
+    return unreadRegistry(operation, executorContractId);
   }
   const rpcUrl = getHederaRpcUrl(DEMO_NETWORK);
   const entries = await fetchRegistryEntries([operation.proposalId], { executorContractId, rpcUrl });

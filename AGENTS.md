@@ -75,7 +75,7 @@ packages/nextjs/
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
-      useRefreshOnSettle.ts Re-reads treasury figures (and the council after a rotation) when a proposal settles
+      useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation, the entry after a registry call) when a proposal settles
       useMapSnapshot.ts     Inbox, council and treasury as one snapshot, plus the events since the previous read
       useTransaction.ts     Mirror rows for a tx id; polls until indexed
       useAccount.ts         Account by 0.0.x id or EVM address

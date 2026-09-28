@@ -352,7 +352,8 @@ describe("crossing a proposal with its registry entry", () => {
     expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
   });
 
-  it("leaves a proposal that executed successfully uncrossed, since its entry has run", async () => {
+  /** Not `notApplicable`, which a screen words as a native kind with no entry at all. */
+  it("leaves a proposal that executed successfully unread, since its entry has run", async () => {
     const fetchMock = stubSchedulesPerProposer([
       scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody }),
     ]);
@@ -360,7 +361,16 @@ describe("crossing a proposal with its registry entry", () => {
     const [proposal] = (await inboxOf([ALICE])).proposals;
 
     const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
-    expect([proposal.registry.status, relayReads.length]).toEqual(["notApplicable", 0]);
+    expect([proposal.registry.status, relayReads.length]).toEqual(["notRead", 0]);
+  });
+
+  it("leaves a withdrawn registry call unread too, since its round is over", async () => {
+    const fetchMock = stubSchedulesPerProposer([{ ...pendingRegistryProposal("0.0.1"), deleted: true }]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
+    expect([proposal.state.status, proposal.registry.status, relayReads.length]).toEqual(["deleted", "notRead", 0]);
   });
 
   /** A revert leaves the entry as it was, so the council can still schedule `execute(id)` again. */
@@ -404,7 +414,8 @@ describe("crossing a proposal with its registry entry", () => {
       registry: { executorContractId: "0.0.9999999", rpcUrl: RPC_URL },
     });
 
-    expect(proposals[0].registry.status).toBe("notApplicable");
+    /** `missing`, not `notApplicable`: a screen words the latter as a native kind with no entry. */
+    expect(proposals[0].registry.status).toBe("missing");
   });
 
   it("leaves the row uncrossed rather than failing the inbox when the relay is down", async () => {

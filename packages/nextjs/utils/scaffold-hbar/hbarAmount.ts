@@ -1,4 +1,4 @@
-import { Hbar } from "@hiero-ledger/sdk";
+import { Hbar, HbarUnit } from "@hiero-ledger/sdk";
 import { parseUnits } from "viem";
 
 /** HBAR is fixed-point with this many places: one HBAR is 10^8 tinybars. */
@@ -24,6 +24,11 @@ export function parseAmount(text: string, decimals: number): bigint {
   return parseUnits(trimmed, decimals);
 }
 
+/**
+ * An amount in ℏ whatever its size. `Hbar.toString()` switches to tinybars (`tℏ`) below one HBAR, so
+ * a zero reserve reads "0 tℏ", and `toString(HbarUnit.Hbar)` writes small amounts in exponent form
+ * ("1e-8 ℏ"); `toFixed()` keeps every digit as plain decimals.
+ */
 export function formatTinybars(tinybars: bigint | number | string): string {
-  return Hbar.fromTinybars(tinybars.toString()).toString();
+  return `${Hbar.fromTinybars(tinybars.toString()).to(HbarUnit.Hbar).toFixed()} ℏ`;
 }
