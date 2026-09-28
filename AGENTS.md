@@ -117,6 +117,8 @@ packages/nextjs/
     useBadgeTokens.ts     Badge balance / eligibility
     useProposalAnimationSync.ts  The map's queue: plays each read's events one at a time on a held world
     usePrefersReducedMotion.ts   The reduced-motion setting, followed live
+    useRemoteApprovals.ts  Approvals a read reports that this session did not send (the map's toast)
+    governanceMutationKeys.ts  Mutation keys of the governance writes, read back with useMutationState
     mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
@@ -149,7 +151,7 @@ packages/nextjs/
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
-    liveMap/motion/       How the map moves, pure: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world), ambient (drift)
+    liveMap/motion/       How the map moves, pure: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world), ambient (drift); remoteApprovals.ts beside it
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)
