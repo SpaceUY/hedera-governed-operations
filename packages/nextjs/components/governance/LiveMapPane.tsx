@@ -42,7 +42,7 @@ export function LiveMapPane({ config, decorate, onRemoteSignature }: LiveMapPane
   const { targetNetwork } = useTargetNetwork();
   const { accountId: viewerAccountId } = useHederaSigner();
   const { governanceAccountId, network, executor, vault, demoTokenId } = config;
-  const { snapshot, previous, events, error } = useMapSnapshot({
+  const { snapshot, previous, events, readAt, error } = useMapSnapshot({
     governanceAccountId,
     executorContractId: executor.hederaContractId,
     network,
@@ -50,7 +50,7 @@ export function LiveMapPane({ config, decorate, onRemoteSignature }: LiveMapPane
     demoTokenId,
     usdcTokenId: SAUCERSWAP_V2_CONFIG[network].usdcToken,
   });
-  const { world, playing } = useProposalAnimationSync({ snapshot, previous, events });
+  const { world, playing } = useProposalAnimationSync({ snapshot, previous, events, readAt });
   const entities = useMemo(() => governanceEntitiesOf(config, targetNetwork.id), [config, targetNetwork.id]);
 
   const map = useMemo(

@@ -13,6 +13,11 @@ export type AnimationSyncInput = {
   /** The read `events` lead from. */
   previous: GovernanceSnapshot | null;
   events: readonly AnimationEvent[];
+  /**
+   * When the latest answer arrived. A poll that finds nothing new keeps `snapshot` as it was, and it
+   * still has to count, or a council change waiting for an outcome Mirror never confirms waits forever.
+   */
+  readAt?: number;
 };
 
 /**
@@ -24,15 +29,16 @@ export type AnimationSyncInput = {
  * and every frame is derived from them. The one timer lives in one effect, keyed on the step it ends,
  * and is cleared on unmount or when the step changes.
  */
-export function useProposalAnimationSync({ snapshot, previous, events }: AnimationSyncInput) {
+export function useProposalAnimationSync({ snapshot, previous, events, readAt }: AnimationSyncInput) {
   const [state, dispatch] = useReducer(animationQueueReducer, EMPTY_QUEUE);
 
   // `events` is a new array only when a new read arrives, and `[]` on most of them; a read with no
-  // events still matters, since it can release a council change waiting for its rotation's outcome.
+  // events still matters, since it can release a council change waiting for its rotation's outcome,
+  // and so does an answer that changed nothing (`readAt`), which counts towards `MAX_PARKED_READS`.
   // Under StrictMode this runs twice, which the queue's dedupe makes harmless.
   useEffect(() => {
     if (snapshot) dispatch({ type: "read", events, previous, world: snapshot });
-  }, [events, previous, snapshot]);
+  }, [events, previous, snapshot, readAt]);
 
   const current = state.queue[0] ?? null;
   const steps = useMemo(

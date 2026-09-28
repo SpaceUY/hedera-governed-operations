@@ -15,6 +15,7 @@ import {
   proposal,
   world,
 } from "~~/services/liveMap/motion/motionFixtures";
+import { MAX_PARKED_READS } from "~~/services/liveMap/motion/queue";
 
 const ID = "0.0.9001";
 const OPEN = world([proposal({ id: ID, operation: UPGRADE_CALL, signatures: [[ALICE, ago(20)]] })]);
@@ -181,5 +182,20 @@ describe("useProposalAnimationSync", () => {
     expect(result.current.playing).toBeNull();
     expect(result.current.world?.council).toEqual(COUNCIL);
     expect(result.current.world?.proposals).toBe(rotated.proposals);
+  });
+  it("counts answers that changed nothing, so a change whose outcome never confirms still plays", () => {
+    const pending = world([
+      proposal({ id: "0.0.7", operation: ROTATION, executedAt: ago(3), execution: { status: "unconfirmed" } }),
+    ]);
+    const rotated = { ...pending, council: INCOMING };
+    const changed: AnimationEvent = { kind: "councilChanged", scheduleId: "0.0.7", at: ago(3), council: INCOMING };
+    const { result, rerender } = renderSync({ snapshot: pending, previous: null, events: [], readAt: 0 });
+    const parked = { snapshot: rotated, previous: pending, events: [changed] };
+    rerender({ ...parked, readAt: 1 });
+    // Mirror answers the same thing again and again: the snapshot, and so the events, stay the same.
+    for (let readAt = 2; readAt < 1 + MAX_PARKED_READS; readAt++) rerender({ ...parked, readAt });
+    expect(result.current.world?.council).toEqual(COUNCIL);
+    rerender({ ...parked, readAt: 1 + MAX_PARKED_READS });
+    expect(result.current.world?.council).toEqual(INCOMING);
   });
 });

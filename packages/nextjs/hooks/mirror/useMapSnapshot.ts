@@ -84,6 +84,7 @@ export function useMapSnapshot({ vaultContractId, demoTokenId, usdcTokenId, ...o
   );
 
   // `previous` is the world `events` lead from, which a map shows while it plays them; `error` is the
-  // council's, the one read without which there is nothing to draw.
-  return { snapshot: history.current, previous: history.previous, events, error: council.error };
+  // council's, the one read without which there is nothing to draw; `readAt` moves on every answer,
+  // even one that changed nothing and so left `snapshot` as it was.
+  return { snapshot: history.current, previous: history.previous, events, readAt, error: council.error };
 }
