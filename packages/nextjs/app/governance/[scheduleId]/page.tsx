@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { SetupNotice } from "~~/components/SetupNotice";
+import { DemoSignButtons } from "~~/components/governance/DemoSignButtons";
 import { MutationError } from "~~/components/governance/MutationError";
 import { GOVERNANCE_CONTRACTS, getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
@@ -130,6 +131,12 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
           </div>
           <MutationError error={sign.error} />
           <MutationError error={withdraw.error} />
+          <DemoSignButtons
+            proposal={proposal}
+            governanceAccountId={governanceAccountId}
+            executorContractId={executorContractId}
+            onSigned={refresh}
+          />
           {isWithdrawable && (
             <p className="text-sm text-base-content/60">
               Withdrawing deletes the schedule and every approval on it; only you, as the proposer, can do it.

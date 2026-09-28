@@ -102,7 +102,7 @@ type UncrossedProposal = Omit<Proposal, "registry">;
  * A scheduled call can name its contract by id or by EVM address, and both mean the same contract,
  * so comparing the text alone would quietly skip the cross-check on half the proposals.
  */
-function isThisExecutor(named: string, executorContractId: string): boolean {
+export function isThisExecutor(named: string, executorContractId: string): boolean {
   if (named === executorContractId) return true;
   return named.toLowerCase() === `0x${ContractId.fromString(executorContractId).toEvmAddress()}`.toLowerCase();
 }
