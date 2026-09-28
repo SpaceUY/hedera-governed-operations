@@ -4,14 +4,20 @@
  * the chain's invariants; the preview then reads the result back through the same decoders the
  * detail page uses, so the wizard shows what a council member will be shown, not what the form meant.
  */
-import type { Transaction } from "@hiero-ledger/sdk";
+import { AccountId, TokenId, type Transaction } from "@hiero-ledger/sdk";
 import { decodeRegistryOperation, decodeScheduledOperation } from "@sh/core/governance/decode";
-import { type RegistryProposal, buildTreasuryTransfer, encodeUpgrade } from "@sh/core/governance/encode";
+import {
+  type RegistryProposal,
+  buildTreasuryTransfer,
+  encodeTokenAdmin,
+  encodeUpgrade,
+} from "@sh/core/governance/encode";
 import type {
   ContractProposalKind,
   NativeProposalKind,
   RegistryOperation,
   ScheduledOperation,
+  TokenAdminOperation,
 } from "@sh/core/governance/proposalTypes";
 import { scheduledBodyOf } from "@sh/core/governance/scheduledBody";
 import { type Abi, type Address, encodeFunctionData } from "viem";
@@ -88,6 +94,45 @@ export function draftVaultUpgrade(targets: VaultUpgradeTargets, values: VaultUpg
     target: `Vault · ${targets.proxyContractId}`,
     proposal: encodeUpgrade({ proxy: targets.proxy, implementation: targets.implementation, initializerCalldata }),
   };
+}
+
+export type TokenAdminTargets = {
+  /** `TokenAdmin`, which holds the token's pause and freeze keys. */
+  tokenAdmin: Address;
+  tokenAdminContractId: string;
+  /** The token whose keys `TokenAdmin` holds. */
+  tokenId: string;
+};
+
+/** `accountId` is the holder a freeze or unfreeze acts on, as the Mirror Node resolved it; null for pause and unpause. */
+export type TokenAdminValues = { operation: TokenAdminOperation; accountId: string | null };
+
+/** A freeze and an unfreeze act on one holder; a pause and an unpause on the token as a whole. */
+export function tokenAdminNeedsAccount(operation: TokenAdminOperation): boolean {
+  return operation === "freeze" || operation === "unfreeze";
+}
+
+/**
+ * The token system contract takes EVM addresses, so the ids become their long-zero addresses here. For
+ * an account that has an EVM alias that is still the same account: the system contract resolves both.
+ */
+export function draftTokenAdmin(targets: TokenAdminTargets, values: TokenAdminValues): ProposalDraft {
+  const account = values.accountId ? entityAddress(AccountId.fromString(values.accountId)) : undefined;
+  return {
+    path: "registry",
+    kind: "tokenAdmin",
+    target: `Token admin · ${targets.tokenAdminContractId}`,
+    proposal: encodeTokenAdmin({
+      tokenAdmin: targets.tokenAdmin,
+      operation: values.operation,
+      token: entityAddress(TokenId.fromString(targets.tokenId)),
+      account,
+    }),
+  };
+}
+
+function entityAddress(entity: AccountId | TokenId): Address {
+  return `0x${entity.toEvmAddress()}`;
 }
 
 export function tryDraft(build: () => ProposalDraft): DraftResult {

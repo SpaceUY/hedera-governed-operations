@@ -4,7 +4,8 @@
  * entry or approvals are called once it exists — lives in `services/governance/proposalLabels`.
  */
 import type { CouncilKey } from "@sh/core/governance/council";
-import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
+import { type ProposalKind, type TokenAdminOperation, isContractProposalKind } from "@sh/core/governance/proposalTypes";
+import type { TokenFreezeStatus, TokenPauseStatus } from "@sh/core/mirror";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 
 /** The title a proposal of each kind goes by, and the short hint beside it in the picker. */
@@ -74,6 +75,9 @@ export const OPEN_PROPOSAL_NOTICES = {
   upgradeTargetMissing:
     "The vault's next implementation is not deployed on this network, so a vault upgrade cannot be proposed yet. " +
     "Run `yarn hardhat:deploy --network hederaTestnet` to deploy it; paying a supplier works without it.",
+  tokenAdminMissing:
+    "TokenAdmin, the contract that holds the token's pause and freeze keys, is not deployed on this network. " +
+    "Run `yarn hardhat:deploy --network hederaTestnet` to deploy it; paying a supplier works without it.",
 } as const;
 
 export function missingProposerRoleLabel(accountId: string): string {
@@ -83,10 +87,37 @@ export function missingProposerRoleLabel(accountId: string): string {
   );
 }
 
-/** Why a typed recipient is not yet an account the transfer can name. */
-export const RECIPIENT_LOOKUP_LABELS = {
+/** Why a typed account — a recipient, the holder to freeze — is not yet one the proposal can name. */
+export const ACCOUNT_LOOKUP_LABELS = {
   malformed: (input: string) => `${input} is not an account id (0.0.x) or an EVM address`,
   loading: (input: string) => `Looking up ${input} on the Mirror Node…`,
   notFound: (input: string) => `No account found for ${input}`,
   unreachable: (input: string) => `Could not look up ${input} right now. Try again.`,
 } as const satisfies Record<string, (input: string) => string>;
+
+/** The token operations as the form offers them; the function names are what the preview shows. */
+export const TOKEN_ADMIN_OPERATION_LABELS: Record<TokenAdminOperation, string> = {
+  pause: "Pause",
+  unpause: "Unpause",
+  freeze: "Freeze an account",
+  unfreeze: "Unfreeze an account",
+};
+
+/** What the token form says about the token and the holder, read from the Mirror Node. */
+export const TOKEN_ADMIN_COPY = {
+  explainer:
+    "TokenAdmin holds this token's pause and freeze keys, so the council acts on the token through the registry: " +
+    "the network refuses a scheduled TokenPause, and a scheduled call cannot present the treasury's key to the token service.",
+  pauseStatus: (symbol: string, status: TokenPauseStatus) =>
+    status === "NOT_APPLICABLE" ? `${symbol} has no pause key.` : `${symbol} is ${status.toLowerCase()} right now.`,
+  freezeStatus: (accountId: string, symbol: string, status: TokenFreezeStatus) =>
+    status === "NOT_APPLICABLE"
+      ? `${symbol} has no freeze key, so ${accountId} cannot be frozen.`
+      : `${accountId} is ${status.toLowerCase()} for ${symbol} right now.`,
+  notAssociated: (accountId: string, symbol: string) =>
+    `${accountId} is not associated with ${symbol}, so the network would refuse to freeze or unfreeze it ` +
+    "(TOKEN_NOT_ASSOCIATED_TO_ACCOUNT) and the governance account would pay for the failed call.",
+  relationshipUnreadable: (accountId: string) =>
+    `Could not read how ${accountId} stands with the token right now. Try again.`,
+  tokenUnreadable: (tokenId: string) => `Could not read token ${tokenId} on the Mirror Node right now.`,
+} as const;

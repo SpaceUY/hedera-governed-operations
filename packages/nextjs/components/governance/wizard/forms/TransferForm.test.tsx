@@ -3,7 +3,7 @@ import { MirrorNodeError } from "@sh/core/mirror";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Chain } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RECIPIENT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
+import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
@@ -131,7 +131,7 @@ describe("TransferForm", () => {
 
     expect(lastResult(onDraftChange)).toEqual({
       status: "invalid",
-      message: RECIPIENT_LOOKUP_LABELS.malformed("alice"),
+      message: ACCOUNT_LOOKUP_LABELS.malformed("alice"),
     });
   });
 
@@ -141,7 +141,7 @@ describe("TransferForm", () => {
 
     fill({ recipient: "0.0.500", amount: "1" });
 
-    expect(screen.getByRole("status").textContent).toBe(RECIPIENT_LOOKUP_LABELS.loading("0.0.500"));
+    expect(screen.getByRole("status").textContent).toBe(ACCOUNT_LOOKUP_LABELS.loading("0.0.500"));
     expect(lastResult(onDraftChange)).toEqual({ status: "empty" });
   });
 

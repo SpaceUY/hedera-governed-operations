@@ -46,6 +46,9 @@ vi.mock("~~/components/governance/wizard/forms/UpgradeVaultForm", async () => {
     },
   };
 });
+vi.mock("~~/components/governance/wizard/forms/TokenAdminForm", () => ({
+  TokenAdminForm: () => <div>token form</div>,
+}));
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
@@ -106,7 +109,7 @@ const setup = ({ accountId, proposers }: { accountId: string | null; proposers: 
   } as never);
 };
 
-const cta = (kind: "upgrade" | "treasuryTransfer") =>
+const cta = (kind: "upgrade" | "tokenAdmin" | "treasuryTransfer") =>
   screen.getByRole("button", { name: openProposalCopy(kind).cta }) as HTMLButtonElement;
 
 beforeEach(() => {
@@ -136,6 +139,17 @@ describe("NewProposalPage", () => {
     pickTransfer();
     expect(screen.queryByText(OPEN_PROPOSAL_NOTICES.upgradeTargetMissing)).toBeNull();
     expect(cta("treasuryTransfer").disabled).toBe(false);
+  });
+
+  it("says TokenAdmin is not deployed instead of offering a token form that could not be submitted", () => {
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    vi.mocked(findDeployedContract).mockReturnValue(null);
+    renderPage();
+
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.tokenAdmin.title) }));
+
+    expect(screen.getByRole("status").textContent).toBe(OPEN_PROPOSAL_NOTICES.tokenAdminMissing);
+    expect(cta("tokenAdmin").disabled).toBe(true);
   });
 
   it("opens on the vault upgrade, as the prototype does, and asks for a wallet", () => {

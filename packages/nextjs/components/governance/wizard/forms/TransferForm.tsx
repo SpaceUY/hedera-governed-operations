@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { accountLookup } from "./accountLookup";
 import { HbarInput, HederaAddressInput } from "@scaffold-hbar-ui/components";
 import type { CouncilKey } from "@sh/core/governance/council";
-import { MirrorNodeError, isMirrorEntityRef } from "@sh/core/mirror";
 import type { Chain } from "viem";
-import { RECIPIENT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
+import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { type DraftResult, draftTreasuryTransfer, tryDraft } from "~~/services/governance/drafts";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
@@ -27,26 +27,18 @@ export const TransferForm = ({ governanceAccountId, network, chain, council, onD
   const recipientAccountId = recipient.data?.account;
 
   useEffect(() => {
-    if (!recipientInput || !amount.trim()) {
+    if (!amount.trim()) {
       onDraftChange({ status: "empty" });
       return;
     }
-    // `useAccount` stays idle on an input it cannot look up, so a malformed one would otherwise wait forever.
-    if (!isMirrorEntityRef(recipientInput)) {
-      onDraftChange({ status: "invalid", message: RECIPIENT_LOOKUP_LABELS.malformed(recipientInput) });
+    const lookup = accountLookup(recipientInput, { accountId: recipientAccountId, error: recipient.error });
+    if (lookup.status !== "found") {
+      onDraftChange(lookup);
       return;
     }
-    if (recipient.error) {
-      const notFound = recipient.error instanceof MirrorNodeError && recipient.error.status === 404;
-      const label = notFound ? RECIPIENT_LOOKUP_LABELS.notFound : RECIPIENT_LOOKUP_LABELS.unreachable;
-      onDraftChange({ status: "invalid", message: label(recipientInput) });
-      return;
-    }
-    if (!recipientAccountId) {
-      onDraftChange({ status: "empty" });
-      return;
-    }
-    onDraftChange(tryDraft(() => draftTreasuryTransfer(governanceAccountId, { recipientAccountId, amount })));
+    onDraftChange(
+      tryDraft(() => draftTreasuryTransfer(governanceAccountId, { recipientAccountId: lookup.accountId, amount })),
+    );
   }, [recipientInput, recipientAccountId, recipient.error, amount, governanceAccountId, onDraftChange]);
 
   return (
@@ -61,7 +53,7 @@ export const TransferForm = ({ governanceAccountId, network, chain, council, onD
         />
         {recipient.isLoading && (
           <span role="status" className="text-sm text-base-content/60">
-            {RECIPIENT_LOOKUP_LABELS.loading(recipientInput)}
+            {ACCOUNT_LOOKUP_LABELS.loading(recipientInput)}
           </span>
         )}
       </label>
