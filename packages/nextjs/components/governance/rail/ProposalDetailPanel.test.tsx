@@ -124,6 +124,8 @@ describe("ProposalDetailPanel", () => {
     // Below the page's text-lg title, and with the narrower padding a card inside the page's own can afford.
     expect(title.className).toContain("text-base");
     expect(title.parentElement?.className).toContain("px-3");
+    // No room for a label column in a phone-width card: each value sits under its label.
+    expect(screen.getByText("Status").closest("dl")?.className).toContain("grid-cols-1");
   });
 
   it("offers Sign while the proposal can be signed", () => {

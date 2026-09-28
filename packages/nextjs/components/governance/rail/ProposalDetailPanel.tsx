@@ -26,8 +26,23 @@ import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 export type PanelVariant = "page" | "inline";
 
 const VARIANT_LAYOUT = {
-  page: { Title: "h1", approverHeadingLevel: 2, container: "px-6 py-5", title: "text-lg mb-4" },
-  inline: { Title: "h2", approverHeadingLevel: 3, container: "px-3 py-3", title: "text-base mb-3" },
+  page: {
+    Title: "h1",
+    approverHeadingLevel: 2,
+    container: "px-6 py-5",
+    title: "text-lg mb-4",
+    body: "",
+    facts: "grid-cols-[auto_1fr] gap-x-4 gap-y-2",
+  },
+  // A phone-width card has no room for a label column beside the values, so each value goes under its label.
+  inline: {
+    Title: "h2",
+    approverHeadingLevel: 3,
+    container: "px-3 py-3",
+    title: "text-base mb-3",
+    body: "text-sm",
+    facts: "grid-cols-1 gap-y-1",
+  },
 } as const satisfies Record<PanelVariant, object>;
 
 export type ProposalDetailPanelProps = {
@@ -65,16 +80,16 @@ export const ProposalDetailPanel = ({
   const registryUnreachable = operation.kind === "registryCall" && registry.status === "unreachable";
   const sign = useSignProposal();
   const council = useCouncil({ governanceAccountId, executorContractId, network });
-  const { Title, approverHeadingLevel, container, title } = VARIANT_LAYOUT[variant];
+  const { Title, approverHeadingLevel, container, title, body, facts } = VARIANT_LAYOUT[variant];
 
   return (
     // Addresses and ids are single long words; letting them wrap anywhere keeps a phone from scrolling sideways.
     <div className={`${container} wrap-anywhere`}>
       <Title className={`${title} font-bold`}>Proposal {proposal.schedule.schedule_id}</Title>
-      <p className="mb-2">{describeScheduledOperation(operation)}</p>
-      {registryDescription && <p className="mb-4 text-base-content/70">{registryDescription}</p>}
+      <p className={`mb-2 ${body}`}>{describeScheduledOperation(operation)}</p>
+      {registryDescription && <p className={`mb-4 text-base-content/70 ${body}`}>{registryDescription}</p>}
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mb-6">
+      <dl className={`grid ${facts} text-sm mb-6`}>
         <dt className="text-base-content/60">Status</dt>
         <dd>{proposalStatusLabel(proposal)}</dd>
         <dt className="text-base-content/60">Registry entry</dt>
