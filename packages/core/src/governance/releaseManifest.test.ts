@@ -1,4 +1,4 @@
-import { fetchContract, fetchDecodedTopicMessagePages, fetchTopic } from "../mirror";
+import { fetchContract, fetchDecodedTopicMessagePages } from "../mirror";
 import {
   RELEASE_MANIFEST_SCHEMA,
   type ReleaseManifest,
@@ -15,7 +15,6 @@ vi.mock("../mirror", async importOriginal => ({
   ...(await importOriginal<typeof import("../mirror")>()),
   fetchContract: vi.fn(),
   fetchDecodedTopicMessagePages: vi.fn(),
-  fetchTopic: vi.fn(),
 }));
 
 const IMPLEMENTATION = "0x00000000000000000000000000000000000abcde";
@@ -53,15 +52,20 @@ const mockTopic = (messages: unknown[], truncated = false): void => {
   } as never);
 };
 
+/** The topic itself, which `assertTopicIsSigned` reads straight from the Mirror Node. */
 const mockTopicKeys = (submitKey: unknown, deleted = false): void => {
-  vi.mocked(fetchTopic).mockResolvedValue({ topic_id: TOPIC, deleted, submit_key: submitKey } as never);
+  const topic = { topic_id: TOPIC, memo: "releases", deleted, submit_key: submitKey, admin_key: null };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(topic))));
 };
 
 const mockContract = (runtimeBytecode: string | null): void => {
   vi.mocked(fetchContract).mockResolvedValue({ runtime_bytecode: runtimeBytecode } as never);
 };
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("hashRuntimeBytecode", () => {
   it("hashes the deployed code, prefixed or not, to the same value", () => {

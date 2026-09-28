@@ -23,10 +23,9 @@
 import {
   type MirrorRequestOptions,
   type MirrorTopic,
+  assertTopicIsSigned,
   fetchContract,
   fetchDecodedTopicMessagePages,
-  fetchTopic,
-  hasSubmitKey,
 } from "../mirror";
 import { type Hex, isHex, keccak256 } from "viem";
 
@@ -136,23 +135,14 @@ export async function fetchReleaseManifests(
 
 /**
  * The check that has to run before a topic's contents count as releases: a topic with no submit key
- * takes a message from anyone, so every manifest on it is an unsigned claim. It throws rather than
- * returning a verdict because it answers a question about the configuration, not about a proposal —
- * an agent pointed at an open topic should refuse to start, not refuse one upgrade at a time.
+ * takes a message from anyone, so every manifest on it is an unsigned claim. An agent pointed at an
+ * open topic refuses to start rather than refusing one upgrade at a time.
  */
 export async function assertReleaseTopicIsSigned(
   topicId: string,
   options: MirrorRequestOptions = {},
 ): Promise<MirrorTopic> {
-  const topic = await fetchTopic(topicId, options);
-  if (topic.deleted) throw new Error(`release topic ${topicId} is deleted`);
-  if (!hasSubmitKey(topic)) {
-    throw new Error(
-      `release topic ${topicId} has no submit key, so anyone can publish a manifest on it: ` +
-        "create one with a submit key (yarn setup does) and point the policy at that topic instead",
-    );
-  }
-  return topic;
+  return assertTopicIsSigned(topicId, "release", options);
 }
 
 export type ManifestCheck = { matched: true; manifest: PublishedManifest } | { matched: false; reason: string };
