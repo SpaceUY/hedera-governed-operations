@@ -25,10 +25,6 @@ describe("registryLabel", () => {
     expect(registryLabel({ status: "notApplicable" })).toBe("None: the network runs this operation directly");
   });
 
-  it("says a settled registry call's entry was not read, rather than that it has none", () => {
-    expect(registryLabel({ status: "notRead" })).toBe("Not read: the proposal is no longer collecting signatures");
-  });
-
   it("warns against signing when the registry holds no usable entry", () => {
     expect(registryLabel({ status: "missing", reason: "no entry 7" })).toBe("No usable entry: do not sign");
   });

@@ -20,7 +20,7 @@ const proposal = (n: number): Proposal =>
       gas: 90_000,
       payableTinybars: 0n,
     },
-    registry: { status: "notRead" },
+    registry: { status: "unreachable", reason: "relay down" },
   }) as unknown as Proposal;
 
 const proposals = (count: number): Proposal[] => Array.from({ length: count }, (_unused, index) => proposal(index + 1));

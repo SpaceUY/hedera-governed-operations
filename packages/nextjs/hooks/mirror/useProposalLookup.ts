@@ -77,10 +77,9 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
     scheduleQuery.data && isGovernancePayer
       ? decodeScheduledOperation(scheduleQuery.data.schedule.transaction_body)
       : undefined;
-  // The entry is read whatever state the schedule is in. Once it was deleted or expired, or ran and
-  // failed, it is exactly when the proposer should cancel it or the council schedule it again; once
-  // it ran, the entry is what says what ran. One page reads one entry, unlike the inbox, which skips
-  // the ones whose schedule ran them (`notRead`) to spare a read per row and poll.
+  // The entry is read whatever state the schedule is in, as the inbox reads it. Once it was deleted
+  // or expired, or ran and failed, it is exactly when the proposer should cancel it or the council
+  // schedule it again; once it ran, the entry is what says what ran.
   const needsRegistryCheck =
     operation?.kind === "registryCall" && isThisExecutor(operation.executorContractId, options.executorContractId);
   const proposalId = operation?.kind === "registryCall" ? operation.proposalId : undefined;

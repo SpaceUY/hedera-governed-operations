@@ -62,16 +62,10 @@ export type RegistryEntry = {
  * `proposal(id)` revert — and signing such a schedule spends the council's approval on a call that
  * reverts and charges the governance account. `unreachable` only means the question could not be
  * asked. So a screen should refuse to sign on `missing` the way it does on a cancelled entry, and
- * merely warn on `unreachable`.
- *
- * `notApplicable` and `notRead` are not the same answer either. `notApplicable` is a proposal with no
- * entry to read, a native kind. `notRead` is a registry call whose entry exists but was left unread
- * because its schedule ran it and did not fail, so the entry has executed and nothing the council can
- * do depends on it any more: the inbox skips those to spare a relay read per row and poll.
+ * merely warn on `unreachable`. `notApplicable` is a proposal with no entry at all, a native kind.
  */
 export type RegistryCrossCheck =
   | { status: "notApplicable" }
-  | { status: "notRead" }
   | { status: "read"; entry: RegistryEntry }
   | { status: "missing"; reason: string }
   | { status: "unreachable"; reason: string };
@@ -126,8 +120,8 @@ export function proposalIdFromContractResult(result: MirrorContractResult): numb
 
 /**
  * The registry entries behind a set of proposals, one read each. There is no batching: a multicall
- * would need a contract deployed for it, and the inbox only asks about the entries whose schedule has
- * not run them and that it has not already seen cancelled or executed, which are final answers.
+ * would need a contract deployed for it, and the inbox only asks about the entries it has not already
+ * seen cancelled or executed, which are final answers.
  *
  * One entry that cannot be read leaves that proposal uncrossed instead of failing the whole inbox,
  * the same partial result the inbox already returns when a proposer cannot be read from Mirror.

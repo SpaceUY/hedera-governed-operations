@@ -61,9 +61,7 @@ export function readOperation(proposal: Proposal, executorContractId: string): R
   const { registry } = proposal;
   if (registry.status === "missing") return unreadable(`the registry has no entry ${operation.proposalId}`);
   if (registry.status === "unreachable") return unreadable(`the registry could not be read: ${registry.reason}`);
-  if (registry.status === "notApplicable" || registry.status === "notRead") {
-    return unreadable("the registry entry behind this proposal was not read");
-  }
+  if (registry.status === "notApplicable") return unreadable("the registry entry behind this proposal was not read");
   if (registry.entry.state !== "pending") return unreadable(`the registry entry is already ${registry.entry.state}`);
 
   const entry = registry.entry.operation;

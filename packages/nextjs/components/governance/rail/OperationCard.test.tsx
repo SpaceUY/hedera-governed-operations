@@ -21,7 +21,7 @@ const proposal = (overrides: Partial<Proposal> = {}): Proposal =>
       gas: 90_000,
       payableTinybars: 0n,
     },
-    registry: { status: "notRead" },
+    registry: { status: "unreachable", reason: "relay down" },
     ...overrides,
   }) as unknown as Proposal;
 

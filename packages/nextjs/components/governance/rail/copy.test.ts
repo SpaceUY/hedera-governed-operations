@@ -90,7 +90,9 @@ describe("endNote", () => {
 describe("proposalIdentityOf", () => {
   it("names a registry call by its entry's operation once read, and by the entry before", () => {
     expect(proposalIdentityOf(proposal("pending")).title).toBe("Upgrade the vault to v2");
-    const unread = proposalIdentityOf(proposal("pending", { registry: { status: "notRead" } as Proposal["registry"] }));
+    const unread = proposalIdentityOf(
+      proposal("pending", { registry: { status: "unreachable", reason: "relay down" } as Proposal["registry"] }),
+    );
     expect(unread).toMatchObject({ title: "Run entry 7 of the registry at 0.0.5000", family: "contract" });
   });
 

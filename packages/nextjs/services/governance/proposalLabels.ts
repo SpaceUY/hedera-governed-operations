@@ -34,8 +34,6 @@ export function registryLabel(registry: RegistryCrossCheck): string {
       return REGISTRY_ENTRY_LABELS[registry.entry.state];
     case "notApplicable":
       return "None: the network runs this operation directly";
-    case "notRead":
-      return "Not read: the proposal is no longer collecting signatures";
     case "missing":
       return "No usable entry: do not sign";
     case "unreachable":
@@ -98,7 +96,7 @@ export function executionFailureLabel({
     `The network ran it and answered ${execution.result}: nothing changed, ` +
     "and the governance account still paid its fee.";
   if (operation.kind !== "registryCall") return `${outcome} To try again, schedule the same operation again.`;
-  if (registry.status === "unreachable" || registry.status === "notRead") {
+  if (registry.status === "unreachable") {
     return `${outcome} The registry entry could not be read, so whether it can run again is not known yet.`;
   }
   if (registry.status !== "read") {

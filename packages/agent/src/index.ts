@@ -16,7 +16,7 @@ import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } fro
 import { Client, TopicMessageSubmitTransaction } from "@hiero-ledger/sdk";
 import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
 import { assertDecisionTopicAcceptsKey, buildDecisionMessage } from "@sh/core/governance/decisionLog";
-import { fetchProposalInbox } from "@sh/core/governance/proposals";
+import { type ProposalInbox, fetchProposalInbox } from "@sh/core/governance/proposals";
 import { assertReleaseTopicIsSigned, checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
 import type { Server } from "node:http";
@@ -129,6 +129,8 @@ type Pass = {
   published: Reported;
   /** Null in a dry run, which costs nothing and therefore records nothing either. */
   publish: PublishDecision | null;
+  /** The last inbox read, so a registry entry already read as cancelled or executed is not read again. */
+  previous?: ProposalInbox;
 };
 
 async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
@@ -151,7 +153,9 @@ async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
     council,
     network: config.network,
     registry: { executorContractId: config.executorContractId, rpcUrl: config.rpcUrl },
+    previous: pass.previous,
   });
+  pass.previous = inbox;
 
   const result = await reviewInbox(
     inbox,

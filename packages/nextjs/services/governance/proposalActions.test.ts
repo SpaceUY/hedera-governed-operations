@@ -88,8 +88,10 @@ describe("canBeSigned", () => {
     expect(canBeSigned({ state: stateOf("pending"), operation: REGISTRY_CALL, registry })).toBe(false);
   });
 
-  it.each([REGISTRY_CALL, TRANSFER])("refuses an entry that was not read, whatever the kind", operation => {
-    expect(canBeSigned({ state: stateOf("pending"), operation, registry: { status: "notRead" } })).toBe(false);
+  it("refuses a registry call crossed as having no entry at all", () => {
+    expect(
+      canBeSigned({ state: stateOf("pending"), operation: REGISTRY_CALL, registry: { status: "notApplicable" } }),
+    ).toBe(false);
   });
 
   it("still offers a signature while the relay cannot be read, since the network is the final check", () => {
@@ -305,8 +307,8 @@ describe("otherOpenScheduleOf", () => {
     expect(otherOpenScheduleOf(viewed, inbox)).toBeNull();
   });
 
-  it("has nothing to compare against when the viewed entry was not read", () => {
-    const notRead = { ...viewed, registry: { status: "notRead" } as RegistryCrossCheck };
-    expect(otherOpenScheduleOf(notRead, [round("0.0.2")])).toBeNull();
+  it("has nothing to compare against when the viewed entry could not be read", () => {
+    const unread = { ...viewed, registry: { status: "unreachable", reason: "relay down" } as RegistryCrossCheck };
+    expect(otherOpenScheduleOf(unread, [round("0.0.2")])).toBeNull();
   });
 });

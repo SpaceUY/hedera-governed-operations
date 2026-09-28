@@ -352,16 +352,39 @@ describe("crossing a proposal with its registry entry", () => {
     expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
   });
 
-  /** Not `notApplicable`, which a screen words as a native kind with no entry at all. */
-  it("leaves a proposal that executed successfully unread, since its entry has run", async () => {
-    const fetchMock = stubSchedulesPerProposer([
-      scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody }),
+  /** The entry is what says which operation ran, so a settled card can name it. */
+  it("reads the entry of a proposal that executed, once, and reuses it on every later poll", async () => {
+    const executed = scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody });
+    const firstPoll = stubSchedulesPerProposer([executed]);
+    stubRegistryStates(1);
+    const previous = await inboxOf([ALICE]);
+    const secondPoll = stubSchedulesPerProposer([executed]);
+
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect([previous.proposals[0].registry, relayReadsOf(firstPoll), relayReadsOf(secondPoll)]).toMatchObject([
+      { status: "read", entry: { state: "executed", operation: { kind: "upgrade" } } },
+      1,
+      0,
     ]);
+    expect(proposal.registry).toBe(previous.proposals[0].registry);
+  });
 
-    const [proposal] = (await inboxOf([ALICE])).proposals;
+  /** The relay answers from a block or two back, so an entry that just ran can still read pending. */
+  it("reads a lagging pending entry behind an executed schedule again on the next poll", async () => {
+    const executed = scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody });
+    stubSchedulesPerProposer([executed]);
+    stubRegistryStates(0);
+    const previous = await inboxOf([ALICE]);
+    const fetchMock = stubSchedulesPerProposer([executed]);
+    stubRegistryStates(1);
 
-    const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
-    expect([proposal.registry.status, relayReads.length]).toEqual(["notRead", 0]);
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect([proposal.registry, relayReadsOf(fetchMock)]).toMatchObject([
+      { status: "read", entry: { state: "executed" } },
+      1,
+    ]);
   });
 
   /** A revert leaves the entry as it was, so the council can still schedule `execute(id)` again. */
@@ -543,8 +566,8 @@ describe("the registry entry behind a round that is over", () => {
   });
 
   /**
-   * The relay reads per poll are one per entry whose answer can still change: a round that ran leaves
-   * its entry unread, and a final answer is read once and then carried.
+   * The relay reads per poll are one per entry whose answer can still change: a final answer — the
+   * entry a round ran included — is read once and then carried.
    */
   it("reads each entry whose answer can still change once per poll, and final ones only once", async () => {
     const inbox = [
@@ -555,7 +578,7 @@ describe("the registry entry behind a round that is over", () => {
       scheduleOf("0.0.1", { transaction_body: executeBodyFor(4) }),
     ];
     const firstPoll = stubSchedulesPerProposer(inbox);
-    stubRegistryStates(0, 2, 0);
+    stubRegistryStates(0, 2, 0, 1);
     const previous = await inboxOf([ALICE]);
     const readsOnFirstPoll = relayReadsOf(firstPoll);
     const secondPoll = stubSchedulesPerProposer(inbox);
@@ -563,8 +586,8 @@ describe("the registry entry behind a round that is over", () => {
 
     const { proposals } = await inboxAfter(previous);
 
-    expect([readsOnFirstPoll, relayReadsOf(secondPoll)]).toEqual([3, 2]);
-    expect(proposals.map(proposal => proposal.registry.status)).toEqual(["read", "read", "read", "read", "notRead"]);
+    expect([readsOnFirstPoll, relayReadsOf(secondPoll)]).toEqual([4, 2]);
+    expect(proposals.map(proposal => proposal.registry.status)).toEqual(["read", "read", "read", "read", "read"]);
   });
 });
 
