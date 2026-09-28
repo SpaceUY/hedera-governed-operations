@@ -1,20 +1,9 @@
-import {
-  PROPOSAL_KIND_COPY,
-  approverLabel,
-  councilRuleLabel,
-  expiryLabel,
-  gasLimitLabel,
-  openProposalCopy,
-} from "./copy";
+import { PROPOSAL_KIND_COPY, approverLabel, expiryLabel, gasLimitLabel, openProposalCopy } from "./copy";
 import { MAX_SCHEDULE_MEMO_BYTES } from "@sh/core/governance/schedules";
 import { describe, expect, it } from "vitest";
 
 describe("wizard words", () => {
   const council = { threshold: 2, memberKeys: ["a", "b", "c"] };
-
-  it("states the council rule", () => {
-    expect(councilRuleLabel(council)).toBe("2-of-3");
-  });
 
   it("says a scheduled call's gas is charged in full, and a native one has none", () => {
     expect(gasLimitLabel(150_000)).toBe(`${(150_000).toLocaleString()} — charged in full on success`);

@@ -75,6 +75,10 @@ describe("canBeSigned", () => {
     expect(canBeSigned({ state: stateOf("pending"), operation: REGISTRY_CALL, registry })).toBe(false);
   });
 
+  it.each([REGISTRY_CALL, TRANSFER])("refuses an entry that was not read, whatever the kind", operation => {
+    expect(canBeSigned({ state: stateOf("pending"), operation, registry: { status: "notRead" } })).toBe(false);
+  });
+
   it("refuses while the relay cannot be read, even though the schedule is still pending", () => {
     const registry: RegistryCrossCheck = { status: "unreachable", reason: "fetch failed" };
     expect(canBeSigned({ state: stateOf("pending"), operation: REGISTRY_CALL, registry })).toBe(false);

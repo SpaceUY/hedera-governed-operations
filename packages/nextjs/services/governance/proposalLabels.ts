@@ -1,9 +1,11 @@
 /**
  * The words a screen uses for a proposal's state. The domain values (`notApplicable`, `deleted`, …)
- * name the data model; these name what a council member needs to know about the proposal. Wizard
- * copy — kind titles, the path a proposal takes, notices, CTAs — lives in `components/governance/wizard/copy`.
+ * name the data model; these name what a council member needs to know about the proposal, plus the
+ * inbox headings and the status note the live map shows around those states. Wizard copy — kind
+ * titles, the path a proposal takes, notices, CTAs — lives in `components/governance/wizard/copy`,
+ * and the map's node, edge and legend words in `components/governance/graph/copy`.
  */
-import type { ThresholdProgress } from "@sh/core/governance/council";
+import type { CouncilKey, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { RegistryCrossCheck, RegistryEntryState } from "@sh/core/governance/registry";
 import type { ScheduleStatus } from "@sh/core/mirror";
@@ -31,6 +33,8 @@ export function registryLabel(registry: RegistryCrossCheck): string {
       return REGISTRY_ENTRY_LABELS[registry.entry.state];
     case "notApplicable":
       return "None: the network runs this operation directly";
+    case "notRead":
+      return "Not read: the proposal is no longer collecting signatures";
     case "missing":
       return "No usable entry: do not sign";
     case "unreachable":
@@ -38,12 +42,24 @@ export function registryLabel(registry: RegistryCrossCheck): string {
   }
 }
 
+/**
+ * Signatures collected out of the threshold, never out of the council's size: a bare "2 of 2" beside
+ * a 2-of-3 council reads as a council of two, so the count says what it is counted against.
+ */
+const requiredSignaturesLabel = ({ signed, threshold }: ThresholdProgress): string =>
+  `${signed} of ${threshold} required signatures`;
+
+/** The council's rule, the same on the map, the treasury strip and the wizard's preview. */
+export function councilRuleLabel(council: CouncilKey): string {
+  return `${council.threshold}-of-${council.memberKeys.length}`;
+}
+
 /** A rotation is counted against both councils, since the schedule waits for each one's threshold. */
 export function approvalsLabel(progress: ThresholdProgress, incomingProgress: ThresholdProgress | null): string {
-  if (!incomingProgress) return `${progress.signed} of ${progress.threshold} council signatures`;
+  if (!incomingProgress) return requiredSignaturesLabel(progress);
   return (
-    `Current council: ${progress.signed} of ${progress.threshold} signatures · ` +
-    `Incoming council: ${incomingProgress.signed} of ${incomingProgress.threshold} signatures`
+    `Current council: ${requiredSignaturesLabel(progress)} · ` +
+    `Incoming council: ${requiredSignaturesLabel(incomingProgress)}`
   );
 }
 
@@ -79,7 +95,7 @@ export function executionFailureLabel({
     `The network ran it and answered ${execution.result}: nothing changed, ` +
     "and the governance account still paid its fee.";
   if (operation.kind !== "registryCall") return `${outcome} To try again, schedule the same operation again.`;
-  if (registry.status === "unreachable") {
+  if (registry.status === "unreachable" || registry.status === "notRead") {
     return `${outcome} The registry entry could not be read, so whether it can run again is not known yet.`;
   }
   if (registry.status !== "read") {
@@ -93,3 +109,15 @@ export function executionFailureLabel({
     "again for the council to sign, not proposing it again."
   );
 }
+
+/** The map's status line while nothing else claims it: how a proposal ends, since no button ends it. */
+export const LIVE_MAP_STATUS_NOTE =
+  "Each proposal runs by itself the moment the council's threshold has signed it. There is no execute button " +
+  "and no reject: a proposal nobody signs in time expires, and nothing runs.";
+
+/** The governance home's words for the inbox, split into open approval rounds and settled ones. */
+export const INBOX_COPY = {
+  pendingHeading: "Pending proposals",
+  settledHeading: "Settled",
+  noPending: "No proposal is waiting for signatures.",
+} as const;

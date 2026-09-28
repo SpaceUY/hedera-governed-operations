@@ -19,6 +19,14 @@ export function mirrorQueryKey(network: string, ...parts: string[]): string[] {
   return ["mirror", network, ...parts];
 }
 
+/**
+ * One registry entry as `useProposalLookup` reads it through the relay. It lives here rather than in
+ * that hook so `useRefreshOnSettle`, which the hook itself uses, can name it without an import cycle.
+ */
+export function registryEntryQueryKey(network: string, executorContractId: string, proposalId?: number): string[] {
+  return mirrorQueryKey(network, "registry-entry", executorContractId, String(proposalId ?? ""));
+}
+
 type PendingQuerySnapshot = {
   /** `undefined` until the first successful read. */
   isSettled: boolean | undefined;

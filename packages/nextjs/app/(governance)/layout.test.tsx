@@ -1,0 +1,80 @@
+import GovernanceLayout from "./layout";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
+import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
+import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
+vi.mock("~~/hooks/useSubmitProposalDraft", () => ({
+  useSubmitProposalDraft: () => ({ mutate: vi.fn(), reset: vi.fn(), status: "idle", error: null }),
+}));
+vi.mock("~~/components/governance/TreasuryStrip", () => ({ TreasuryStrip: () => <div>treasury strip</div> }));
+vi.mock("~~/components/governance/graph/GovernanceMap", () => ({
+  GovernanceMap: ({ config }: { config: GovernanceConfig }) => <div>map of {config.governanceAccountId}</div>,
+}));
+vi.mock("~~/config/governanceConfig", async importOriginal => ({
+  ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
+  resolveGovernanceConfig: vi.fn(),
+}));
+
+const DEPLOYED = {
+  address: "0x0000000000000000000000000000000000000001",
+  abi: [],
+  hederaContractId: "0.0.4242",
+} as const;
+
+const CONFIG: GovernanceConfig = {
+  governanceAccountId: "0.0.10671146",
+  demoTokenId: "0.0.9000",
+  seedProposalId: 1,
+  network: "testnet",
+  executor: DEPLOYED,
+  vault: DEPLOYED,
+};
+
+const RailPage = () => <p>rail page for {useGovernanceConfig().governanceAccountId}</p>;
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe("GovernanceLayout", () => {
+  it("shows the setup notice instead of the map and the rail when governance is not configured", () => {
+    vi.mocked(resolveGovernanceConfig).mockImplementation(() => {
+      throw new Error("Run `yarn setup`");
+    });
+
+    render(
+      <GovernanceLayout>
+        <RailPage />
+      </GovernanceLayout>,
+    );
+
+    expect(screen.getByText("Governance is not set up yet")).toBeTruthy();
+    expect(screen.getByText("Run `yarn setup`")).toBeTruthy();
+    expect(screen.queryByText(/rail page/)).toBeNull();
+    expect(screen.queryByText("treasury strip")).toBeNull();
+    expect(screen.queryByText(/map of/)).toBeNull();
+  });
+
+  it("renders the map pane beside the route's page and hands the page the resolved config", () => {
+    vi.mocked(resolveGovernanceConfig).mockReturnValue(CONFIG);
+
+    render(
+      <GovernanceLayout>
+        <RailPage />
+      </GovernanceLayout>,
+    );
+
+    const mapPane = screen.getByRole("region", { name: "Live map" });
+    expect(mapPane.textContent).toContain("treasury strip");
+    expect(mapPane.textContent).toContain(LIVE_MAP_STATUS_NOTE);
+    expect(mapPane.textContent).toContain("map of 0.0.10671146");
+    expect(screen.getByText("rail page for 0.0.10671146")).toBeTruthy();
+    expect(mapPane.contains(screen.getByText(/rail page/))).toBe(false);
+    expect(resolveGovernanceConfig).toHaveBeenCalledWith(296);
+  });
+});

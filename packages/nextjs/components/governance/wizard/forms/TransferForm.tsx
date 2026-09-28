@@ -5,9 +5,10 @@ import { HbarInput, HederaAddressInput } from "@scaffold-hbar-ui/components";
 import type { CouncilKey } from "@sh/core/governance/council";
 import { MirrorNodeError, isMirrorEntityRef } from "@sh/core/mirror";
 import type { Chain } from "viem";
-import { RECIPIENT_LOOKUP_LABELS, councilRuleLabel } from "~~/components/governance/wizard/copy";
+import { RECIPIENT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { type DraftResult, draftTreasuryTransfer, tryDraft } from "~~/services/governance/drafts";
+import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 type TransferFormProps = {

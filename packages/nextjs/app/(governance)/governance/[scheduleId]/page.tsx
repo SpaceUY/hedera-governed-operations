@@ -2,11 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
-import { SetupNotice } from "~~/components/SetupNotice";
+import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { MutationError } from "~~/components/governance/MutationError";
-import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
+import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
-import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useSignProposal } from "~~/hooks/useSignProposal";
@@ -24,13 +23,7 @@ type ProposalDetailProps = { config: GovernanceConfig; scheduleId: string };
 
 export default function ProposalDetailPage() {
   const params = useParams<{ scheduleId: string }>();
-  const { targetNetwork } = useTargetNetwork();
-  let config: GovernanceConfig;
-  try {
-    config = resolveGovernanceConfig(targetNetwork.id);
-  } catch (error) {
-    return <SetupNotice error={error} />;
-  }
+  const config = useGovernanceConfig();
   return <ProposalDetail config={config} scheduleId={params.scheduleId} />;
 }
 
@@ -59,8 +52,8 @@ function ProposalDetail({ config: { governanceAccountId, executor, network }, sc
   const executionFailure = executionFailureLabel(proposal);
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-6 sm:py-8">
-      <h1 className="text-2xl font-bold mb-4">Proposal {proposal.schedule.schedule_id}</h1>
+    <div className="px-6 py-5">
+      <h1 className="text-lg font-bold mb-4">Proposal {proposal.schedule.schedule_id}</h1>
       <p className="mb-2">{describeScheduledOperation(operation)}</p>
       {registryDescription && <p className="mb-4 text-base-content/70">{registryDescription}</p>}
 

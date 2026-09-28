@@ -5,7 +5,9 @@ import { PrivateKey } from "@hiero-ledger/sdk";
 import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
 import { fetchRegistryEntries } from "@sh/core/governance/registry";
 import { fetchAccount, fetchSchedule } from "@sh/core/mirror";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import revertedSchedule from "@sh/core/mirror/__fixtures__/schedule-reverted.json";
+import rowsAtExecution from "@sh/core/mirror/__fixtures__/transactions-at-executed.json";
 import rowsAtRevert from "@sh/core/mirror/__fixtures__/transactions-at-reverted.json";
 import { QueryClient } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
@@ -192,6 +194,44 @@ describe("useProposalLookup", () => {
 
     await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
     expect(result.current.proposal?.execution).toMatchObject({ status: "failed", result: "CONTRACT_REVERT_EXECUTED" });
+  });
+
+  /** The entry says what ran; without it the page worded a registry call as a native kind. */
+  it("reads the registry entry once the schedule ran and succeeded", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      executed_timestamp: executedSchedule.executed_timestamp,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(rowsAtExecution)));
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(
+      new Map([[7, { status: "read", entry: { proposalId: 7, state: "executed" } } as never]]),
+    );
+
+    const { result } = lookup("0.0.10671156");
+
+    await waitFor(() => expect(result.current.proposal?.execution.status).toBe("succeeded"));
+    expect(result.current.proposal?.registry).toMatchObject({ status: "read", entry: { state: "executed" } });
+  });
+
+  /** Not `notApplicable`, which the page words as a native kind that needs no entry. */
+  it("says a call to another executor has no usable entry, without reading ours", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+
+    const { result } = lookup();
+
+    await waitFor(() => expect(result.current.proposal).toBeDefined());
+    expect(result.current.proposal?.registry.status).toBe("missing");
+    expect(fetchRegistryEntries).not.toHaveBeenCalled();
   });
 
   it("drops the delayed re-read once the page is gone", () => {

@@ -1,4 +1,10 @@
-import { approvalsLabel, executionFailureLabel, proposalStatusLabel, registryLabel } from "./proposalLabels";
+import {
+  approvalsLabel,
+  councilRuleLabel,
+  executionFailureLabel,
+  proposalStatusLabel,
+  registryLabel,
+} from "./proposalLabels";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck } from "@sh/core/governance/registry";
 import type { ScheduleExecution, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
@@ -18,6 +24,10 @@ describe("registryLabel", () => {
     expect(registryLabel({ status: "notApplicable" })).toBe("None: the network runs this operation directly");
   });
 
+  it("says a settled registry call's entry was not read, rather than that it has none", () => {
+    expect(registryLabel({ status: "notRead" })).toBe("Not read: the proposal is no longer collecting signatures");
+  });
+
   it("warns against signing when the registry holds no usable entry", () => {
     expect(registryLabel({ status: "missing", reason: "no entry 7" })).toBe("No usable entry: do not sign");
   });
@@ -27,14 +37,20 @@ describe("registryLabel", () => {
   });
 });
 
+describe("councilRuleLabel", () => {
+  it("states the council rule", () => {
+    expect(councilRuleLabel({ threshold: 2, memberKeys: ["a", "b", "c"] })).toBe("2-of-3");
+  });
+});
+
 describe("approvalsLabel", () => {
-  it("counts council signatures against the threshold", () => {
-    expect(approvalsLabel(progress(1, 2), null)).toBe("1 of 2 council signatures");
+  it("counts signatures against the threshold and says so, not against the council's size", () => {
+    expect(approvalsLabel(progress(1, 2), null)).toBe("1 of 2 required signatures");
   });
 
   it("counts both councils for a rotation, which needs each one's threshold", () => {
     expect(approvalsLabel(progress(2, 2), progress(0, 2))).toBe(
-      "Current council: 2 of 2 signatures · Incoming council: 0 of 2 signatures",
+      "Current council: 2 of 2 required signatures · Incoming council: 0 of 2 required signatures",
     );
   });
 });

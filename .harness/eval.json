@@ -25,8 +25,8 @@
       "severity": "critical",
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
-      "statement": "The home route renders the governance home without a wallet, without a .env file and without browser console errors.",
-      "howToVerify": "Navigate to /. Confirm either the \"Governed Operations\" heading with the \"Council\" and \"Proposals\" cards (yarn setup and the deploy have run) or the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), no crash banner is shown and the console has no errors."
+      "statement": "The home route renders the live map without a wallet, without a .env file and without browser console errors.",
+      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, ACME, USDC, Council threshold) and the line \"Each proposal runs by itself the moment the council's threshold has signed it.\"; and beside it a rail headed \"Pending proposals\" with a \"New proposal\" link. No crash banner is shown and the console has no errors."
     },
     {
       "id": "E2",
@@ -68,6 +68,26 @@
       "verifiableWithoutCredentials": true,
       "statement": "The new-proposal route offers the operation kinds as one radio choice in two groups and explains that a connected wallet is required, without crashing.",
       "howToVerify": "Navigate to /governance/new without connecting. Confirm either the \"Governance is not set up yet\" notice (no .env or deployment), or: the \"New proposal\" heading; radio buttons grouped under \"Contract calls · through the registry\" and \"Native · no contract, no registry entry\", with \"Upgrade the vault to v2\" checked; the message \"Connect a wallet to propose. The proposal is opened and paid for by your account.\"; and the \"Register and schedule with your wallet\" button disabled. Pressing an arrow key on the focused radio moves the choice to \"Pay a supplier\" and the button then reads \"Schedule with your wallet\". Console has no errors."
+    },
+    {
+      "id": "E6",
+      "journey": "Browse without a wallet",
+      "route": "/",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": true,
+      "statement": "The live map is one fold on a desktop screen: the page does not scroll, the rail lists only proposals still collecting signatures under \"Pending proposals\", and the header shows the navigation, the network and how fresh the Mirror Node read is.",
+      "howToVerify": "Without a .env or a deployment / shows the \"Governance is not set up yet\" notice instead: then confirm only the header (\"Live map\" active, \"Proof wall\", a \"Hedera Testnet\" badge) and no console errors. Otherwise, at a 1440×900 viewport navigate to /: document.documentElement.scrollHeight equals window.innerHeight (the page does not scroll; only the rail may). The header shows the links \"Live map\" (active) and \"Proof wall\", a \"Hedera Testnet\" badge and, within ~10 s, \"Mirror Node · polled Ns ago\" whose number increases every second. Every proposal listed directly under \"Pending proposals\" reads \"Collecting signatures\"; executed, withdrawn or expired ones appear only under \"Settled\". Opening /governance/new keeps the treasury figures in place and shows \"← Map\" with the \"New proposal\" heading in the rail. Console has no errors."
+    },
+    {
+      "id": "E7",
+      "journey": "Browse without a wallet",
+      "route": "/proof-wall",
+      "severity": "minor",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": true,
+      "statement": "The Proof Wall page links its other pages, which the header no longer lists.",
+      "howToVerify": "Navigate to /proof-wall. Confirm the \"Proof Wall\" heading and the links \"My proofs\", \"Admin\" and \"Explorer\"; clicking \"Explorer\" opens /explorer with the \"Mirror Explorer\" heading. The header lists only \"Live map\" and \"Proof wall\". Console has no errors."
     }
   ]
 }

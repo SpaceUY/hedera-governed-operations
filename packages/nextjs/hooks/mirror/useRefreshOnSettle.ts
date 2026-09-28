@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { DEFAULT_PENDING_POLL_MS } from "./mirrorQuery";
+import { DEFAULT_PENDING_POLL_MS, registryEntryQueryKey } from "./mirrorQuery";
 import { councilQueryKey } from "./useCouncil";
 import { treasuryFiguresQueryKey } from "./useTreasuryFigures";
 import type { Proposal } from "@sh/core/governance/proposals";
@@ -15,8 +15,10 @@ export type SettleScope = {
 };
 
 /**
- * What has to be re-read because these proposals just settled: the treasury always, and the council
- * too when one of them replaced it. Empty when nothing left `pending` since the previous read.
+ * What has to be re-read because these proposals just settled: the treasury always, the council
+ * too when one of them replaced it, and the registry entry behind each registry call, which the
+ * detail page read while it was still pending. Empty when nothing left `pending` since the previous
+ * read.
  */
 export function keysToRefreshOnSettle(
   previousStatuses: ReadonlyMap<string, ScheduleStatus>,
@@ -27,14 +29,20 @@ export function keysToRefreshOnSettle(
     proposal => previousStatuses.get(proposal.schedule.schedule_id) === "pending" && proposal.state.isSettled,
   );
   if (settled.length === 0) return [];
+  const entries = settled.flatMap(({ operation }) =>
+    operation.kind === "registryCall"
+      ? [registryEntryQueryKey(scope.network, scope.executorContractId, operation.proposalId)]
+      : [],
+  );
   const treasury = treasuryFiguresQueryKey(scope.network, scope.governanceAccountId);
-  if (!settled.some(proposal => proposal.operation.kind === "councilRotation")) return [treasury];
-  return [treasury, councilQueryKey(scope.network, scope.governanceAccountId, scope.executorContractId)];
+  if (!settled.some(proposal => proposal.operation.kind === "councilRotation")) return [treasury, ...entries];
+  return [treasury, councilQueryKey(scope.network, scope.governanceAccountId, scope.executorContractId), ...entries];
 }
 
 /**
- * Re-reads the treasury figures, and the council after a rotation, when a proposal leaves `pending`,
- * so the screen shows the world the proposal left behind instead of waiting out their cache.
+ * Re-reads the treasury figures, the council after a rotation and the registry entry after a
+ * registry call, when a proposal leaves `pending`, so the screen shows the world the proposal left
+ * behind instead of waiting out their cache.
  *
  * The first proposals it sees only seed the comparison: a proposal already settled when the page
  * opened changed nothing since. Mirror and the relay lag consensus by seconds, so, like

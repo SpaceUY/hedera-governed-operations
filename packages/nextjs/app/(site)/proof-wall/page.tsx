@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ProofWall } from "~~/components/ProofWall";
 import { SubmitProofForm } from "~~/components/SubmitProofForm";
 import { TopicSelector } from "~~/components/TopicSelector";
 import { proofWallConfig } from "~~/config/proofWallConfig";
 import { useTopicMessages } from "~~/hooks/useTopicMessages";
+
+/** The Proof Wall's other pages, kept out of the header so it names only the two demos. */
+const PROOF_WALL_PAGES = [
+  { label: "My proofs", href: "/my-proofs" },
+  { label: "Admin", href: "/admin" },
+  { label: "Explorer", href: "/explorer" },
+] as const;
 
 export default function ProofWallPage() {
   const [topicId, setTopicId] = useState(proofWallConfig.topicId);
@@ -36,6 +44,14 @@ export default function ProofWallPage() {
             />
           </div>
         </header>
+
+        <nav aria-label="Proof Wall pages" className="flex flex-wrap gap-2 mb-6">
+          {PROOF_WALL_PAGES.map(({ label, href }) => (
+            <Link key={href} href={href} className="btn btn-sm btn-ghost border border-base-300">
+              {label}
+            </Link>
+          ))}
+        </nav>
 
         <div className="stats stats-vertical sm:stats-horizontal w-full shadow-sm border border-base-300 bg-base-100 mb-6">
           <div className="stat">

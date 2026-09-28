@@ -1,7 +1,14 @@
 import notFound from "./__fixtures__/not-found.json";
 import page1 from "./__fixtures__/topic-messages-page-1.json";
 import page2 from "./__fixtures__/topic-messages-page-2.json";
-import { MirrorNodeError, getMirrorBaseUrl, mirrorGet, mirrorGetAllPages, mirrorTimestampToDate } from "./client";
+import {
+  MirrorNodeError,
+  compareMirrorTimestamps,
+  getMirrorBaseUrl,
+  mirrorGet,
+  mirrorGetAllPages,
+  mirrorTimestampToDate,
+} from "./client";
 import type { TopicMessagesResponse } from "./topics";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -100,5 +107,21 @@ describe("mirrorTimestampToDate", () => {
 
   it("returns null for a null timestamp", () => {
     expect(mirrorTimestampToDate(null)).toBeNull();
+  });
+});
+
+describe("compareMirrorTimestamps", () => {
+  it("orders timestamps one nanosecond apart, which a single Number cannot tell apart", () => {
+    const earlier = "1790274893.842000001";
+    const later = "1790274893.842000002";
+    expect(Number(earlier)).toBe(Number(later));
+    expect(compareMirrorTimestamps(earlier, later)).toBeLessThan(0);
+    expect(compareMirrorTimestamps(later, earlier)).toBeGreaterThan(0);
+  });
+
+  it("compares seconds first, and treats short or missing nanos as trailing zeros", () => {
+    expect(compareMirrorTimestamps("1790274892.999999999", "1790274893.0")).toBeLessThan(0);
+    expect(compareMirrorTimestamps("1790274893.5", "1790274893.500000000")).toBe(0);
+    expect(compareMirrorTimestamps("1790274893", "1790274893.000000000")).toBe(0);
   });
 });

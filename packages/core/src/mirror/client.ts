@@ -152,3 +152,16 @@ export function mirrorTimestampToDate(timestamp: string | null | undefined): Dat
   const millis = Number(seconds) * MILLIS_PER_SECOND + Math.floor(Number(nanos.padEnd(9, "0")) / NANOS_PER_MILLI);
   return Number.isFinite(millis) ? new Date(millis) : null;
 }
+
+/**
+ * Orders two `seconds.nanos` timestamps exactly, for `sort`. Reading one as a single `Number` rounds
+ * away the last digits of the nanos, and consensus can order related transactions nanoseconds apart,
+ * such as the signature that completed a schedule's threshold and the transaction it ran.
+ */
+export function compareMirrorTimestamps(left: string, right: string): number {
+  const [leftSeconds, leftNanos = "0"] = left.split(".");
+  const [rightSeconds, rightNanos = "0"] = right.split(".");
+  return (
+    Number(leftSeconds) - Number(rightSeconds) || Number(leftNanos.padEnd(9, "0")) - Number(rightNanos.padEnd(9, "0"))
+  );
+}

@@ -5,6 +5,7 @@ import {
   DEFAULT_PENDING_POLL_MS,
   getDefaultMirrorNetwork,
   mirrorQueryKey,
+  registryEntryQueryKey,
   resolvePendingRefetchInterval,
 } from "./mirrorQuery";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
@@ -13,7 +14,7 @@ import { fetchScheduleQueryData } from "./useSchedule";
 import { ContractId } from "@hiero-ledger/sdk";
 import { countThresholdSignatures } from "@sh/core/governance/council";
 import { decodeScheduledOperation } from "@sh/core/governance/decode";
-import type { Proposal } from "@sh/core/governance/proposals";
+import { type Proposal, unreadRegistry } from "@sh/core/governance/proposals";
 import { type RegistryCrossCheck, fetchRegistryEntries } from "@sh/core/governance/registry";
 import { deriveScheduleState, fetchSchedule } from "@sh/core/mirror";
 import { hasFinalOutcome } from "@sh/core/mirror";
@@ -67,15 +68,14 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
     scheduleQuery.data && isGovernancePayer
       ? decodeScheduledOperation(scheduleQuery.data.schedule.transaction_body)
       : undefined;
-  // The entry is still worth reading once a schedule was deleted or expired, or ran and failed: that
-  // is exactly when the proposer should cancel it or the council schedule it again. Only a
-  // successful execution has spent the entry.
+  // The entry is read whatever state the schedule is in. Once it was deleted or expired, or ran and
+  // failed, it is exactly when the proposer should cancel it or the council schedule it again; once
+  // it ran, the entry is what says what ran. One page reads one entry, unlike the inbox, which skips
+  // the settled ones (`notRead`) to spare a read per row and poll.
   const needsRegistryCheck =
-    operation?.kind === "registryCall" &&
-    scheduleQuery.data!.execution.status !== "succeeded" &&
-    isThisExecutor(operation.executorContractId, options.executorContractId);
+    operation?.kind === "registryCall" && isThisExecutor(operation.executorContractId, options.executorContractId);
   const proposalId = operation?.kind === "registryCall" ? operation.proposalId : undefined;
-  const registryKey = mirrorQueryKey(network, "registry-entry", options.executorContractId, String(proposalId ?? ""));
+  const registryKey = registryEntryQueryKey(network, options.executorContractId, proposalId);
 
   const registryQuery = useQuery({
     queryKey: registryKey,
@@ -114,7 +114,7 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
             operation.kind === "councilRotation"
               ? countThresholdSignatures(scheduleQuery.data.schedule, operation.council)
               : null,
-          registry: needsRegistryCheck ? registryQuery.data! : { status: "notApplicable" },
+          registry: needsRegistryCheck ? registryQuery.data! : unreadRegistry(operation, options.executorContractId),
         }
       : undefined;
   useRefreshOnSettle(proposal ? [proposal] : undefined, {

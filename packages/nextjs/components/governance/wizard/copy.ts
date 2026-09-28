@@ -5,6 +5,7 @@
  */
 import type { CouncilKey } from "@sh/core/governance/council";
 import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
+import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 
 /** The title a proposal of each kind goes by, and the short hint beside it in the picker. */
 export const PROPOSAL_KIND_COPY: Record<ProposalKind, { title: string; hint: string }> = {
@@ -28,10 +29,6 @@ export const PROPOSAL_PATH_CHIPS: Record<ProposalKind, string[]> = {
   treasuryTransfer: ["Treasury", "Recipient"],
   councilRotation: ["Treasury", "its own key"],
 };
-
-export function councilRuleLabel(council: CouncilKey): string {
-  return `${council.threshold}-of-${council.memberKeys.length}`;
-}
 
 /** A scheduled call that succeeds is charged its whole limit, so the limit is a price, not headroom. */
 export function gasLimitLabel(executeGas: number | null): string {

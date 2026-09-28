@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { DEFAULT_PENDING_POLL_MS } from "./mirrorQuery";
+import { DEFAULT_PENDING_POLL_MS, registryEntryQueryKey } from "./mirrorQuery";
 import { councilQueryKey } from "./useCouncil";
 import { type SettleScope, useRefreshOnSettle } from "./useRefreshOnSettle";
 import { treasuryFiguresQueryKey } from "./useTreasuryFigures";
@@ -81,6 +81,17 @@ describe("useRefreshOnSettle", () => {
     rerender({ proposals: [proposal("0.0.1", "executed", "councilRotation")] });
 
     expect(invalidatedKeys()).toEqual([TREASURY_KEY, COUNCIL_KEY]);
+  });
+
+  /** The detail page read the entry while it was pending; after the run it has to say what the run left. */
+  it("also invalidates the registry entry behind a settled registry call", () => {
+    const registryCall = (status: ScheduleStatus) =>
+      ({ ...proposal("0.0.1", status), operation: { kind: "registryCall", proposalId: 7 } }) as unknown as Proposal;
+    const { rerender } = render([registryCall("pending")]);
+
+    rerender({ proposals: [registryCall("executed")] });
+
+    expect(invalidatedKeys()).toEqual([TREASURY_KEY, registryEntryQueryKey("testnet", "0.0.200", 7)]);
   });
 
   it("clears the delayed read when it unmounts first", () => {

@@ -8,6 +8,7 @@ import {
   fetchCouncilKey,
   fetchProposerAccountIds,
   isSignedByKey,
+  memberSignedAt,
 } from "./council";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -136,6 +137,32 @@ describe("countThresholdSignatures", () => {
 
     it("is not satisfied by an empty prefix", () => {
       expect(isSignedByKey(scheduleSignedBy(""), secondMemberHex)).toBe(false);
+    });
+  });
+
+  describe("memberSignedAt", () => {
+    const row = (publicKeyPrefix: string, consensusTimestamp: string) => ({
+      consensus_timestamp: consensusTimestamp,
+      public_key_prefix: publicKeyPrefix,
+      signature: "",
+      type: "ECDSA_SECP256K1",
+    });
+
+    it("answers with the earliest row that carries the member's key", () => {
+      const schedule: MirrorSchedule = {
+        ...executedSchedule,
+        signatures: [
+          row(PAYER, "1790000000.000000001"),
+          row(secondMember, "1790000009.000000000"),
+          row("A8ZO", "1790000005.000000002"),
+        ],
+      };
+
+      expect(memberSignedAt(schedule, secondMember)).toBe("1790000005.000000002");
+    });
+
+    it("answers null for a member who never signed", () => {
+      expect(memberSignedAt(scheduleSignedBy(PAYER), firstMember)).toBeNull();
     });
   });
 });

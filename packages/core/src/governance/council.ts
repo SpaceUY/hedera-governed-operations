@@ -10,7 +10,13 @@
  * why `@hiero-ledger/proto` is a dependency here; the Hiero SDK already ships the same package, so
  * it costs nothing in the bundle and its version follows the SDK's.
  */
-import { type MirrorKey, type MirrorSchedule, fetchAccount } from "../mirror";
+import {
+  type MirrorKey,
+  type MirrorSchedule,
+  type MirrorScheduleSignature,
+  compareMirrorTimestamps,
+  fetchAccount,
+} from "../mirror";
 import type { HederaNetworkName } from "../network";
 import { createRelayClient } from "../relayClient";
 import { proto } from "@hiero-ledger/proto";
@@ -134,10 +140,26 @@ export async function fetchCouncilKey(governanceAccountId: string, network: Hede
  * nothing rather than everything.
  */
 export function isSignedByKey(schedule: MirrorSchedule, publicKeyHex: string): boolean {
-  return schedule.signatures.some(({ public_key_prefix }) => {
-    const prefix = base64ToHex(public_key_prefix);
-    return prefix.length > 0 && publicKeyHex.startsWith(prefix);
-  });
+  return schedule.signatures.some(signature => carriesKey(signature, publicKeyHex));
+}
+
+function carriesKey({ public_key_prefix }: MirrorScheduleSignature, publicKeyHex: string): boolean {
+  const prefix = base64ToHex(public_key_prefix);
+  return prefix.length > 0 && publicKeyHex.startsWith(prefix);
+}
+
+/**
+ * The consensus timestamp at which a council member's approval reached the schedule, or null when it
+ * never did. A member can appear on several rows — its own signature and the payer row of a
+ * `ScheduleSign` it paid for later — and the approval is the earliest of them.
+ */
+export function memberSignedAt(schedule: MirrorSchedule, memberKey: string): string | null {
+  const publicKeyHex = base64ToHex(memberKey);
+  const timestamps = schedule.signatures
+    .filter(signature => carriesKey(signature, publicKeyHex))
+    .map(signature => signature.consensus_timestamp)
+    .sort(compareMirrorTimestamps);
+  return timestamps[0] ?? null;
 }
 
 /**

@@ -1,12 +1,12 @@
 // @vitest-environment node
-import type { MirrorSchedule } from "../mirror";
+import type { MirrorSchedule, ScheduleStatus } from "../mirror";
 import executedSchedule from "../mirror/__fixtures__/schedule-executed.json";
 import revertedSchedule from "../mirror/__fixtures__/schedule-reverted.json";
 import rowsAtExecution from "../mirror/__fixtures__/transactions-at-executed.json";
 import rowsAtRevert from "../mirror/__fixtures__/transactions-at-reverted.json";
 import recorded from "./__fixtures__/scheduled-bodies.json";
 import type { CouncilKey } from "./council";
-import { type ProposalInbox, fetchProposalInbox } from "./proposals";
+import { type ProposalInbox, fetchProposalInbox, partitionProposals } from "./proposals";
 import { REGISTRY_ABI } from "./registry";
 import { proto } from "@hiero-ledger/proto";
 import { encodeFunctionData, encodeFunctionResult, hexToBytes, parseAbi } from "viem";
@@ -352,7 +352,8 @@ describe("crossing a proposal with its registry entry", () => {
     expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
   });
 
-  it("leaves a proposal that executed successfully uncrossed, since its entry has run", async () => {
+  /** Not `notApplicable`, which a screen words as a native kind with no entry at all. */
+  it("leaves a proposal that executed successfully unread, since its entry has run", async () => {
     const fetchMock = stubSchedulesPerProposer([
       scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody }),
     ]);
@@ -360,7 +361,16 @@ describe("crossing a proposal with its registry entry", () => {
     const [proposal] = (await inboxOf([ALICE])).proposals;
 
     const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
-    expect([proposal.registry.status, relayReads.length]).toEqual(["notApplicable", 0]);
+    expect([proposal.registry.status, relayReads.length]).toEqual(["notRead", 0]);
+  });
+
+  it("leaves a withdrawn registry call unread too, since its round is over", async () => {
+    const fetchMock = stubSchedulesPerProposer([{ ...pendingRegistryProposal("0.0.1"), deleted: true }]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
+    expect([proposal.state.status, proposal.registry.status, relayReads.length]).toEqual(["deleted", "notRead", 0]);
   });
 
   /** A revert leaves the entry as it was, so the council can still schedule `execute(id)` again. */
@@ -404,7 +414,8 @@ describe("crossing a proposal with its registry entry", () => {
       registry: { executorContractId: "0.0.9999999", rpcUrl: RPC_URL },
     });
 
-    expect(proposals[0].registry.status).toBe("notApplicable");
+    /** `missing`, not `notApplicable`: a screen words the latter as a native kind with no entry. */
+    expect(proposals[0].registry.status).toBe("missing");
   });
 
   it("leaves the row uncrossed rather than failing the inbox when the relay is down", async () => {
@@ -414,5 +425,31 @@ describe("crossing a proposal with its registry entry", () => {
     const [proposal] = (await inboxOf([ALICE])).proposals;
 
     expect(proposal.registry.status).toBe("unreachable");
+  });
+});
+
+describe("partitionProposals", () => {
+  const withStatus = (id: string, status: ScheduleStatus) => ({
+    id,
+    state: { status, signatureCount: 0, executedAt: null, expiresAt: null, isSettled: status !== "pending" },
+  });
+
+  it("keeps only open approval rounds as pending, in the inbox's order", () => {
+    const inbox = [
+      withStatus("a", "pending"),
+      withStatus("b", "executed"),
+      withStatus("c", "pending"),
+      withStatus("d", "deleted"),
+      withStatus("e", "expired"),
+    ];
+
+    const { pending, settled } = partitionProposals(inbox);
+
+    expect(pending.map(proposal => proposal.id)).toEqual(["a", "c"]);
+    expect(settled.map(proposal => proposal.id)).toEqual(["b", "d", "e"]);
+  });
+
+  it("returns two empty lists for an empty inbox", () => {
+    expect(partitionProposals([])).toEqual({ pending: [], settled: [] });
   });
 });
