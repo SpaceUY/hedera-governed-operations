@@ -22,7 +22,7 @@ export function TreasuryNode({ rule, threshold, signed, snap, ...node }: Treasur
       item={{ kind: "node", id: node.id }}
       label={`${node.label}, ${rule} ${node.caption}`}
       focus={node.focus}
-      onActivate={node.onActivate}
+      activation={node.activation}
       transform={translate(node.position)}
     >
       <circle r={TREASURY_OUTLINE} className={FOCUS_RING_CLASS} strokeWidth={2} />

@@ -267,7 +267,8 @@ textarea.textarea {
 }
 
 .group:hover .map-edge-line,
-.group:focus-visible .map-edge-line {
+.group:focus-visible .map-edge-line,
+.group[aria-expanded="true"] .map-edge-line {
   stroke-width: 2.6;
 }
 

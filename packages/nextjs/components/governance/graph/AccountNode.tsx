@@ -14,7 +14,7 @@ export function AccountNode({ tone = "account", ...node }: NodeProps & { tone?: 
       item={{ kind: "node", id: node.id }}
       label={`${node.label}, ${node.caption}`}
       focus={node.focus}
-      onActivate={node.onActivate}
+      activation={node.activation}
       transform={translate(node.position)}
     >
       <g className={tone === "ghost" ? "opacity-50" : undefined}>

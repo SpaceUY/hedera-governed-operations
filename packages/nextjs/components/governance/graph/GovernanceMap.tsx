@@ -1,6 +1,7 @@
 "use client";
 
 import { GovernanceGraph } from "./GovernanceGraph";
+import type { MapActivation } from "./MapItem";
 import { MAP_LABELS } from "./copy";
 import type { ComposedMap } from "./mapModel";
 import type { CouncilKey } from "@sh/core/governance/council";
@@ -13,10 +14,11 @@ export type GovernanceMapProps = {
   frame: MapFrame;
   /** The council's read error: without the council there is nothing to draw. */
   error: unknown;
+  activation?: MapActivation;
 };
 
 /** The governance map, or what it says while it cannot be drawn. */
-export function GovernanceMap({ map, council, frame, error }: GovernanceMapProps) {
+export function GovernanceMap({ map, council, frame, error, activation }: GovernanceMapProps) {
   if (error) {
     return (
       <p role="alert" className="alert alert-warning m-4">
@@ -32,5 +34,5 @@ export function GovernanceMap({ map, council, frame, error }: GovernanceMapProps
       </p>
     );
   }
-  return <GovernanceGraph {...map} council={council} frame={frame} />;
+  return <GovernanceGraph {...map} council={council} frame={frame} activation={activation} />;
 }

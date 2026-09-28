@@ -16,7 +16,7 @@ export function ContractNode({ tone = "contract", ...node }: NodeProps & { tone?
       item={{ kind: "node", id: node.id }}
       label={`${node.label}, ${node.caption}`}
       focus={node.focus}
-      onActivate={node.onActivate}
+      activation={node.activation}
       transform={translate(node.position)}
     >
       <rect

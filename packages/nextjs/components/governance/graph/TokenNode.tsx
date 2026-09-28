@@ -11,7 +11,7 @@ export function TokenNode(node: NodeProps) {
       item={{ kind: "node", id: node.id }}
       label={`${node.label}, ${node.caption}`}
       focus={node.focus}
-      onActivate={node.onActivate}
+      activation={node.activation}
       transform={translate(node.position)}
     >
       <polygon points={hexagonPoints(TOKEN_RADIUS + FOCUS_GAP)} className={FOCUS_RING_CLASS} strokeWidth={2} />

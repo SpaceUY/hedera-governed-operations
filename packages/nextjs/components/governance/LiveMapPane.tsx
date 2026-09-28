@@ -3,8 +3,11 @@
 import { useCallback, useMemo } from "react";
 import { TreasuryStrip } from "~~/components/governance/TreasuryStrip";
 import { GovernanceMap } from "~~/components/governance/graph/GovernanceMap";
+import { MapInspector } from "~~/components/governance/graph/MapInspector";
 import { announceRemoteSignature } from "~~/components/governance/graph/announceRemoteSignature";
+import { inspectorContentOf } from "~~/components/governance/graph/inspector";
 import { type MapDecorator, composeMap } from "~~/components/governance/graph/mapModel";
+import { useMapSelection } from "~~/components/governance/graph/useMapSelection";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
@@ -30,7 +33,8 @@ export type LiveMapPaneProps = {
  * and plays what changed between two reads (`useProposalAnimationSync`), so while a sequence plays
  * the map and the figures show the world it started from, and catch up when it lands. The seat the
  * connected account holds is named "You", and a signature this session did not send is announced
- * in a toast as well as played.
+ * in a toast as well as played. A click or Enter on a node or edge opens the inspector over the map's
+ * lower left corner (`useMapSelection`), which explains it from the same map.
  */
 export function LiveMapPane({ config, decorate }: LiveMapPaneProps) {
   const { targetNetwork } = useTargetNetwork();
@@ -75,14 +79,36 @@ export function LiveMapPane({ config, decorate }: LiveMapPaneProps) {
   );
   useRemoteApprovals({ events, world: snapshot, onRemote: announce });
 
+  const { selected, activation, inspectorId, close, paneRef, onKeyDown } = useMapSelection();
+  const inspector =
+    selected && map && world
+      ? inspectorContentOf(selected, {
+          graph: map.graph,
+          ghosts: map.ghosts,
+          council: world.council,
+          proposers: world.proposers,
+          copy: map.inspector,
+          explorerUrl: targetNetwork.blockExplorers?.default.url,
+        })
+      : null;
+
   return (
     <>
       <TreasuryStrip treasury={treasury} council={world?.council ?? null} />
       <p className="m-0 px-6 py-3 text-sm text-base-content/70">{LIVE_MAP_STATUS_NOTE}</p>
-      <div className="relative flex min-h-64 flex-1 flex-col p-6 pt-0 lg:min-h-0">
+      {/* Escape anywhere in the pane closes the inspector; the handler only listens, the map's items
+          and the card's controls are what take focus. */}
+      <div ref={paneRef} onKeyDown={onKeyDown} className="relative flex min-h-64 flex-1 flex-col p-6 pt-0 lg:min-h-0">
         <div className="min-h-0 flex-1">
-          <GovernanceMap map={map} council={world?.council ?? null} frame={frame} error={error} />
+          <GovernanceMap
+            map={map}
+            council={world?.council ?? null}
+            frame={frame}
+            error={error}
+            activation={activation}
+          />
         </div>
+        {inspector && <MapInspector id={inspectorId} content={inspector} onClose={close} />}
       </div>
     </>
   );

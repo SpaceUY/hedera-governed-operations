@@ -6,12 +6,12 @@ import { Comet } from "./Comet";
 import { ContractNode } from "./ContractNode";
 import { GraphEdge } from "./GraphEdge";
 import { Legend } from "./Legend";
-import type { MapItemRef } from "./MapItem";
+import type { MapActivation } from "./MapItem";
 import { TokenNode } from "./TokenNode";
 import { TreasuryNode } from "./TreasuryNode";
 import { MAP_LABELS, MAP_NODE_CAPTIONS, mapEdgeCaption, mapEdgeLabel } from "./copy";
 import { TREASURY_OUTLINE, routeOnMap } from "./geometry";
-import { type GhostNode, type MapRegion, readingOrder } from "./mapModel";
+import { type GhostNode, type MapRegion, isIntroducedAccount, readingOrder } from "./mapModel";
 import type { NodeProps } from "./nodeProps";
 import { useRovingFocus } from "./useRovingFocus";
 import type { CouncilKey } from "@sh/core/governance/council";
@@ -20,7 +20,6 @@ import {
   GOVERNANCE_ACCOUNT_NODE_ID,
   type GovernanceGraph as Graph,
   type GraphNode,
-  externalNodeId,
 } from "~~/services/liveMap/model/graph";
 import { driftOf } from "~~/services/liveMap/motion/ambient";
 import { type MapFrame, REST_FRAME } from "~~/services/liveMap/motion/frame";
@@ -36,7 +35,8 @@ export type GovernanceGraphProps = {
    * does not name is at rest, and an `intent` edge is only drawn while the frame names it.
    */
   frame?: MapFrame;
-  onActivate?: (item: MapItemRef) => void;
+  /** What a click or Enter on a node or edge does, and which one is selected; items are inert without it. */
+  activation?: MapActivation;
 };
 
 /**
@@ -72,7 +72,7 @@ export function GovernanceGraph({
   ghosts = [],
   regions = [],
   frame = REST_FRAME,
-  onActivate,
+  activation,
 }: GovernanceGraphProps) {
   const { phases } = frame;
   const nodesById = useMemo(() => new Map(graph.nodes.map(node => [node.id, node])), [graph.nodes]);
@@ -87,7 +87,7 @@ export function GovernanceGraph({
     caption: captions[node.id] ?? MAP_NODE_CAPTIONS[node.role],
     position: node.position,
     focus,
-    onActivate,
+    activation,
     highlight: frame.highlights[node.id],
   });
 
@@ -110,7 +110,7 @@ export function GovernanceGraph({
       case "external":
         // A configured external entity is a contract the system calls; one a proposal introduced
         // is an account it would pay, such as a transfer's recipient.
-        return node.id === externalNodeId(node.ref) ? (
+        return isIntroducedAccount(node) ? (
           <AccountNode {...propsOf(node)} />
         ) : (
           <ContractNode {...propsOf(node)} tone="external" />
@@ -162,7 +162,6 @@ export function GovernanceGraph({
           const to = nodesById.get(edge.to);
           const route = routeOnMap(edge, nodesById);
           if (!from || !to || !route) return null;
-          const caption = mapEdgeCaption(edge.kind, from.role, to.role);
           return (
             <GraphEdge
               key={edge.id}
@@ -170,10 +169,13 @@ export function GovernanceGraph({
               kind={edge.kind}
               phase={phases[edge.id] ?? "rest"}
               route={route}
-              label={mapEdgeLabel(edge.kind, { from: from.label, to: to.label }, caption)}
-              caption={caption}
+              label={mapEdgeLabel(
+                edge.kind,
+                { from: from.label, to: to.label },
+                mapEdgeCaption(edge.kind, from.role, to.role),
+              )}
               focus={focus}
-              onActivate={onActivate}
+              activation={activation}
             />
           );
         })}
@@ -193,7 +195,7 @@ export function GovernanceGraph({
         ))}
         {ghosts.map(ghost => (
           <Drift key={ghost.id} nodeId={ghost.id}>
-            <AccountNode {...ghost} focus={focus} onActivate={onActivate} tone="ghost" />
+            <AccountNode {...ghost} focus={focus} activation={activation} tone="ghost" />
           </Drift>
         ))}
       </svg>

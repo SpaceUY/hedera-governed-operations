@@ -29,7 +29,7 @@ describe("genericLabels", () => {
 
 describe("composeMap", () => {
   it("places every node by role and names it generically when there is no decoration", () => {
-    const { graph, captions, ghosts, regions } = composeMap(MAP_SNAPSHOT);
+    const { graph, captions, ghosts, regions, inspector } = composeMap(MAP_SNAPSHOT);
     const fallback = autoLayout(graph.nodes, AUTO_MAP_SIZE);
 
     for (const node of graph.nodes) expect(node.position).toEqual(fallback[node.id]);
@@ -38,6 +38,7 @@ describe("composeMap", () => {
     expect(captions).toEqual({});
     expect(ghosts).toEqual([]);
     expect(regions).toEqual([]);
+    expect(inspector).toEqual({ nodes: {}, edges: {} });
   });
 
   it("hands the decorator the nodes as the ledger produced them, and lets its names win", () => {

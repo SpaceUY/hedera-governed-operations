@@ -15,6 +15,7 @@ import {
   type GraphSnapshot,
   type Point,
   deriveGraphState,
+  externalNodeId,
 } from "~~/services/liveMap/model/graph";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 
@@ -30,12 +31,19 @@ export type MapRegion = { label: string; position: Point; orientation: "horizont
 
 export type MapContext = { nodes: readonly GraphNode[]; proposers: GraphSnapshot["proposers"] };
 
+/**
+ * What the inspector says about one layout's nodes and edges, by id, in place of what their role
+ * says in general: a demo knows that its vault takes upgrades and that its token is called ACME.
+ */
+export type InspectorCopy = { nodes: Partial<Record<string, string>>; edges: Partial<Record<string, string>> };
+
 export type MapDecoration = {
   layout: GraphLayout;
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
   regions?: MapRegion[];
+  inspector?: InspectorCopy;
 };
 
 /** Places and names the nodes of one graph; called with the nodes as the ledger produced them. */
@@ -46,6 +54,7 @@ export type ComposedMap = {
   captions: Partial<Record<string, string>>;
   ghosts: GhostNode[];
   regions: MapRegion[];
+  inspector: InspectorCopy;
 };
 
 export const AUTO_MAP_SIZE = { width: 1000, height: 600 } as const;
@@ -104,7 +113,16 @@ export function composeMap(
     captions: decoration?.captions ?? {},
     ghosts: decoration?.ghosts ?? [],
     regions: decoration?.regions ?? [],
+    inspector: decoration?.inspector ?? { nodes: {}, edges: {} },
   };
+}
+
+/**
+ * An `external` node is either a contract the configuration names, which the system calls, or an
+ * account a pending proposal introduced — a transfer's recipient — whose id is built from its ref.
+ */
+export function isIntroducedAccount(node: Pick<GraphNode, "id" | "ref">): boolean {
+  return node.id === externalNodeId(node.ref);
 }
 
 /** Left to right, then top to bottom: the order a reader scans the map in, and the order focus moves in. */

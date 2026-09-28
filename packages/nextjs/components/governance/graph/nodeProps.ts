@@ -1,4 +1,4 @@
-import type { MapItemRef } from "./MapItem";
+import type { MapActivation } from "./MapItem";
 import type { RovingFocus } from "./useRovingFocus";
 import type { Point } from "~~/services/liveMap/model/graph";
 import type { NodeTone } from "~~/services/liveMap/motion/frame";
@@ -10,7 +10,7 @@ export type NodeProps = {
   caption: string;
   position: Point;
   focus: RovingFocus;
-  onActivate?: (item: MapItemRef) => void;
+  activation?: MapActivation;
   /** Set while an operation is reaching the node: its plate flashes in the tone's colour. */
   highlight?: NodeTone;
 };
@@ -27,12 +27,13 @@ const TONE_STROKE: Record<NodeTone, string> = {
 };
 
 /**
- * The stroke of a node's plate: grey at rest and brighter under the pointer or keyboard focus, or the
- * colour of the operation reaching it, with a flash the stylesheet leaves out under reduced motion.
+ * The stroke of a node's plate: grey at rest, brighter under the pointer or keyboard focus and primary
+ * and thicker while the inspector shows it, or the colour of the operation reaching it, with a flash
+ * the stylesheet leaves out under reduced motion.
  */
 export function plateStrokeClass(highlight: NodeTone | undefined): string {
   const stroke = highlight
     ? `${TONE_STROKE[highlight]} motion-safe:animate-map-plate-flash`
-    : "stroke-base-content/40 group-hover:stroke-base-content/80 group-focus-visible:stroke-base-content/80";
+    : "stroke-base-content/40 group-hover:stroke-base-content/80 group-focus-visible:stroke-base-content/80 group-aria-expanded:stroke-primary group-aria-expanded:stroke-2";
   return `fill-base-100 transition-colors duration-180 motion-reduce:transition-none ${stroke}`;
 }

@@ -75,7 +75,7 @@
     },
     {
       "file": "packages/nextjs/components/governance/graph/copy.ts",
-      "contains": ["who may act", "would happen", "where the money is", "switches off", "Nobody pressed anything here"]
+      "contains": ["who may act", "would happen", "where the money is", "switches off", "Nobody pressed anything here", "Ids and links", "Close inspector"]
     }
   ]
 }

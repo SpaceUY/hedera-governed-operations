@@ -84,12 +84,39 @@ describe("GovernanceGraph", () => {
 
   it("offers nodes as buttons once something handles them, and reports which one", () => {
     const onActivate = vi.fn();
-    renderGraph({ onActivate });
+    renderGraph({ activation: { onActivate, selected: null } });
     const vault = screen.getByRole("button", { name: /^Vault,/ });
     fireEvent.click(vault);
     fireEvent.keyDown(vault, { key: "Enter" });
-    expect(onActivate).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(vault, { key: " " });
+    expect(onActivate).toHaveBeenCalledTimes(3);
     expect(onActivate).toHaveBeenCalledWith({ kind: "node", id: MAP_ENTITY_IDS.vault });
+    expect(vault.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("marks the selected item as expanded and points it at the inspector, which also draws its highlight", () => {
+    const vaultEdge = edgeId(EXECUTOR_NODE_ID, MAP_ENTITY_IDS.vault);
+    const { container } = renderGraph({
+      activation: { onActivate: vi.fn(), selected: { kind: "edge", id: vaultEdge }, controls: "inspector" },
+    });
+    const edge = [...container.querySelectorAll("[data-edge-id]")].find(
+      element => element.getAttribute("data-edge-id") === vaultEdge,
+    );
+    expect(edge?.getAttribute("aria-expanded")).toBe("true");
+    expect(edge?.getAttribute("aria-controls")).toBe("inspector");
+    expect(edge?.querySelector("path:nth-child(2)")?.getAttribute("class")).toContain(
+      "group-aria-expanded:opacity-100",
+    );
+    const vault = nodeElement(container, MAP_ENTITY_IDS.vault);
+    expect(vault?.getAttribute("aria-expanded")).toBe("false");
+    expect(vault?.hasAttribute("aria-controls")).toBe(false);
+    expect(vault?.querySelectorAll("rect")[1]?.getAttribute("class")).toContain("group-aria-expanded:stroke-primary");
+  });
+
+  it("is inert without a host: items are graphics symbols, never buttons that do nothing", () => {
+    const { container } = renderGraph();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(nodeElement(container, MAP_ENTITY_IDS.vault)?.hasAttribute("aria-expanded")).toBe(false);
   });
 
   it("draws a ghost node with no edge to or from it", () => {
@@ -152,11 +179,11 @@ describe("GovernanceGraph", () => {
     expect(executor).not.toBe(vault);
   });
 
-  it("thickens an edge under the pointer or focus through the stylesheet, and fades its caption in", () => {
+  it("thickens an edge under the pointer or focus through the stylesheet, and writes nothing over the map", () => {
     const { container } = renderGraph();
     const edge = container.querySelector("[data-edge-id]");
     expect(edge?.querySelector("[data-phase]")?.getAttribute("class")).toContain("map-edge-line");
-    expect(edge?.querySelector("text")?.getAttribute("class")).toContain("group-hover:opacity-100");
+    expect(container.querySelector("[data-edge-id] text")).toBeNull();
   });
 
   it("names the regions a layout gives it, and draws the glow behind the treasury as decoration", () => {
