@@ -88,7 +88,7 @@ The network comes from `useTargetNetwork()` through `getHederaNetworkNameFromCha
 
 `app/(governance)/layout.tsx` renders every governance route, so what sits beside the rail stays mounted while the rail changes route. On a wide screen it is one fold below the header, and the page itself never scrolls:
 
-- **The map pane** (about 62% of the width) never scrolls. From top to bottom: `TreasuryStrip` (HBAR, vault reserve, ACME, USDC, the council's threshold), a status line (the map's note on how a proposal ends, `LIVE_MAP_STATUS_NOTE`, until something more specific claims the line), and the map itself, which fills the rest.
+- **The map pane** (about 62% of the width) never scrolls. From top to bottom: `TreasuryStrip` (HBAR, vault reserve, ACME, USDC, the council's threshold), a status line (the map's note on how a proposal ends, `LIVE_MAP_STATUS_NOTE`, until something more specific claims the line), and the map itself (`GovernanceMap`, with the demo layout passed as `decorate`), which fills the rest: its box takes the height left over (`flex-1 min-h-0`) and the SVG scales into it, so the drawing never sets the pane's height.
 - **The rail** (38%) scrolls on its own and renders the route's page: the proposal list on `/`, the detail on `/governance/[scheduleId]`, the wizard on `/governance/new`. A page is written as panel content — no page-level width or centring, an `h1` at panel size — and the wizard fills the rail's height, scrolling its middle with its submit button in view.
 - **Shared state** comes from `GovernanceProvider`, mounted once by the layout: the resolved configuration, through `useGovernanceConfig()`, and `ProposalWizardProvider`, so the draft being written in the rail is readable beside it and a submission survives the rail changing route. Once submitted, it routes to the new proposal's page and clears the draft, so the next proposal starts empty. A layout cannot hand props to its page, which is why both are contexts.
 - **On a phone** the map pane and the rail stack, and the page scrolls; nothing scrolls sideways.
@@ -165,7 +165,7 @@ The picker is native radio buttons sharing one name across its two groups ("Cont
 - **Ids.** Graph ids contain `+/=:.->`, so nothing puts them in a DOM `id` or a selector: an item carries `data-node-id` / `data-edge-id`.
 - **Keyboard.** The map is one Tab stop with a roving tabindex: the arrow keys (and Home / End) move through the nodes in reading order, then the edges, and a focus ring shows where. An item is a `button` when the host passes `onActivate`, a `graphics-symbol` otherwise. Every item has an accessible name, and every name is real SVG text.
 - **Layout.** Without a decoration every node is placed by role (`autoLayout`) and named by role, by the proposer account holding a seat, or by its id. `decorate` is where a demo places and names the nodes; the colours are daisyUI tokens plus `--color-map-preview` in `styles/globals.css`, so both themes work.
-- **Removing the demo layout**: delete `components/governance/graph/demo/` and the `decorate={decorateDemoMap}` prop (and its import) where the map is mounted.
+- **Removing the demo layout**: delete `components/governance/graph/demo/`, then, in `app/(governance)/layout.tsx` — the only file that imports it — remove the `decorateDemoMap` import and the `decorate={decorateDemoMap}` prop. The map falls back to `autoLayout`.
 
 ## Not built yet
 

@@ -4,6 +4,8 @@ import { type ReactNode, useMemo } from "react";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
 import { TreasuryStrip } from "~~/components/governance/TreasuryStrip";
+import { GovernanceMap } from "~~/components/governance/graph/GovernanceMap";
+import { decorateDemoMap } from "~~/components/governance/graph/demo/demoGraph";
 import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
@@ -17,13 +19,6 @@ function tryResolveGovernanceConfig(chainId: number): ResolvedConfig {
     return { error };
   }
 }
-
-/** Holds the map's place, at its size, until the graph is mounted in its stead. */
-const MapPlaceholder = () => (
-  <div className="flex flex-1 items-center justify-center rounded-box border border-dashed border-base-300 text-sm text-base-content/50">
-    The map of the council, the treasury and the contracts appears here.
-  </div>
-);
 
 /**
  * The live map: `/`, `/governance/[scheduleId]` and `/governance/new` share it, so the map stays
@@ -45,8 +40,10 @@ export default function GovernanceLayout({ children }: { children: ReactNode }) 
         <section aria-label="Live map" className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <TreasuryStrip />
           <p className="m-0 px-6 py-3 text-sm text-base-content/70">{LIVE_MAP_STATUS_NOTE}</p>
-          <div className="relative flex min-h-64 flex-1 p-6 pt-0">
-            <MapPlaceholder />
+          <div className="relative flex min-h-64 flex-1 flex-col p-6 pt-0 lg:min-h-0">
+            <div className="min-h-0 flex-1">
+              <GovernanceMap config={resolved.config} decorate={decorateDemoMap} />
+            </div>
           </div>
         </section>
         <div className="flex min-w-0 flex-col border-t border-base-300 lg:w-[38%] lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
