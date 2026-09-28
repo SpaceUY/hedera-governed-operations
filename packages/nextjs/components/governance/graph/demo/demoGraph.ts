@@ -6,8 +6,13 @@
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
  */
 import type { GhostNode, MapContext, MapDecorator, MapRegion } from "../mapModel";
-import { EXECUTOR_NODE_ID, GOVERNANCE_ACCOUNT_NODE_ID, type Point, memberNodeId } from "~~/services/governance/graph";
-import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+import {
+  EXECUTOR_NODE_ID,
+  GOVERNANCE_ACCOUNT_NODE_ID,
+  type Point,
+  memberNodeId,
+} from "~~/services/liveMap/model/graph";
+import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 
 const SIZE = { width: 1020, height: 700 } as const;
 

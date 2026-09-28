@@ -2,7 +2,7 @@ import { ALICE, INCOMING, ROTATION, TRANSFER, UPGRADE_CALL, ago, proposal } from
 import { type Step, sequenceOf } from "./sequences";
 import { MOTION_MS, travelMs } from "./timings";
 import { describe, expect, it } from "vitest";
-import type { AnimationEvent } from "~~/services/governance/mapEvents";
+import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
 
 const names = (steps: Step[]) => steps.map(({ cue }) => ("hop" in cue ? `comet ${cue.hop}` : cue.name));
 const total = (steps: Step[]) => steps.reduce((sum, { ms }) => sum + ms, 0);

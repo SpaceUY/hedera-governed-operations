@@ -2,7 +2,7 @@ import { announceRemoteSignature } from "./announceRemoteSignature";
 import { KEY_B, MAP_SNAPSHOT, pendingTransferTo } from "./mapFixtures";
 import { composeMap } from "./mapModel";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GovernanceSnapshot } from "~~/services/governance/mapEvents";
+import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import type { ApprovedEvent } from "~~/services/liveMap/remoteApprovals";
 import { notification } from "~~/utils/scaffold-hbar/notification";
 

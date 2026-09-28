@@ -15,8 +15,8 @@ import {
   type GraphSnapshot,
   type Point,
   deriveGraphState,
-} from "~~/services/governance/graph";
-import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+} from "~~/services/liveMap/model/graph";
+import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 
 /**
  * Something the map shows that the ledger does not have yet, such as an account a demo is about to

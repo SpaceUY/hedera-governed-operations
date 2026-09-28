@@ -1,6 +1,6 @@
 import { type SessionWrites, remoteApprovals } from "./remoteApprovals";
 import { describe, expect, it } from "vitest";
-import type { AnimationEvent } from "~~/services/governance/mapEvents";
+import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
 import { ALICE, BOB, TRANSFER, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
 
 const ID = "0.0.9001";

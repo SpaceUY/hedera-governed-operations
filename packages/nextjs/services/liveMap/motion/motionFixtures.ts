@@ -4,8 +4,8 @@ import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { MirrorSchedule, MirrorTransaction, ScheduleExecution } from "@sh/core/mirror";
 import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
-import { type GraphSnapshot, deriveGraphState } from "~~/services/governance/graph";
-import type { GovernanceSnapshot } from "~~/services/governance/mapEvents";
+import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
+import { type GraphSnapshot, deriveGraphState } from "~~/services/liveMap/model/graph";
 
 export const [ALICE, BOB, CAROL, DAVE] = ["YWxpY2U=", "Ym9i", "Y2Fyb2w=", "ZGF2ZQ=="];
 export const GOVERNANCE = "0.0.4000";

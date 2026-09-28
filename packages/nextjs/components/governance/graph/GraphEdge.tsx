@@ -3,7 +3,7 @@
 import { MapItem, type MapItemRef } from "./MapItem";
 import { type EdgeRoute, routePath } from "./geometry";
 import type { RovingFocus } from "./useRovingFocus";
-import type { EdgeKind, EdgePhase } from "~~/services/governance/graph";
+import type { EdgeKind, EdgePhase } from "~~/services/liveMap/model/graph";
 
 const PHASE_STROKE: Record<EdgePhase, string> = {
   rest: "stroke-base-content/35",

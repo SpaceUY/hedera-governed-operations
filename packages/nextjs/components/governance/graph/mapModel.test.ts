@@ -7,8 +7,8 @@ import {
   autoLayout,
   deriveGraphState,
   memberNodeId,
-} from "~~/services/governance/graph";
-import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+} from "~~/services/liveMap/model/graph";
+import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 
 describe("genericLabels", () => {
   const { nodes } = deriveGraphState(MAP_SNAPSHOT);

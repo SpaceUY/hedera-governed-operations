@@ -142,16 +142,16 @@ packages/nextjs/
       burnerSignerPolicy.ts Where the test signer is allowed (testnet; opt-in in production)
       BurnerSignerProvider.tsx  Reads the key on load, resolves the account, exposes useBurnerSigner
     mirrorNode.ts         Re-export of @sh/core/mirror (kept for existing imports)
-    governance/           What governance needs from the app: the screens' rules and words, the graph, the wizard's drafts, the integration tests
-      proposalRoutes.ts     The path each kind takes, in roles (governance account, executor, subject, …)
-      graph.ts              The governance graph: nodes, edges, a proposal's scope, the fallback layout
-      graphEntities.ts      The configured contracts, token and DEX router the governance graph starts from
-      mapEvents.ts          Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
+    governance/           What governance needs from the app: the screens' rules and words, the wizard's drafts, the integration tests
       treasury.ts           Treasury balances plus the vault's reserve
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
-    liveMap/motion/       How the map moves, pure: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world), ambient (drift); remoteApprovals.ts beside it
+    liveMap/              The live map, pure; depends on governance/, never the reverse
+      model/                proposalRoutes.ts (the path each kind takes, in roles), graph.ts (nodes, edges, a proposal's scope, the fallback layout), graphEntities.ts (the configured contracts, token and DEX router the graph starts from)
+      events/mapEvents.ts   Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
+      motion/               How the map moves: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world), ambient (drift)
+      remoteApprovals.ts    Which approvals of a read this session did not send
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)

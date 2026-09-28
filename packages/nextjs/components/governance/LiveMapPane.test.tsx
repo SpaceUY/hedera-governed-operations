@@ -7,9 +7,9 @@ import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
-import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/governance/graph";
-import type { GovernanceSnapshot } from "~~/services/governance/mapEvents";
 import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
+import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
+import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/liveMap/model/graph";
 
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));

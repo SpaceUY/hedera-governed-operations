@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { getDefaultMirrorNetwork } from "./mirrorQuery";
 import { type ProposalsOptions, useProposals } from "./useProposals";
 import { useTreasuryFigures } from "./useTreasuryFigures";
-import { type AnimationEvent, type GovernanceSnapshot, diffSnapshots } from "~~/services/governance/mapEvents";
+import { type AnimationEvent, type GovernanceSnapshot, diffSnapshots } from "~~/services/liveMap/events/mapEvents";
 
 export type MapSnapshotOptions = ProposalsOptions & {
   vaultContractId: string;

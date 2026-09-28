@@ -14,14 +14,14 @@ import {
 } from "./motionFixtures";
 import type { Cue } from "./sequences";
 import { describe, expect, it } from "vitest";
+import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
   edgeId,
   externalNodeId,
   memberNodeId,
-} from "~~/services/governance/graph";
-import type { AnimationEvent, GovernanceSnapshot } from "~~/services/governance/mapEvents";
+} from "~~/services/liveMap/model/graph";
 
 const ID = "0.0.9001";
 const TO_REGISTRY = edgeId(GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID);

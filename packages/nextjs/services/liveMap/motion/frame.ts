@@ -10,6 +10,8 @@ import { proposalIn } from "./world";
 import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { compareMirrorTimestamps } from "@sh/core/mirror";
+import type { TreasuryFigures } from "~~/services/governance/treasury";
+import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import {
   EXECUTOR_NODE_ID,
   type EdgePhase,
@@ -18,10 +20,8 @@ import {
   edgeId,
   memberNodeId,
   scopeOf,
-} from "~~/services/governance/graph";
-import type { AnimationEvent, GovernanceSnapshot } from "~~/services/governance/mapEvents";
-import { decodedOperationOf } from "~~/services/governance/proposalRoutes";
-import type { TreasuryFigures } from "~~/services/governance/treasury";
+} from "~~/services/liveMap/model/graph";
+import { decodedOperationOf } from "~~/services/liveMap/model/proposalRoutes";
 
 export type NodeTone = "progress" | "success" | "error";
 

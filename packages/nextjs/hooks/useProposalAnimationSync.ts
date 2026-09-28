@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer } from "react";
-import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/governance/mapEvents";
+import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/liveMap/events/mapEvents";
 import type { PlayingEvent } from "~~/services/liveMap/motion/frame";
 import { EMPTY_QUEUE, animationQueueReducer } from "~~/services/liveMap/motion/queue";
 import { sequenceOf } from "~~/services/liveMap/motion/sequences";

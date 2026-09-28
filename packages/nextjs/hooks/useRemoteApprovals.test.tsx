@@ -5,7 +5,7 @@ import { useRemoteApprovals } from "./useRemoteApprovals";
 import { QueryClient, QueryClientProvider, useMutation } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AnimationEvent, GovernanceSnapshot } from "~~/services/governance/mapEvents";
+import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import { ALICE, BOB, TRANSFER, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
 
 vi.mock("./useHederaSigner", () => ({ useHederaSigner: vi.fn() }));

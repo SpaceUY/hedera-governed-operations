@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
 import { useHederaSigner } from "./useHederaSigner";
 import { useMutationState } from "@tanstack/react-query";
-import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/governance/mapEvents";
+import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/liveMap/events/mapEvents";
 import { type ApprovedEvent, type SessionWrites, remoteApprovals } from "~~/services/liveMap/remoteApprovals";
 
 type RemoteApprovalsInput = {

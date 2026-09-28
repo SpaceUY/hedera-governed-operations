@@ -6,8 +6,8 @@
  */
 import { MOTION_MS, travelMs } from "./timings";
 import type { Proposal } from "@sh/core/governance/proposals";
-import type { AnimationEvent } from "~~/services/governance/mapEvents";
-import { decodedOperationOf, routeOf } from "~~/services/governance/proposalRoutes";
+import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
+import { decodedOperationOf, routeOf } from "~~/services/liveMap/model/proposalRoutes";
 
 type TimedCue = keyof Omit<typeof MOTION_MS, "comet" | "cometStagger">;
 

@@ -1,8 +1,8 @@
 import { remoteSignatureMessage } from "./copy";
 import type { ComposedMap } from "./mapModel";
 import { describeScheduledOperation } from "@sh/core/governance/proposalTypes";
-import { memberNodeId } from "~~/services/governance/graph";
-import type { GovernanceSnapshot } from "~~/services/governance/mapEvents";
+import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
+import { memberNodeId } from "~~/services/liveMap/model/graph";
 import type { ApprovedEvent } from "~~/services/liveMap/remoteApprovals";
 import { notification } from "~~/utils/scaffold-hbar/notification";
 

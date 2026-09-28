@@ -1,6 +1,6 @@
 import type { MapItemRef } from "./MapItem";
 import type { RovingFocus } from "./useRovingFocus";
-import type { Point } from "~~/services/governance/graph";
+import type { Point } from "~~/services/liveMap/model/graph";
 import type { NodeTone } from "~~/services/liveMap/motion/frame";
 
 /** What every node component takes: where it is, what it is called, and how it joins keyboard focus. */

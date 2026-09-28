@@ -15,13 +15,13 @@ import { type GhostNode, type MapRegion, readingOrder } from "./mapModel";
 import type { NodeProps } from "./nodeProps";
 import { useRovingFocus } from "./useRovingFocus";
 import type { CouncilKey } from "@sh/core/governance/council";
+import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 import {
   GOVERNANCE_ACCOUNT_NODE_ID,
   type GovernanceGraph as Graph,
   type GraphNode,
   externalNodeId,
-} from "~~/services/governance/graph";
-import { councilRuleLabel } from "~~/services/governance/proposalLabels";
+} from "~~/services/liveMap/model/graph";
 import { driftOf } from "~~/services/liveMap/motion/ambient";
 import { type MapFrame, REST_FRAME } from "~~/services/liveMap/motion/frame";
 

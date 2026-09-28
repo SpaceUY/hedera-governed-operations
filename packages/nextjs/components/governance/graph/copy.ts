@@ -3,7 +3,7 @@
  * are named for what exists on the ledger, never for an action: an operation is something that
  * travels along the edges and then switches off.
  */
-import type { EdgeKind, NodeRole } from "~~/services/governance/graph";
+import type { EdgeKind, NodeRole } from "~~/services/liveMap/model/graph";
 
 /** The map's title, the names of its standing nodes, and what it says while it cannot draw. */
 export const MAP_LABELS = {

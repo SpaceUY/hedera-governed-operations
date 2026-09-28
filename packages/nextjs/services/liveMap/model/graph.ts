@@ -9,12 +9,12 @@
  * pending proposal names that the configuration does not know — a transfer's recipient, an incoming
  * council member — becomes a node of its own, so the map always shows where a proposal would go.
  */
-import { canBeSigned } from "./proposalActions";
 import { type DecodedOperation, type RouteRole, decodedOperationOf, routeOf } from "./proposalRoutes";
 import { ContractId } from "@hiero-ledger/sdk";
 import type { CouncilKey, Proposer } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { isValidEntityId } from "@sh/core/mirror";
+import { canBeSigned } from "~~/services/governance/proposalActions";
 
 export type NodeRole = "member" | "proposer" | "governanceAccount" | "executor" | "target" | "token" | "external";
 

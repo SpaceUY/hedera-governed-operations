@@ -4,7 +4,7 @@
  * tells them apart is what this session itself submitted, which the caller reads from the query
  * cache. Pure, so the rule is tested without React.
  */
-import { type AnimationEvent, type GovernanceSnapshot } from "~~/services/governance/mapEvents";
+import { type AnimationEvent, type GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 
 export type ApprovedEvent = Extract<AnimationEvent, { kind: "approved" }>;
 

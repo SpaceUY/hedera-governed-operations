@@ -2,7 +2,7 @@ import { type ReactNode, StrictMode } from "react";
 import { type AnimationSyncInput, useProposalAnimationSync } from "./useProposalAnimationSync";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AnimationEvent } from "~~/services/governance/mapEvents";
+import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
 import { ALICE, BOB, SUCCEEDED, UPGRADE_CALL, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
 
 const ID = "0.0.9001";

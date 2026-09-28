@@ -1,7 +1,7 @@
 import { ALICE, BOB, CAROL, INCOMING, ROTATION, SUCCEEDED, TRANSFER, ago, proposal, world } from "./motionFixtures";
 import { type AnimationQueue, EMPTY_QUEUE, MAX_QUEUED, type QueueAction, animationQueueReducer } from "./queue";
 import { describe, expect, it } from "vitest";
-import type { AnimationEvent, GovernanceSnapshot } from "~~/services/governance/mapEvents";
+import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 
 const BEFORE = world([proposal({ id: "0.0.1", operation: TRANSFER })]);
 const AFTER = world([proposal({ id: "0.0.1", operation: TRANSFER, signatures: [[ALICE, ago(5)]] })]);

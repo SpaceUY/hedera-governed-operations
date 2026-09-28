@@ -8,7 +8,7 @@
  * short by a poll. A new read only adds to the queue. If the queue grows past `MAX_QUEUED`, the map
  * has fallen too far behind to replay it, so it drops what is waiting and shows where things are now.
  */
-import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/governance/mapEvents";
+import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/liveMap/events/mapEvents";
 
 /** How many events may wait behind the one playing before the map gives up replaying them. */
 export const MAX_QUEUED = 6;
