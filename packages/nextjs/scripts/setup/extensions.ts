@@ -11,17 +11,11 @@ import type { SetupEnv } from "./env";
 import { upsertEnvFile } from "./envFile";
 import { reconcileGovernance } from "./governance";
 import { HARDHAT_ENV_PATH, hardhatEnvEntries } from "./hardhatEnv";
-import {
-  GOVERNANCE_LOW_BALANCE_HBAR,
-  type ReleaseTopicActions,
-  type ReleaseTopicLookups,
-  createGovernanceActions,
-  createGovernanceLookups,
-} from "./hederaGovernance";
+import { GOVERNANCE_LOW_BALANCE_HBAR, createGovernanceActions, createGovernanceLookups } from "./hederaGovernance";
 import type { MirrorLookups } from "./reconcile";
 import { formatSteps } from "./report";
 import { reconcileSeedProposal } from "./seedProposal";
-import type { SetupState } from "./state";
+import { AGENT_SEAT, type SetupState } from "./state";
 import type { Client } from "@hiero-ledger/sdk";
 import deployedContracts from "~~/contracts/deployedContracts";
 
@@ -55,9 +49,17 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
     actions: createGovernanceActions(env, client),
   };
 
-  const releaseTopicId = await reconcileReleaseTopic(ctx.state.releaseTopicId, services);
-  const { governance, proposers, step } = await reconcileGovernance({ ...ctx.state, releaseTopicId }, env, services);
-  const withGovernance: SetupState = { ...ctx.state, releaseTopicId, governance };
+  const releaseTopicId = await reconcileSignedTopic(ctx.state.releaseTopicId, "Release topic", {
+    isSigned: services.lookups.topicIsSigned,
+    create: services.actions.createReleaseTopic,
+  });
+  const decisionTopicId = await reconcileSignedTopic(ctx.state.decisionTopicId, "Agent decision topic", {
+    isSigned: services.lookups.topicIsSigned,
+    create: () => services.actions.createDecisionTopic(agentSeatPublicKey(ctx.state)),
+  });
+  const topics = { releaseTopicId, decisionTopicId };
+  const { governance, proposers, step } = await reconcileGovernance({ ...ctx.state, ...topics }, env, services);
+  const withGovernance: SetupState = { ...ctx.state, ...topics, governance };
   saveState(withGovernance);
   upsertEnvFile(HARDHAT_ENV_PATH, hardhatEnvEntries(governance, proposers));
   console.log(formatSteps([step]).join("\n"));
@@ -83,27 +85,41 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
 }
 
 /**
- * The topic release manifests go to. It is created before anything else here because it is the only
- * governance fixture with no dependency on the contracts: an upgrade proposal can be checked against
- * it on the very first release, and a template scaffolded today has somewhere to publish to.
+ * The two topics whose contents are only evidence if the network refuses everyone but their submit
+ * key: the release manifests an upgrade is checked against, and the log the agent writes its
+ * decisions to. Both are created before anything else here because neither depends on the contracts —
+ * a template scaffolded today has somewhere to publish to on its very first release.
  *
- * Existing is not enough to reuse it, which is the one place this differs from every other fixture:
- * the topic has to still be one only the submit key can write to. A topic an earlier version of this
+ * Existing is not enough to reuse one, which is the one place this differs from every other fixture:
+ * the topic has to still be one only its submit key can write to. A topic an earlier version of this
  * script created without one cannot be repaired — it has no admin key either — so the reconcile
- * replaces it rather than carrying a release log anybody could have written.
+ * replaces it rather than carrying a log anybody could have written.
  */
-export async function reconcileReleaseTopic(
+export async function reconcileSignedTopic(
   existing: string | undefined,
-  services: { lookups: ReleaseTopicLookups; actions: ReleaseTopicActions },
+  subject: string,
+  services: { isSigned(topicId: string): Promise<boolean>; create(): Promise<string> },
 ): Promise<string> {
-  const reusable = existing !== undefined && (await services.lookups.releaseTopicIsSigned(existing));
-  const topicId = reusable ? existing : await services.actions.createReleaseTopic();
+  const reusable = existing !== undefined && (await services.isSigned(existing));
+  const topicId = reusable ? existing : await services.create();
   const outcome = reusable ? "reused" : "created";
   if (!reusable && existing !== undefined) {
-    console.log(`  Release topic ${existing} takes messages from anyone; replacing it with a topic that does not.`);
+    console.log(`  ${subject} ${existing} takes messages from anyone; replacing it with a topic that does not.`);
   }
-  console.log(formatSteps([{ label: `Release topic ${topicId}`, outcome }]).join("\n"));
+  console.log(formatSteps([{ label: `${subject} ${topicId}`, outcome }]).join("\n"));
   return topicId;
+}
+
+/** The demo account whose seat the agent votes with, and whose key holds the decision topic. */
+function agentSeatPublicKey(state: SetupState): string {
+  const seat = state.demoAccounts[AGENT_SEAT];
+  if (!seat) {
+    throw new Error(
+      `The agent's decision topic is held by the key of demo account ${AGENT_SEAT} and the state has none; ` +
+        "it is created by the core reconcile, before this runs",
+    );
+  }
+  return seat.publicKey;
 }
 
 function deployNextMessage(missing: string[]): string[] {

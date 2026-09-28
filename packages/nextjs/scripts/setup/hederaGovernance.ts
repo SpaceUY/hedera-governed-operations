@@ -160,24 +160,28 @@ async function tokenPauseKeyContractId(client: Client, network: string, tokenId:
   return "a key that is not a contract";
 }
 
-export type ReleaseTopicLookups = {
+export type TopicTrustLookups = {
   /** Whether the topic exists and only its submit key can write to it. */
-  releaseTopicIsSigned(topicId: string): Promise<boolean>;
+  topicIsSigned(topicId: string): Promise<boolean>;
 };
 
 export type GovernanceSetupLookups = GovernanceLookups &
   DemoTokenLookups &
   SeedProposalLookups &
-  ReleaseTopicLookups & { accountHbarBalance(accountId: string): Promise<number> };
+  TopicTrustLookups & { accountHbarBalance(accountId: string): Promise<number> };
 
-export type ReleaseTopicActions = {
+export type SignedTopicActions = {
   /** Creates the topic release manifests are published to. */
   createReleaseTopic(): Promise<string>;
+  /** Creates the topic the agent publishes its decisions to, held by the agent's own key. */
+  createDecisionTopic(agentPublicKey: string): Promise<string>;
 };
 
-export type GovernanceSetupActions = GovernanceActions & DemoTokenActions & SeedProposalActions & ReleaseTopicActions;
+export type GovernanceSetupActions = GovernanceActions & DemoTokenActions & SeedProposalActions & SignedTopicActions;
 
 const RELEASE_TOPIC_MEMO = "governed-operations release manifests";
+
+const DECISION_TOPIC_MEMO = "governed-operations agent decisions";
 
 /**
  * A topic of its own rather than the demo's. Anyone can read either, but mixing release records
@@ -204,11 +208,35 @@ async function createReleaseTopic(client: Client, env: SetupEnv): Promise<string
 }
 
 /**
- * A topic the state already names is reused only if it still refuses messages from strangers. An
- * older run of this script created the topic without a submit key, and since it also created it
- * without an admin key there is no fixing that one in place: the answer is a new topic.
+ * The topic the co-signing agent writes its decisions to.
+ *
+ * **Its submit key is the agent's, not the operator's**, and that is the whole difference from the
+ * release topic. The claim a release manifest makes is "this team published this build", so the
+ * publisher is the team; the claim a decision makes is "this agent approved this proposal", so the
+ * publisher is the agent. A log the operator could also write to would be a log of what somebody
+ * said the agent did. The admin key stays with the operator so the submit key can be rotated when
+ * the seat changes hands.
+ *
+ * In the demo the seat is a demo account (`AGENT_SEAT`); in a real deployment it is whatever
+ * identity runs the service, and this is the key that has to change with it.
  */
-async function releaseTopicIsSigned(topicId: string, network: string): Promise<boolean> {
+async function createDecisionTopic(client: Client, env: SetupEnv, agentPublicKey: string): Promise<string> {
+  const response = await new TopicCreateTransaction()
+    .setTopicMemo(DECISION_TOPIC_MEMO)
+    .setSubmitKey(PublicKey.fromString(agentPublicKey))
+    .setAdminKey(parseOperatorKey(env.operatorPrivateKey).publicKey)
+    .execute(client);
+  const { topicId } = await response.getReceipt(client);
+  if (!topicId) throw new Error("Decision topic creation returned no topic id");
+  return topicId.toString();
+}
+
+/**
+ * A topic the state already names is reused only if it still refuses messages from strangers. An
+ * older run of this script created the release topic without a submit key, and since it also created
+ * it without an admin key there is no fixing that one in place: the answer is a new topic.
+ */
+async function topicIsSigned(topicId: string, network: string): Promise<boolean> {
   try {
     const topic = await fetchTopic(topicId, { network });
     return !topic.deleted && hasSubmitKey(topic);
@@ -226,7 +254,7 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
 
   return {
     accountExists: accountId => mirrorHas(`/api/v1/accounts/${accountId}`, network),
-    releaseTopicIsSigned: topicId => releaseTopicIsSigned(topicId, network),
+    topicIsSigned: topicId => topicIsSigned(topicId, network),
     accountIdentity: accountId => accountIdentity(accountId, network),
     accountHbarBalance: async accountId => {
       const account = await fetchAccount(accountId, { network });
@@ -260,6 +288,7 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
 export function createGovernanceActions(env: SetupEnv, client: Client): GovernanceSetupActions {
   return {
     createReleaseTopic: () => createReleaseTopic(client, env),
+    createDecisionTopic: agentPublicKey => createDecisionTopic(client, env, agentPublicKey),
     createGovernanceAccount: members => createGovernanceAccount(client, members),
     createDemoToken: tokenAdminContractId => createDemoToken(client, env, tokenAdminContractId),
     associateToken: (account, tokenId) => associateToken(client, account, tokenId),
