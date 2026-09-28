@@ -119,6 +119,22 @@ describe("useProposalAnimationSync", () => {
     expect(result.current.playing?.world).toBe(RAN);
   });
 
+  it("never draws the new read before its sequence, not even in the render that queues it", () => {
+    const drawn: unknown[] = [];
+    const { rerender } = renderHook(
+      (input: AnimationSyncInput) => {
+        const synced = useProposalAnimationSync(input);
+        drawn.push(synced.world);
+        return synced;
+      },
+      { initialProps: { snapshot: OPEN, previous: null, events: [] } as AnimationSyncInput, wrapper },
+    );
+    drawn.length = 0;
+    rerender({ snapshot: SIGNED, previous: OPEN, events: [BOB_SIGNED] });
+    expect(drawn.length).toBeGreaterThan(0);
+    expect(drawn.every(shown => shown === OPEN)).toBe(true);
+  });
+
   it("plays a signature read from another device exactly like one sent from here", () => {
     // Nothing distinguishes the two: the sync only ever sees what a read reports.
     const { result, rerender } = renderSync({ snapshot: OPEN, previous: null, events: [] });

@@ -32,6 +32,12 @@ function renderWithSession(onRemote: (approval: AnimationEvent) => void) {
           mutationKey: GOVERNANCE_MUTATION_KEYS.sign,
           mutationFn: async (_id: string) => "0.0.1@1.1",
         }),
+        failedSign: useMutation({
+          mutationKey: GOVERNANCE_MUTATION_KEYS.sign,
+          mutationFn: async (_id: string): Promise<string> => {
+            throw new Error("rejected in the wallet");
+          },
+        }),
         open: useMutation({
           mutationKey: GOVERNANCE_MUTATION_KEYS.openNative,
           mutationFn: async (scheduleId: string) => ({ scheduleId }),
@@ -65,6 +71,15 @@ describe("useRemoteApprovals", () => {
     const events = [approvedBy(ALICE), approvedBy(BOB)];
     rerender({ events, world: WORLD });
     expect(onRemote.mock.calls.map(([approval]) => approval.memberKey)).toEqual([BOB]);
+  });
+
+  it("announces a signature whose submission here failed: the ledger has it from somewhere else", async () => {
+    const onRemote = vi.fn();
+    const { result, rerender } = renderWithSession(onRemote);
+    await act(() => result.current.failedSign.mutateAsync(ID).catch(() => undefined));
+
+    rerender({ events: [approvedBy(ALICE)], world: WORLD });
+    expect(onRemote.mock.calls.map(([approval]) => approval.memberKey)).toEqual([ALICE]);
   });
 
   it("does nothing until there is a read", () => {
