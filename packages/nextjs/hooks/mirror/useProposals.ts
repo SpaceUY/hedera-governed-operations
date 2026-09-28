@@ -2,6 +2,7 @@
 
 import { DEFAULT_PENDING_POLL_MS, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
+import { useRefreshOnSettle } from "./useRefreshOnSettle";
 import { useQuery } from "@tanstack/react-query";
 import { type ProposalInbox, fetchProposalInbox } from "~~/services/governance/proposals";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
@@ -59,6 +60,11 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
     retry: false,
     refetchInterval: query =>
       query.state.data?.proposals.some(proposal => !proposal.state.isSettled) ? pollIntervalMs : SETTLED_INBOX_POLL_MS,
+  });
+  useRefreshOnSettle(inbox.data?.proposals, {
+    network,
+    governanceAccountId,
+    executorContractId: options.executorContractId,
   });
 
   return { inbox, council };

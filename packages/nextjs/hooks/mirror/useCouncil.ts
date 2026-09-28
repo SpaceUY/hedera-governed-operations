@@ -31,13 +31,17 @@ export type CouncilOptions = MirrorQueryOptions & {
   executorContractId: string;
 };
 
+export function councilQueryKey(network: string, governanceAccountId: string, executorContractId: string): string[] {
+  return mirrorQueryKey(network, "council", governanceAccountId, executorContractId);
+}
+
 /** Who approves and who may propose, read from the ledger rather than from configuration. */
 export function useCouncil({ governanceAccountId, executorContractId, ...options }: CouncilOptions) {
   const network = options.network ?? getDefaultMirrorNetwork();
   const hederaNetwork = toHederaNetworkName(network);
 
   return useQuery<CouncilQueryData, Error>({
-    queryKey: mirrorQueryKey(network, "council", governanceAccountId, executorContractId),
+    queryKey: councilQueryKey(network, governanceAccountId, executorContractId),
     queryFn: async () => {
       const [key, proposers] = await Promise.all([
         fetchCouncilKey(governanceAccountId, hederaNetwork),

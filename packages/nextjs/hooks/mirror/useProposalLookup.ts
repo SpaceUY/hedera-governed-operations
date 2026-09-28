@@ -8,6 +8,7 @@ import {
   resolvePendingRefetchInterval,
 } from "./mirrorQuery";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
+import { useRefreshOnSettle } from "./useRefreshOnSettle";
 import { ContractId } from "@hiero-ledger/sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { countThresholdSignatures } from "~~/services/governance/council";
@@ -115,6 +116,11 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
           registry: needsRegistryCheck ? registryQuery.data! : { status: "notApplicable" },
         }
       : undefined;
+  useRefreshOnSettle(proposal ? [proposal] : undefined, {
+    network,
+    governanceAccountId: options.governanceAccountId,
+    executorContractId: options.executorContractId,
+  });
 
   /**
    * Re-reads the schedule and the registry entry after a write. Mirror and the relay both lag

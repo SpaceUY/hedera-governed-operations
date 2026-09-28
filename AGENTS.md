@@ -68,6 +68,7 @@ packages/nextjs/
       useSchedule.ts        Schedule + derived state; polls while pending
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
+      useRefreshOnSettle.ts Re-reads treasury figures (and the council after a rotation) when a proposal settles
       useTransaction.ts     Mirror rows for a tx id; polls until indexed
       useAccount.ts         Account by 0.0.x id or EVM address
       useToken.ts           Token metadata and pause state, with decimals already a number

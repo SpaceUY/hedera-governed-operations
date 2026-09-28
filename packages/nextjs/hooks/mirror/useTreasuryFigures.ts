@@ -17,6 +17,15 @@ export type TreasuryFiguresOptions = MirrorQueryOptions & {
   usdcTokenId: string;
 };
 
+/** With only the account, the prefix of every treasury-figures query for it, whatever vault and tokens it reads. */
+export function treasuryFiguresQueryKey(
+  network: string,
+  governanceAccountId: string,
+  ...entityIds: string[]
+): string[] {
+  return mirrorQueryKey(network, "treasury-figures", governanceAccountId, ...entityIds);
+}
+
 export function useTreasuryFigures({
   governanceAccountId,
   vaultContractId,
@@ -28,14 +37,7 @@ export function useTreasuryFigures({
   const hederaNetwork = toHederaNetworkName(network);
 
   return useQuery({
-    queryKey: mirrorQueryKey(
-      network,
-      "treasury-figures",
-      governanceAccountId,
-      vaultContractId,
-      demoTokenId,
-      usdcTokenId,
-    ),
+    queryKey: treasuryFiguresQueryKey(network, governanceAccountId, vaultContractId, demoTokenId, usdcTokenId),
     queryFn: () =>
       fetchTreasuryFigures({
         governanceAccountId,
