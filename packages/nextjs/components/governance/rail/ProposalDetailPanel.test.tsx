@@ -8,6 +8,7 @@ import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
+import { UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
 
 vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
@@ -121,6 +122,33 @@ describe("ProposalDetailPanel", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Sign" }));
     expect(sign).toHaveBeenCalledWith("0.0.777", expect.anything());
+  });
+
+  it("still offers Sign when the registry could not be read, with a warning right after it", () => {
+    render(
+      <ProposalDetailPanel
+        proposal={baseProposal({
+          operation: {
+            kind: "registryCall",
+            proposalId: 7,
+            executorContractId: EXECUTOR_CONTRACT_ID,
+            gas: 90_000,
+            payableTinybars: 0n,
+          },
+          registry: { status: "unreachable", reason: "fetch failed" },
+        })}
+        accountId={MEMBER_A}
+        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        executorContractId={EXECUTOR_CONTRACT_ID}
+        network="testnet"
+        refresh={vi.fn()}
+        markRegistryEntryCancelled={vi.fn()}
+      />,
+    );
+    const sign = screen.getByRole("button", { name: "Sign" });
+    const warning = screen.getByText(UNREACHABLE_REGISTRY_SIGN_WARNING);
+    expect(warning.getAttribute("role")).toBe("status");
+    expect(sign.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("renders both councils for a rotation, each against its own threshold", () => {
