@@ -87,8 +87,12 @@ export type GraphLayout = {
   labels?: Partial<Record<string, string>>;
 };
 
-/** Node and edge ids in the order the operation travels them. */
-export type GraphScope = { nodeIds: string[]; edgeIds: string[] };
+/**
+ * Node and edge ids in the order the operation travels them. `hops` groups the edges by step of the
+ * route: the edges of one hop are travelled at once (a transfer to two recipients, every seat of a
+ * rotation), the hops one after the other.
+ */
+export type GraphScope = { nodeIds: string[]; edgeIds: string[]; hops: string[][] };
 
 export const GOVERNANCE_ACCOUNT_NODE_ID = "governanceAccount";
 export const EXECUTOR_NODE_ID = "executor";
@@ -321,12 +325,13 @@ export function scopeOf(graph: GovernanceGraph, operation: DecodedOperation): Gr
   if (!route) return null;
 
   const nodeIds: string[] = [];
-  const edgeIds: string[] = [];
+  const hops: string[][] = [];
   const visit = (id: string) => {
     if (!nodeIds.includes(id)) nodeIds.push(id);
   };
 
   for (const { from, to } of route) {
+    const hop: string[] = [];
     for (const source of from) {
       for (const target of to) {
         if (!("nodeId" in source) || !("nodeId" in target)) return null;
@@ -334,9 +339,10 @@ export function scopeOf(graph: GovernanceGraph, operation: DecodedOperation): Gr
         if (!graph.edges.some(edge => edge.id === id)) return null;
         visit(source.nodeId);
         visit(target.nodeId);
-        edgeIds.push(id);
+        hop.push(id);
       }
     }
+    hops.push(hop);
   }
-  return { nodeIds, edgeIds };
+  return { nodeIds, edgeIds: hops.flat(), hops };
 }
