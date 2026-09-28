@@ -40,6 +40,14 @@
     {
       "file": "packages/hardhat/hardhat.config.ts",
       "contains": ["hederaTestnet", "hederaMainnet", "sourcify"]
+    },
+    {
+      "file": "packages/nextjs/app/governance/new/page.tsx",
+      "contains": ["New proposal", "Connect a wallet to propose"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/wizard/CouncilPreviewPanel.tsx",
+      "contains": ["What the council will see"]
     }
   ]
 }

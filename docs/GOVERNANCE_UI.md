@@ -8,6 +8,7 @@ How the Governed Operations screens are put together: the routes, the layers und
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                        | Treasury figures (HBAR, vault reserve, ACME, USDC), the council's threshold, and the council's proposals with their status and approvals                                 |
 | `/governance/[scheduleId]` | One proposal: what it does, the schedule's status, the registry entry behind it, the gas and HBAR the treasury pays, approvals, and Sign / Withdraw / Cancel when they apply |
+| `/governance/new`          | Opening a proposal: the operation picker, its form, what the council will see, and the wallet transactions that register and/or schedule it                              |
 | `/proof-wall`              | The Proof Wall demo, moved off the root                                                                                                                                   |
 
 The detail route is keyed by **schedule id**, since a proposal is a schedule the governance account pays for. A registry entry that was registered but never scheduled has no schedule id, and so no page.
@@ -19,9 +20,12 @@ packages/nextjs/
   app/
     page.tsx                        # governance home
     governance/[scheduleId]/page.tsx  # proposal detail
+    governance/new/page.tsx         # opening a proposal
     proof-wall/page.tsx
   components/
     SetupNotice.tsx                 # rendered in place of a governance page until setup and the deploy have run
+    governance/MutationError.tsx
+    governance/wizard/              # OperationTypePicker, forms/, CouncilPreviewPanel, drafts.ts (form values → encoders, preview through decode.ts)
   config/governanceConfig.ts        # ids `yarn setup` writes; deployed contract lookup
   hooks/mirror/                     # reads (React Query)
     useCouncil.ts                   # threshold key, members, proposers
@@ -34,6 +38,7 @@ packages/nextjs/
     useSignProposal.ts              # ScheduleSign
     useWithdrawProposal.ts          # ScheduleDelete
     useCancelProposal.ts            # GovernedExecutor.cancel
+    useSubmitProposalDraft.ts       # one submit for the wizard, whichever path the draft takes
   services/governance/
     council.ts                      # threshold key decoding, approval counting, proposer list
     proposals.ts                    # the inbox: schedules by proposer, narrowed and crossed with the registry
@@ -41,6 +46,7 @@ packages/nextjs/
     decode.ts / encode.ts           # scheduled body and registry calldata ↔ described operation
     registry.ts                     # entry reads, cancel, the id createProposal returned
     schedules.ts                    # ScheduleCreate / Sign / Delete builders
+    scheduledBody.ts                # the body a schedule carries, from its transaction
     treasury.ts                     # balances plus the vault's reserve
     proposalActions.ts              # which actions a proposal offers, and to whom
     proposalLabels.ts               # the words a screen uses for a proposal's state
@@ -63,12 +69,13 @@ Server state lives in React Query and nowhere else. Components never write propo
 - **The inbox can be partial.** `unreachableProposers` names proposers whose schedules could not be read (Mirror failed, or the address resolves to no account); the home page says the list may be incomplete whenever it is non-empty.
 - **A proposal outside the inbox** — older than `PROPOSALS_PER_PROPOSER`, or a native proposal opened by an account without `PROPOSER_ROLE` — is read directly by `useProposalLookup`, which returns the same `Proposal` shape and refuses a schedule the governance account does not pay for, so a crafted link never reaches a Sign button.
 - **Relay reads** go through `createRelayClient` (`services/web3/relayClient.ts`), with one retry: the polling already asks again.
-- **Amounts from a contract stay `bigint`** until they are rendered, e.g. `Hbar.fromTinybars(reserve.toString())`.
+- **Amounts from a contract stay `bigint`** until they are rendered, e.g. `formatTinybars(reserve)` (`utils/scaffold-hbar/hbarAmount.ts`).
 
 ## What a proposal offers
 
 The rules live in `services/governance/proposalActions.ts` and are tested there; the page only calls them.
 
+- **Open** (`canOpenProposal`): any connected account for a native kind; a contract-backed kind only for a `PROPOSER_ROLE` holder, since `createProposal` reverts for anyone else after charging the fee.
 - **Sign** (`canBeSigned`): the schedule is pending, and either it is a native kind with no registry entry, or it is a registry call whose entry was read, is still pending and decodes to one of this template's operations. A missing, cancelled or unrecognised entry gets no button, and neither does an entry the relay could not be asked about.
 - **Withdraw** (`canBeWithdrawnBy`): the schedule is pending and the connected account created it. The proposer's key is the schedule's admin key, so a `ScheduleDelete` from anyone else is refused by the network; the button is not shown to them, nor with no wallet connected.
 - **Cancel**: offered only once the schedule was withdrawn or expired and the registry entry is still pending. Withdraw comes first because a live schedule on a cancelled entry can still reach its threshold, revert with `ProposalNotPending` and bill the governance account for the gas.
@@ -81,7 +88,8 @@ The screen that asks for a signature is the one that has to explain the mechanis
 
 - the schedule's status: "Collecting signatures", "Executed", "Withdrawn", "Expired";
 - the registry entry: its state when it was read, "None: the network runs this operation directly" for a native kind, "No usable entry: do not sign" when the registry has none, "Could not be read right now" when the relay did not answer;
-- approvals as "n of m council signatures", or, for a council rotation, one count for the current council and one for the incoming council, since the schedule waits for both thresholds (see "A rotation collects signatures from two councils" in `docs/ARCHITECTURE.md`).
+- approvals as "n of m council signatures", or, for a council rotation, one count for the current council and one for the incoming council, since the schedule waits for both thresholds (see "A rotation collects signatures from two councils" in `docs/ARCHITECTURE.md`);
+- the wizard's words: each kind's title and hint, the path chips it travels, the council rule, the gas and expiry rows, who approves, and the one-or-two-transactions CTA.
 
 A pending proposal also says that it runs as soon as the threshold is reached and that it expires, with nothing run, if the threshold is not reached by its expiration time.
 
@@ -91,8 +99,10 @@ A pending proposal also says that it runs as soon as the threshold is reached an
 
 Both hooks take an already-encoded proposal from `services/governance/encode.ts`, which enforces the chain invariants (positive amounts, a reachable threshold, no duplicate council key) before anything becomes a transaction.
 
+`/governance/new` builds a draft from the form through `components/governance/wizard/drafts.ts`, which converts amounts without rounding and calls the encoders, and previews it through `decodeScheduledOperation` / `decodeRegistryOperation`: what the proposer reviews is what the detail page will show the council. A body the decoder cannot fully read cannot be submitted. The vault upgrade always runs `initV2(limit)` in the approved call, since `initV2` is a reinitializer anyone could call afterwards. The schedule's memo is the kind's title.
+
 ## Not built yet
 
-- **No screen opens a proposal.** `useCreateProposal` and `useCreateNativeProposal` are complete and tested, but nothing under `app/` calls them yet; until the proposal form exists, proposals are opened by `yarn setup` or a script.
+- **Three kinds have no form yet**: the treasury swap, token administration and council rotation are encoded and decoded, but the wizard lists only the vault upgrade and the supplier payment.
 - **Approvals render as text.** `Proposal.progress` and `Proposal.incomingProgress` carry everything a progress visual needs, including which members signed (`signedBy`).
 - **A registry entry that was never scheduled** — the seed proposal `yarn setup` registers is one — has no detail page, since there is no schedule id to route on.

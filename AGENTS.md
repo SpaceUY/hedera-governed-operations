@@ -6,7 +6,7 @@ This is a **Hedera template with two workspaces**: `packages/nextjs` (HCS topics
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
-The governance UI owns `/`: a governance home (treasury figures, the council's threshold, the pending proposals) and a proposal detail page at `/governance/[scheduleId]` with Sign, Withdraw and Cancel, backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`. No screen opens a proposal yet: the two create hooks are complete and tested but not called from `app/`. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
+The governance UI owns `/`: a governance home (treasury figures, the council's threshold, the pending proposals) and a proposal detail page at `/governance/[scheduleId]` with Sign, Withdraw and Cancel, backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`. `/governance/new` opens a proposal: a vault upgrade or a supplier payment so far, previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
 
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
@@ -40,6 +40,7 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                        | Governance home — treasury figures, council threshold, pending proposals; a setup notice until `yarn setup` and the deploy have run |
 | `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)   |
+| `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                     |
 | `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                    |
 | `/my-proofs`               | Proofs filtered by connected account; badge display                                                                                 |
 | `/admin`                   | Create HCS topic and HTS badge token (wallet-signed)                                                                                |
@@ -55,6 +56,7 @@ packages/nextjs/
   app/                    App Router pages and API routes
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
+    governance/           MutationError and the proposal wizard (picker, forms, preview, drafts)
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
     useSubmitProof.ts     HCS TopicMessageSubmitTransaction via native tx hook
@@ -101,6 +103,7 @@ packages/nextjs/
       treasury.ts           Treasury balances plus the vault's reserve
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
+      scheduledBody.ts      The body a schedule carries, built from its transaction (the wizard's preview)
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)
