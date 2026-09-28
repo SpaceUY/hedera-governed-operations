@@ -65,6 +65,10 @@
     {
       "file": "packages/nextjs/components/governance/wizard/CouncilPreviewPanel.tsx",
       "contains": ["What the council will see"]
+    },
+    {
+      "file": "packages/nextjs/services/governance/proposalLabels.ts",
+      "contains": ["who may act", "would happen", "where the money is", "switches off"]
     }
   ]
 }

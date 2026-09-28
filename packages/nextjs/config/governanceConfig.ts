@@ -34,7 +34,7 @@ export function getGovernanceEntityIds(): GovernanceEntityIds {
 export type HederaDeployedContract = GenericContract & { hederaContractId: string };
 
 export function getDeployedContract(chainId: number, name: string): HederaDeployedContract {
-  const entry = contracts?.[chainId]?.[name];
+  const entry = findDeployment(chainId, name);
   if (!entry) {
     throw new Error(
       `${name} is not deployed on chain ${chainId}. Run \`yarn hardhat:deploy --network hederaTestnet\`.`,
@@ -46,6 +46,14 @@ export function getDeployedContract(chainId: number, name: string): HederaDeploy
     );
   }
   return { ...entry, hederaContractId: entry.hederaContractId };
+}
+
+/**
+ * A deployment as it was recorded, with or without its native id: enough for a screen that can name a
+ * contract by its EVM address, such as the map drawing one the deploy has not resolved an id for.
+ */
+export function findDeployment(chainId: number, name: string): GenericContract | null {
+  return contracts?.[chainId]?.[name] ?? null;
 }
 
 /** `getDeployedContract` for a contract a screen can do without: null where that one would throw. */
@@ -66,6 +74,10 @@ export const GOVERNANCE_CONTRACTS = {
    * Only the wizard's upgrade form needs it, so it is not part of `resolveGovernanceConfig`.
    */
   vaultNextImplementation: "AcmeVaultV2",
+  /** Holds the token's pause and freeze keys; only the map needs it, so it is not part of the guard. */
+  tokenAdmin: "TokenAdmin",
+  /** Sells treasury HBAR on SaucerSwap; only the map needs it, so it is not part of the guard. */
+  swapAdapter: "SaucerSwapAdapter",
 } as const;
 
 export type GovernanceConfig = GovernanceEntityIds & {

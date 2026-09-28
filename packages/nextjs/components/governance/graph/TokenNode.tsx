@@ -1,0 +1,31 @@
+"use client";
+
+import { MapItem } from "./MapItem";
+import { FOCUS_GAP, TOKEN_RADIUS, hexagonPoints } from "./geometry";
+import { FOCUS_RING_CLASS, type NodeProps, translate } from "./nodeProps";
+
+/** An HTS token: a hexagon with its name inside, so it never reads as an account or a contract. */
+export function TokenNode(node: NodeProps) {
+  return (
+    <MapItem
+      item={{ kind: "node", id: node.id }}
+      label={`${node.label}, ${node.caption}`}
+      focus={node.focus}
+      onActivate={node.onActivate}
+      transform={translate(node.position)}
+    >
+      <polygon points={hexagonPoints(TOKEN_RADIUS + FOCUS_GAP)} className={FOCUS_RING_CLASS} strokeWidth={2} />
+      <polygon
+        points={hexagonPoints(TOKEN_RADIUS)}
+        className="fill-base-100 stroke-base-content/40"
+        strokeWidth={1.5}
+      />
+      <text y={4} textAnchor="middle" className="fill-base-content text-[12px] font-semibold">
+        {node.label}
+      </text>
+      <text y={TOKEN_RADIUS + 18} textAnchor="middle" className="fill-base-content/60 text-[11px]">
+        {node.caption}
+      </text>
+    </MapItem>
+  );
+}

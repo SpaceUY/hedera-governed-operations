@@ -1,6 +1,7 @@
 import {
   GOVERNANCE_ROUTES,
   findDeployedContract,
+  findDeployment,
   getDeployedContract,
   getGovernanceEntityIds,
   resolveGovernanceConfig,
@@ -60,6 +61,17 @@ describe("getDeployedContract", () => {
 
   it("treats an entry without a Hedera contract id as not deployed rather than returning undefined", () => {
     expect(() => getDeployedContract(296, "TokenAdmin")).toThrow(/TokenAdmin on chain 296 has no Hedera contract id/);
+  });
+});
+
+describe("findDeployment", () => {
+  it("returns an entry the deploy recorded no Hedera contract id for, so it can still be named by address", () => {
+    expect(findDeployment(296, "TokenAdmin")?.address).toBe("0xdef");
+  });
+
+  it("returns null for a contract the chain has no deployment of", () => {
+    expect(findDeployment(296, "AcmeVault")).toBeNull();
+    expect(findDeployment(1, "GovernedExecutor")).toBeNull();
   });
 });
 

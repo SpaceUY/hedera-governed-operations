@@ -37,6 +37,8 @@ packages/nextjs/
     governance/MutationError.tsx
     governance/wizard/              # ProposalWizardProvider + ProposalWizard, OperationTypePicker, forms/, CouncilPreviewPanel
     governance/DemoSignButtons.tsx  # demo only: "Sign as Alice / Bob"
+    governance/graph/               # GovernanceMap (data) → GovernanceGraph (SVG): nodes, GraphEdge, SignatureRing, Legend
+    governance/graph/demo/          # demo only: the hand-composed layout, names, co-signing agent ghost, inspector copy
   config/governanceConfig.ts        # ids `yarn setup` writes; deployed contract lookup; resolveGovernanceConfig
   hooks/mirror/                     # reads (React Query)
     useCouncil.ts                   # threshold key, members, proposers
@@ -58,6 +60,7 @@ packages/nextjs/
     proposalTypes.ts                # the five kinds, their execute gas, decoded shapes
     proposalRoutes.ts               # the path each kind takes, in roles
     graph.ts                        # the governance graph: nodes, edges, a proposal's scope, fallback layout
+    graphEntities.ts                # the configured contracts, token and DEX router the graph starts from
     decode.ts / encode.ts           # scheduled body and registry calldata ↔ described operation
     registry.ts                     # entry reads, cancel, the id createProposal returned
     schedules.ts                    # ScheduleCreate / Sign / Delete builders
@@ -149,6 +152,17 @@ The wizard is two components so that it can live in a page or in a side panel. `
 The picker is native radio buttons sharing one name across its two groups ("Contract calls · through the registry", "Native · no contract, no registry entry"), so a keyboard moves the choice with the arrow keys. It is disabled while a submission is pending, since picking another kind resets the draft. The wizard says why the button is disabled rather than leaving it greyed out: no wallet connected, a vault upgrade with no `AcmeVaultV2` deployed to point the proxy at, the proposer list still loading or unreadable, an account without `PROPOSER_ROLE` for a contract-backed kind, or a recipient that is malformed, still being looked up, or not an account. The words live in `proposalLabels.ts` with the rest.
 
 `/governance/new` builds a draft from the form through `services/governance/drafts.ts`, which converts amounts without rounding and calls the encoders, and previews it through `decodeScheduledOperation` / `decodeRegistryOperation`: what the proposer reviews is what the detail page will show the council. A body the decoder cannot fully read cannot be submitted. The vault upgrade always runs `initV2(limit)` in the approved call, since `initV2` is a reinitializer anyone could call afterwards. `decodeRegistryOperation` reads the limit back out of that call, so the preview and the detail page both name it; an upgrade that runs any other initializer decodes as unrecognised and is offered no Sign. The schedule's memo is the kind's title.
+
+## The governance map
+
+`components/governance/graph/` draws the graph `services/governance/graph.ts` derives. `GovernanceMap` takes the `GovernanceConfig` the host's setup guard resolved, reads the council and the inbox through `useProposals` (so it adds no polling of its own), builds the configured entities with `governanceEntitiesOf` — the vault, `TokenAdmin` and the swap adapter as targets, the token, the SaucerSwap router as an external contract the adapter has exactly one authority link to, and where the money is (router → treasury, the vault's reserve) — and hands the result to `GovernanceGraph`, which only draws.
+
+- **Shapes.** An account is a circle (`AccountNode`), a contract a rounded rectangle (`ContractNode`, dashed when it is outside the system), a token a hexagon (`TokenNode`), and the governance account the one large node (`TreasuryNode`), with the council's rule written inside ("2-of-3") and the approvals of the proposal being shown as a separate `SignatureRing`.
+- **Edges.** One `GraphEdge` for every phase — `rest`, `preview`, `progress`, `complete`, `failed` — set by whoever draws the map; at rest authority is a solid grey line and money a dotted one, and an `intent` edge (what a pending proposal would use) is drawn only while that proposal is shown. The `Legend` stays on the canvas.
+- **Ids.** Graph ids contain `+/=:.->`, so nothing puts them in a DOM `id` or a selector: an item carries `data-node-id` / `data-edge-id`.
+- **Keyboard.** The map is one Tab stop with a roving tabindex: the arrow keys (and Home / End) move through the nodes in reading order, then the edges, and a focus ring shows where. An item is a `button` when the host passes `onActivate`, a `graphics-symbol` otherwise. Every item has an accessible name, and every name is real SVG text.
+- **Layout.** Without a decoration every node is placed by role (`autoLayout`) and named by role, by the proposer account holding a seat, or by its id. `decorate` is where a demo places and names the nodes; the colours are daisyUI tokens plus `--color-map-preview` in `styles/globals.css`, so both themes work.
+- **Removing the demo layout**: delete `components/governance/graph/demo/` and the `decorate={decorateDemoMap}` prop (and its import) where the map is mounted.
 
 ## Not built yet
 

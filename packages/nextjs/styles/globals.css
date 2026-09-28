@@ -24,6 +24,8 @@
   --color-hedera-cobalt: #2d84eb;
   --color-hedera-violet: #4f46e5;
   --color-hedera-smoke: #9b9b9d;
+  /* The governance map's "would happen" line: violet in both themes, where primary is indigo in light. */
+  --color-map-preview: var(--color-hedera-ultraviolet);
 }
 
 @plugin "daisyui" {

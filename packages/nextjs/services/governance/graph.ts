@@ -97,7 +97,8 @@ export const memberNodeId = (key: string): string => `member:${key}`;
 export const proposerNodeId = (accountId: string): string => `proposer:${accountId}`;
 export const edgeId = (from: string, to: string): string => `${from}->${to}`;
 
-const externalNodeId = (ref: string): string => `external:${ref.toLowerCase()}`;
+/** A node a pending proposal introduced because the configuration does not know it: a recipient, say. */
+export const externalNodeId = (ref: string): string => `external:${ref.toLowerCase()}`;
 
 const AUTO_LAYOUT: GraphLayout = { width: 1000, height: 600, positions: {} };
 
