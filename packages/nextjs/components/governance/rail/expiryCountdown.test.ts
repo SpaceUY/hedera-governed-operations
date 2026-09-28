@@ -26,6 +26,20 @@ describe("expiryCountdown", () => {
     });
   });
 
+  it("intensifies right at the final-hour boundary, not just after it", () => {
+    expect(expiryCountdown(new Date("2026-01-01T01:00:00.000Z"), true, NOW)).toEqual({
+      label: "Expires in 1h 0m",
+      urgency: "final-hour",
+    });
+  });
+
+  it("reads normally just outside the final-hour boundary", () => {
+    expect(expiryCountdown(new Date("2026-01-01T01:01:00.000Z"), true, NOW)).toEqual({
+      label: "Expires in 1h 1m",
+      urgency: "normal",
+    });
+  });
+
   it("reads as expiring now once the deadline has passed", () => {
     expect(expiryCountdown(new Date("2025-12-31T23:00:00.000Z"), true, NOW)).toEqual({
       label: "Expiring now",
