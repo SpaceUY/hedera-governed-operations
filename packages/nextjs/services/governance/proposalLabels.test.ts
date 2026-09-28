@@ -2,6 +2,7 @@ import {
   approvalsLabel,
   councilRuleLabel,
   executionFailureLabel,
+  memberLabel,
   proposalStatusLabel,
   registryLabel,
 } from "./proposalLabels";
@@ -52,6 +53,25 @@ describe("approvalsLabel", () => {
     expect(approvalsLabel(progress(2, 2), progress(0, 2))).toBe(
       "Current council: 2 of 2 required signatures · Incoming council: 0 of 2 required signatures",
     );
+  });
+});
+
+describe("memberLabel", () => {
+  const proposers = [
+    { accountId: "0.0.101", key: "key-a" },
+    { accountId: "0.0.102", key: "key-b" },
+  ];
+
+  it("names a seat by the proposer account that holds it", () => {
+    expect(memberLabel("key-a", proposers, null)).toBe("0.0.101");
+  });
+
+  it("names the connected account's own seat You, over its account id", () => {
+    expect(memberLabel("key-b", proposers, "0.0.102")).toBe("You");
+  });
+
+  it("names a seat nobody proposes by the start of its key", () => {
+    expect(memberLabel("0011223344", proposers, null)).toBe("Member 001122…");
   });
 });
 

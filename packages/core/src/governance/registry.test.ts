@@ -122,6 +122,21 @@ describe("fetchRegistryEntries", () => {
     });
   });
 
+  /**
+   * `cancel` authorizes against this address, so a screen needs it to know who may cancel. viem
+   * hands decoded addresses back EIP-55 checksummed whatever casing the call returned, hence the
+   * case-insensitive compare — the same rule any other reader of this address follows.
+   */
+  it("keeps the entry's proposer beside its state", async () => {
+    stubRelay(0);
+
+    const entries = await fetchRegistryEntries([7], registry);
+
+    expect(entries.get(7)?.status).toBe("read");
+    const read = entries.get(7) as { status: "read"; entry: { proposer: string } };
+    expect(read.entry.proposer.toLowerCase()).toBe(PROPOSER.toLowerCase());
+  });
+
   it("keeps the stored calldata beside the decoded operation", async () => {
     stubRelay(0);
 

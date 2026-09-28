@@ -23,6 +23,15 @@ import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/net
 
 export type ProposalLookupOptions = CouncilOptions & { scheduleId: string };
 
+/**
+ * How long a cancel that was just sent keeps its entry reading "cancelled" while the relay still
+ * answers "pending". The relay trails consensus by a block or two, so this is several times that;
+ * past it, a relay still saying "pending" is believed — the cancel did not take.
+ */
+export const CANCEL_CONFIRMATION_WINDOW_MS = 30_000;
+
+type SentCancel = { proposalId: number; sentAt: number };
+
 /** Same comparison the inbox uses: a scheduled body can name a contract by id or by EVM address. */
 function isThisExecutor(named: string, executorContractId: string): boolean {
   if (named === executorContractId) return true;
@@ -44,6 +53,7 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
   const council = useCouncil(options);
   const queryClient = useQueryClient();
   const delayedRefresh = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sentCancel = useRef<SentCancel | null>(null);
   useEffect(
     () => () => {
       if (delayedRefresh.current) clearTimeout(delayedRefresh.current);
@@ -77,6 +87,22 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
   const proposalId = operation?.kind === "registryCall" ? operation.proposalId : undefined;
   const registryKey = registryEntryQueryKey(network, options.executorContractId, proposalId);
 
+  /**
+   * A read taken while a cancel this page sent is unconfirmed. "Pending" inside the window is the
+   * relay lagging, so the entry stays cancelled; any other answer, or "pending" once the window is
+   * over, is the relay's final word and ends the wait.
+   */
+  const whileAwaitingCancel = (read: RegistryCrossCheck): RegistryCrossCheck => {
+    const sent = sentCancel.current;
+    if (!sent || sent.proposalId !== proposalId) return read;
+    const withinWindow = Date.now() - sent.sentAt < CANCEL_CONFIRMATION_WINDOW_MS;
+    if (read.status === "read" && read.entry.state === "pending" && withinWindow) {
+      return { ...read, entry: { ...read.entry, state: "cancelled" } };
+    }
+    sentCancel.current = null;
+    return read;
+  };
+
   const registryQuery = useQuery({
     queryKey: registryKey,
     queryFn: async () => {
@@ -84,12 +110,15 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
         executorContractId: options.executorContractId,
         rpcUrl: getHederaRpcUrl(hederaNetwork),
       });
-      return (
-        entries.get(proposalId!) ?? ({ status: "unreachable", reason: "not returned" } satisfies RegistryCrossCheck)
-      );
+      const read =
+        entries.get(proposalId!) ?? ({ status: "unreachable", reason: "not returned" } satisfies RegistryCrossCheck);
+      return whileAwaitingCancel(read);
     },
     enabled: needsRegistryCheck,
     staleTime: DEFAULT_PENDING_POLL_MS,
+    // Polls only while a cancel sent from this page is waiting for the relay to confirm it.
+    refetchInterval: () =>
+      proposalId !== undefined && sentCancel.current?.proposalId === proposalId ? DEFAULT_PENDING_POLL_MS : false,
   });
 
   const isLoading = scheduleQuery.isLoading || council.isLoading || (needsRegistryCheck && registryQuery.isLoading);
@@ -137,5 +166,20 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
     delayedRefresh.current = setTimeout(invalidate, DEFAULT_PENDING_POLL_MS);
   };
 
-  return { proposal, isLoading, error, refresh };
+  /**
+   * After `cancel` is sent. A signer returns once the transaction is submitted — HashPack without a
+   * receipt — and the relay serves state a block or two behind, so neither an immediate re-read nor
+   * the submission alone settles it. The entry reads "cancelled" straight away and is polled until
+   * the relay agrees, or until `CANCEL_CONFIRMATION_WINDOW_MS` passes with it still pending, in
+   * which case the cancel did not take and the entry reads pending again.
+   */
+  const markRegistryEntryCancelled = () => {
+    if (proposalId === undefined) return;
+    sentCancel.current = { proposalId, sentAt: Date.now() };
+    queryClient.setQueryData<RegistryCrossCheck>(registryKey, current =>
+      current?.status === "read" ? { ...current, entry: { ...current.entry, state: "cancelled" } } : current,
+    );
+  };
+
+  return { proposal, isLoading, error, refresh, markRegistryEntryCancelled };
 }

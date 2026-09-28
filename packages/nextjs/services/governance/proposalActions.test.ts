@@ -1,9 +1,11 @@
 import {
   canBeSigned,
   canBeWithdrawnBy,
+  canCancelRegistryEntry,
   canOpenProposal,
   canShowIntent,
   cancellableRegistryId,
+  otherOpenScheduleOf,
 } from "./proposalActions";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck, RegistryEntry } from "@sh/core/governance/registry";
@@ -30,12 +32,16 @@ const REGISTRY_CALL: ScheduledOperation = {
 
 const TRANSFER: ScheduledOperation = { kind: "treasuryTransfer", hbar: [], tokens: [] };
 
+const PROPOSER = "0xf2b17e6774b48f1073a94b78791aaa02698d1620";
+const GOVERNANCE_EVM_ADDRESS = "0x0000000000000000000000000000000000009999";
+
 const entryOf = (overrides: Partial<RegistryEntry> = {}): RegistryCrossCheck => ({
   status: "read",
   entry: {
     proposalId: 7,
     state: "pending",
     target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+    proposer: PROPOSER,
     calldata: "0x",
     operation: {
       kind: "upgrade",
@@ -179,5 +185,74 @@ describe("cancellableRegistryId", () => {
   it("offers nothing for a native kind, which has no entry", () => {
     const registry: RegistryCrossCheck = { status: "notApplicable" };
     expect(cancellableRegistryId({ state: stateOf("deleted"), execution: NOT_RUN, registry })).toBeNull();
+  });
+});
+
+describe("canCancelRegistryEntry", () => {
+  it("authorizes the entry's own proposer", () => {
+    expect(canCancelRegistryEntry(PROPOSER, PROPOSER, GOVERNANCE_EVM_ADDRESS)).toBe(true);
+  });
+
+  it("authorizes the governance account, the only EXECUTOR_ROLE holder in this template", () => {
+    expect(canCancelRegistryEntry(PROPOSER, GOVERNANCE_EVM_ADDRESS, GOVERNANCE_EVM_ADDRESS)).toBe(true);
+  });
+
+  it("refuses anyone else, whose cancel call the contract would revert", () => {
+    const stranger = "0x00000000000000000000000000000000000000ff";
+    expect(canCancelRegistryEntry(PROPOSER, stranger, GOVERNANCE_EVM_ADDRESS)).toBe(false);
+  });
+
+  it("refuses with no wallet connected", () => {
+    expect(canCancelRegistryEntry(PROPOSER, null, GOVERNANCE_EVM_ADDRESS)).toBe(false);
+  });
+
+  it("refuses the proposer match while the governance account's own address is not known yet", () => {
+    expect(canCancelRegistryEntry(PROPOSER, "0x00000000000000000000000000000000000000ff", null)).toBe(false);
+  });
+
+  it("compares case-insensitively, since a decoded address is EIP-55 checksummed regardless of how it arrived", () => {
+    expect(canCancelRegistryEntry(PROPOSER.toUpperCase().replace("0X", "0x"), PROPOSER, GOVERNANCE_EVM_ADDRESS)).toBe(
+      true,
+    );
+  });
+});
+
+describe("otherOpenScheduleOf", () => {
+  const scheduleWithId = (schedule_id: string) => ({ schedule_id }) as MirrorSchedule;
+  const viewed = { schedule: scheduleWithId("0.0.1"), registry: entryOf() };
+  const round = (
+    scheduleId: string,
+    overrides: Partial<{ status: ScheduleStatus; proposalId: number; registry: RegistryCrossCheck }> = {},
+  ) => ({
+    schedule: scheduleWithId(scheduleId),
+    state: stateOf(overrides.status ?? "pending"),
+    operation: { ...REGISTRY_CALL, proposalId: overrides.proposalId ?? 7 },
+    registry: overrides.registry ?? entryOf(),
+  });
+
+  it("finds another pending schedule for the same entry", () => {
+    expect(otherOpenScheduleOf(viewed, [round("0.0.1", { status: "deleted" }), round("0.0.2")])).toBe("0.0.2");
+  });
+
+  it("counts one the relay could not be asked about, since it cannot be ruled out", () => {
+    const unreachable: RegistryCrossCheck = { status: "unreachable", reason: "timeout" };
+    expect(otherOpenScheduleOf(viewed, [round("0.0.2", { registry: unreachable })])).toBe("0.0.2");
+  });
+
+  it("ignores the viewed schedule itself, settled rounds, other entries and other registries", () => {
+    const otherRegistry: RegistryCrossCheck = { status: "missing", reason: "the call names 0.0.9, not this registry" };
+    const inbox = [
+      round("0.0.1"),
+      round("0.0.3", { status: "expired" }),
+      round("0.0.4", { proposalId: 8 }),
+      round("0.0.5", { registry: otherRegistry }),
+      { ...round("0.0.6"), operation: TRANSFER, registry: { status: "notApplicable" } as RegistryCrossCheck },
+    ];
+    expect(otherOpenScheduleOf(viewed, inbox)).toBeNull();
+  });
+
+  it("has nothing to compare against when the viewed entry was not read", () => {
+    const notRead = { ...viewed, registry: { status: "notRead" } as RegistryCrossCheck };
+    expect(otherOpenScheduleOf(notRead, [round("0.0.2")])).toBeNull();
   });
 });

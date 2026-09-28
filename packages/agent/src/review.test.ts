@@ -11,6 +11,7 @@ const EXECUTOR_EVM = "0x0000000000000000000000000000000000001b59";
 const VAULT = "0x0000000000000000000000000000000000001234" as const;
 const IMPLEMENTATION = "0x0000000000000000000000000000000000005678" as const;
 const STRANGER = "0x00000000000000000000000000000000000000ff" as const;
+const PROPOSER = "0x0000000000000000000000000000000000009001" as const;
 
 /** Raw hex, the form `PrivateKey.publicKey.toStringRaw()` returns and `isSignedByKey` compares against. */
 const AGENT_KEY_HEX = "02a1b2c3d4e5f6071829304152637485960718293041526374859607182930415263";
@@ -59,6 +60,7 @@ const UPGRADE_ENTRY: RegistryEntry = {
   proposalId: 7,
   state: "pending",
   target: VAULT,
+  proposer: PROPOSER,
   calldata: "0x",
   operation: {
     kind: "upgrade",
