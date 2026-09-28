@@ -1,0 +1,121 @@
+import { LiveMapPane } from "./LiveMapPane";
+import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MAP_SNAPSHOT } from "~~/components/governance/graph/mapFixtures";
+import type { MapDecorator } from "~~/components/governance/graph/mapModel";
+import type { GovernanceConfig } from "~~/config/governanceConfig";
+import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
+import { useHederaSigner } from "~~/hooks/useHederaSigner";
+import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/governance/graph";
+import type { GovernanceSnapshot } from "~~/services/governance/mapEvents";
+import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
+
+vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
+vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
+vi.mock("~~/utils/scaffold-hbar/contract", () => ({
+  contracts: { 296: { SaucerSwapAdapter: { address: "0x5aF0000000000000000000000000000000000003", abi: [] } } },
+}));
+
+const CONFIG = {
+  governanceAccountId: MAP_SNAPSHOT.governanceAccountId,
+  demoTokenId: "0.0.6000",
+  seedProposalId: 1,
+  network: "testnet",
+  executor: { address: "0x5aF0000000000000000000000000000000000000", abi: [], hederaContractId: "0.0.5000" },
+  vault: { address: "0x3f806946439c3521eeD7d740c3f84E09888C0419", abi: [], hederaContractId: "0.0.5001" },
+} as GovernanceConfig;
+
+const WORLD: GovernanceSnapshot = {
+  council: MAP_SNAPSHOT.council,
+  proposers: MAP_SNAPSHOT.proposers,
+  proposals: [],
+  unreachableProposers: [],
+  treasury: {
+    hbarBalanceTinybar: 12_345_000_000,
+    acmeBalance: 1_000,
+    usdcBalance: 7,
+    vaultReserveTinybar: 50_000_000_000n,
+  },
+};
+
+function read(snapshot: GovernanceSnapshot | null, error: unknown = null) {
+  vi.mocked(useMapSnapshot).mockReturnValue({ snapshot, previous: null, events: [], error } as never);
+}
+
+function connect(accountId: string | null) {
+  vi.mocked(useHederaSigner).mockReturnValue({ accountId } as ReturnType<typeof useHederaSigner>);
+}
+
+beforeEach(() => {
+  vi.mocked(useMapSnapshot).mockReset();
+  connect(null);
+});
+
+describe("LiveMapPane", () => {
+  it("reads one snapshot of the configured governance account, with the network's USDC", () => {
+    read(WORLD);
+    render(<LiveMapPane config={CONFIG} />);
+    expect(vi.mocked(useMapSnapshot)).toHaveBeenCalledWith({
+      governanceAccountId: "0.0.4000",
+      executorContractId: "0.0.5000",
+      network: "testnet",
+      vaultContractId: "0.0.5001",
+      demoTokenId: "0.0.6000",
+      usdcTokenId: "0.0.5449",
+    });
+  });
+
+  it("draws the treasury figures, the status line and the map from the same world", () => {
+    read(WORLD);
+    render(<LiveMapPane config={CONFIG} />);
+    const treasury = screen.getByRole("region", { name: "Treasury" });
+    expect(within(treasury).getByText("123.45 ℏ")).toBeTruthy();
+    expect(within(treasury).getByText("500 ℏ")).toBeTruthy();
+    expect(within(treasury).getByText("2-of-3")).toBeTruthy();
+    expect(screen.getByText(LIVE_MAP_STATUS_NOTE)).toBeTruthy();
+    expect(screen.getByRole("graphics-document")).toBeTruthy();
+  });
+
+  it("renders with no demo module: every node placed by role and named by role or id", () => {
+    read(WORLD);
+    render(<LiveMapPane config={CONFIG} />);
+    expect(screen.getByText("0.0.4101")).toBeTruthy();
+    // The adapter has no native id in this deployment and is still on the map, by its address.
+    expect(screen.getByText("Swap adapter")).toBeTruthy();
+    // TokenAdmin is not deployed at all: it is left off rather than crashing the map.
+    expect(screen.queryByText("Token admin")).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Legend" })).toBeTruthy();
+  });
+
+  it("lets a decoration place and name the nodes", () => {
+    read(WORLD);
+    const decorate: MapDecorator = () => ({
+      layout: { width: 500, height: 400, positions: {}, labels: { [GOVERNANCE_ACCOUNT_NODE_ID]: "The treasury" } },
+    });
+    render(<LiveMapPane config={CONFIG} decorate={decorate} />);
+    expect(screen.getByText("The treasury")).toBeTruthy();
+    expect(screen.getByRole("graphics-document").getAttribute("viewBox")).toBe("0 0 500 400");
+  });
+
+  it("names the connected account's seat You, and nobody without a wallet", () => {
+    read(WORLD);
+    const { rerender } = render(<LiveMapPane config={CONFIG} />);
+    expect(screen.queryByText("You")).toBeNull();
+
+    connect("0.0.4101");
+    rerender(<LiveMapPane config={CONFIG} />);
+    expect(screen.getByText("You")).toBeTruthy();
+    expect(screen.queryByText("0.0.4101")).toBeNull();
+  });
+
+  it("says it is reading until the first snapshot, and warns when the council cannot be read", () => {
+    read(null);
+    const { rerender } = render(<LiveMapPane config={CONFIG} />);
+    expect(screen.getByText(/Reading the council/)).toBeTruthy();
+
+    read(null, new Error("Mirror is down"));
+    rerender(<LiveMapPane config={CONFIG} />);
+    expect(screen.getByRole("alert").textContent).toMatch(/could not be read/);
+  });
+});

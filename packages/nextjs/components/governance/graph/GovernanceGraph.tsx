@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { AccountNode } from "./AccountNode";
+import { Comet } from "./Comet";
 import { ContractNode } from "./ContractNode";
 import { GraphEdge } from "./GraphEdge";
 import { Legend } from "./Legend";
@@ -14,23 +15,20 @@ import { type GhostNode, readingOrder } from "./mapModel";
 import type { NodeProps } from "./nodeProps";
 import { useRovingFocus } from "./useRovingFocus";
 import type { CouncilKey } from "@sh/core/governance/council";
-import {
-  type EdgePhase,
-  type GovernanceGraph as Graph,
-  type GraphNode,
-  externalNodeId,
-} from "~~/services/governance/graph";
+import { type GovernanceGraph as Graph, type GraphNode, externalNodeId } from "~~/services/governance/graph";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
+import { type MapFrame, REST_FRAME } from "~~/services/liveMap/motion/frame";
 
 export type GovernanceGraphProps = {
   graph: Graph;
   council: CouncilKey;
   captions?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
-  /** Phase per edge id; every other edge is at rest. An `intent` edge is only drawn outside rest. */
-  phases?: Partial<Record<string, EdgePhase>>;
-  /** Council members who signed the proposal being shown, for the treasury's ring. */
-  signed?: number;
+  /**
+   * What is lit, travelling or flashing right now (`frameOf`); at rest by default. An edge the frame
+   * does not name is at rest, and an `intent` edge is only drawn while the frame names it.
+   */
+  frame?: MapFrame;
   onActivate?: (item: MapItemRef) => void;
 };
 
@@ -45,12 +43,13 @@ export function GovernanceGraph({
   council,
   captions = {},
   ghosts = [],
-  phases = {},
-  signed = 0,
+  frame = REST_FRAME,
   onActivate,
 }: GovernanceGraphProps) {
+  const { phases } = frame;
   const nodesById = useMemo(() => new Map(graph.nodes.map(node => [node.id, node])), [graph.nodes]);
-  const edges = graph.edges.filter(edge => edge.kind !== "intent" || (phases[edge.id] ?? "rest") !== "rest");
+  const edgesById = useMemo(() => new Map(graph.edges.map(edge => [edge.id, edge])), [graph.edges]);
+  const edges = graph.edges.filter(edge => edge.kind !== "intent" || phases[edge.id] !== undefined);
   const focus = useRovingFocus([...readingOrder([...graph.nodes, ...ghosts]), ...edges.map(edge => edge.id)]);
 
   const propsOf = (node: GraphNode): NodeProps => ({
@@ -60,7 +59,40 @@ export function GovernanceGraph({
     position: node.position,
     focus,
     onActivate,
+    highlight: frame.highlights[node.id],
   });
+
+  const drawNode = (node: GraphNode) => {
+    switch (node.role) {
+      case "governanceAccount":
+        return (
+          <TreasuryNode
+            {...propsOf(node)}
+            caption={captions[node.id] ?? MAP_LABELS.councilCaption}
+            rule={councilRuleLabel(council)}
+            threshold={council.threshold}
+            signed={frame.ring?.signed ?? 0}
+            snap={frame.ring?.snap}
+          />
+        );
+      case "executor":
+      case "target":
+        return <ContractNode {...propsOf(node)} />;
+      case "external":
+        // A configured external entity is a contract the system calls; one a proposal introduced
+        // is an account it would pay, such as a transfer's recipient.
+        return node.id === externalNodeId(node.ref) ? (
+          <AccountNode {...propsOf(node)} />
+        ) : (
+          <ContractNode {...propsOf(node)} tone="external" />
+        );
+      case "token":
+        return <TokenNode {...propsOf(node)} />;
+      case "member":
+      case "proposer":
+        return <AccountNode {...propsOf(node)} />;
+    }
+  };
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -91,37 +123,18 @@ export function GovernanceGraph({
             />
           );
         })}
-        {graph.nodes.map(node => {
-          switch (node.role) {
-            case "governanceAccount":
-              return (
-                <TreasuryNode
-                  key={node.id}
-                  {...propsOf(node)}
-                  caption={captions[node.id] ?? MAP_LABELS.councilCaption}
-                  rule={councilRuleLabel(council)}
-                  threshold={council.threshold}
-                  signed={signed}
-                />
-              );
-            case "executor":
-            case "target":
-              return <ContractNode key={node.id} {...propsOf(node)} />;
-            case "external":
-              // A configured external entity is a contract the system calls; one a proposal introduced
-              // is an account it would pay, such as a transfer's recipient.
-              return node.id === externalNodeId(node.ref) ? (
-                <AccountNode key={node.id} {...propsOf(node)} />
-              ) : (
-                <ContractNode key={node.id} {...propsOf(node)} tone="external" />
-              );
-            case "token":
-              return <TokenNode key={node.id} {...propsOf(node)} />;
-            case "member":
-            case "proposer":
-              return <AccountNode key={node.id} {...propsOf(node)} />;
-          }
+        {frame.comets.map(comet => {
+          const edge = edgesById.get(comet.edgeId);
+          const route = edge && routeOnMap(edge, nodesById);
+          return route ? <Comet key={`${comet.edgeId}:${comet.direction}`} route={route} comet={comet} /> : null;
         })}
+        {graph.nodes.map(node => (
+          // A node that failed to take an operation shakes; the group keeps the shake off the node's
+          // own position, which is an SVG transform.
+          <g key={node.id} className={frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : undefined}>
+            {drawNode(node)}
+          </g>
+        ))}
         {ghosts.map(ghost => (
           <AccountNode key={ghost.id} {...ghost} focus={focus} onActivate={onActivate} tone="ghost" />
         ))}

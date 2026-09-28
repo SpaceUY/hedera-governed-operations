@@ -5,6 +5,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EXECUTOR_NODE_ID, GOVERNANCE_ACCOUNT_NODE_ID, edgeId, externalNodeId } from "~~/services/governance/graph";
 import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+import { REST_FRAME } from "~~/services/liveMap/motion/frame";
 
 const RECIPIENT = "0.0.7000";
 const TRANSFER_EDGE = edgeId(GOVERNANCE_ACCOUNT_NODE_ID, externalNodeId(RECIPIENT));
@@ -28,10 +29,11 @@ describe("GovernanceGraph", () => {
   });
 
   it("writes the council's rule on the treasury, apart from the progress around it", () => {
-    const { container } = renderGraph({ signed: 1 });
+    const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 1, snap: false } } });
     expect(screen.getByText("2-of-3")).toBeTruthy();
     expect(container.querySelector("[data-signed]")?.getAttribute("data-signed")).toBe("1");
-    expect(container.querySelectorAll("[data-signed] circle")).toHaveLength(2);
+    expect(container.querySelectorAll('[data-signed] [data-filled="true"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-signed] [data-filled="false"]')).toHaveLength(1);
   });
 
   it("keeps the legend on the canvas", () => {
@@ -57,7 +59,7 @@ describe("GovernanceGraph", () => {
     expect(atRest.container.querySelector(`[data-edge-id="${TRANSFER_EDGE}"]`)).toBeNull();
     atRest.unmount();
 
-    const { container } = renderGraph({ phases: { [TRANSFER_EDGE]: "preview" } });
+    const { container } = renderGraph({ frame: { ...REST_FRAME, phases: { [TRANSFER_EDGE]: "preview" } } });
     const preview = container.querySelector(`[data-edge-id="${TRANSFER_EDGE}"] [data-phase]`);
     expect(preview?.getAttribute("data-phase")).toBe("preview");
     expect(preview?.getAttribute("class")).toContain("stroke-map-preview");
@@ -98,5 +100,45 @@ describe("GovernanceGraph", () => {
       element.getAttribute("data-edge-id"),
     );
     expect(edgeIds.some(id => id?.includes("ghost"))).toBe(false);
+  });
+
+  it("sends a comet along an edge the frame names, and none along an edge the map does not have", () => {
+    const { container } = renderGraph({
+      frame: {
+        ...REST_FRAME,
+        phases: { [TRANSFER_EDGE]: "progress" },
+        comets: [
+          { edgeId: TRANSFER_EDGE, ms: 1100, delayMs: 0, direction: "forward" },
+          { edgeId: "nowhere->nothing", ms: 1100, delayMs: 0, direction: "forward" },
+        ],
+      },
+    });
+    const comets = container.querySelectorAll("[data-comet]");
+    expect(comets).toHaveLength(1);
+    expect((comets[0] as SVGPathElement).style.animationDuration).toBe("1100ms");
+    expect(comets[0].getAttribute("class")).toContain("motion-reduce:hidden");
+  });
+
+  it("keeps an intent edge drawn while the frame relaxes it to rest", () => {
+    const { container } = renderGraph({ frame: { ...REST_FRAME, phases: { [TRANSFER_EDGE]: "rest" } } });
+    expect(container.querySelector(`[data-edge-id="${TRANSFER_EDGE}"] [data-phase]`)?.getAttribute("data-phase")).toBe(
+      "rest",
+    );
+  });
+
+  it("flashes the node an operation reaches and shakes the one it failed at", () => {
+    const { container } = renderGraph({
+      frame: { ...REST_FRAME, highlights: { [MAP_ENTITY_IDS.vault]: "success" }, shaking: [EXECUTOR_NODE_ID] },
+    });
+    const vaultPlate = nodeElement(container, MAP_ENTITY_IDS.vault)?.querySelectorAll("rect")[1];
+    expect(vaultPlate?.getAttribute("class")).toContain("stroke-success");
+    expect(nodeElement(container, EXECUTOR_NODE_ID)?.parentElement?.getAttribute("class")).toContain(
+      "animate-map-shake",
+    );
+  });
+
+  it("snaps the ring when the threshold is reached", () => {
+    const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 2, snap: true } } });
+    expect(container.querySelector("[data-signed]")?.getAttribute("class")).toContain("animate-map-ring-snap");
   });
 });

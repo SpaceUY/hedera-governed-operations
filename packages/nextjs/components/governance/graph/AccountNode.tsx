@@ -2,7 +2,7 @@
 
 import { MapItem } from "./MapItem";
 import { ACCOUNT_RADIUS, FOCUS_GAP, monogramOf } from "./geometry";
-import { FOCUS_RING_CLASS, type NodeProps, translate } from "./nodeProps";
+import { FOCUS_RING_CLASS, type NodeProps, plateStrokeClass, translate } from "./nodeProps";
 
 /** `ghost`: an account the map shows although the ledger connects it to nothing yet. */
 export type AccountTone = "account" | "ghost";
@@ -21,11 +21,7 @@ export function AccountNode({ tone = "account", ...node }: NodeProps & { tone?: 
         <circle r={ACCOUNT_RADIUS + FOCUS_GAP} className={FOCUS_RING_CLASS} strokeWidth={2} />
         <circle
           r={ACCOUNT_RADIUS}
-          className={
-            tone === "ghost"
-              ? "fill-base-100 stroke-base-content/40 [stroke-dasharray:3_3]"
-              : "fill-base-100 stroke-base-content/40"
-          }
+          className={`${plateStrokeClass(node.highlight)} ${tone === "ghost" ? "[stroke-dasharray:3_3]" : ""}`}
           strokeWidth={1.5}
         />
         <text y={5} textAnchor="middle" className="fill-base-content text-sm font-semibold">

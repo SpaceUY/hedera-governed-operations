@@ -164,3 +164,56 @@ textarea.textarea {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/*
+  The governance map's motion (components/governance/graph). Each duration here is the one
+  `MOTION_MS` in services/governance/mapMotion.ts gives the same moment; the comets take theirs from
+  it inline. Utilities are applied with `motion-safe:`, so reduced motion turns them off live.
+*/
+@theme {
+  --animate-map-comet: map-comet 1100ms ease-out both;
+  --animate-map-ring-snap: map-ring-snap 260ms ease-out;
+  --animate-map-plate-flash: map-plate-flash 400ms ease-out;
+  --animate-map-shake: map-shake 180ms ease-in-out 3;
+
+  /* One dash of a path 100 long, from just before its start to just past its end. */
+  @keyframes map-comet {
+    from {
+      stroke-dashoffset: 10;
+    }
+    to {
+      stroke-dashoffset: -102;
+    }
+  }
+  @keyframes map-ring-snap {
+    60% {
+      transform: scale(1.04);
+    }
+  }
+  @keyframes map-plate-flash {
+    30% {
+      stroke-width: 4;
+    }
+  }
+  @keyframes map-shake {
+    25% {
+      transform: translateX(3px);
+    }
+    75% {
+      transform: translateX(-3px);
+    }
+  }
+}
+
+/* A signature ring segment grows along its track with a spring. */
+.map-ring-fill {
+  transition:
+    stroke-dasharray 500ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    stroke 260ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-ring-fill {
+    transition: none;
+  }
+}

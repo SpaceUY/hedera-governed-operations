@@ -1,11 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
-import { useCouncil } from "~~/hooks/mirror/useCouncil";
-import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
+import type { CouncilKey } from "@sh/core/governance/council";
+import { AnimatedNumber } from "~~/components/governance/AnimatedNumber";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
-import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
+import type { TreasuryFigures } from "~~/services/governance/treasury";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
 const Figure = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -15,35 +14,33 @@ const Figure = ({ label, children }: { label: string; children: ReactNode }) => 
   </div>
 );
 
-/** The governance account's balances and the council's rule, in one line above the map. */
-export const TreasuryStrip = () => {
-  const { network, governanceAccountId, demoTokenId, executor, vault } = useGovernanceConfig();
-  const treasury = useTreasuryFigures({
-    governanceAccountId,
-    vaultContractId: vault.hederaContractId,
-    demoTokenId,
-    usdcTokenId: SAUCERSWAP_V2_CONFIG[network].usdcToken,
-    network,
-  });
-  const council = useCouncil({ governanceAccountId, executorContractId: executor.hederaContractId, network });
-
-  return (
-    <section aria-label="Treasury" className="border-b border-base-300 px-6 py-4">
-      <dl className="m-0 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-        <Figure label="HBAR">{treasury.data ? formatTinybars(treasury.data.hbarBalanceTinybar) : "…"}</Figure>
-        <Figure label="Vault reserve">{treasury.data ? formatTinybars(treasury.data.vaultReserveTinybar) : "…"}</Figure>
-        <Figure label="ACME">{treasury.data?.acmeBalance ?? "…"}</Figure>
-        <Figure label="USDC">{treasury.data?.usdcBalance ?? "…"}</Figure>
-        <Figure label="Council threshold">
-          {council.data ? (
-            <>
-              {councilRuleLabel(council.data.key)} <span className="text-xs font-normal">signatures</span>
-            </>
-          ) : (
-            "…"
-          )}
-        </Figure>
-      </dl>
-    </section>
-  );
+type TreasuryStripProps = {
+  /** The figures of the world the map shows, null until read; they count when they change. */
+  treasury: TreasuryFigures | null;
+  council: CouncilKey | null;
 };
+
+/** The governance account's balances and the council's rule, in one line above the map. */
+export const TreasuryStrip = ({ treasury, council }: TreasuryStripProps) => (
+  <section aria-label="Treasury" className="border-b border-base-300 px-6 py-4">
+    <dl className="m-0 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+      <Figure label="HBAR">
+        {treasury ? <AnimatedNumber value={treasury.hbarBalanceTinybar} format={formatTinybars} /> : "…"}
+      </Figure>
+      <Figure label="Vault reserve">
+        {treasury ? <AnimatedNumber value={treasury.vaultReserveTinybar} format={formatTinybars} /> : "…"}
+      </Figure>
+      <Figure label="ACME">{treasury ? <AnimatedNumber value={treasury.acmeBalance} /> : "…"}</Figure>
+      <Figure label="USDC">{treasury ? <AnimatedNumber value={treasury.usdcBalance} /> : "…"}</Figure>
+      <Figure label="Council threshold">
+        {council ? (
+          <>
+            {councilRuleLabel(council)} <span className="text-xs font-normal">signatures</span>
+          </>
+        ) : (
+          "…"
+        )}
+      </Figure>
+    </dl>
+  </section>
+);

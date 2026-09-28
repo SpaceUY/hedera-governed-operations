@@ -60,7 +60,8 @@ export function GraphEdge({ id, kind, phase, route, label, caption, focus, onAct
         strokeWidth={1.6}
         strokeLinecap="round"
         data-phase={phase}
-        className={`${PHASE_STROKE[phase]} ${dashOf(kind, phase)}`}
+        // Lighting up is quick; going back to rest is the slow relax that ends every sequence.
+        className={`${PHASE_STROKE[phase]} ${dashOf(kind, phase)} transition-colors motion-reduce:transition-none ${phase === "rest" ? "duration-800" : "duration-150"}`}
       />
       <text
         x={middle.x}
