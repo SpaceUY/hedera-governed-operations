@@ -42,7 +42,8 @@ export type GovernanceResult = {
   step: SetupStep;
 };
 
-function demoAccounts(state: SetupState) {
+/** The council seats this script holds the keys for, in a fixed order, both of them required. */
+export function demoCouncilMembers(state: SetupState) {
   const accounts = DEMO_ACCOUNT_NAMES.map(name => state.demoAccounts[name]);
   if (accounts.some(account => account === undefined)) {
     throw new Error(
@@ -85,7 +86,7 @@ export async function reconcileGovernance(
   services: GovernanceServices,
 ): Promise<GovernanceResult> {
   const { lookups, actions } = services;
-  const [alice, bob] = demoAccounts(state);
+  const [alice, bob] = demoCouncilMembers(state);
   if (state.governance) requireSameCouncil(state.governance, env.councilAccountId);
 
   await requireCouncilAccount(env.councilAccountId, lookups);

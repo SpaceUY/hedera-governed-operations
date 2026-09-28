@@ -1,3 +1,13 @@
+/// What the adapter does with a swap it is handed: who it accepts one from, that the HBAR paid
+/// matches the amount on record, the parameters it passes on and the event it leaves behind. It runs
+/// on the local EVM against `MockSwapRouter`.
+///
+/// **It says nothing about SaucerSwap.** There is no HTS on the local EVM, and HTS is the only part
+/// of this path that has ever failed: the swap these tests passed on reverted on testnet at every
+/// gas limit it was given, because the pool's output transfer had to associate the token on the
+/// recipient and ran out of gas doing it. A green run here is not evidence that a swap works, and no
+/// gas number from here belongs in `PROPOSAL_TYPES`. That is what
+/// `packages/nextjs/services/governance/treasurySwap.integration.test.ts` is for.
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
