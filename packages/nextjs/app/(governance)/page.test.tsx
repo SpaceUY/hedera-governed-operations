@@ -90,6 +90,24 @@ describe("GovernanceHomePage", () => {
     expect(screen.getByRole("region", { name: INBOX_COPY.settledHeading })).toBeTruthy();
   });
 
+  it("reads a withdrawn proposal whose entry was cancelled afterwards as Cancelled under Settled", () => {
+    const withdrawnThenCancelled = {
+      ...proposal("0.0.3", 3, "deleted"),
+      registry: {
+        status: "read",
+        entry: { proposalId: 3, state: "cancelled", target: "0x0", proposer: "0x0", calldata: "0x", operation: {} },
+      },
+    } as unknown as Proposal;
+    showInbox([proposal("0.0.1", 1, "pending"), withdrawnThenCancelled]);
+    searchParams.value = new URLSearchParams("schedule=0.0.1");
+
+    render(<GovernanceHomePage />);
+
+    const settled = screen.getByRole("region", { name: INBOX_COPY.settledHeading });
+    expect(within(settled).getByText("Withdrawn")).toBeTruthy();
+    expect(within(settled).getByText("Registry entry: Cancelled")).toBeTruthy();
+  });
+
   it("keeps showing the partial-inbox warning when a proposer could not be read", () => {
     vi.mocked(useProposals).mockReturnValue({
       inbox: { data: { proposals: [proposal("0.0.1", 1, "pending")], unreachableProposers: ["0.0.999"] } },
