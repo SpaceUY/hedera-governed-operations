@@ -85,7 +85,9 @@ export const CouncilRotationForm = ({
               </button>
             </div>
             {reads[index]?.isLoading && (
-              <span className="text-sm text-base-content/60">{ACCOUNT_LOOKUP_LABELS.loading(memberInputs[index])}</span>
+              <span role="status" className="text-sm text-base-content/60">
+                {ACCOUNT_LOOKUP_LABELS.loading(memberInputs[index])}
+              </span>
             )}
           </li>
         ))}
