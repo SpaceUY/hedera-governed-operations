@@ -1,9 +1,10 @@
 "use client";
 
+import { proposalInboxQueryKey } from "./mirror/useProposals";
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useHederaSigner } from "./useHederaSigner";
 import type { Transaction } from "@hiero-ledger/sdk";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getGovernanceEntityIds } from "~~/config/governanceConfig";
 import {
   buildProposalSchedule,
@@ -22,6 +23,7 @@ export function useCreateNativeProposal() {
   const { executeTransaction, requireAccountId } = useHederaSigner();
   const { targetNetwork } = useTargetNetwork();
   const network = getHederaNetworkNameFromChainId(targetNetwork.id);
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ innerTransaction, memo }: CreateNativeProposalInput) => {
@@ -48,5 +50,8 @@ export function useCreateNativeProposal() {
       }
       return { scheduleId };
     },
+    // Owned by the mutation rather than each caller, so the inbox refreshes even when the screen that
+    // submitted has unmounted, instead of waiting out the slow poll of a settled inbox.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: proposalInboxQueryKey(network) }),
   });
 }

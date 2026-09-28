@@ -3,7 +3,7 @@
 import { useCreateNativeProposal } from "./useCreateNativeProposal";
 import { useCreateProposal } from "./useCreateProposal";
 import { useMutation } from "@tanstack/react-query";
-import type { ProposalDraft } from "~~/components/governance/wizard/drafts";
+import type { ProposalDraft } from "~~/services/governance/drafts";
 import { PROPOSAL_KIND_COPY } from "~~/services/governance/proposalLabels";
 
 /** One submit for the wizard, whichever path the draft takes. Resolves to the new schedule id. */

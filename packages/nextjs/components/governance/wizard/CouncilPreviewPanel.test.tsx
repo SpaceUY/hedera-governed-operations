@@ -1,7 +1,7 @@
 import { CouncilPreviewPanel } from "./CouncilPreviewPanel";
-import type { DraftPreview } from "./drafts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import type { DraftPreview } from "~~/services/governance/drafts";
 import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/services/governance/proposalLabels";
 import {
   type RegistryOperation,
@@ -51,9 +51,9 @@ const REGISTRY: DraftPreview = {
 
 describe("CouncilPreviewPanel", () => {
   it("describes a native proposal the way the detail page will", () => {
-    render(<CouncilPreviewPanel preview={NATIVE} council={COUNCIL} />);
+    render(<CouncilPreviewPanel preview={NATIVE} council={COUNCIL} headingLevel={3} />);
 
-    expect(screen.getByRole("heading", { name: "What the council will see" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "What the council will see" })).toBeTruthy();
     expect(screen.getByText(describeScheduledOperation(TRANSFER))).toBeTruthy();
     for (const chip of PROPOSAL_PATH_CHIPS.treasuryTransfer)
       expect(screen.getAllByText(chip).length).toBeGreaterThan(0);
@@ -64,7 +64,7 @@ describe("CouncilPreviewPanel", () => {
   });
 
   it("shows a registry proposal's gas and calldata", () => {
-    render(<CouncilPreviewPanel preview={REGISTRY} council={COUNCIL} />);
+    render(<CouncilPreviewPanel preview={REGISTRY} council={COUNCIL} headingLevel={3} />);
 
     expect(screen.getByText(describeRegistryOperation(UPGRADE))).toBeTruthy();
     expect(screen.getByText(gasLimitLabel(150_000))).toBeTruthy();
@@ -78,7 +78,7 @@ describe("CouncilPreviewPanel", () => {
       target: "Recipient · 0.0.2",
       scheduled: { kind: "unrecognized", reason: "odd body" },
     };
-    render(<CouncilPreviewPanel preview={unreadable} council={undefined} />);
+    render(<CouncilPreviewPanel preview={unreadable} council={undefined} headingLevel={3} />);
     expect(screen.getByRole("alert").textContent).toContain("odd body");
     expect(screen.queryByText("Function")).toBeNull();
   });

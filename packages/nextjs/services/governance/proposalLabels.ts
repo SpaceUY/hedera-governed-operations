@@ -108,3 +108,28 @@ export function openProposalCopy(kind: ProposalKind): { cta: string; note: strin
     note: "One transaction — a native schedule. No registry entry is created.",
   };
 }
+
+/** What the wizard says about who may open a proposal, around the form rather than inside it. */
+export const OPEN_PROPOSAL_NOTICES = {
+  connectWallet: "Connect a wallet to propose. The proposal is opened and paid for by your account.",
+  proposersLoading: "Reading who holds PROPOSER_ROLE on the registry…",
+  proposersUnreadable: "Could not read who holds PROPOSER_ROLE right now, so this proposal cannot be registered yet.",
+  upgradeTargetMissing:
+    "The vault's next implementation is not deployed on this network, so a vault upgrade cannot be proposed yet. " +
+    "Run `yarn hardhat:deploy --network hederaTestnet` to deploy it; paying a supplier works without it.",
+} as const;
+
+export function missingProposerRoleLabel(accountId: string): string {
+  return (
+    `${accountId} does not hold PROPOSER_ROLE on the registry, so registering this proposal would revert. ` +
+    "A native proposal, such as paying a supplier, needs no role."
+  );
+}
+
+/** Why a typed recipient is not yet an account the transfer can name. */
+export const RECIPIENT_LOOKUP_LABELS = {
+  malformed: (input: string) => `${input} is not an account id (0.0.x) or an EVM address`,
+  loading: (input: string) => `Looking up ${input} on the Mirror Node…`,
+  notFound: (input: string) => `No account found for ${input}`,
+  unreachable: (input: string) => `Could not look up ${input} right now. Try again.`,
+} as const satisfies Record<string, (input: string) => string>;

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type DraftResult, type VaultUpgradeTargets, draftVaultUpgrade, tryDraft } from "../drafts";
 import { HbarInput } from "@scaffold-hbar-ui/components";
 import type { Chain } from "viem";
+import { type DraftResult, type VaultUpgradeTargets, draftVaultUpgrade, tryDraft } from "~~/services/governance/drafts";
 
 type UpgradeVaultFormProps = {
   targets: VaultUpgradeTargets;

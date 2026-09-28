@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type DraftResult, draftTreasuryTransfer, tryDraft } from "../drafts";
 import { HbarInput, HederaAddressInput } from "@scaffold-hbar-ui/components";
 import type { Chain } from "viem";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import type { CouncilKey } from "~~/services/governance/council";
-import { councilRuleLabel } from "~~/services/governance/proposalLabels";
-import { MirrorNodeError } from "~~/services/mirror";
+import { type DraftResult, draftTreasuryTransfer, tryDraft } from "~~/services/governance/drafts";
+import { RECIPIENT_LOOKUP_LABELS, councilRuleLabel } from "~~/services/governance/proposalLabels";
+import { MirrorNodeError, isMirrorEntityRef } from "~~/services/mirror";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 type TransferFormProps = {
@@ -21,21 +21,24 @@ type TransferFormProps = {
 export const TransferForm = ({ governanceAccountId, network, chain, council, onDraftChange }: TransferFormProps) => {
   const [recipientText, setRecipientText] = useState("");
   const [amount, setAmount] = useState("");
-  const recipient = useAccount(recipientText, { network });
+  const recipientInput = recipientText.trim();
+  const recipient = useAccount(recipientInput, { network });
   const recipientAccountId = recipient.data?.account;
 
   useEffect(() => {
-    if (!recipientText.trim() || !amount.trim()) return onDraftChange({ status: "empty" });
+    if (!recipientInput || !amount.trim()) return onDraftChange({ status: "empty" });
+    // `useAccount` stays idle on an input it cannot look up, so a malformed one would otherwise wait forever.
+    if (!isMirrorEntityRef(recipientInput)) {
+      return onDraftChange({ status: "invalid", message: RECIPIENT_LOOKUP_LABELS.malformed(recipientInput) });
+    }
     if (recipient.error) {
       const notFound = recipient.error instanceof MirrorNodeError && recipient.error.status === 404;
-      const message = notFound
-        ? `No account found for ${recipientText.trim()}`
-        : `Could not look up ${recipientText.trim()} right now. Try again.`;
-      return onDraftChange({ status: "invalid", message });
+      const label = notFound ? RECIPIENT_LOOKUP_LABELS.notFound : RECIPIENT_LOOKUP_LABELS.unreachable;
+      return onDraftChange({ status: "invalid", message: label(recipientInput) });
     }
     if (!recipientAccountId) return onDraftChange({ status: "empty" });
     onDraftChange(tryDraft(() => draftTreasuryTransfer(governanceAccountId, { recipientAccountId, amount })));
-  }, [recipientText, recipientAccountId, recipient.error, amount, governanceAccountId, onDraftChange]);
+  }, [recipientInput, recipientAccountId, recipient.error, amount, governanceAccountId, onDraftChange]);
 
   return (
     <div className="rounded-box border border-base-300 bg-base-200 p-4 flex flex-col gap-3">
@@ -47,6 +50,11 @@ export const TransferForm = ({ governanceAccountId, network, chain, council, onD
           placeholder="0.0.x or 0x…"
           chainId={chain.id}
         />
+        {recipient.isLoading && (
+          <span role="status" className="text-[13px] text-base-content/60">
+            {RECIPIENT_LOOKUP_LABELS.loading(recipientInput)}
+          </span>
+        )}
       </label>
       <label className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold">Amount (ℏ)</span>

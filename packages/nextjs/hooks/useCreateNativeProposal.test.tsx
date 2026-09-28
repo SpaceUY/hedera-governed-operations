@@ -1,8 +1,10 @@
 import { useCreateNativeProposal } from "./useCreateNativeProposal";
 import { AccountId, Hbar, PrivateKey, TransferTransaction } from "@hiero-ledger/sdk";
+import { QueryClient } from "@tanstack/react-query";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueryWrapper } from "~~/hooks/mirror/testUtils";
+import { proposalInboxQueryKey } from "~~/hooks/mirror/useProposals";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { MirrorNodeError, fetchTransaction } from "~~/services/mirror";
 
@@ -76,5 +78,33 @@ describe("useCreateNativeProposal", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toContain(`${PROPOSER_ID}@1.0`);
     expect(executeTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes every inbox on the network once the schedule is indexed, and nothing else", async () => {
+    const executeTransaction = vi.fn().mockResolvedValue({ transactionId: `${PROPOSER_ID}@1.0` });
+    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
+    const { fetchAccount } = await import("~~/services/mirror");
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ECDSA_SECP256K1", key: PrivateKey.generateECDSA().publicKey.toStringRaw() },
+    } as never);
+    vi.mocked(fetchTransaction).mockResolvedValue([
+      { transaction_id: `${PROPOSER_ID}-1-0`, name: "SCHEDULECREATE", entity_id: "0.0.777" } as never,
+    ]);
+
+    const queryClient = new QueryClient();
+    const inboxKey = [...proposalInboxQueryKey("testnet"), "0.0.10671146", "0.0.4242"];
+    const otherKey = ["mirror", "testnet", "account", "0.0.500"];
+    queryClient.setQueryData(inboxKey, "inbox");
+    queryClient.setQueryData(otherKey, "account");
+
+    const innerTransaction = new TransferTransaction()
+      .addHbarTransfer(AccountId.fromString("0.0.10671146"), Hbar.fromTinybars(-1))
+      .addHbarTransfer(AccountId.fromString("0.0.500"), Hbar.fromTinybars(1));
+    const { result } = renderHook(() => useCreateNativeProposal(), { wrapper: createQueryWrapper(queryClient) });
+    result.current.mutate({ innerTransaction, memo: "pay supplier" });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(queryClient.getQueryState(inboxKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
   });
 });

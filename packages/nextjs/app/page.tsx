@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { SetupNotice } from "~~/components/SetupNotice";
-import {
-  GOVERNANCE_CONTRACTS,
-  GOVERNANCE_ROUTES,
-  getDeployedContract,
-  getGovernanceEntityIds,
-} from "~~/config/governanceConfig";
+import { GOVERNANCE_ROUTES, type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
@@ -15,47 +10,27 @@ import { approvalsLabel, scheduleStatusLabel } from "~~/services/governance/prop
 import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
-import { type HederaNetworkName, getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
-
-type GovernanceHomeProps = {
-  network: HederaNetworkName;
-  governanceAccountId: string;
-  demoTokenId: string;
-  vaultContractId: string;
-  executorContractId: string;
-};
 
 export default function GovernanceHomePage() {
   const { targetNetwork } = useTargetNetwork();
-  let props: GovernanceHomeProps;
+  let config: GovernanceConfig;
   try {
-    const { governanceAccountId, demoTokenId } = getGovernanceEntityIds();
-    props = {
-      network: getHederaNetworkNameFromChainId(targetNetwork.id),
-      governanceAccountId,
-      demoTokenId,
-      vaultContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.vault).hederaContractId,
-      executorContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.executor).hederaContractId,
-    };
+    config = resolveGovernanceConfig(targetNetwork.id);
   } catch (error) {
     return <SetupNotice error={error} />;
   }
-  return <GovernanceHome {...props} />;
+  return <GovernanceHome config={config} />;
 }
 
-function GovernanceHome({
-  network,
-  governanceAccountId,
-  demoTokenId,
-  vaultContractId,
-  executorContractId,
-}: GovernanceHomeProps) {
+function GovernanceHome({ config }: { config: GovernanceConfig }) {
+  const { network, governanceAccountId, demoTokenId } = config;
+  const executorContractId = config.executor.hederaContractId;
   const usdcTokenId = SAUCERSWAP_V2_CONFIG[network].usdcToken;
 
-  const { inbox, council } = useProposals({ governanceAccountId, executorContractId });
+  const { inbox, council } = useProposals({ governanceAccountId, executorContractId, network });
   const treasury = useTreasuryFigures({
     governanceAccountId,
-    vaultContractId,
+    vaultContractId: config.vault.hederaContractId,
     demoTokenId,
     usdcTokenId,
     network,

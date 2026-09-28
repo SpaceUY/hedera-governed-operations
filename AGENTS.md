@@ -56,7 +56,7 @@ packages/nextjs/
   app/                    App Router pages and API routes
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
-    governance/           MutationError and the proposal wizard (picker, forms, preview, drafts)
+    governance/           MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
     useSubmitProof.ts     HCS TopicMessageSubmitTransaction via native tx hook
@@ -104,6 +104,7 @@ packages/nextjs/
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       scheduledBody.ts      The body a schedule carries, built from its transaction (the wizard's preview)
+      drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)

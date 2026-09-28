@@ -1,4 +1,10 @@
-import { GOVERNANCE_ROUTES, getDeployedContract, getGovernanceEntityIds } from "./governanceConfig";
+import {
+  GOVERNANCE_ROUTES,
+  findDeployedContract,
+  getDeployedContract,
+  getGovernanceEntityIds,
+  resolveGovernanceConfig,
+} from "./governanceConfig";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({
@@ -6,6 +12,11 @@ vi.mock("~~/utils/scaffold-hbar/contract", () => ({
     296: {
       GovernedExecutor: { address: "0xabc", abi: [], hederaContractId: "0.0.10671250" },
       TokenAdmin: { address: "0xdef", abi: [] },
+    },
+    295: {
+      GovernedExecutor: { address: "0x01", abi: [], hederaContractId: "0.0.1" },
+      AcmeVault: { address: "0x02", abi: [], hederaContractId: "0.0.2" },
+      // No AcmeVaultV2: only the wizard's upgrade form needs the vault's next implementation.
     },
   },
 }));
@@ -49,6 +60,46 @@ describe("getDeployedContract", () => {
 
   it("treats an entry without a Hedera contract id as not deployed rather than returning undefined", () => {
     expect(() => getDeployedContract(296, "TokenAdmin")).toThrow(/TokenAdmin on chain 296 has no Hedera contract id/);
+  });
+});
+
+describe("findDeployedContract", () => {
+  it("returns the deployed entry", () => {
+    expect(findDeployedContract(295, "AcmeVault")?.hederaContractId).toBe("0.0.2");
+  });
+
+  it("returns null where getDeployedContract would throw", () => {
+    expect(findDeployedContract(295, "AcmeVaultV2")).toBeNull();
+    expect(findDeployedContract(296, "TokenAdmin")).toBeNull();
+  });
+});
+
+describe("resolveGovernanceConfig", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const stubIds = () => {
+    vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "0.0.10671146");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "0.0.10671333");
+    vi.stubEnv("NEXT_PUBLIC_SEED_PROPOSAL_ID", "3");
+  };
+
+  it("names the network and the contracts the governance screens read", () => {
+    stubIds();
+    const config = resolveGovernanceConfig(295);
+    expect(config.network).toBe("mainnet");
+    expect(config.governanceAccountId).toBe("0.0.10671146");
+    expect(config.executor.hederaContractId).toBe("0.0.1");
+    expect(config.vault.hederaContractId).toBe("0.0.2");
+  });
+
+  it("does not require the vault's next implementation, so the screens render without it", () => {
+    stubIds();
+    expect(resolveGovernanceConfig(295)).not.toHaveProperty("vaultNextImplementation");
+  });
+
+  it("throws the deploy's message when one of them is missing", () => {
+    stubIds();
+    expect(() => resolveGovernanceConfig(296)).toThrow(/AcmeVault is not deployed on chain 296/);
   });
 });
 

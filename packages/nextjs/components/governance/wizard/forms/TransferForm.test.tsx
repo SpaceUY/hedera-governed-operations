@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Chain } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
+import { RECIPIENT_LOOKUP_LABELS } from "~~/services/governance/proposalLabels";
 import { MirrorNodeError } from "~~/services/mirror/client";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
@@ -120,6 +121,28 @@ describe("TransferForm", () => {
       status: "invalid",
       message: "Could not look up 0.0.500 right now. Try again.",
     });
+  });
+
+  it("says a malformed recipient is neither an account id nor an address, instead of waiting on it", () => {
+    vi.mocked(useAccount).mockReturnValue({ data: undefined, isError: false, error: null } as never);
+    const onDraftChange = renderForm();
+
+    fill({ recipient: "alice", amount: "1" });
+
+    expect(lastResult(onDraftChange)).toEqual({
+      status: "invalid",
+      message: RECIPIENT_LOOKUP_LABELS.malformed("alice"),
+    });
+  });
+
+  it("says it is looking the recipient up while the Mirror Node answers", () => {
+    vi.mocked(useAccount).mockReturnValue({ data: undefined, isLoading: true, error: null } as never);
+    const onDraftChange = renderForm();
+
+    fill({ recipient: "0.0.500", amount: "1" });
+
+    expect(screen.getByRole("status").textContent).toBe(RECIPIENT_LOOKUP_LABELS.loading("0.0.500"));
+    expect(lastResult(onDraftChange)).toEqual({ status: "empty" });
   });
 
   it("refuses to pay the treasury itself", () => {

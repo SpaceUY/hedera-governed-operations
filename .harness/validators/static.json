@@ -43,7 +43,11 @@
     },
     {
       "file": "packages/nextjs/app/governance/new/page.tsx",
-      "contains": ["New proposal", "Connect a wallet to propose"]
+      "contains": ["New proposal"]
+    },
+    {
+      "file": "packages/nextjs/services/governance/proposalLabels.ts",
+      "contains": ["Connect a wallet to propose", "Register and schedule with your wallet"]
     },
     {
       "file": "packages/nextjs/components/governance/wizard/CouncilPreviewPanel.tsx",

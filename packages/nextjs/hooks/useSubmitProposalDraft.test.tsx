@@ -2,10 +2,10 @@ import { useSubmitProposalDraft } from "./useSubmitProposalDraft";
 import { TransferTransaction } from "@hiero-ledger/sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ProposalDraft } from "~~/components/governance/wizard/drafts";
 import { createQueryWrapper } from "~~/hooks/mirror/testUtils";
 import { useCreateNativeProposal } from "~~/hooks/useCreateNativeProposal";
 import { useCreateProposal } from "~~/hooks/useCreateProposal";
+import type { ProposalDraft } from "~~/services/governance/drafts";
 import type { RegistryProposal } from "~~/services/governance/encode";
 import { PROPOSAL_KIND_COPY } from "~~/services/governance/proposalLabels";
 

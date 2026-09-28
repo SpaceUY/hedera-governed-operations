@@ -12,6 +12,11 @@ import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/net
  */
 export const SETTLED_INBOX_POLL_MS = 30_000;
 
+/** The prefix of every inbox on a network, whatever its council: what opening a proposal refreshes. */
+export function proposalInboxQueryKey(network: string): string[] {
+  return mirrorQueryKey(network, "proposals");
+}
+
 export type ProposalsOptions = CouncilOptions & {
   /** Interval while any proposal is still collecting signatures. */
   pollIntervalMs?: number;
@@ -32,13 +37,12 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
   const inbox = useQuery<ProposalInbox, Error>({
     // The executor belongs in the key: the inbox is crossed against its registry, so pointing the app
     // at a different one has to invalidate the list and not just the council.
-    queryKey: mirrorQueryKey(
-      network,
-      "proposals",
+    queryKey: [
+      ...proposalInboxQueryKey(network),
       governanceAccountId,
       options.executorContractId,
       ...(council.data?.proposerAccountIds ?? []),
-    ),
+    ],
     queryFn: () => {
       if (!council.data) throw new Error("The council has to be known before its proposals can be listed");
       const hederaNetwork = toHederaNetworkName(network);
