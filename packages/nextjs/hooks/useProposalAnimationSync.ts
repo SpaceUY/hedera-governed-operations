@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useReducer } from "react";
 import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/liveMap/events/mapEvents";
 import type { PlayingEvent } from "~~/services/liveMap/motion/frame";
-import { EMPTY_QUEUE, animationQueueReducer } from "~~/services/liveMap/motion/queue";
+import { EMPTY_QUEUE, animationQueueReducer, councilShown } from "~~/services/liveMap/motion/queue";
 import { sequenceOf } from "~~/services/liveMap/motion/sequences";
 import { proposalIn } from "~~/services/liveMap/motion/world";
 
@@ -63,7 +63,10 @@ export function useProposalAnimationSync({ snapshot, previous, events }: Animati
   // Between a read arriving and its events being queued there is one render; it still shows the
   // world before them, so the new state is never drawn before the sequence that leads to it.
   const hasUnqueued = events.some(event => !state.seen.includes(animationEventKey(event)));
-  const world = current ? state.held : hasUnqueued ? previous : snapshot;
+  const base = current ? state.held : hasUnqueued ? previous : snapshot;
+  // A council change that has not played yet leaves the council it replaces on the map.
+  const council = councilShown(state);
+  const world = useMemo(() => (base && council ? { ...base, council } : base), [base, council]);
   const playing: PlayingEvent | null =
     current && step ? { event: current.event, cue: step.cue, world: current.world } : null;
 

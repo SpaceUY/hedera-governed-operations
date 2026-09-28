@@ -1,5 +1,25 @@
-import { ALICE, BOB, CAROL, INCOMING, ROTATION, SUCCEEDED, TRANSFER, ago, proposal, world } from "./motionFixtures";
-import { type AnimationQueue, EMPTY_QUEUE, MAX_QUEUED, type QueueAction, animationQueueReducer } from "./queue";
+import {
+  ALICE,
+  BOB,
+  CAROL,
+  COUNCIL,
+  INCOMING,
+  ROTATION,
+  SUCCEEDED,
+  TRANSFER,
+  ago,
+  proposal,
+  world,
+} from "./motionFixtures";
+import {
+  type AnimationQueue,
+  EMPTY_QUEUE,
+  MAX_PARKED_READS,
+  MAX_QUEUED,
+  type QueueAction,
+  animationQueueReducer,
+  councilShown,
+} from "./queue";
 import { describe, expect, it } from "vitest";
 import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 
@@ -117,6 +137,40 @@ describe("animationQueueReducer", () => {
       expect(keys(animationQueueReducer(parked, read([], pendingRun, confirmedRun)))).toEqual([
         "councilChanged:0.0.7:2/YWxpY2U=,Ym9i,ZGF2ZQ==",
       ]);
+    });
+
+    it("keeps the council it replaces on the map until it plays, and shows the new one while it does", () => {
+      // The read that parks it already has the new council; the map must not show it yet.
+      const parkedWorld = { ...pendingRun, council: INCOMING };
+      const parked = run(read([changed], BEFORE, parkedWorld));
+      expect(councilShown(parked)).toEqual(COUNCIL);
+      expect(councilShown(animationQueueReducer(parked, read([], parkedWorld, parkedWorld)))).toEqual(COUNCIL);
+
+      let state = animationQueueReducer(parked, read([executed], parkedWorld, confirmedRun));
+      expect(keys(state)[0]).toBe("executed:0.0.7:");
+      expect(councilShown(state)).toEqual(COUNCIL);
+      state = animationQueueReducer(state, { type: "finish", key: "executed:0.0.7:" });
+      expect(councilShown(state)).toEqual(INCOMING);
+      state = animationQueueReducer(state, { type: "finish", key: keys(state)[0] });
+      expect(councilShown(state)).toBeUndefined();
+    });
+
+    it("stops waiting after a bounded number of reads, so an outcome never confirmed cannot freeze the map", () => {
+      let state = run(read([changed], BEFORE, pendingRun));
+      for (let reads = 1; reads < MAX_PARKED_READS; reads++) {
+        state = animationQueueReducer(state, read([], pendingRun, pendingRun));
+        expect(state.parked).toHaveLength(1);
+      }
+      state = animationQueueReducer(state, read([], pendingRun, pendingRun));
+      expect(state.parked).toEqual([]);
+      expect(keys(state)).toEqual(["councilChanged:0.0.7:2/YWxpY2U=,Ym9i,ZGF2ZQ=="]);
+      expect(councilShown(state)).toEqual(INCOMING);
+    });
+
+    it("drops the held council with everything else when the queue gives up", () => {
+      const parked = run(read([changed], BEFORE, pendingRun));
+      const flood = Array.from({ length: MAX_QUEUED + 2 }, (_unused, index) => approved(ALICE, `0.0.${200 + index}`));
+      expect(councilShown(animationQueueReducer(parked, read(flood, pendingRun, pendingRun)))).toBeUndefined();
     });
 
     it("plays at once when nobody can date it", () => {

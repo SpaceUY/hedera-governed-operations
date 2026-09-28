@@ -3,7 +3,18 @@ import { type AnimationSyncInput, useProposalAnimationSync } from "./useProposal
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
-import { ALICE, BOB, SUCCEEDED, UPGRADE_CALL, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
+import {
+  ALICE,
+  BOB,
+  COUNCIL,
+  INCOMING,
+  ROTATION,
+  SUCCEEDED,
+  UPGRADE_CALL,
+  ago,
+  proposal,
+  world,
+} from "~~/services/liveMap/motion/motionFixtures";
 
 const ID = "0.0.9001";
 const OPEN = world([proposal({ id: ID, operation: UPGRADE_CALL, signatures: [[ALICE, ago(20)]] })]);
@@ -158,5 +169,17 @@ describe("useProposalAnimationSync", () => {
     playToEnd(result);
     rerender({ snapshot: { ...SIGNED }, previous: SIGNED, events: [BOB_SIGNED] });
     expect(result.current.playing).toBeNull();
+  });
+  it("keeps the old council on the map while a rotation's change waits for its run", () => {
+    const pending = world([
+      proposal({ id: "0.0.7", operation: ROTATION, executedAt: ago(3), execution: { status: "unconfirmed" } }),
+    ]);
+    const rotated = { ...pending, council: INCOMING };
+    const changed: AnimationEvent = { kind: "councilChanged", scheduleId: "0.0.7", at: ago(3), council: INCOMING };
+    const { result, rerender } = renderSync({ snapshot: pending, previous: null, events: [] });
+    rerender({ snapshot: rotated, previous: pending, events: [changed] });
+    expect(result.current.playing).toBeNull();
+    expect(result.current.world?.council).toEqual(COUNCIL);
+    expect(result.current.world?.proposals).toBe(rotated.proposals);
   });
 });
