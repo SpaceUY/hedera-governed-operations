@@ -74,7 +74,17 @@ cannot answer "is the code at it the build we blessed". Verified on testnet, all
 | no release names the address                | `refused` — "no release on topic 0.0.… names the implementation 0x…"          |
 | a release names it, the code does not match | `refused` — "the code at 0x… does not match the release published for v2.0.0" |
 
-A check that could not be run is a refusal too. Not run is not passed.
+
+**The topic needs a submit key, and the agent checks for one before it starts.** HCS lets any account
+write to a topic created without one, so manifests on an open topic say that somebody published those
+bytes — not that this team did, which is the only thing worth checking against. `yarn setup` creates
+the release topic with the operator as its submit key; a policy pointing at a topic without one makes
+the agent refuse to start rather than run a check that cannot fail closed. Reading is public either
+way, so anyone can still repeat the comparison.
+
+A check that could not be run is a refusal too. Not run is not passed. So is a search that ran out of
+pages before it ran out of topic: the refusal then says it read the N most recent releases rather than
+claiming the topic holds none.
 
 Publishing is `yarn release:publish --contract AcmeVault --version v2.0.0`, which reads the
 implementation address `yarn hardhat:deploy` recorded, hashes the runtime bytecode the Mirror Node

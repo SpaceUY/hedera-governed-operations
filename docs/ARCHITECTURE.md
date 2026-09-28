@@ -518,6 +518,21 @@ settled at deploy time — so a publisher that hashed the artifact would produce
 matched. It also makes the check repeatable by hand: read the topic on HashScan, take the
 `bytecodeHash`, and compare it against `GET /contracts/{id}` for the address.
 
+**The topic's submit key is what makes a manifest evidence rather than a claim.** HCS accepts a
+message from any account on a topic created without one, so a release log anybody can append to
+answers "did somebody publish these bytes", not "did this team". An attacker who can also get an
+upgrade proposal registered would publish a manifest for their own implementation and pass the check
+unchanged. So `yarn setup` creates the release topic with the operator as its submit key — reading
+stays public, writing does not — and gives it an admin key so a team can rotate that later, which a
+topic created without one can never do. `assertReleaseTopicIsSigned` is the other half: an agent
+whose policy names a topic with no submit key refuses to start, rather than running a check that
+cannot fail closed. A `yarn setup` that finds the state pointing at an open topic replaces it.
+
+The search is bounded at ten pages of a hundred messages, and the refusal says which bound ended it.
+"No release on topic X names the implementation" is a claim about the topic; after the page bound it
+becomes "the N most recent releases do not name it", which is a claim about what was read. The two
+deserve different words even though both refuse.
+
 What a manifest does not attest is the source. That is Sourcify's job, and the two compose: Sourcify
 says the source matches the deployed code, the manifest says the deployed code is the build the team
 published for this version.
