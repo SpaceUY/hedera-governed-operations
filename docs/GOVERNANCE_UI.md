@@ -46,6 +46,7 @@ packages/nextjs/
     useProposalLookup.ts            # one proposal by schedule id
     useTreasuryFigures.ts
     useInboxUpdatedAt.ts            # when any inbox on the network was last read, from the query cache
+    useMapSnapshot.ts               # the three reads as one snapshot, and the events since the previous one
   hooks/                            # writes (useMutation), flat like useSubmitProof.ts
     useCreateProposal.ts            # contract-backed kinds: createProposal, then ScheduleCreate(execute)
     useCreateNativeProposal.ts      # native kinds: ScheduleCreate(transfer / AccountUpdate)
@@ -61,6 +62,7 @@ packages/nextjs/
     proposalRoutes.ts               # the path each kind takes, in roles
     graph.ts                        # the governance graph: nodes, edges, a proposal's scope, fallback layout
     graphEntities.ts                # the configured contracts, token and DEX router the graph starts from
+    mapEvents.ts                    # GovernanceSnapshot, diffSnapshots: what changed between two reads
     decode.ts / encode.ts           # scheduled body and registry calldata ↔ described operation
     registry.ts                     # entry reads, cancel, the id createProposal returned
     schedules.ts                    # ScheduleCreate / Sign / Delete builders
@@ -103,6 +105,7 @@ Server state lives in React Query and nowhere else. Components never write propo
 - **After opening a proposal**, `useCreateProposal` and `useCreateNativeProposal` invalidate every inbox on the network in their own `onSuccess`, not in the caller's, so the list refreshes even when the screen that submitted has gone, instead of waiting out the 30 s poll of a settled inbox.
 - **When a proposal settles** (leaves pending: executed, withdrawn or expired), `useProposals` and `useProposalLookup` invalidate the treasury figures, and the council as well for a council rotation, together, so the screen does not wait out their cache and shows one consistent world. The work is `useRefreshOnSettle`: it compares each read with the previous one, so the first read only seeds it, and like `refresh()` below it reads once now and once more a poll interval later.
 - **Executed is not succeeded.** Mirror marks a schedule executed whether its transaction succeeded or reverted, so `Proposal.execution` reads the scheduled transaction's own row (`fetchScheduleExecution`): `succeeded`, `failed` with the network's response code, `unconfirmed` until Mirror has it, or `notRun`. The inbox reuses an outcome it already resolved instead of reading it on every poll, and reads the registry entry behind a failed execution, since the revert left it as it was.
+- **The map animates reads, not clicks.** `useMapSnapshot` composes the inbox, the council and the treasury figures — the same queries, so it polls nothing of its own — into one `GovernanceSnapshot`, and `diffSnapshots` (`services/governance/mapEvents.ts`) turns two consecutive snapshots into events: `proposed`, `approved` per member (both councils for a rotation), `executed` / `reverted` once `Proposal.execution` has the outcome (never on `executed_timestamp` alone, so a success is never taken back), and `councilChanged`, a threshold change included. The first snapshot only seeds; a proposal that leaves the inbox window, or reappears because its proposer can be read again, produces nothing; and an event whose consensus timestamp is more than `EVENT_FRESHNESS_MS` (a minute) older than the read is dropped, so a tab that was hidden shows the end state instead of replaying it. A signature from another device is an event like any other. Events are deduped by `animationEventKey` (`kind:scheduleId:memberKey`), since an effect can see them twice under `StrictMode`.
 - **After a write**, `useProposalLookup().refresh()` invalidates the schedule and the registry entry immediately and again a poll interval later, because Mirror and the JSON-RPC relay both lag consensus by seconds. The delayed read is cleared if the page unmounts first.
 - **The inbox can be partial.** `unreachableProposers` names proposers whose schedules could not be read (Mirror failed, or the address resolves to no account); the home page says the list may be incomplete whenever it is non-empty.
 - **A proposal outside the inbox** — older than `PROPOSALS_PER_PROPOSER`, or a native proposal opened by an account without `PROPOSER_ROLE` — is read directly by `useProposalLookup`, which returns the same `Proposal` shape and refuses a schedule the governance account does not pay for, so a crafted link never reaches a Sign button.

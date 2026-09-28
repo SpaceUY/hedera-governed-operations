@@ -76,6 +76,7 @@ packages/nextjs/
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
       useRefreshOnSettle.ts Re-reads treasury figures (and the council after a rotation) when a proposal settles
+      useMapSnapshot.ts     Inbox, council and treasury as one snapshot, plus the events since the previous read
       useTransaction.ts     Mirror rows for a tx id; polls until indexed
       useAccount.ts         Account by 0.0.x id or EVM address
       useToken.ts           Token metadata and pause state, with decimals already a number
@@ -108,6 +109,7 @@ packages/nextjs/
       proposalRoutes.ts     The path each kind takes, in roles (governance account, executor, subject, …)
       graph.ts              The governance graph: nodes, edges, a proposal's scope, the fallback layout
       graphEntities.ts      The configured contracts, token and DEX router the governance graph starts from
+      mapEvents.ts          Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
       encode.ts             Form values to transactions: the five encoders, the registration gas, createProposal
       decode.ts             Scheduled body and registry calldata back to a described operation
       registry.ts           GovernedExecutor: the entry behind a proposal, cancel, and the id a create returned
