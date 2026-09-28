@@ -161,10 +161,11 @@ describe("treasuryShown", () => {
   const latest = { ...world([]), treasury: { ...shown.treasury!, hbarBalanceTinybar: 60 } };
   const playing = (cue: Cue, event: AnimationEvent = EXECUTED): PlayingEvent => ({ event, cue, world: latest });
 
-  it("holds the shown world's figures until the run reaches its target", () => {
+  it("holds the shown world's figures until the target has flashed, then counts them", () => {
     expect(treasuryShown(null, { shown, latest })).toBe(shown.treasury);
     expect(treasuryShown(playing({ name: "comet", hop: 1 }), { shown, latest })).toBe(shown.treasury);
-    expect(treasuryShown(playing({ name: "arrive" }), { shown, latest })).toBe(latest.treasury);
+    expect(treasuryShown(playing({ name: "arrive" }), { shown, latest })).toBe(shown.treasury);
+    expect(treasuryShown(playing({ name: "figures" }), { shown, latest })).toBe(latest.treasury);
     expect(treasuryShown(playing({ name: "relax" }), { shown, latest })).toBe(latest.treasury);
   });
 

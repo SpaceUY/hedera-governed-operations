@@ -178,12 +178,12 @@ export function frameOf(playing: PlayingEvent | null, worlds: Worlds): MapFrame 
   }
 }
 
-const OUTCOME_CUES: ReadonlyArray<Cue["name"]> = ["arrive", "figures", "hold", "relax", "fail", "retreat"];
+const OUTCOME_CUES: ReadonlyArray<Cue["name"]> = ["figures", "hold", "relax", "fail", "retreat"];
 
 /**
- * The treasury figures to show: the shown world's, except from the moment a run reaches its target,
- * when they are the latest read's, so they count to their new values as part of the run rather than
- * after it has relaxed.
+ * The treasury figures to show: the shown world's, except once a run has landed — after its target
+ * flashed, or as it fails — when they are the latest read's, so they count to their new values as
+ * part of the run rather than after it has relaxed.
  */
 export function treasuryShown(
   playing: PlayingEvent | null,
