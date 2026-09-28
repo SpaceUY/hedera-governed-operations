@@ -470,11 +470,13 @@ flowchart LR
   Agent -- "reads the inbox" --> Core
   Core -- "schedules, bodies" --> Mirror
   Core -- "registry entry via the relay" --> Hedera
+  Person["A person<br/>POST /approvals/{scheduleId}"] -- "confirmation code" --> Agent
   Agent -- "ScheduleSign, if the policy allows" --> Hedera
+  Agent -- "the decision, whatever it was" --> Hedera
   Hedera -. "threshold met: the proposal runs" .-> Hedera
 ```
 
-Three design decisions are load-bearing, and all three are about what the agent refuses:
+Four design decisions are load-bearing, and all of them are about what the agent refuses:
 
 - **The policy fails closed.** A kind of operation with no rule is refused rather than allowed, so a
   policy written for treasury transfers has not silently authorised contract upgrades, and a sixth
@@ -484,6 +486,9 @@ Three design decisions are load-bearing, and all three are about what the agent 
 - **Anything unreadable is refused**, not skipped: a body that did not decode, a registry entry that
   is missing or cancelled, an entry the relay could not be asked for, a call to another executor. An
   approver that cannot tell what it is approving has exactly one safe answer.
+- **A rule can refuse to sign without a person**, which is the subject of the next section. It is the
+  only one of the four the policy turns on rather than off, because the agent exists to sign inside
+  written limits and a policy demanding a code for everything would have no agent in it.
 
 One trap is worth recording because it only appears against a live network. Mirror lags consensus by
 a few seconds and the agent polls faster than that, so a signature it has just sent is still absent
@@ -536,6 +541,65 @@ deserve different words even though both refuse.
 What a manifest does not attest is the source. That is Sourcify's job, and the two compose: Sourcify
 says the source matches the deployed code, the manifest says the deployed code is the build the team
 published for this version.
+
+### Human in the loop
+
+Every signature the agent sends is half a threshold delivered on a policy nobody watched it apply.
+For a transfer bounded by an amount and a list of recipients that is the intended trade; for an
+upgrade it is not, because the limits cannot bound what the new code does. So any rule can carry
+`requireConfirmation`, and a proposal under it is decided as usual and then **waits** — a fourth
+outcome, `pending` — until a confirmation code arrives at `POST /approvals/{scheduleId}`.
+
+The code is RFC 6238 TOTP: HMAC-SHA-1, six digits, a 30-second step, one step of drift either side.
+Those parameters are what every authenticator app produces, which is the whole reason for choosing
+them — a template with a 60-second step would ask for codes no phone can generate. The secret is
+base32 in the environment and never logged.
+
+Three properties are worth more than the mechanism:
+
+- **The gate runs after the release check, not before.** An upgrade whose implementation no release
+  vouches for is refused on its own. Nobody should be asked to confirm what was going to be refused.
+- **A code cannot be used twice, or guessed at.** The agent remembers the last time step it accepted
+  a code from and refuses anything at or below it, so a code seen by anyone else is already spent.
+  That counter is global rather than per proposal: a code says nothing about which proposal it is
+  for, so a counter per proposal would let one captured for a transfer release an upgrade inside the
+  same window. Against guessing — a million values, three of them valid at once — a step stops being
+  answered after five wrong codes, which is the throttling RFC 6238 §5.2 asks for.
+- **A confirmation does not bypass the policy.** It releases a signature the policy had already
+  approved, and the policy is re-run on the pass that signs it.
+
+The endpoint is `node:http` and one route, bound to loopback. It deliberately does not notify
+anybody: a proposal entering `pending` is a line on stdout and a message on the decision topic, and
+either drives a notifier that already exists — the hook in code is `ApprovalStore.awaitConfirmation`.
+A mail or chat transport inside the service would add a dependency, a credential and a retry policy
+to a process whose argument is that it can be read end to end.
+
+Pending approvals are process memory, like the signatures a pass remembers sending. A restart asks
+for a code again, and a confirmation lapses after fifteen minutes on its own. Both are the right
+failure: an approval nobody watched being made, still standing after the process that asked for it is
+gone, is worse than one more code.
+
+### The decision log
+
+The agent publishes every decision to an HCS topic of its own — the outcome, the reason, the
+proposal, and whether a person released it — so that what a machine holding a council seat did is a
+public record rather than the container log of whoever runs it. The `reason` is where the checks
+show: `within policy` is the limits alone, `within policy, release v2.0.0` is the limits and the
+manifest, and a refusal names the limit it failed.
+
+**The submit key is the agent's own**, and that is the difference from the release topic. A manifest
+claims "this team published this build", so the publisher is the team; a decision claims "this agent
+approved this proposal", so the publisher is the agent. A log the operator could also write to would
+be a log of what somebody said the agent did. `yarn setup` creates it with the seat's key and keeps
+the admin key on the operator so it can be rotated when the seat changes hands, and the agent refuses
+to start on a topic anyone can publish to or one whose single submit key is not its own.
+
+Publishing is a record of what happened, never a step the agent waits on: it runs after deciding and
+signing, and a failure is logged and retried on the next pass rather than thrown. Two records are
+never written. A skip says nothing about the policy. An approval whose `ScheduleSign` failed is held
+back until the signature lands, because "approved" on the topic next to a schedule the agent never
+signed is a record that reads as a lie. Each message costs a fee, so a verdict is published once and
+again only when it changes — otherwise an unchanged inbox would pay four times a minute for ever.
 
 Custody in the demo is a private key in the environment, which is right for a testnet fixture and
 wrong for anything else. Signing is a single injected function (`SignSchedule`), so a real seat

@@ -8,6 +8,7 @@
  * and the failure mode of a misread limit is a signature nobody authorised.
  */
 import type { Policy, TokenAdminRule } from "./policy";
+import { MIN_SECRET_BYTES, decodeBase32 } from "./totp";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { type HederaNetworkName, parseHederaNetworkName } from "@sh/core/network";
 import { readFileSync } from "node:fs";
@@ -15,6 +16,13 @@ import { readFileSync } from "node:fs";
 const TOKEN_ADMIN_OPERATIONS = ["pause", "unpause", "freeze", "unfreeze"] as const;
 
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
+
+/** Where confirmation codes arrive. Loopback, because this endpoint releases signatures. */
+const DEFAULT_APPROVAL_HOST = "127.0.0.1";
+
+const DEFAULT_APPROVAL_PORT = 8787;
+
+const MAX_PORT = 65_535;
 
 /** Below this the agent would poll Mirror harder than the network produces proposals. */
 const MIN_POLL_INTERVAL_MS = 5_000;
@@ -31,6 +39,15 @@ export type AgentConfig = {
   /** Decide and log, sign nothing. The way to try a new policy against a real inbox. */
   dryRun: boolean;
   policy: Policy;
+  /** HCS topic every decision is published to. Its submit key has to be this agent's. */
+  decisionTopicId: string;
+  /**
+   * The shared secret confirmation codes are generated from, decoded from its base32, or null when
+   * the policy escalates nothing. It is never logged and never leaves this process.
+   */
+  confirmationSecret: Uint8Array | null;
+  /** Where the confirmation endpoint listens. */
+  approval: { host: string; port: number };
 };
 
 /**
@@ -59,6 +76,50 @@ function pollInterval(): number {
     throw new Error(`AGENT_POLL_INTERVAL_MS must be a whole number of at least ${MIN_POLL_INTERVAL_MS}, got ${raw}`);
   }
   return parsed;
+}
+
+export function approvalPort(): number {
+  const raw = process.env.AGENT_APPROVAL_PORT?.trim();
+  if (!raw) return DEFAULT_APPROVAL_PORT;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_PORT) {
+    throw new Error(`AGENT_APPROVAL_PORT must be a port number between 1 and ${MAX_PORT}, got ${raw}`);
+  }
+  return parsed;
+}
+
+/**
+ * The secret is only required by a policy that escalates something, and refusing to start without it
+ * is the point: a rule asking for a confirmation nobody can give would leave those proposals waiting
+ * forever, which reads like an agent that has quietly stopped working.
+ */
+export function confirmationSecret(policy: Policy): Uint8Array | null {
+  const raw = process.env.AGENT_TOTP_SECRET?.trim();
+  const escalates = Object.values(policy).some(rule => rule.requireConfirmation === true);
+  if (!raw) {
+    if (escalates) {
+      throw new Error(
+        "the policy asks for a confirmation on at least one rule and AGENT_TOTP_SECRET is unset, so no code " +
+          "could ever release one",
+      );
+    }
+    return null;
+  }
+  let secret: Uint8Array;
+  try {
+    secret = decodeBase32(raw);
+  } catch (error) {
+    throw new Error(`AGENT_TOTP_SECRET is not a base32 secret: ${(error as Error).message}`);
+  }
+  // A short secret is not a weaker version of a good one, it is a key an attacker can search — and
+  // base32 decodes anything under eight bits of payload to no key at all, which everybody shares.
+  if (secret.length < MIN_SECRET_BYTES) {
+    throw new Error(
+      `AGENT_TOTP_SECRET decodes to ${secret.length} bytes and a confirmation secret needs at least ` +
+        `${MIN_SECRET_BYTES} (RFC 4226 §4 R6); generate one rather than typing it`,
+    );
+  }
+  return secret;
 }
 
 function stringList(value: unknown, field: string): string[] {
@@ -135,7 +196,11 @@ export function parsePolicy(source: string): Policy {
 
   if (root.upgrade !== undefined) {
     const rule = asObject(root.upgrade, "upgrade");
-    rejectUnknownKeys(rule, ["targets", "implementations", "manifestTopicId", "allowInitializer"], "upgrade");
+    rejectUnknownKeys(
+      rule,
+      ["targets", "implementations", "manifestTopicId", "allowInitializer", "requireConfirmation"],
+      "upgrade",
+    );
     // An upgrade rule has to say how an implementation is trusted, and there are two ways: a list of
     // addresses, or a release topic whose manifests the deployed code is checked against. Neither
     // means the rule would approve any implementation at all for a listed proxy.
@@ -149,35 +214,39 @@ export function parsePolicy(source: string): Policy {
       manifestTopicId:
         rule.manifestTopicId === undefined ? undefined : entityId(rule.manifestTopicId, "upgrade.manifestTopicId"),
       allowInitializer: optionalBoolean(rule.allowInitializer, "upgrade.allowInitializer"),
+      requireConfirmation: optionalBoolean(rule.requireConfirmation, "upgrade.requireConfirmation"),
     };
   }
 
   if (root.treasurySwap !== undefined) {
     const rule = asObject(root.treasurySwap, "treasurySwap");
-    rejectUnknownKeys(rule, ["maxAmountInTinybars", "tokensOut", "recipients"], "treasurySwap");
+    rejectUnknownKeys(rule, ["maxAmountInTinybars", "tokensOut", "recipients", "requireConfirmation"], "treasurySwap");
     policy.treasurySwap = {
       maxAmountInTinybars: tinybars(rule.maxAmountInTinybars, "treasurySwap.maxAmountInTinybars"),
       tokensOut: stringList(rule.tokensOut, "treasurySwap.tokensOut"),
       recipients: stringList(rule.recipients, "treasurySwap.recipients"),
+      requireConfirmation: optionalBoolean(rule.requireConfirmation, "treasurySwap.requireConfirmation"),
     };
   }
 
   if (root.tokenAdmin !== undefined) {
     const rule = asObject(root.tokenAdmin, "tokenAdmin");
-    rejectUnknownKeys(rule, ["operations", "tokens"], "tokenAdmin");
+    rejectUnknownKeys(rule, ["operations", "tokens", "requireConfirmation"], "tokenAdmin");
     policy.tokenAdmin = {
       operations: tokenAdminOperations(rule.operations),
       tokens: stringList(rule.tokens, "tokenAdmin.tokens"),
+      requireConfirmation: optionalBoolean(rule.requireConfirmation, "tokenAdmin.requireConfirmation"),
     };
   }
 
   if (root.treasuryTransfer !== undefined) {
     const rule = asObject(root.treasuryTransfer, "treasuryTransfer");
-    rejectUnknownKeys(rule, ["maxTinybars", "recipients", "tokens"], "treasuryTransfer");
+    rejectUnknownKeys(rule, ["maxTinybars", "recipients", "tokens", "requireConfirmation"], "treasuryTransfer");
     policy.treasuryTransfer = {
       maxTinybars: tinybars(rule.maxTinybars, "treasuryTransfer.maxTinybars"),
       recipients: stringList(rule.recipients, "treasuryTransfer.recipients"),
       tokens: rule.tokens === undefined ? undefined : stringList(rule.tokens, "treasuryTransfer.tokens"),
+      requireConfirmation: optionalBoolean(rule.requireConfirmation, "treasuryTransfer.requireConfirmation"),
     };
   }
 
@@ -193,6 +262,8 @@ export function loadConfig(): AgentConfig {
     throw new Error(`AGENT_POLICY_FILE ${policyFile} could not be read: ${(error as Error).message}`);
   }
 
+  const policy = parsePolicy(source);
+
   return {
     network: agentNetwork(),
     agentAccountId: requiredEnv("AGENT_ACCOUNT_ID"),
@@ -204,6 +275,9 @@ export function loadConfig(): AgentConfig {
     rpcUrl: requiredEnv("HEDERA_RPC_URL"),
     pollIntervalMs: pollInterval(),
     dryRun: process.env.AGENT_DRY_RUN?.trim() === "true",
-    policy: parsePolicy(source),
+    policy,
+    decisionTopicId: requiredEnv("AGENT_DECISION_TOPIC_ID"),
+    confirmationSecret: confirmationSecret(policy),
+    approval: { host: process.env.AGENT_APPROVAL_HOST?.trim() || DEFAULT_APPROVAL_HOST, port: approvalPort() },
   };
 }

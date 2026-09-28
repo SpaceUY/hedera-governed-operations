@@ -9,7 +9,7 @@
     "format": "prettier --write . '!(node_modules)/**/*'",
     "lint": "eslint src",
     "lint-staged": "eslint",
-    "start": "tsx src/index.ts",
+    "start": "tsx --env-file-if-exists=.env src/index.ts",
     "test": "vitest run"
   },
   "dependencies": {

@@ -73,6 +73,31 @@ export function hasSubmitKey(topic: MirrorTopic): boolean {
   return Boolean(topic.submit_key?.key);
 }
 
+/**
+ * The check that has to run before a topic's contents count as evidence: a topic with no submit key
+ * takes a message from anyone, so everything on it is an unsigned claim. It throws rather than
+ * returning a verdict because it answers a question about the configuration, not about one message —
+ * a service pointed at an open topic should refuse to start, not refuse one record at a time.
+ *
+ * `subject` names what the topic is for, so the refusal reads as the sentence whoever configured it
+ * needs: "release topic 0.0.x has no submit key".
+ */
+export async function assertTopicIsSigned(
+  topicId: string,
+  subject: string,
+  options: MirrorRequestOptions = {},
+): Promise<MirrorTopic> {
+  const topic = await fetchTopic(topicId, options);
+  if (topic.deleted) throw new Error(`${subject} topic ${topicId} is deleted`);
+  if (!hasSubmitKey(topic)) {
+    throw new Error(
+      `${subject} topic ${topicId} has no submit key, so anyone can publish on it: ` +
+        "create one with a submit key (yarn setup does) and point the configuration at that topic instead",
+    );
+  }
+  return topic;
+}
+
 function buildTopicMessagesPath(topicId: string, options: FetchTopicMessagesOptions): string {
   const { limit = DEFAULT_LIMIT, order = "desc", sequenceNumber, timestamp } = options;
   const params = new URLSearchParams();

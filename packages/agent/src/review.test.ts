@@ -1,5 +1,5 @@
 import type { Policy } from "./policy";
-import { type ReviewOptions, decide, reviewInbox } from "./review";
+import { type ReviewOptions, decide, gateOnConfirmation, reviewInbox } from "./review";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { Proposal, ProposalInbox } from "@sh/core/governance/proposals";
 import type { RegistryEntry } from "@sh/core/governance/registry";
@@ -26,6 +26,7 @@ const OPTIONS: ReviewOptions = {
   agentPublicKeyHex: AGENT_KEY_HEX,
   policy: POLICY,
   signedThisRun: new Set(),
+  confirmed: new Set(),
 };
 
 function schedule(overrides: Partial<MirrorSchedule> = {}): MirrorSchedule {
@@ -282,5 +283,68 @@ describe("reviewInbox", () => {
     const partial: ProposalInbox = { proposals: [], unreachableProposers: ["0.0.5005"] };
     const result = await reviewInbox(partial, OPTIONS, null);
     expect(result.unreachableProposers).toEqual(["0.0.5005"]);
+  });
+});
+
+describe("a proposal whose rule asks for a person as well", () => {
+  const inbox = (proposals: Proposal[]): ProposalInbox => ({ proposals, unreachableProposers: [] });
+  const escalated: ReviewOptions = {
+    ...OPTIONS,
+    policy: { upgrade: { targets: [VAULT], implementations: [IMPLEMENTATION], requireConfirmation: true } },
+  };
+
+  it("is approved by the policy, which says a person is still needed", () => {
+    expect(decide(proposal(), escalated)).toMatchObject({ outcome: "approved", confirmation: "required" });
+  });
+
+  it("waits once the gate has seen no code for it, with the reason saying what for", () => {
+    const decision = gateOnConfirmation(decide(proposal(), escalated), new Set());
+
+    expect(decision.outcome).toBe("pending");
+    expect(decision.reason).toContain("waiting for a confirmation code");
+  });
+
+  it("is not signed while it waits", async () => {
+    const sign = vi.fn();
+
+    await reviewInbox(inbox([proposal()]), escalated, sign);
+
+    expect(sign).not.toHaveBeenCalled();
+  });
+
+  it("is approved and signed once a code has released it", async () => {
+    const sign = vi.fn().mockResolvedValue(undefined);
+    const released: ReviewOptions = { ...escalated, confirmed: new Set(["0.0.9001"]) };
+
+    const result = await reviewInbox(inbox([proposal()]), released, sign);
+
+    expect(result.decisions[0]).toMatchObject({ outcome: "approved", confirmation: "received" });
+    expect(sign).toHaveBeenCalledWith("0.0.9001");
+  });
+
+  it("is refused rather than sent to a person when the release check fails it", async () => {
+    // Nobody should be asked to confirm something the policy was going to refuse anyway.
+    const verify = vi.fn().mockResolvedValue({ matched: false, reason: "the code at 0x… does not match" });
+
+    const result = await reviewInbox(inbox([proposal()]), escalated, null, verify);
+
+    expect(result.decisions[0].outcome).toBe("refused");
+    // And it is waiting on nobody, which a confirmation still marked as required would claim.
+    expect(result.decisions[0].confirmation).toBe("notRequired");
+  });
+
+  it("keeps the release it matched in the reason while it waits", async () => {
+    const verify = vi.fn().mockResolvedValue({ matched: true, manifest: { version: "v2.0.0" } } as never);
+
+    const result = await reviewInbox(inbox([proposal()]), escalated, null, verify);
+
+    expect(result.decisions[0].reason).toBe("within policy, release v2.0.0, waiting for a confirmation code");
+  });
+
+  it("leaves a proposal alone whose own rule asks for nothing", () => {
+    const decision = decide(proposal(), OPTIONS);
+
+    expect(decision.outcome).toBe("approved");
+    expect(decision.confirmation).toBe("notRequired");
   });
 });

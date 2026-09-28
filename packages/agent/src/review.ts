@@ -15,7 +15,14 @@ import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/
 import type { Proposal, ProposalInbox } from "@sh/core/governance/proposals";
 import type { ManifestCheck } from "@sh/core/governance/releaseManifest";
 
-export type DecisionOutcome = "approved" | "refused" | "skipped";
+export type DecisionOutcome = "approved" | "refused" | "skipped" | "pending";
+
+/**
+ * Whether a person had to release this decision, and whether they have. `required` is what a
+ * proposal waiting on a code carries; it becomes `received` when one arrives, and the outcome with
+ * it.
+ */
+export type ConfirmationState = "notRequired" | "required" | "received";
 
 export type Decision = {
   scheduleId: string;
@@ -28,6 +35,7 @@ export type Decision = {
   kind: GovernedOperation["kind"] | null;
   /** The operation the decision was made about, for the caller to act on or record. */
   operation: GovernedOperation | null;
+  confirmation: ConfirmationState;
 };
 
 export type ReviewOptions = {
@@ -48,6 +56,11 @@ export type ReviewOptions = {
    * better answer anyway.
    */
   signedThisRun: ReadonlySet<string>;
+  /**
+   * Schedules a person has released with a confirmation code, from `ApprovalStore.confirmed`. Also
+   * only this process's memory, and losing it on a restart costs a code being asked for again.
+   */
+  confirmed: ReadonlySet<string>;
 };
 
 /** The registry entry's own words when there is one, since that is the operation for three of the kinds. */
@@ -61,7 +74,7 @@ export function decide(proposal: Proposal, options: ReviewOptions): Decision {
   const scheduleId = proposal.schedule.schedule_id;
   const base = { scheduleId, description: describe(proposal) };
 
-  const nothing = { ...base, kind: null, operation: null };
+  const nothing = { ...base, kind: null, operation: null, confirmation: "notRequired" as const };
 
   if (proposal.state.isSettled) {
     return { ...nothing, outcome: "skipped", reason: `already ${proposal.state.status}` };
@@ -78,9 +91,36 @@ export function decide(proposal: Proposal, options: ReviewOptions): Decision {
 
   const operation = read.operation;
   const verdict = reviewOperation(operation, options.policy);
-  return verdict.approved
-    ? { ...base, outcome: "approved", reason: "within policy", kind: operation.kind, operation }
-    : { ...base, outcome: "refused", reason: verdict.reason, kind: operation.kind, operation };
+  const decided = { ...base, kind: operation.kind, operation };
+  if (!verdict.approved) {
+    return { ...decided, outcome: "refused", reason: verdict.reason, confirmation: "notRequired" };
+  }
+  return {
+    ...decided,
+    outcome: "approved",
+    reason: "within policy",
+    confirmation: verdict.requiresConfirmation ? "required" : "notRequired",
+  };
+}
+
+/**
+ * The gate a policy's `requireConfirmation` puts in front of a signature: approved by the policy is
+ * not the same as ready to sign.
+ *
+ * It runs **after** the release check rather than before, so an upgrade whose implementation the
+ * release topic does not vouch for is refused on its own rather than sent to a person to confirm.
+ * Nobody should be asked to approve something the policy was going to refuse anyway.
+ */
+export function gateOnConfirmation(decision: Decision, confirmed: ReadonlySet<string>): Decision {
+  if (decision.confirmation !== "required") return decision;
+  // The release check runs between the policy and here and can turn an approval into a refusal. A
+  // refused proposal is waiting on nobody, and saying it needs a confirmation would read as one
+  // still open.
+  if (decision.outcome !== "approved") return { ...decision, confirmation: "notRequired" };
+  if (confirmed.has(decision.scheduleId)) return { ...decision, confirmation: "received" };
+  // Appended rather than replacing, so a proposal that is waiting still says which checks it passed
+  // to get there — the release the manifest matched, in particular.
+  return { ...decision, outcome: "pending", reason: `${decision.reason}, waiting for a confirmation code` };
 }
 
 /**
@@ -139,7 +179,8 @@ export async function reviewInbox(
   // the second proposal is usually the one that would have to be retried anyway.
   for (const proposal of inbox.proposals) {
     const reviewed = decide(proposal, options);
-    const decision = verifyRelease ? await verifyUpgrade(reviewed, verifyRelease) : reviewed;
+    const verified = verifyRelease ? await verifyUpgrade(reviewed, verifyRelease) : reviewed;
+    const decision = gateOnConfirmation(verified, options.confirmed);
     decisions.push(decision);
 
     if (decision.outcome !== "approved" || sign === null) continue;

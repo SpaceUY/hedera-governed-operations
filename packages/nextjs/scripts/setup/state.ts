@@ -5,6 +5,13 @@ export const DEMO_ACCOUNT_NAMES = ["alice", "bob"] as const;
 
 export type DemoAccountName = (typeof DEMO_ACCOUNT_NAMES)[number];
 
+/**
+ * Which demo account the co-signing agent votes with. It is a fixture choice, not a rule: in a real
+ * deployment the seat is whatever identity runs the service. Two places depend on it — the agent's
+ * `.env` and the submit key of the topic it publishes its decisions to — so it is named once here.
+ */
+export const AGENT_SEAT: DemoAccountName = "bob";
+
 /** Keys are stored DER-encoded; they only ever live in the gitignored state file. */
 export type DemoAccount = {
   accountId: string;
@@ -36,6 +43,8 @@ export type SetupState = {
   topicId?: string;
   /** Topic the release manifests go to; the agent checks an upgrade proposal against it. */
   releaseTopicId?: string;
+  /** Topic the agent publishes its decisions to; its submit key is the agent's, not the operator's. */
+  decisionTopicId?: string;
   demoAccounts: Partial<Record<DemoAccountName, DemoAccount>>;
   governance?: GovernanceAccount;
   demoTokenId?: string;

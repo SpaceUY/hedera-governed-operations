@@ -230,3 +230,38 @@ describe("a treasury transfer", () => {
     expect(reviewOperation(transfer(), FULL_POLICY).approved).toBe(true);
   });
 });
+
+describe("a rule that asks for a person as well as its limits", () => {
+  it("approves an operation inside the limits and says a confirmation is still needed", () => {
+    const rule: UpgradeRule = { targets: [VAULT], implementations: [IMPLEMENTATION], requireConfirmation: true };
+
+    expect(reviewOperation(upgrade(), { upgrade: rule })).toEqual({ approved: true, requiresConfirmation: true });
+  });
+
+  it("refuses an operation outside them without asking anybody, since the answer is already no", () => {
+    const rule: UpgradeRule = { targets: [VAULT], implementations: [IMPLEMENTATION], requireConfirmation: true };
+
+    expect(reviewOperation(upgrade({ target: TOKEN }), { upgrade: rule })).toMatchObject({ approved: false });
+  });
+
+  it("leaves the signature to the agent when the rule says nothing, which is the default", () => {
+    const rule: UpgradeRule = { targets: [VAULT], implementations: [IMPLEMENTATION] };
+
+    expect(reviewOperation(upgrade(), { upgrade: rule })).toEqual({ approved: true, requiresConfirmation: false });
+  });
+
+  it("is a decision per rule, so a transfer can be signed while an upgrade waits", () => {
+    const policy: Policy = {
+      upgrade: { targets: [VAULT], implementations: [IMPLEMENTATION], requireConfirmation: true },
+      treasuryTransfer: { maxTinybars: 100_000_000n, recipients: [TREASURY] },
+    };
+    const transfer: GovernedOperation = {
+      kind: "treasuryTransfer",
+      hbar: [{ accountId: TREASURY, tinybars: 1_000n }],
+      tokens: [],
+    };
+
+    expect(reviewOperation(upgrade(), policy)).toMatchObject({ requiresConfirmation: true });
+    expect(reviewOperation(transfer, policy)).toMatchObject({ requiresConfirmation: false });
+  });
+});

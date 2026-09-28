@@ -19,9 +19,31 @@ import type { GovernedOperation } from "./operation";
 import { Hbar } from "@hiero-ledger/sdk";
 import type { TokenAdminOperation } from "@sh/core/governance/proposalTypes";
 
-export type Verdict = { approved: true } | { approved: false; reason: string };
+/**
+ * What a rule answers on its own. The confirmation a policy may also demand is added by
+ * `reviewOperation`, so each rule's limits stay about the operation and nothing else.
+ */
+type Refusal = { approved: false; reason: string };
 
-export type UpgradeRule = {
+type RuleVerdict = { approved: true } | Refusal;
+
+export type Verdict = { approved: true; requiresConfirmation: boolean } | Refusal;
+
+/**
+ * The escalation every rule can carry: an operation inside the limits, that a person still has to
+ * release with a confirmation code before the agent signs it.
+ *
+ * It is off by default, and the default is the point of the agent — signing what is inside written
+ * limits without waiting for anybody is the whole reason it holds a seat. Confirmation is for the
+ * operations whose limits cannot bound their impact: a transfer is capped by an amount and a list of
+ * recipients, an upgrade replaces the code behind the proxy and no list of addresses says what that
+ * code does. A policy that demanded it everywhere would be a policy with no agent in it.
+ */
+type ConfirmableRule = {
+  requireConfirmation?: boolean;
+};
+
+export type UpgradeRule = ConfirmableRule & {
   /** Proxies the agent may upgrade, as EVM addresses. */
   targets: string[];
   /**
@@ -44,19 +66,19 @@ export type UpgradeRule = {
   allowInitializer?: boolean;
 };
 
-export type TreasurySwapRule = {
+export type TreasurySwapRule = ConfirmableRule & {
   /** Ceiling on the HBAR actually leaving the treasury, per proposal. */
   maxAmountInTinybars: bigint;
   tokensOut: string[];
   recipients: string[];
 };
 
-export type TokenAdminRule = {
+export type TokenAdminRule = ConfirmableRule & {
   operations: TokenAdminOperation[];
   tokens: string[];
 };
 
-export type TreasuryTransferRule = {
+export type TreasuryTransferRule = ConfirmableRule & {
   /** Ceiling on the total HBAR credited by the proposal, per proposal. */
   maxTinybars: bigint;
   recipients: string[];
@@ -81,9 +103,13 @@ export type Policy = {
   treasuryTransfer?: TreasuryTransferRule;
 };
 
-const APPROVED: Verdict = { approved: true };
+const APPROVED: RuleVerdict = { approved: true };
 
-const refuse = (reason: string): Verdict => ({ approved: false, reason });
+const refuse = (reason: string): Refusal => ({ approved: false, reason });
+
+/** A rule's answer, plus whether this policy wants a person on top of it. */
+const withConfirmation = (verdict: RuleVerdict, rule: ConfirmableRule): Verdict =>
+  verdict.approved ? { approved: true, requiresConfirmation: rule.requireConfirmation === true } : verdict;
 
 /** Addresses arrive EIP-55 checksummed from the decoder and are written by hand in the policy file. */
 const listed = (allowlist: string[], value: string): boolean =>
@@ -91,7 +117,7 @@ const listed = (allowlist: string[], value: string): boolean =>
 
 const hbar = (tinybars: bigint): string => Hbar.fromTinybars(tinybars.toString()).toString();
 
-function reviewUpgrade(operation: Extract<GovernedOperation, { kind: "upgrade" }>, rule: UpgradeRule): Verdict {
+function reviewUpgrade(operation: Extract<GovernedOperation, { kind: "upgrade" }>, rule: UpgradeRule): RuleVerdict {
   if (!listed(rule.targets, operation.target))
     return refuse(`${operation.target} is not a contract this agent upgrades`);
   if (rule.implementations && !listed(rule.implementations, operation.implementation)) {
@@ -106,7 +132,7 @@ function reviewUpgrade(operation: Extract<GovernedOperation, { kind: "upgrade" }
 function reviewTreasurySwap(
   operation: Extract<GovernedOperation, { kind: "treasurySwap" }>,
   rule: TreasurySwapRule,
-): Verdict {
+): RuleVerdict {
   // The amount in the calldata and the HBAR attached to the scheduled call are two separate numbers,
   // and only the second actually leaves the treasury. A proposal where they disagree does something
   // other than it reads, whichever way the difference goes, so it is refused before any limit.
@@ -130,7 +156,7 @@ function reviewTreasurySwap(
 function reviewTokenAdmin(
   operation: Extract<GovernedOperation, { kind: "tokenAdmin" }>,
   rule: TokenAdminRule,
-): Verdict {
+): RuleVerdict {
   if (!rule.operations.includes(operation.operation)) {
     return refuse(`${operation.operation} is not an operation this agent approves`);
   }
@@ -141,7 +167,7 @@ function reviewTokenAdmin(
 function reviewTreasuryTransfer(
   operation: Extract<GovernedOperation, { kind: "treasuryTransfer" }>,
   rule: TreasuryTransferRule,
-): Verdict {
+): RuleVerdict {
   const credited = operation.hbar.filter(transfer => transfer.tinybars > 0n);
   const total = credited.reduce((sum, transfer) => sum + transfer.tinybars, 0n);
   if (total > rule.maxTinybars) return refuse(`${hbar(total)} is over the ${hbar(rule.maxTinybars)} limit`);
@@ -164,18 +190,20 @@ function reviewTreasuryTransfer(
 export function reviewOperation(operation: GovernedOperation, policy: Policy): Verdict {
   switch (operation.kind) {
     case "upgrade":
-      return policy.upgrade ? reviewUpgrade(operation, policy.upgrade) : refuse("this policy allows no upgrades");
+      return policy.upgrade
+        ? withConfirmation(reviewUpgrade(operation, policy.upgrade), policy.upgrade)
+        : refuse("this policy allows no upgrades");
     case "treasurySwap":
       return policy.treasurySwap
-        ? reviewTreasurySwap(operation, policy.treasurySwap)
+        ? withConfirmation(reviewTreasurySwap(operation, policy.treasurySwap), policy.treasurySwap)
         : refuse("this policy allows no treasury swaps");
     case "tokenAdmin":
       return policy.tokenAdmin
-        ? reviewTokenAdmin(operation, policy.tokenAdmin)
+        ? withConfirmation(reviewTokenAdmin(operation, policy.tokenAdmin), policy.tokenAdmin)
         : refuse("this policy allows no token administration");
     case "treasuryTransfer":
       return policy.treasuryTransfer
-        ? reviewTreasuryTransfer(operation, policy.treasuryTransfer)
+        ? withConfirmation(reviewTreasuryTransfer(operation, policy.treasuryTransfer), policy.treasuryTransfer)
         : refuse("this policy allows no treasury transfers");
     case "councilRotation":
       return refuse("a council rotation is never signed automatically");

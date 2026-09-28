@@ -58,3 +58,11 @@ describe("appEnvEntries for the governed-operations fixtures", () => {
     });
   });
 });
+
+describe("appEnvEntries for the agent", () => {
+  it("writes the decision topic under the agent's own name, since the app never reads it", () => {
+    expect(appEnvEntries({ ...emptyState("testnet"), decisionTopicId: "0.0.31" })).toEqual({
+      AGENT_DECISION_TOPIC_ID: "0.0.31",
+    });
+  });
+});
