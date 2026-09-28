@@ -11,9 +11,11 @@
 import { startApprovalServer } from "./approvalServer";
 import { type ApprovalStore, createApprovalStore } from "./approvals";
 import { type AgentConfig, loadConfig } from "./config";
+import { type PublishDecision, decisionSignature, publishDecisions } from "./publish";
 import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } from "./review";
-import { Client } from "@hiero-ledger/sdk";
+import { Client, TopicMessageSubmitTransaction } from "@hiero-ledger/sdk";
 import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
+import { assertDecisionTopicAcceptsKey, buildDecisionMessage } from "@sh/core/governance/decisionLog";
 import { fetchProposalInbox } from "@sh/core/governance/proposals";
 import { assertReleaseTopicIsSigned, checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
@@ -78,6 +80,24 @@ function createSigner(client: Client): SignSchedule {
 type Reported = Map<string, string>;
 
 /**
+ * Each message costs a fee, which the agent pays out of the same account it signs with. That is why
+ * the caller deduplicates rather than publishing the same verdict on every pass: at the default
+ * interval an unchanged inbox would otherwise be four messages a minute, for ever.
+ */
+function createPublisher(client: Client, topicId: string): PublishDecision {
+  return async decision => {
+    const response = await new TopicMessageSubmitTransaction()
+      .setTopicId(topicId)
+      .setMessage(buildDecisionMessage(decision))
+      .execute(client);
+    const receipt = await response.getReceipt(client);
+    if (receipt.status.toString() !== "SUCCESS") {
+      throw new Error(`TopicMessageSubmit returned ${receipt.status.toString()}`);
+    }
+  };
+}
+
+/**
  * The half of an upgrade policy that needs the network, or null when the policy names no release
  * topic — in which case the allowlist of implementations is the whole guarantee, and `parsePolicy`
  * is what insists an upgrade rule carries one of the two.
@@ -104,6 +124,10 @@ type Pass = {
   /** What was already said about each proposal, so a steady inbox is not reprinted every few seconds. */
   reported: Reported;
   approvals: ApprovalStore;
+  /** Decisions already on the topic, so the agent pays a fee per decision rather than per pass. */
+  published: Reported;
+  /** Null in a dry run, which costs nothing and therefore records nothing either. */
+  publish: PublishDecision | null;
 };
 
 async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
@@ -153,6 +177,15 @@ async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
     log("partial-inbox", { unreachableProposers: result.unreachableProposers });
   }
 
+  if (pass.publish) {
+    const failures = await publishDecisions(result.decisions, pass.publish, {
+      agentAccountId: config.agentAccountId,
+      unsigned: new Set(result.failures.map(failure => failure.scheduleId)),
+      published: pass.published,
+    });
+    for (const failure of failures) log("publish-failed", failure);
+  }
+
   forgetProposalsOutsideInbox(new Set(result.decisions.map(decision => decision.scheduleId)), pass);
 }
 
@@ -166,15 +199,16 @@ async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
 function forgetProposalsOutsideInbox(inInbox: ReadonlySet<string>, pass: Pass): void {
   for (const scheduleId of pass.signedThisRun) if (!inInbox.has(scheduleId)) pass.signedThisRun.delete(scheduleId);
   for (const scheduleId of pass.reported.keys()) if (!inInbox.has(scheduleId)) pass.reported.delete(scheduleId);
+  for (const scheduleId of pass.published.keys()) if (!inInbox.has(scheduleId)) pass.published.delete(scheduleId);
   pass.approvals.forgetOutside(inInbox);
 }
 
 function logDecision(decision: Decision, dryRun: boolean, reported: Reported): void {
   // A skip is the steady state of a healthy inbox and would drown the log at one line per poll.
   if (decision.outcome === "skipped") return;
-  const line = `${decision.outcome}:${decision.reason}`;
-  if (reported.get(decision.scheduleId) === line) return;
-  reported.set(decision.scheduleId, line);
+  const signature = decisionSignature(decision);
+  if (reported.get(decision.scheduleId) === signature) return;
+  reported.set(decision.scheduleId, signature);
   log("decision", {
     scheduleId: decision.scheduleId,
     outcome: decision.outcome === "approved" && dryRun ? "approved-not-signed" : decision.outcome,
@@ -199,6 +233,14 @@ async function main(): Promise<void> {
     dryRun: config.dryRun,
     allows: Object.keys(config.policy),
     releaseTopic: config.policy.upgrade?.manifestTopicId ?? null,
+    decisionTopic: config.decisionTopicId,
+  });
+
+  // Before the first decision, not at the first one: a topic anyone can submit to would make the
+  // agent's own record indistinguishable from a stranger's, and a topic held by another key would
+  // refuse every one of them.
+  await assertDecisionTopicAcceptsKey(config.decisionTopicId, config.agentKey.publicKey.toStringRaw(), {
+    network: config.network,
   });
 
   const pass: Pass = {
@@ -207,6 +249,8 @@ async function main(): Promise<void> {
     signedThisRun: new Set<string>(),
     reported: new Map(),
     approvals: createApprovalStore(config.confirmationSecret),
+    published: new Map(),
+    publish: client === null ? null : createPublisher(client, config.decisionTopicId),
   };
 
   // Only when a code could actually arrive. A policy that escalates nothing has nothing to confirm,
