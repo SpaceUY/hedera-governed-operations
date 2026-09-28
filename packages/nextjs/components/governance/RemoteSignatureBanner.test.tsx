@@ -17,6 +17,8 @@ describe("RemoteSignatureBanner", () => {
   it("keeps an empty polite status until a signature from elsewhere is read, then says it", () => {
     render(<Host />);
     expect(screen.getByRole("status").textContent).toBe("");
+    // In the accessibility tree before anything is said: a hidden live region may not be announced.
+    expect(screen.getByRole("status").className).not.toMatch(/hidden/);
     act(() => show("Bob signed “Upgrade” from their own device."));
     expect(screen.getByRole("status").textContent).toContain("Bob signed");
   });

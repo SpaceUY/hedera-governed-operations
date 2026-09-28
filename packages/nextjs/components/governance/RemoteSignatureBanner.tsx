@@ -36,9 +36,11 @@ type RemoteSignatureBannerProps = { notice: Notice | null; onDismiss: () => void
  */
 export function RemoteSignatureBanner({ notice, onDismiss }: RemoteSignatureBannerProps) {
   return (
-    <div role="status" className="empty:hidden px-6 pt-5">
+    // Rendered even when empty, with no box of its own: a live region hidden with `display: none` is out
+    // of the accessibility tree, and some screen readers miss what appears in it once it is shown.
+    <div role="status">
       {notice && (
-        <p className="m-0 flex items-start gap-3 rounded-box border border-primary bg-primary/10 px-4 py-3 text-sm">
+        <p className="mx-6 mb-0 mt-5 flex items-start gap-3 rounded-box border border-primary bg-primary/10 px-4 py-3 text-sm">
           <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
           <span className="flex-1">{notice.text}</span>
           <button
