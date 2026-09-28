@@ -1,4 +1,10 @@
-import { canBeSigned, canBeWithdrawnBy, canOpenProposal, cancellableRegistryId } from "./proposalActions";
+import {
+  canBeSigned,
+  canBeWithdrawnBy,
+  canCancelRegistryEntry,
+  canOpenProposal,
+  cancellableRegistryId,
+} from "./proposalActions";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck, RegistryEntry } from "@sh/core/governance/registry";
 import type { MirrorSchedule, ScheduleExecution, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
@@ -24,12 +30,16 @@ const REGISTRY_CALL: ScheduledOperation = {
 
 const TRANSFER: ScheduledOperation = { kind: "treasuryTransfer", hbar: [], tokens: [] };
 
+const PROPOSER = "0xf2b17e6774b48f1073a94b78791aaa02698d1620";
+const GOVERNANCE_EVM_ADDRESS = "0x0000000000000000000000000000000000009999";
+
 const entryOf = (overrides: Partial<RegistryEntry> = {}): RegistryCrossCheck => ({
   status: "read",
   entry: {
     proposalId: 7,
     state: "pending",
     target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+    proposer: PROPOSER,
     calldata: "0x",
     operation: {
       kind: "upgrade",
@@ -160,5 +170,34 @@ describe("cancellableRegistryId", () => {
   it("offers nothing for a native kind, which has no entry", () => {
     const registry: RegistryCrossCheck = { status: "notApplicable" };
     expect(cancellableRegistryId({ state: stateOf("deleted"), execution: NOT_RUN, registry })).toBeNull();
+  });
+});
+
+describe("canCancelRegistryEntry", () => {
+  it("authorizes the entry's own proposer", () => {
+    expect(canCancelRegistryEntry(PROPOSER, PROPOSER, GOVERNANCE_EVM_ADDRESS)).toBe(true);
+  });
+
+  it("authorizes the governance account, the only EXECUTOR_ROLE holder in this template", () => {
+    expect(canCancelRegistryEntry(PROPOSER, GOVERNANCE_EVM_ADDRESS, GOVERNANCE_EVM_ADDRESS)).toBe(true);
+  });
+
+  it("refuses anyone else, whose cancel call the contract would revert", () => {
+    const stranger = "0x00000000000000000000000000000000000000ff";
+    expect(canCancelRegistryEntry(PROPOSER, stranger, GOVERNANCE_EVM_ADDRESS)).toBe(false);
+  });
+
+  it("refuses with no wallet connected", () => {
+    expect(canCancelRegistryEntry(PROPOSER, null, GOVERNANCE_EVM_ADDRESS)).toBe(false);
+  });
+
+  it("refuses the proposer match while the governance account's own address is not known yet", () => {
+    expect(canCancelRegistryEntry(PROPOSER, "0x00000000000000000000000000000000000000ff", null)).toBe(false);
+  });
+
+  it("compares case-insensitively, since a decoded address is EIP-55 checksummed regardless of how it arrived", () => {
+    expect(canCancelRegistryEntry(PROPOSER.toUpperCase().replace("0X", "0x"), PROPOSER, GOVERNANCE_EVM_ADDRESS)).toBe(
+      true,
+    );
   });
 });

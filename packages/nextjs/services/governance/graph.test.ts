@@ -115,7 +115,10 @@ function proposalOf(operation: DecodedOperation, status: ScheduleStatus = "pendi
   const isContract =
     operation.kind === "upgrade" || operation.kind === "treasurySwap" || operation.kind === "tokenAdmin";
   const registry: RegistryCrossCheck = isContract
-    ? { status: "read", entry: { proposalId: 1, state: "pending", target: "0x0", calldata: "0x", operation } }
+    ? {
+        status: "read",
+        entry: { proposalId: 1, state: "pending", target: "0x0", proposer: "0x0", calldata: "0x", operation },
+      }
     : { status: "notApplicable" };
   return {
     schedule: executedSchedule as MirrorSchedule,
@@ -229,7 +232,14 @@ describe("deriveGraphState", () => {
       ...proposalOf(elsewhere),
       registry: {
         status: "read",
-        entry: { proposalId: 1, state: "cancelled", target: "0x0", calldata: "0x", operation: elsewhere },
+        entry: {
+          proposalId: 1,
+          state: "cancelled",
+          target: "0x0",
+          proposer: "0x0",
+          calldata: "0x",
+          operation: elsewhere,
+        },
       },
     };
     expect(graphWith(elsewhere)).not.toEqual(deriveGraphState(SNAPSHOT));

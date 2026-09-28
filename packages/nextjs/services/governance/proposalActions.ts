@@ -58,3 +58,24 @@ export function cancellableRegistryId({
   const scheduleIsDone = state.status === "deleted" || state.status === "expired" || execution.status === "failed";
   return scheduleIsDone ? registry.entry.proposalId : null;
 }
+
+/**
+ * Whether the connected account may call `GovernedExecutor.cancel` on this entry: `cancel` is open
+ * to the entry's own proposer and to any `EXECUTOR_ROLE` holder — in this template, only ever the
+ * governance account — and to nobody else. That is not the schedule's creator: the two are the same
+ * account in this app's own flow (one wallet both registers the entry and creates the schedule
+ * wrapping its execution), but nothing enforces that in general, so the button authorizes against
+ * the registry entry's own `proposer`, the contract's ground truth, rather than inferring it from
+ * the schedule. Addresses are compared case-insensitively, since a decoded one comes back EIP-55
+ * checksummed whatever casing the call carried, and Mirror's `evm_address` does not.
+ */
+export function canCancelRegistryEntry(
+  entryProposer: string,
+  accountEvmAddress: string | null,
+  governanceEvmAddress: string | null,
+): boolean {
+  if (!accountEvmAddress) return false;
+  const account = accountEvmAddress.toLowerCase();
+  if (account === entryProposer.toLowerCase()) return true;
+  return governanceEvmAddress !== null && account === governanceEvmAddress.toLowerCase();
+}

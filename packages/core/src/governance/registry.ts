@@ -42,6 +42,13 @@ export type RegistryEntry = {
   proposalId: number;
   state: RegistryEntryState;
   target: Address;
+  /**
+   * Who called `createProposal`. `cancel` is open to this address and to any `EXECUTOR_ROLE`
+   * holder, and nothing else, so this is the ground truth a screen authorizes a Cancel button
+   * against — never the schedule's creator, which happens to be the same account in this app's own
+   * flow but is not what the contract actually checks.
+   */
+  proposer: Address;
   /** The stored call, kept beside the decoded operation so a screen can show the raw bytes too. */
   calldata: Hex;
   operation: RegistryOperation;
@@ -144,7 +151,7 @@ export async function fetchRegistryEntries(
       const reading = readings[index];
       if (reading.status === "rejected") return [proposalId, failureOf(proposalId, reading.reason)];
 
-      const { target, state, data } = reading.value;
+      const { target, proposer, state, data } = reading.value;
       const known = REGISTRY_STATES[state];
       if (!known) {
         return [
@@ -157,7 +164,14 @@ export async function fetchRegistryEntries(
         proposalId,
         {
           status: "read",
-          entry: { proposalId, state: known, target, calldata: data, operation: decodeRegistryOperation(target, data) },
+          entry: {
+            proposalId,
+            state: known,
+            target,
+            proposer,
+            calldata: data,
+            operation: decodeRegistryOperation(target, data),
+          },
         },
       ];
     }),
