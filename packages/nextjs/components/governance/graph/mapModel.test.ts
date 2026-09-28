@@ -1,5 +1,12 @@
-import { KEY_A, KEY_B, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR } from "./mapFixtures";
-import { AUTO_MAP_SIZE, type MapDecorator, composeMap, genericLabels, readingOrder } from "./mapModel";
+import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR } from "./mapFixtures";
+import {
+  AUTO_MAP_SIZE,
+  type MapDecorator,
+  composeMap,
+  councilSeatNames,
+  genericLabels,
+  readingOrder,
+} from "./mapModel";
 import { describe, expect, it, vi } from "vitest";
 import {
   EXECUTOR_NODE_ID,
@@ -76,6 +83,26 @@ describe("composeMap with a connected account", () => {
       const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, undefined, viewer);
       expect(map.graph.nodes.some(node => node.label === "You")).toBe(false);
     }
+  });
+});
+
+describe("councilSeatNames", () => {
+  const { council, proposers } = MAP_SNAPSHOT;
+
+  it("names the seats in the council's order, as the map does", () => {
+    const decorate: MapDecorator = () => ({
+      layout: { width: 1, height: 1, positions: {}, labels: { [memberNodeId(KEY_B)]: "Bob" } },
+    });
+    expect(councilSeatNames(council, proposers, { decorate, viewerAccountId: "0.0.4103" })).toEqual([
+      { label: "0.0.4101", isViewer: false },
+      { label: "Bob", isViewer: false },
+      { label: "You", isViewer: true },
+    ]);
+  });
+
+  it("falls back to the generic names without a decoration or a wallet", () => {
+    const names = councilSeatNames({ threshold: 1, memberKeys: [KEY_A, KEY_C] }, proposers.slice(0, 1), {});
+    expect(names.map(seat => seat.label)).toEqual(["0.0.4101", "Member Y2Fyb2…"]);
   });
 });
 

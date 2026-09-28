@@ -27,9 +27,13 @@ export type KindTargets<Targets> =
 
 export type KindIcon = ComponentType<{ className?: string }>;
 
+/** The picker's hint read off the current council, for a kind whose hint is a number the ledger decides. */
+export type KindHint = (council: CouncilKey) => string;
+
 /** A kind as the wizard reads it: an icon, and either its form or the notice saying why there is none. */
 export type WizardKindEntry = {
   icon: KindIcon;
+  hint?: KindHint;
   open: (
     host: WizardHost,
   ) =>
@@ -39,6 +43,7 @@ export type WizardKindEntry = {
 
 type KindDefinition<Targets> = {
   icon: KindIcon;
+  hint?: KindHint;
   resolveTargets: (host: WizardHost) => KindTargets<Targets>;
   Form: ComponentType<KindFormProps<Targets>>;
 };
@@ -48,9 +53,15 @@ type KindDefinition<Targets> = {
  * type inside its entry, so the registry is one record and the wizard renders a kind without knowing
  * which one it is.
  */
-export function defineWizardKind<Targets>({ icon, resolveTargets, Form }: KindDefinition<Targets>): WizardKindEntry {
+export function defineWizardKind<Targets>({
+  icon,
+  hint,
+  resolveTargets,
+  Form,
+}: KindDefinition<Targets>): WizardKindEntry {
   return {
     icon,
+    hint,
     open: host => {
       const resolved = resolveTargets(host);
       if (resolved.status === "unavailable") return resolved;

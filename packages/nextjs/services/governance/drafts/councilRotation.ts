@@ -21,7 +21,7 @@ export function draftCouncilRotation(targets: CouncilRotationTargets, values: Co
   return {
     path: "native",
     kind: "councilRotation",
-    target: `Treasury key · ${targets.governanceAccountId}`,
+    target: `Treasury account key · ${targets.governanceAccountId}`,
     buildInnerTransaction: build,
   };
 }

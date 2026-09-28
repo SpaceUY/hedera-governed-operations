@@ -2,8 +2,8 @@
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
  * node sits, the names Alice, Bob and "Setup operator", the co-signing agent that is not a member
  * yet, and the words the inspector will show. The seat of whoever is connected is named "You" by the
- * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
- * prop that passes it: the map falls back to placing nodes by role and naming them by id.
+ * map itself, not here. Delete this folder and the two layout props that pass it (`decorate` on the
+ * map, `mapDecorator` on the provider): the map falls back to placing nodes by role and naming them by id.
  */
 import type { GhostNode, MapContext, MapDecorator } from "../mapModel";
 import { EXECUTOR_NODE_ID, GOVERNANCE_ACCOUNT_NODE_ID, type Point, memberNodeId } from "~~/services/governance/graph";

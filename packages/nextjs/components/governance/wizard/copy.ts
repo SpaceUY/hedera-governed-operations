@@ -15,7 +15,7 @@ export const PROPOSAL_KIND_COPY: Record<ProposalKind, { title: string; hint: str
   treasurySwap: { title: "Sell treasury HBAR for USDC", hint: "with a floor" },
   tokenAdmin: { title: "Pause, unpause or freeze the token", hint: "token keys" },
   treasuryTransfer: { title: "Pay a supplier", hint: "direct transfer" },
-  councilRotation: { title: "Change the council", hint: "rewrites the treasury key" },
+  councilRotation: { title: "Add the co-signing agent", hint: "one more seat on the council" },
 };
 
 export const PROPOSAL_FAMILY_HEADINGS = {

@@ -94,7 +94,7 @@ describe("CouncilPreviewPanel", () => {
     const rotation: DraftPreview = {
       path: "native",
       kind: "councilRotation",
-      target: "Treasury key · 0.0.1",
+      target: "Treasury account key · 0.0.1",
       scheduled: { kind: "councilRotation", accountId: "0.0.1", council: proposed },
     };
     render(<CouncilPreviewPanel preview={rotation} council={COUNCIL} headingLevel={2} />);

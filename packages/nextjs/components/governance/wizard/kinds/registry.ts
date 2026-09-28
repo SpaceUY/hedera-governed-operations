@@ -1,4 +1,4 @@
-import { COUNCIL_ROTATION_KIND } from "./councilRotation/kind";
+import { CO_SIGNING_AGENT_KIND } from "./coSigningAgent/kind";
 import { TOKEN_ADMIN_KIND } from "./tokenAdmin/kind";
 import { TREASURY_TRANSFER_KIND } from "./treasuryTransfer/kind";
 import { VAULT_UPGRADE_KIND } from "./vaultUpgrade/kind";
@@ -10,5 +10,6 @@ export const WIZARD_KIND_ENTRIES: Record<WizardKind, WizardKindEntry> = {
   upgrade: VAULT_UPGRADE_KIND,
   tokenAdmin: TOKEN_ADMIN_KIND,
   treasuryTransfer: TREASURY_TRANSFER_KIND,
-  councilRotation: COUNCIL_ROTATION_KIND,
+  // The one council rotation the wizard offers: seating the co-signing agent.
+  councilRotation: CO_SIGNING_AGENT_KIND,
 };

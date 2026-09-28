@@ -15,6 +15,7 @@ import type {
   ScheduledOperation,
 } from "@sh/core/governance/proposalTypes";
 import { scheduledBodyOf } from "@sh/core/governance/scheduledBody";
+import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 
 export type ProposalDraft =
   | { path: "native"; kind: NativeProposalKind; target: string; buildInnerTransaction: () => Transaction }
@@ -73,7 +74,7 @@ export function isPreviewRecognized(preview: DraftPreview): boolean {
 export function previewFunctionLabel(preview: DraftPreview): string {
   if (preview.path === "native") {
     return preview.scheduled.kind === "councilRotation"
-      ? "AccountUpdate (native) → threshold key"
+      ? `AccountUpdate (native) → ThresholdKey ${councilRuleLabel(preview.scheduled.council)}`
       : "CryptoTransfer (native scheduled transaction)";
   }
   const { operation } = preview;

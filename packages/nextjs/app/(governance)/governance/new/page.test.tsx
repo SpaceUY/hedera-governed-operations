@@ -64,8 +64,8 @@ vi.mock("~~/components/governance/wizard/kinds/vaultUpgrade/UpgradeVaultForm", a
 vi.mock("~~/components/governance/wizard/kinds/tokenAdmin/TokenAdminForm", () => ({
   TokenAdminForm: () => <div>token form</div>,
 }));
-vi.mock("~~/components/governance/wizard/kinds/councilRotation/CouncilRotationForm", () => ({
-  CouncilRotationForm: () => <div>rotation form</div>,
+vi.mock("~~/components/governance/wizard/kinds/coSigningAgent/AddAgentForm", () => ({
+  AddAgentForm: () => <div>agent form</div>,
 }));
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
@@ -122,6 +122,7 @@ const setup = ({ accountId, proposers }: { accountId: string | null; proposers: 
     data: {
       key: { threshold: 2, memberKeys: ["a", "b", "c"] },
       proposerAccountIds: proposers,
+      proposers: proposers.map(proposer => ({ accountId: proposer, key: null })),
       unresolvableProposers: [],
     },
   } as never);
@@ -232,13 +233,14 @@ describe("NewProposalPage", () => {
     expect(cta("upgrade").disabled).toBe(true);
   });
 
-  it("offers a council rotation to any connected account, as one native schedule", () => {
+  it("offers seating the co-signing agent to any connected account, as one native schedule", () => {
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
     renderPage();
 
     fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.councilRotation.title) }));
 
-    expect(screen.getByText("rotation form")).toBeTruthy();
+    expect(screen.getByText("agent form")).toBeTruthy();
+    expect(screen.getByText("→ 2-of-4 council")).toBeTruthy();
     expect(screen.queryByText(/does not hold PROPOSER_ROLE/)).toBeNull();
     expect(screen.getByRole("button", { name: openProposalCopy("councilRotation").cta })).toBeTruthy();
   });

@@ -6,6 +6,7 @@
  * its role or its ledger id; a demo passes its own decorator, and deleting the demo leaves this.
  */
 import { MAP_LABELS, unnamedMemberLabel } from "./copy";
+import type { CouncilKey } from "@sh/core/governance/council";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -15,6 +16,7 @@ import {
   type GraphSnapshot,
   type Point,
   deriveGraphState,
+  memberNodeId,
 } from "~~/services/governance/graph";
 import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
 
@@ -88,17 +90,55 @@ export function composeMap(
 ): ComposedMap {
   const { nodes } = deriveGraphState(snapshot, { ...AUTO_MAP_SIZE, positions: {} });
   const context: MapContext = { nodes, proposers: snapshot.proposers };
-  const labels = genericLabels(context);
   const decoration = decorate?.(context);
   const layout = decoration?.layout ?? { ...AUTO_MAP_SIZE, positions: {} };
-  const viewerSeat = viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
-  const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
+  const labels = labelsOf(context, layout, viewerSeatFor(context, viewerAccountId));
 
   return {
-    graph: deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } }),
+    graph: deriveGraphState(snapshot, { ...layout, labels }),
     captions: decoration?.captions ?? {},
     ghosts: decoration?.ghosts ?? [],
   };
+}
+
+const viewerSeatFor = (context: MapContext, viewerAccountId: string | null | undefined): string | undefined =>
+  viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
+
+/** Generic names, then the decoration's, then "You" on the connected account's seat. */
+function labelsOf(
+  context: MapContext,
+  layout: GraphLayout | undefined,
+  viewerSeat: string | undefined,
+): Partial<Record<string, string>> {
+  const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
+  return { ...genericLabels(context), ...layout?.labels, ...viewerLabel };
+}
+
+/** One council seat as the map names it; `isViewer` marks the connected account's, which the map calls "You". */
+export type SeatName = { label: string; isViewer: boolean };
+
+export type SeatNaming = { decorate?: MapDecorator; viewerAccountId?: string | null };
+
+/**
+ * The current council's seats in the council's order, by the names the map draws them with, for a
+ * screen that lists the members in words. Only the seats are named, so no other node is needed.
+ */
+export function councilSeatNames(
+  council: CouncilKey,
+  proposers: GraphSnapshot["proposers"],
+  { decorate, viewerAccountId }: SeatNaming,
+): SeatName[] {
+  const nodes: GraphNode[] = council.memberKeys.map(key => ({
+    id: memberNodeId(key),
+    role: "member",
+    ref: key,
+    label: key,
+    position: { x: 0, y: 0 },
+  }));
+  const context: MapContext = { nodes, proposers };
+  const viewerSeat = viewerSeatFor(context, viewerAccountId);
+  const labels = labelsOf(context, decorate?.(context).layout, viewerSeat);
+  return nodes.map(node => ({ label: labels[node.id] ?? node.label, isViewer: node.id === viewerSeat }));
 }
 
 /** Left to right, then top to bottom: the order a reader scans the map in, and the order focus moves in. */

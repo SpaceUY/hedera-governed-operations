@@ -14,11 +14,11 @@ describe("draftCouncilRotation", () => {
 
     if (preview.path !== "native" || preview.scheduled.kind !== "councilRotation")
       throw new Error("expected a rotation");
-    expect(preview.target).toBe(`Treasury key · ${TREASURY}`);
+    expect(preview.target).toBe(`Treasury account key · ${TREASURY}`);
     expect(preview.scheduled.accountId).toBe(TREASURY);
     expect(preview.scheduled.council.threshold).toBe(3);
     expect(preview.scheduled.council.memberKeys).toHaveLength(4);
-    expect(previewFunctionLabel(preview)).toBe("AccountUpdate (native) → threshold key");
+    expect(previewFunctionLabel(preview)).toBe("AccountUpdate (native) → ThresholdKey 3-of-4");
   });
 
   it("refuses a threshold the proposed council could never reach, with the encoder's reason", () => {

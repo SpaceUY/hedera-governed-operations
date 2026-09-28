@@ -72,7 +72,7 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
 
         {/* Disabled while the wallet signs: switching kind would reset the submission it is waiting on. */}
         <fieldset disabled={submitting} className="contents">
-          <OperationTypePicker value={kind} onChange={chooseKind} />
+          <OperationTypePicker value={kind} onChange={chooseKind} council={council.data?.key} />
         </fieldset>
 
         {opened.status === "available" &&

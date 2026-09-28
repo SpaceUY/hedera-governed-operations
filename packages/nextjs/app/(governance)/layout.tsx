@@ -35,7 +35,7 @@ export default function GovernanceLayout({ children }: { children: ReactNode }) 
   if ("error" in resolved) return <SetupNotice error={resolved.error} />;
 
   return (
-    <GovernanceProvider config={resolved.config}>
+    <GovernanceProvider config={resolved.config} mapDecorator={decorateDemoMap}>
       <div className="flex flex-col lg:min-h-0 lg:grow lg:basis-0 lg:flex-row">
         <section aria-label="Live map" className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <TreasuryStrip />
