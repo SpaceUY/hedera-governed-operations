@@ -49,7 +49,7 @@
       "contains": ["New proposal"]
     },
     {
-      "file": "packages/nextjs/services/governance/proposalLabels.ts",
+      "file": "packages/nextjs/components/governance/wizard/copy.ts",
       "contains": ["Connect a wallet to propose", "Register and schedule with your wallet"]
     },
     {

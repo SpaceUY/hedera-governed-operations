@@ -3,6 +3,7 @@
 import { CouncilPreviewPanel, type HeadingLevel } from "./CouncilPreviewPanel";
 import { OperationTypePicker, type WizardKind } from "./OperationTypePicker";
 import { useProposalWizard } from "./ProposalWizardProvider";
+import { OPEN_PROPOSAL_NOTICES, missingProposerRoleLabel, openProposalCopy } from "./copy";
 import { TransferForm } from "./forms/TransferForm";
 import { UpgradeVaultForm } from "./forms/UpgradeVaultForm";
 import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
@@ -14,11 +15,6 @@ import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { isPreviewRecognized } from "~~/services/governance/drafts";
 import { canOpenProposal } from "~~/services/governance/proposalActions";
-import {
-  OPEN_PROPOSAL_NOTICES,
-  missingProposerRoleLabel,
-  openProposalCopy,
-} from "~~/services/governance/proposalLabels";
 
 type ProposalWizardProps = {
   config: GovernanceConfig;
@@ -30,11 +26,16 @@ type ProposalWizardProps = {
 type CouncilRead = ReturnType<typeof useCouncil>;
 
 /** Why a connected account cannot open this kind yet, or null when nothing stands in the way. */
-function proposerNotice(kind: WizardKind, accountId: string | null, council: CouncilRead): string | null {
+function proposerNotice(
+  kind: WizardKind,
+  accountId: string | null,
+  council: CouncilRead,
+  allowed: boolean,
+): string | null {
   if (!accountId || !isContractProposalKind(kind)) return null;
   if (council.isError) return OPEN_PROPOSAL_NOTICES.proposersUnreadable;
   if (!council.data) return OPEN_PROPOSAL_NOTICES.proposersLoading;
-  if (!canOpenProposal(kind, accountId, council.data.proposerAccountIds)) return missingProposerRoleLabel(accountId);
+  if (!allowed) return missingProposerRoleLabel(accountId);
   return null;
 }
 
@@ -52,20 +53,20 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
   const submitting = submitStatus === "pending";
 
   const upgradeUnavailable = kind === "upgrade" && !vaultNextImplementation;
+  const allowed = canOpenProposal(kind, accountId, council.data?.proposerAccountIds ?? []);
   const notice = upgradeUnavailable
     ? OPEN_PROPOSAL_NOTICES.upgradeTargetMissing
-    : proposerNotice(kind, accountId, council);
-  const allowed = canOpenProposal(kind, accountId, council.data?.proposerAccountIds ?? []);
+    : proposerNotice(kind, accountId, council, allowed);
   const canSubmit =
     allowed && preview !== null && isPreviewRecognized(preview) && !submitting && submitStatus !== "success";
   const copy = openProposalCopy(kind);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-6 pt-[18px] pb-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-4 pb-6">
         {!isConnected && (
           <div className="rounded-box bg-base-200 p-4 flex flex-col items-start gap-2">
-            <p className="m-0 text-[13px]">{OPEN_PROPOSAL_NOTICES.connectWallet}</p>
+            <p className="m-0 text-sm">{OPEN_PROPOSAL_NOTICES.connectWallet}</p>
             <ConnectWallet />
           </div>
         )}
@@ -98,7 +99,7 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
         )}
 
         {draft.status === "invalid" && (
-          <p role="alert" className="m-0 text-[13px] text-error">
+          <p role="alert" className="m-0 text-sm text-error">
             {draft.message}
           </p>
         )}
@@ -106,7 +107,7 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
         {preview && <CouncilPreviewPanel preview={preview} council={council.data?.key} headingLevel={headingLevel} />}
 
         {notice && (
-          <p role="status" className="m-0 text-[13px] text-warning">
+          <p role="status" className="m-0 text-sm text-warning">
             {notice}
           </p>
         )}
@@ -120,7 +121,7 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
             copy.cta
           )}
         </button>
-        <p className="m-0 text-[13px] text-base-content/60 leading-normal">{copy.note}</p>
+        <p className="m-0 text-sm text-base-content/60 leading-normal">{copy.note}</p>
         <MutationError error={submitError} />
       </div>
     </div>
