@@ -1,7 +1,7 @@
 import GovernanceHomePage from "./page";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY } from "~~/services/governance/proposalLabels";
@@ -23,6 +23,13 @@ vi.mock("~~/components/governance/GovernanceProvider", () => ({
 }));
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/mirror/useProposalLookup", () => ({ useProposalLookup: vi.fn() }));
+vi.mock("~~/components/governance/rail/ProposalDetail", () => ({
+  ProposalDetail: ({ scheduleId, headingLevel }: { scheduleId: string; headingLevel: number }) => (
+    <p data-testid="proposal-detail">
+      Detail of {scheduleId} at heading level {headingLevel}
+    </p>
+  ),
+}));
 
 /** A registry call whose entry id doubles as its name on screen: "Run entry N of the registry…". */
 const proposal = (scheduleId: string, entry: number, status: ScheduleStatus) =>
@@ -119,5 +126,54 @@ describe("GovernanceHomePage", () => {
     render(<GovernanceHomePage />);
 
     expect(screen.getByRole("button", { pressed: true })).toBeTruthy();
+  });
+
+  it("opens the selected proposal's detail under its own card, one heading level below the page", () => {
+    showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
+    searchParams.value = new URLSearchParams("schedule=0.0.4");
+
+    render(<GovernanceHomePage />);
+
+    const detail = screen.getByTestId("proposal-detail");
+    expect(detail.textContent).toBe("Detail of 0.0.4 at heading level 2");
+    const selectedCard = screen.getByRole("button", { pressed: true }).closest("li");
+    expect(selectedCard?.contains(detail)).toBe(true);
+  });
+
+  it("selects another card from the list, and closes the open one when it is pressed again", () => {
+    showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
+    searchParams.value = new URLSearchParams("schedule=0.0.4");
+
+    render(<GovernanceHomePage />);
+    fireEvent.click(screen.getByRole("button", { pressed: false }));
+    expect(replace).toHaveBeenLastCalledWith("/?schedule=0.0.1", { scroll: false });
+
+    fireEvent.click(screen.getByRole("button", { pressed: true }));
+    expect(replace).toHaveBeenLastCalledWith("/", { scroll: false });
+  });
+
+  it("does not reopen the first pending proposal once the open card was closed", () => {
+    showInbox([proposal("0.0.1", 1, "pending")]);
+    searchParams.value = new URLSearchParams("schedule=0.0.1");
+
+    const { rerender } = render(<GovernanceHomePage />);
+    fireEvent.click(screen.getByRole("button", { pressed: true }));
+    searchParams.value = new URLSearchParams();
+    rerender(<GovernanceHomePage />);
+
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("proposal-detail")).toBeNull();
+  });
+
+  it("opens a schedule the inbox does not list right below the search", () => {
+    showInbox([proposal("0.0.1", 1, "pending")]);
+    searchParams.value = new URLSearchParams("schedule=0.0.99");
+
+    render(<GovernanceHomePage />);
+
+    const detail = screen.getByTestId("proposal-detail");
+    expect(detail.textContent).toBe("Detail of 0.0.99 at heading level 2");
+    expect(screen.getByRole("search").compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { pressed: true })).toBeNull();
   });
 });

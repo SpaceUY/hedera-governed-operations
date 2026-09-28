@@ -47,6 +47,16 @@ describe("OperationCard", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the host's detail under the row only while it is selected", () => {
+    const detail = <p>Proposal detail</p>;
+    renderCard({ detail });
+    expect(screen.queryByText("Proposal detail")).toBeNull();
+
+    cleanup();
+    renderCard({ selected: true, detail });
+    expect(screen.getByText("Proposal detail")).toBeTruthy();
+  });
+
   it("marks a selected row as pressed", () => {
     renderCard({ selected: true });
     expect(screen.getByRole("button", { pressed: true })).toBeTruthy();

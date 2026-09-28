@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { expiryCountdown } from "./expiryCountdown";
 import { describeScheduledOperation } from "@sh/core/governance/proposalTypes";
@@ -11,20 +12,23 @@ export type OperationCardProps = {
   proposal: Proposal;
   selected: boolean;
   onSelect: () => void;
+  /** Shown under the row while it is selected: the host's proposal detail. */
+  detail?: ReactNode;
 };
 
 /**
  * One proposal, as a row in the rail: what it is, its status, its approvals and, while it is still
  * collecting signatures, how long it has left. Selecting highlights the row and reports it to the
- * host, which is what keeps the URL in sync (`useSelectedSchedule`); "View details" is a separate link
- * to the full page, so a click on the row itself never navigates away and never scrolls.
+ * host, which is what keeps the URL in sync (`useSelectedSchedule`), and opens the host's `detail`
+ * under it; "View details" is a separate link to the full page, so a click on the row itself never
+ * navigates away and never scrolls.
  *
  * A scheduled body the decoder could not read (T24) has no other shape here to fall back on:
  * `describeScheduledOperation` already carries the reason, so the row shows exactly that, styled as a
  * warning rather than a plain description, and offers nothing that could be mistaken for a preview of
  * what it does.
  */
-export const OperationCard = ({ proposal, selected, onSelect }: OperationCardProps) => {
+export const OperationCard = ({ proposal, selected, onSelect, detail }: OperationCardProps) => {
   const { operation, registry, state } = proposal;
   const isUnrecognized = operation.kind === "unrecognized";
   const countdown = expiryCountdown(state.expiresAt, state.status === "pending");
@@ -63,6 +67,7 @@ export const OperationCard = ({ proposal, selected, onSelect }: OperationCardPro
       >
         View details →
       </Link>
+      {selected && detail && <div className="border-t border-base-300">{detail}</div>}
     </li>
   );
 };

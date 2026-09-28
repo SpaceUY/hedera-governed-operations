@@ -8,6 +8,8 @@ export type ApproverListProps = {
   progress: ThresholdProgress;
   proposers: readonly Proposer[];
   viewerAccountId: string | null;
+  /** One below the panel's title: 2 on the detail route, 3 when the panel opens under a card. */
+  headingLevel?: 2 | 3;
 };
 
 /**
@@ -16,18 +18,28 @@ export type ApproverListProps = {
  * it) and whether it has signed. A council rotation renders this twice — see `ProposalDetailPanel` —
  * since the schedule waits for both the current council's threshold and the incoming one's own.
  */
-export const ApproverList = ({ heading, council, progress, proposers, viewerAccountId }: ApproverListProps) => (
-  <section aria-label={heading} className="flex flex-col gap-1">
-    <h2 className="m-0 text-sm font-semibold">{heading}</h2>
-    <p className="m-0 text-xs text-base-content/60">{requiredSignaturesLabel(progress)}</p>
-    <ul className="m-0 p-0 list-none flex flex-col gap-1">
-      {council.memberKeys.map(key => (
-        <CouncilMemberRow
-          key={key}
-          label={memberLabel(key, proposers, viewerAccountId)}
-          hasSigned={progress.signedBy.includes(key)}
-        />
-      ))}
-    </ul>
-  </section>
-);
+export const ApproverList = ({
+  heading,
+  council,
+  progress,
+  proposers,
+  viewerAccountId,
+  headingLevel = 2,
+}: ApproverListProps) => {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
+  return (
+    <section aria-label={heading} className="flex flex-col gap-1">
+      <Heading className="m-0 text-sm font-semibold">{heading}</Heading>
+      <p className="m-0 text-xs text-base-content/60">{requiredSignaturesLabel(progress)}</p>
+      <ul className="m-0 p-0 list-none flex flex-col gap-1">
+        {council.memberKeys.map(key => (
+          <CouncilMemberRow
+            key={key}
+            label={memberLabel(key, proposers, viewerAccountId)}
+            hasSigned={progress.signedBy.includes(key)}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+};

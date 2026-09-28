@@ -18,6 +18,9 @@ import {
 } from "~~/services/governance/proposalLabels";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
+/** The panel's title level: 1 where it is the whole rail, 2 where it opens under a card in a list. */
+export type HeadingLevel = 1 | 2;
+
 export type ProposalDetailPanelProps = {
   proposal: Proposal;
   accountId: string | null;
@@ -28,12 +31,13 @@ export type ProposalDetailPanelProps = {
   refresh: () => void;
   /** After Cancel: marks the entry cancelled without waiting on the relay. See `useProposalLookup`. */
   markRegistryEntryCancelled: () => void;
+  headingLevel?: HeadingLevel;
 };
 
 /**
- * The body of `/governance/[scheduleId]`, lifted out of the route so a rail selection elsewhere (a
- * future host on `/`) can mount the same presentation. The route stays the thin owner of the reads:
- * this component only renders what it is handed and the actions that mutate it.
+ * The body of a proposal's detail, shown by `/governance/[scheduleId]` and under the selected card on
+ * `/` (both through `ProposalDetail`, which owns the reads): this component only renders what it is
+ * handed and the actions that mutate it.
  */
 export const ProposalDetailPanel = ({
   proposal,
@@ -43,6 +47,7 @@ export const ProposalDetailPanel = ({
   network,
   refresh,
   markRegistryEntryCancelled,
+  headingLevel = 1,
 }: ProposalDetailPanelProps) => {
   const { operation, registry } = proposal;
   const registryDescription = registry.status === "read" ? describeRegistryOperation(registry.entry.operation) : null;
@@ -51,11 +56,13 @@ export const ProposalDetailPanel = ({
   const registryUnreachable = operation.kind === "registryCall" && registry.status === "unreachable";
   const sign = useSignProposal();
   const council = useCouncil({ governanceAccountId, executorContractId, network });
+  const Title = headingLevel === 1 ? "h1" : "h2";
+  const approverHeadingLevel = headingLevel === 1 ? 2 : 3;
 
   return (
     // Addresses and ids are single long words; letting them wrap anywhere keeps a phone from scrolling sideways.
     <div className="px-6 py-5 wrap-anywhere">
-      <h1 className="text-lg font-bold mb-4">Proposal {proposal.schedule.schedule_id}</h1>
+      <Title className="text-lg font-bold mb-4">Proposal {proposal.schedule.schedule_id}</Title>
       <p className="mb-2">{describeScheduledOperation(operation)}</p>
       {registryDescription && <p className="mb-4 text-base-content/70">{registryDescription}</p>}
 
@@ -90,6 +97,7 @@ export const ProposalDetailPanel = ({
                 progress={proposal.progress}
                 proposers={council.data.proposers}
                 viewerAccountId={accountId}
+                headingLevel={approverHeadingLevel}
               />
               <ApproverList
                 heading="Incoming council"
@@ -97,6 +105,7 @@ export const ProposalDetailPanel = ({
                 progress={proposal.incomingProgress}
                 proposers={council.data.proposers}
                 viewerAccountId={accountId}
+                headingLevel={approverHeadingLevel}
               />
             </>
           ) : (
@@ -106,6 +115,7 @@ export const ProposalDetailPanel = ({
               progress={proposal.progress}
               proposers={council.data.proposers}
               viewerAccountId={accountId}
+              headingLevel={approverHeadingLevel}
             />
           )}
         </div>

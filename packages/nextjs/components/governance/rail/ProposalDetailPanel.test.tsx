@@ -104,6 +104,24 @@ describe("ProposalDetailPanel", () => {
     expect(screen.getByText("You")).toBeTruthy();
   });
 
+  it("steps its headings down one level when it opens under a card", () => {
+    render(
+      <ProposalDetailPanel
+        proposal={baseProposal()}
+        accountId={MEMBER_A}
+        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+        executorContractId={EXECUTOR_CONTRACT_ID}
+        network="testnet"
+        refresh={vi.fn()}
+        markRegistryEntryCancelled={vi.fn()}
+        headingLevel={2}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { level: 2, name: "Proposal 0.0.777" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "Approvals" })).toBeTruthy();
+  });
+
   it("offers Sign while the proposal can be signed", () => {
     const sign = vi.fn();
     vi.mocked(useSignProposal).mockReturnValue({ mutate: sign, isPending: false, error: null } as unknown as ReturnType<

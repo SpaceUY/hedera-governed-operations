@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { OperationCard } from "./OperationCard";
 import { pendingSummaryLabel, resolveCollapse } from "./pendingCollapse";
 import type { Proposal } from "@sh/core/governance/proposals";
@@ -9,6 +9,8 @@ export type PendingOperationsListProps = {
   proposals: Proposal[];
   selectedScheduleId: string | null;
   onSelect: (scheduleId: string) => void;
+  /** The selected proposal's detail, opened under its card. */
+  selectedDetail?: ReactNode;
 };
 
 /**
@@ -17,7 +19,12 @@ export type PendingOperationsListProps = {
  * `resolveCollapse` forces the list open when the selection sits past the fold, so a direct link or
  * the schedule-id search never lands on a card nothing shows.
  */
-export const PendingOperationsList = ({ proposals, selectedScheduleId, onSelect }: PendingOperationsListProps) => {
+export const PendingOperationsList = ({
+  proposals,
+  selectedScheduleId,
+  onSelect,
+  selectedDetail,
+}: PendingOperationsListProps) => {
   const [expanded, setExpanded] = useState(false);
   const selectedIndex = proposals.findIndex(proposal => proposal.schedule.schedule_id === selectedScheduleId);
   const { visibleCount, hiddenCount } = resolveCollapse(proposals.length, expanded, selectedIndex);
@@ -32,6 +39,7 @@ export const PendingOperationsList = ({ proposals, selectedScheduleId, onSelect 
             proposal={proposal}
             selected={proposal.schedule.schedule_id === selectedScheduleId}
             onSelect={() => onSelect(proposal.schedule.schedule_id)}
+            detail={selectedDetail}
           />
         ))}
       </ul>

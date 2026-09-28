@@ -6,7 +6,7 @@ How the Governed Operations screens are put together: the routes, the layers und
 
 | Route                      | What it shows                                                                                                                                                                |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | The live map: in the rail, the proposals still collecting signatures under "Pending proposals" and the settled ones below, each with its status and approvals                |
+| `/`                        | The live map: in the rail, the proposals still collecting signatures under "Pending proposals" and the settled ones below, each with its status and approvals; the selected one (`?schedule=`) opens its detail under its card |
 | `/governance/[scheduleId]` | One proposal: what it does, the schedule's status, the registry entry behind it, the gas and HBAR the treasury pays, approvals, and Sign / Withdraw / Cancel when they apply |
 | `/governance/new`          | Opening a proposal: the operation picker, its form, what the council will see, and the wallet transactions that register and/or schedule it                                  |
 | `/proof-wall`              | The Proof Wall demo, moved off the root; it links My Proofs, Admin and Explorer, which the header no longer lists                                                            |
@@ -22,7 +22,7 @@ packages/nextjs/
   app/
     (governance)/                   # route group: shares the live map layout, adds nothing to the URL
       layout.tsx                    # setup guard, GovernanceProvider, map pane (treasury, status line, map) + rail
-      page.tsx                      # / — the rail's pending and settled proposals
+      page.tsx                      # / — the rail's pending and settled proposals, search, the selected one's detail
       governance/[scheduleId]/page.tsx  # proposal detail, in the rail
       governance/new/page.tsx       # opening a proposal, in the rail
     (site)/                         # route group: the pages with a footer
@@ -36,7 +36,7 @@ packages/nextjs/
     governance/MutationError.tsx
     governance/wizard/              # ProposalWizardProvider + ProposalWizard, OperationTypePicker, forms/, CouncilPreviewPanel, copy.ts
     governance/graph/               # GovernanceMap (data) → GovernanceGraph (SVG): nodes, GraphEdge, SignatureRing, Legend; copy.ts
-    governance/rail/                # ProposalDetailPanel, ApproverList + CouncilMemberRow, WithdrawCancelActions
+    governance/rail/                # ProposalDetail (reads) → ProposalDetailPanel, ApproverList + CouncilMemberRow, WithdrawCancelActions; PendingOperationsList, OperationCard, ScheduleSearch
     governance/graph/demo/          # demo only: the hand-composed layout, names, co-signing agent ghost, inspector copy
   config/governanceConfig.ts        # ids `yarn setup` writes; deployed contract lookup; resolveGovernanceConfig
   hooks/mirror/                     # reads (React Query)
@@ -87,7 +87,7 @@ The network comes from `useTargetNetwork()` through `getHederaNetworkNameFromCha
 `app/(governance)/layout.tsx` renders every governance route, so what sits beside the rail stays mounted while the rail changes route. On a wide screen it is one fold below the header, and the page itself never scrolls:
 
 - **The map pane** (about 60% of the width) never scrolls. From top to bottom: `TreasuryStrip` (HBAR, vault reserve, ACME, USDC, the council's threshold), a status line (the map's note on how a proposal ends, `LIVE_MAP_STATUS_NOTE`, until something more specific claims the line), and the map itself (`GovernanceMap`, with the demo layout passed as `decorate`), which fills the rest: its box takes the height left over (`flex-1 min-h-0`) and the SVG scales into it, so the drawing never sets the pane's height.
-- **The rail** (40%) scrolls on its own and renders the route's page: the proposal list on `/`, the detail on `/governance/[scheduleId]`, the wizard on `/governance/new`. A page is written as panel content — no page-level width or centring, an `h1` at panel size — and the wizard fills the rail's height, scrolling its middle with its submit button in view.
+- **The rail** (40%) scrolls on its own and renders the route's page: the proposal list on `/` (with the selected proposal's detail opened under its card), the detail on `/governance/[scheduleId]`, the wizard on `/governance/new`. A page is written as panel content — no page-level width or centring, an `h1` at panel size — and the wizard fills the rail's height, scrolling its middle with its submit button in view.
 - **Shared state** comes from `GovernanceProvider`, mounted once by the layout: the resolved configuration, through `useGovernanceConfig()`, and `ProposalWizardProvider`, so the draft being written in the rail is readable beside it and a submission survives the rail changing route. Once submitted, it routes to the new proposal's page and clears the draft, so the next proposal starts empty. A layout cannot hand props to its page, which is why both are contexts.
 - **On a phone** the map pane and the rail stack, and the page scrolls; nothing scrolls sideways.
 
@@ -123,7 +123,7 @@ Wallet rejections are shown as `WALLET_REJECTED_MESSAGE` (`services/web3/hederaS
 
 ### The proposal detail rail
 
-`components/governance/rail/ProposalDetailPanel.tsx` is the presentational body of `/governance/[scheduleId]`; the route stays a thin owner of the reads (`useProposalLookup`, `useHederaSigner`) and hands the resolved `Proposal` to the panel, so a future host — a rail selection on `/` — can mount the same component from its own read. The panel itself reads `useCouncil` (sharing the cache `useProposalLookup` already populated with the same arguments) to label approvers, and owns the Sign mutation; `WithdrawCancelActions` owns Withdraw and Cancel.
+`components/governance/rail/ProposalDetailPanel.tsx` is the presentational body of a proposal's detail; `ProposalDetail` owns the reads (`useProposalLookup`, `useHederaSigner`) and hands it the resolved `Proposal`. The route `/governance/[scheduleId]` mounts `ProposalDetail` as the whole rail. On `/`, the card the URL selects (`?schedule=`, `useSelectedSchedule`) opens the same `ProposalDetail` underneath it, one heading level down (`headingLevel={2}`) so the page's outline stays whole; pressing the open card again closes it, and the first pending proposal is pre-selected only once per visit, so closing it does not reopen it. A schedule the inbox does not list — found by the search or named by a link — opens right below the search instead. The panel itself reads `useCouncil` (sharing the cache `useProposalLookup` already populated with the same arguments) to label approvers, and owns the Sign mutation; `WithdrawCancelActions` owns Withdraw and Cancel.
 
 - **`ApproverList` / `CouncilMemberRow`**: one row per council seat, named by the proposer account that holds it, "You" for the connected account's own seat, or the start of the key when nobody proposes it (`memberLabel`, mirroring how the map names a node), each marked signed or not from `ThresholdProgress.signedBy`. Shown alongside the existing aggregate `approvalsLabel` text rather than replacing it. A council rotation renders two lists — "Current council" against `proposal.progress` and "Incoming council" against `proposal.incomingProgress` and the operation's own `council` — since the schedule waits for both thresholds.
 - **Relay lag on Cancel**: the JSON-RPC relay reads a block or two behind, and a signer returns once the transaction is submitted — HashPack without a receipt — so neither an immediate re-read nor the submission settles it. `useProposalLookup` exposes `markRegistryEntryCancelled()`, called from `WithdrawCancelActions`'s `onSuccess` instead of `refresh()`: the entry reads "cancelled" straight away, and the registry query polls until the relay agrees. A "pending" answer inside `CANCEL_CONFIRMATION_WINDOW_MS` is taken for lag and does not flash the entry back (which would offer Cancel again, a second transaction that reverts); still "pending" after it, the cancel did not take and the entry reads pending again.
@@ -172,4 +172,3 @@ The picker is native radio buttons sharing one name across its two groups ("Cont
 
 - **Three kinds have no form yet**: the treasury swap, token administration and council rotation are encoded and decoded, but the wizard lists only the vault upgrade and the supplier payment.
 - **A registry entry that was never scheduled** — the seed proposal `yarn setup` registers is one — has no detail page, since there is no schedule id to route on.
-- **A rail-hosted proposal list** (a selection on `/` reusing `ProposalDetailPanel`) still has to be built; see "The inbox's 'Cancelled' gap" above for the one thing it will need beyond what the detail route already does.

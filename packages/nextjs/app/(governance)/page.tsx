@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { partitionProposals } from "@sh/core/governance/proposals";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { OperationCard } from "~~/components/governance/rail/OperationCard";
 import { PendingOperationsList } from "~~/components/governance/rail/PendingOperationsList";
+import { ProposalDetail } from "~~/components/governance/rail/ProposalDetail";
 import { ScheduleSearch } from "~~/components/governance/rail/ScheduleSearch";
 import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
@@ -13,21 +14,38 @@ import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY } from "~~/services/governance/proposalLabels";
 
 export default function GovernanceHomePage() {
-  const { network, governanceAccountId, executor } = useGovernanceConfig();
+  const config = useGovernanceConfig();
+  const { network, governanceAccountId, executor } = config;
   const executorContractId = executor.hederaContractId;
   const { inbox } = useProposals({ governanceAccountId, executorContractId, network });
   const { pending, settled } = partitionProposals(inbox.data?.proposals ?? []);
   const { selectedScheduleId, select } = useSelectedSchedule();
 
   // First impression should show something selected rather than an empty rail: the newest pending
-  // proposal, unless the URL already names one (a reload, a shared link, or a search result).
+  // proposal, unless the URL already names one (a reload, a shared link, or a search result). Only
+  // once per visit, so closing the open card leaves the list as it is instead of reopening the first.
   const firstPendingId = pending[0]?.schedule.schedule_id ?? null;
+  const initialSelectionDone = useRef(false);
   useEffect(() => {
-    if (selectedScheduleId || !firstPendingId) return;
+    if (initialSelectionDone.current) return;
+    if (selectedScheduleId) {
+      initialSelectionDone.current = true;
+      return;
+    }
+    if (!firstPendingId) return;
+    initialSelectionDone.current = true;
     select(firstPendingId);
   }, [selectedScheduleId, firstPendingId, select]);
 
+  const toggle = (scheduleId: string) => select(scheduleId === selectedScheduleId ? null : scheduleId);
+
   const knownScheduleIds = new Set(inbox.data?.proposals.map(proposal => proposal.schedule.schedule_id) ?? []);
+  const selectedDetail = selectedScheduleId ? (
+    <ProposalDetail config={config} scheduleId={selectedScheduleId} headingLevel={2} />
+  ) : null;
+  // A schedule the inbox does not list (found by the search, or named by a link) has no card to open
+  // under, so its detail sits right below the search instead.
+  const isSelectionUnlisted = Boolean(inbox.data && selectedScheduleId && !knownScheduleIds.has(selectedScheduleId));
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5">
@@ -46,6 +64,7 @@ export default function GovernanceHomePage() {
         onSelect={select}
         knownScheduleIds={knownScheduleIds}
       />
+      {isSelectionUnlisted && <div className="rounded-lg border border-primary">{selectedDetail}</div>}
 
       {inbox.data && inbox.data.unreachableProposers.length > 0 && (
         <p role="status" className="m-0 text-sm text-warning">
@@ -55,7 +74,12 @@ export default function GovernanceHomePage() {
       {!inbox.data && <span className="loading loading-spinner loading-sm" aria-label="Loading proposals" />}
       {inbox.data && pending.length === 0 && <p className="m-0 text-sm text-base-content/60">{INBOX_COPY.noPending}</p>}
       {pending.length > 0 && (
-        <PendingOperationsList proposals={pending} selectedScheduleId={selectedScheduleId} onSelect={select} />
+        <PendingOperationsList
+          proposals={pending}
+          selectedScheduleId={selectedScheduleId}
+          onSelect={toggle}
+          selectedDetail={selectedDetail}
+        />
       )}
 
       {settled.length > 0 && (
@@ -69,7 +93,8 @@ export default function GovernanceHomePage() {
                 key={proposal.schedule.schedule_id}
                 proposal={proposal}
                 selected={proposal.schedule.schedule_id === selectedScheduleId}
-                onSelect={() => select(proposal.schedule.schedule_id)}
+                onSelect={() => toggle(proposal.schedule.schedule_id)}
+                detail={selectedDetail}
               />
             ))}
           </ul>

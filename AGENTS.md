@@ -48,7 +48,7 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 | Route                      | Purpose                                                                                                                                                                          |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below; a setup notice until `yarn setup` and the deploy have run |
+| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below; the selected one (`?schedule=`) opens its detail under its card; a setup notice until `yarn setup` and the deploy have run |
 | `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)                                                |
 | `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                                                                  |
 | `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                                                                 |
@@ -105,7 +105,7 @@ packages/nextjs/
     (site)/               layout.tsx adds the footer; proof-wall, my-proofs, admin, explorer
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
+    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview) and rail/ (pending list, operation cards, search, proposal detail)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
