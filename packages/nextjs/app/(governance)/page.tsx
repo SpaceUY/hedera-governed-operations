@@ -24,20 +24,17 @@ export default function GovernanceHomePage() {
   useRefocusMovedCard(selectedScheduleId, cardPlaceOf(selectedScheduleId, inbox.data ? { pending, settled } : null));
 
   // First impression should show something selected rather than an empty rail: the newest pending
-  // proposal, unless the URL already names one (a reload, a shared link, or a search result). Only
-  // once per visit, so closing the open card leaves the list as it is instead of reopening the first.
+  // proposal, unless the URL already names one (a reload, a shared link, or a search result). Decided
+  // once, on the first inbox read: closing the open card does not reopen the first, and a proposal
+  // that turns up later, after a first read with none pending, does not open by itself mid-visit.
   const firstPendingId = pending[0]?.schedule.schedule_id ?? null;
+  const hasInbox = inbox.data !== undefined;
   const initialSelectionDone = useRef(false);
   useEffect(() => {
-    if (initialSelectionDone.current) return;
-    if (selectedScheduleId) {
-      initialSelectionDone.current = true;
-      return;
-    }
-    if (!firstPendingId) return;
+    if (initialSelectionDone.current || !hasInbox) return;
     initialSelectionDone.current = true;
-    select(firstPendingId);
-  }, [selectedScheduleId, firstPendingId, select]);
+    if (!selectedScheduleId && firstPendingId) select(firstPendingId);
+  }, [hasInbox, selectedScheduleId, firstPendingId, select]);
 
   const toggle = (scheduleId: string) => select(scheduleId === selectedScheduleId ? null : scheduleId);
 

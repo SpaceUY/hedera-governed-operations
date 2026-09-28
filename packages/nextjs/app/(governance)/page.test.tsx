@@ -128,6 +128,28 @@ describe("GovernanceHomePage", () => {
     expect(replace).toHaveBeenCalledWith("/?schedule=0.0.1", { scroll: false });
   });
 
+  it("does not open a proposal by itself when it turns up after a first read with none pending", () => {
+    showInbox([proposal("0.0.2", 2, "executed")]);
+    const { rerender } = render(<GovernanceHomePage />);
+
+    showInbox([proposal("0.0.5", 5, "pending"), proposal("0.0.2", 2, "executed")]);
+    rerender(<GovernanceHomePage />);
+
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("waits for the first inbox read before deciding what to pre-select", () => {
+    vi.mocked(useProposals).mockReturnValue({ inbox: { data: undefined } } as unknown as ReturnType<
+      typeof useProposals
+    >);
+    const { rerender } = render(<GovernanceHomePage />);
+
+    showInbox([proposal("0.0.1", 1, "pending")]);
+    rerender(<GovernanceHomePage />);
+
+    expect(replace).toHaveBeenCalledWith("/?schedule=0.0.1", { scroll: false });
+  });
+
   it("does not override a selection the URL already names", () => {
     showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
     searchParams.value = new URLSearchParams("schedule=0.0.4");
