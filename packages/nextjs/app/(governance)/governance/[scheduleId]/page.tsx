@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { MutationError } from "~~/components/governance/MutationError";
+import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
@@ -18,24 +19,20 @@ import {
 } from "~~/services/governance/proposalLabels";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
-type ProposalDetailProps = { governanceAccountId: string; executorContractId: string; scheduleId: string };
+type ProposalDetailProps = { config: GovernanceConfig; scheduleId: string };
 
 export default function ProposalDetailPage() {
   const params = useParams<{ scheduleId: string }>();
-  const { governanceAccountId, executor } = useGovernanceConfig();
-  return (
-    <ProposalDetail
-      governanceAccountId={governanceAccountId}
-      executorContractId={executor.hederaContractId}
-      scheduleId={params.scheduleId}
-    />
-  );
+  const config = useGovernanceConfig();
+  return <ProposalDetail config={config} scheduleId={params.scheduleId} />;
 }
 
-function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }: ProposalDetailProps) {
+function ProposalDetail({ config: { governanceAccountId, executor, network }, scheduleId }: ProposalDetailProps) {
+  const executorContractId = executor.hederaContractId;
   const { proposal, isLoading, error, refresh } = useProposalLookup({
     governanceAccountId,
     executorContractId,
+    network,
     scheduleId,
   });
   const { accountId } = useHederaSigner();

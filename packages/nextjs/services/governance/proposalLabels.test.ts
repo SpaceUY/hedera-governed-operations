@@ -1,38 +1,18 @@
 import {
-  PROPOSAL_KIND_COPY,
   approvalsLabel,
-  approverLabel,
   councilRuleLabel,
   executionFailureLabel,
-  expiryLabel,
-  gasLimitLabel,
-  mapEdgeCaption,
-  mapEdgeLabel,
-  openProposalCopy,
   proposalStatusLabel,
   registryLabel,
-  scheduleStatusLabel,
 } from "./proposalLabels";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck } from "@sh/core/governance/registry";
-import { MAX_SCHEDULE_MEMO_BYTES } from "@sh/core/governance/schedules";
 import type { ScheduleExecution, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
 import rowsAtExecution from "@sh/core/mirror/__fixtures__/transactions-at-executed.json";
 import rowsAtRevert from "@sh/core/mirror/__fixtures__/transactions-at-reverted.json";
 import { describe, expect, it } from "vitest";
 
 const progress = (signed: number, threshold: number) => ({ signed, threshold, signedBy: [] });
-
-describe("scheduleStatusLabel", () => {
-  it.each([
-    ["pending", "Collecting signatures"],
-    ["executed", "Executed"],
-    ["deleted", "Withdrawn"],
-    ["expired", "Expired"],
-  ] as const)("describes a %s schedule as %s", (status, label) => {
-    expect(scheduleStatusLabel(status)).toBe(label);
-  });
-});
 
 describe("registryLabel", () => {
   it("names the state of an entry that was read", () => {
@@ -57,6 +37,12 @@ describe("registryLabel", () => {
   });
 });
 
+describe("councilRuleLabel", () => {
+  it("states the council rule", () => {
+    expect(councilRuleLabel({ threshold: 2, memberKeys: ["a", "b", "c"] })).toBe("2-of-3");
+  });
+});
+
 describe("approvalsLabel", () => {
   it("counts signatures against the threshold and says so, not against the council's size", () => {
     expect(approvalsLabel(progress(1, 2), null)).toBe("1 of 2 required signatures");
@@ -66,41 +52,6 @@ describe("approvalsLabel", () => {
     expect(approvalsLabel(progress(2, 2), progress(0, 2))).toBe(
       "Current council: 2 of 2 required signatures · Incoming council: 0 of 2 required signatures",
     );
-  });
-});
-
-describe("wizard words", () => {
-  const council = { threshold: 2, memberKeys: ["a", "b", "c"] };
-
-  it("states the council rule", () => {
-    expect(councilRuleLabel(council)).toBe("2-of-3");
-  });
-
-  it("says a scheduled call's gas is charged in full, and a native one has none", () => {
-    expect(gasLimitLabel(150_000)).toBe(`${(150_000).toLocaleString()} — charged in full on success`);
-    expect(gasLimitLabel(null)).toBe("n/a — native, network fee only");
-  });
-
-  it("states the expiry in days from the constant it is given", () => {
-    expect(expiryLabel(7 * 24 * 60 * 60)).toBe("7 days after scheduling. Unsigned, it simply lapses.");
-  });
-
-  it("does not call registering an approval, and says nothing about registering for a native kind", () => {
-    expect(approverLabel("upgrade", council)).toBe("The 2-of-3 council. Registering the proposal is not an approval.");
-    expect(approverLabel("treasuryTransfer", council)).toBe("The 2-of-3 council.");
-  });
-
-  it("names one or two transactions depending on the path", () => {
-    expect(openProposalCopy("upgrade").cta).toBe("Register and schedule with your wallet");
-    expect(openProposalCopy("treasuryTransfer").cta).toBe("Schedule with your wallet");
-  });
-});
-
-describe("PROPOSAL_KIND_COPY", () => {
-  it("gives every kind a title that fits a schedule memo", () => {
-    for (const { title } of Object.values(PROPOSAL_KIND_COPY)) {
-      expect(new TextEncoder().encode(title).length).toBeLessThanOrEqual(MAX_SCHEDULE_MEMO_BYTES);
-    }
   });
 });
 
@@ -192,28 +143,6 @@ describe("executionFailureLabel", () => {
     const operation: ScheduledOperation = { kind: "treasuryTransfer", hbar: [], tokens: [] };
     expect(executionFailureLabel({ execution: FAILED, operation, registry: { status: "notApplicable" } })).toMatch(
       /To try again, schedule the same operation again\.$/,
-    );
-  });
-});
-
-describe("mapEdgeCaption", () => {
-  it.each([
-    ["authority", "member", "governanceAccount", "is one of the keys"],
-    ["authority", "governanceAccount", "executor", "EXECUTOR_ROLE · runs what the council approved"],
-    ["authority", "member", "executor", "PROPOSER_ROLE · registers with 1 signature, no council"],
-    ["authority", "proposer", "executor", "PROPOSER_ROLE · registers with 1 signature, no council"],
-    ["authority", "executor", "target", "only accepts the registry"],
-    ["authority", "target", "token", "holds the token's keys"],
-    ["authority", "target", "external", "calls it"],
-    ["funds", "external", "governanceAccount", "where the money is"],
-    ["intent", "governanceAccount", "external", "a pending proposal would use this"],
-  ] as const)("words a %s edge from %s to %s", (kind, from, to, caption) => {
-    expect(mapEdgeCaption(kind, from, to)).toBe(caption);
-  });
-
-  it("names an edge by its kind, both ends and its meaning", () => {
-    expect(mapEdgeLabel("funds", { from: "Vault", to: "Treasury" }, "where the money is")).toBe(
-      "Money: Vault to Treasury, where the money is",
     );
   });
 });

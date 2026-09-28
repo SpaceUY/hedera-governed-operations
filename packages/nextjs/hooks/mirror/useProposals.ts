@@ -57,6 +57,8 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
         council: council.data.key,
         network: hederaNetwork,
         registry: { executorContractId: options.executorContractId, rpcUrl: getHederaRpcUrl(hederaNetwork) },
+        // Reads the cache for the key this call is about to write. Safe because React Query keeps
+        // the previous data available under the same key while a refetch is in flight.
         previous: queryClient.getQueryData<ProposalInbox>(queryKey),
       });
     },

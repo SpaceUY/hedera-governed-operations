@@ -101,7 +101,7 @@ packages/nextjs/
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
     governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
-    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend)
+    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI

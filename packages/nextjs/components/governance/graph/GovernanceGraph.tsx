@@ -8,6 +8,7 @@ import { Legend } from "./Legend";
 import type { MapItemRef } from "./MapItem";
 import { TokenNode } from "./TokenNode";
 import { TreasuryNode } from "./TreasuryNode";
+import { MAP_LABELS, MAP_NODE_CAPTIONS, mapEdgeCaption, mapEdgeLabel } from "./copy";
 import { routeOnMap } from "./geometry";
 import { type GhostNode, readingOrder } from "./mapModel";
 import type { NodeProps } from "./nodeProps";
@@ -19,13 +20,7 @@ import {
   type GraphNode,
   externalNodeId,
 } from "~~/services/governance/graph";
-import {
-  MAP_LABELS,
-  MAP_NODE_CAPTIONS,
-  councilRuleLabel,
-  mapEdgeCaption,
-  mapEdgeLabel,
-} from "~~/services/governance/proposalLabels";
+import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 
 export type GovernanceGraphProps = {
   graph: Graph;

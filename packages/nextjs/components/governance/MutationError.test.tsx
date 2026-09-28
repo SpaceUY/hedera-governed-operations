@@ -17,7 +17,12 @@ describe("MutationError", () => {
   });
 
   it("shows the message of any other failure", () => {
-    render(<MutationError error={new Error("INSUFFICIENT_GAS")} />);
-    expect(screen.getByRole("alert").textContent).toBe("Transaction failed: INSUFFICIENT_GAS");
+    render(<MutationError error={new Error("network unreachable")} />);
+    expect(screen.getByRole("alert").textContent).toBe("Transaction failed: network unreachable");
+  });
+
+  it("says the fee was charged and retrying is safe, for INSUFFICIENT_GAS", () => {
+    render(<MutationError error={new Error("receipt for transaction ... contained error status INSUFFICIENT_GAS")} />);
+    expect(screen.getByRole("alert").textContent).toMatch(/charged the full fee.*retrying is safe/);
   });
 });

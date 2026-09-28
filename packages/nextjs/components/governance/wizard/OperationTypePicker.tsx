@@ -1,7 +1,7 @@
 import { type ComponentType, useId } from "react";
 import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import { ArrowRightIcon, ArrowUpIcon } from "@heroicons/react/24/outline";
-import { PROPOSAL_FAMILY_HEADINGS, PROPOSAL_KIND_COPY } from "~~/services/governance/proposalLabels";
+import { PROPOSAL_FAMILY_HEADINGS, PROPOSAL_KIND_COPY } from "~~/components/governance/wizard/copy";
 
 /** The kinds that have a form. Adding one is a form component and an entry here. */
 export const WIZARD_KINDS = ["upgrade", "treasuryTransfer"] as const satisfies readonly ProposalKind[];
@@ -23,13 +23,13 @@ type KindGroupProps = OperationTypePickerProps & { legend: string; kinds: Wizard
  */
 const KindGroup = ({ legend, kinds, name, value, onChange }: KindGroupProps) => (
   <fieldset className="flex flex-col gap-1.5">
-    <legend className="mb-1.5 text-[13px] font-semibold text-base-content/60">{legend}</legend>
+    <legend className="mb-1.5 text-sm font-semibold text-base-content/60">{legend}</legend>
     {kinds.map(kind => {
       const Icon = KIND_ICONS[kind];
       return (
         <label
           key={kind}
-          className="flex cursor-pointer items-center gap-2 rounded-box border border-base-300 bg-base-200 px-3 py-2.5 text-[13.5px] font-semibold has-checked:border-primary has-checked:bg-primary/10 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary has-disabled:cursor-not-allowed has-disabled:opacity-60"
+          className="flex cursor-pointer items-center gap-2 rounded-box border border-base-300 bg-base-200 px-3 py-2.5 text-sm font-semibold has-checked:border-primary has-checked:bg-primary/10 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary has-disabled:cursor-not-allowed has-disabled:opacity-60"
         >
           <input
             type="radio"
@@ -48,9 +48,7 @@ const KindGroup = ({ legend, kinds, name, value, onChange }: KindGroupProps) => 
             <Icon className="size-3.5" />
           </span>
           {PROPOSAL_KIND_COPY[kind].title}
-          <small className="ml-auto text-[12.5px] font-medium text-base-content/60">
-            {PROPOSAL_KIND_COPY[kind].hint}
-          </small>
+          <small className="ml-auto text-xs font-medium text-base-content/60">{PROPOSAL_KIND_COPY[kind].hint}</small>
         </label>
       );
     })}
@@ -60,7 +58,7 @@ const KindGroup = ({ legend, kinds, name, value, onChange }: KindGroupProps) => 
 export const OperationTypePicker = ({ value, onChange }: OperationTypePickerProps) => {
   const name = useId();
   return (
-    <div className="flex flex-col gap-[18px]">
+    <div className="flex flex-col gap-4">
       <KindGroup
         legend={PROPOSAL_FAMILY_HEADINGS.contract}
         kinds={WIZARD_KINDS.filter(kind => isContractProposalKind(kind))}

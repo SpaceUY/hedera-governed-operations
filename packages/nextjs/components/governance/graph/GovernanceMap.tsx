@@ -2,13 +2,13 @@
 
 import { useMemo } from "react";
 import { GovernanceGraph } from "./GovernanceGraph";
+import { MAP_LABELS } from "./copy";
 import { type MapDecorator, composeMap } from "./mapModel";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { governanceEntitiesOf } from "~~/services/governance/graphEntities";
-import { MAP_LABELS } from "~~/services/governance/proposalLabels";
 
 export type GovernanceMapProps = {
   /** Resolved once by the host's setup guard (`resolveGovernanceConfig`). */

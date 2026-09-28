@@ -1,7 +1,7 @@
 import { OperationTypePicker } from "./OperationTypePicker";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PROPOSAL_FAMILY_HEADINGS, PROPOSAL_KIND_COPY } from "~~/services/governance/proposalLabels";
+import { PROPOSAL_FAMILY_HEADINGS, PROPOSAL_KIND_COPY } from "~~/components/governance/wizard/copy";
 
 afterEach(cleanup);
 

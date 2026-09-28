@@ -1,5 +1,5 @@
+import { MAP_LEGEND } from "./copy";
 import { hexagonPoints } from "./geometry";
-import { MAP_LEGEND } from "~~/services/governance/proposalLabels";
 
 type Swatch = (typeof MAP_LEGEND.lines)[number]["swatch"];
 

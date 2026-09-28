@@ -62,15 +62,19 @@
       "contains": ["New proposal"]
     },
     {
+      "file": "packages/nextjs/components/governance/wizard/copy.ts",
+      "contains": ["Connect a wallet to propose", "Register and schedule with your wallet"]
+    },
+    {
       "file": "packages/nextjs/services/governance/proposalLabels.ts",
-      "contains": ["Connect a wallet to propose", "Register and schedule with your wallet", "Pending proposals"]
+      "contains": ["Pending proposals"]
     },
     {
       "file": "packages/nextjs/components/governance/wizard/CouncilPreviewPanel.tsx",
       "contains": ["What the council will see"]
     },
     {
-      "file": "packages/nextjs/services/governance/proposalLabels.ts",
+      "file": "packages/nextjs/components/governance/graph/copy.ts",
       "contains": ["who may act", "would happen", "where the money is", "switches off"]
     }
   ]
