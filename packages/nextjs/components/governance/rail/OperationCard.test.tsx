@@ -40,10 +40,10 @@ describe("OperationCard", () => {
     expect(screen.getByText("1 of 2 required signatures")).toBeTruthy();
   });
 
-  it("reports the selection and marks the row pressed", () => {
+  it("reports the selection when the row is pressed", () => {
     const onSelect = vi.fn();
     renderCard({ onSelect });
-    fireEvent.click(screen.getByRole("button", { pressed: false }));
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
@@ -57,15 +57,29 @@ describe("OperationCard", () => {
     expect(screen.getByText("Proposal detail")).toBeTruthy();
   });
 
-  it("marks a selected row as pressed", () => {
-    renderCard({ selected: true });
-    expect(screen.getByRole("button", { pressed: true })).toBeTruthy();
+  it("discloses the detail it opens: expanded, and controlling the region that holds it", () => {
+    renderCard({ selected: true, detail: <p>Proposal detail</p> });
+    const button = screen.getByRole("button", { expanded: true });
+    const region = document.getElementById(button.getAttribute("aria-controls") ?? "");
+    expect(region?.textContent).toBe("Proposal detail");
+  });
+
+  it("stays collapsed, controlling nothing, while it is not selected", () => {
+    renderCard({ detail: <p>Proposal detail</p> });
+    const button = screen.getByRole("button", { expanded: false });
+    expect(button.hasAttribute("aria-controls")).toBe(false);
+    expect(button.hasAttribute("aria-pressed")).toBe(false);
   });
 
   it("links to the proposal's own page without folding that into the selectable row", () => {
     renderCard();
     const link = screen.getByRole("link", { name: /View details/ });
     expect(link.getAttribute("href")).toBe("/governance/0.0.1");
+  });
+
+  it("drops the link to the full page once the row is open, since the detail is already showing", () => {
+    renderCard({ selected: true, detail: <p>Proposal detail</p> });
+    expect(screen.queryByRole("link", { name: /View details/ })).toBeNull();
   });
 
   it("shows an unrecognized scheduled body with its reason, styled as a warning", () => {

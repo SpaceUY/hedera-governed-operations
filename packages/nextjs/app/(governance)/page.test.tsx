@@ -134,7 +134,7 @@ describe("GovernanceHomePage", () => {
     render(<GovernanceHomePage />);
 
     expect(replace).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { pressed: true }).textContent).toContain("Run entry 4");
+    expect(screen.getByRole("button", { expanded: true }).textContent).toContain("Run entry 4");
   });
 
   it("marks the row the URL names as selected", () => {
@@ -143,7 +143,7 @@ describe("GovernanceHomePage", () => {
 
     render(<GovernanceHomePage />);
 
-    expect(screen.getByRole("button", { pressed: true })).toBeTruthy();
+    expect(screen.getByRole("button", { expanded: true })).toBeTruthy();
   });
 
   it("opens the selected proposal's detail under its own card, one heading level below the page", () => {
@@ -154,7 +154,7 @@ describe("GovernanceHomePage", () => {
 
     const detail = screen.getByTestId("proposal-detail");
     expect(detail.textContent).toBe("Detail of 0.0.4 at heading level 2");
-    const selectedCard = screen.getByRole("button", { pressed: true }).closest("li");
+    const selectedCard = screen.getByRole("button", { expanded: true }).closest("li");
     expect(selectedCard?.contains(detail)).toBe(true);
   });
 
@@ -163,10 +163,10 @@ describe("GovernanceHomePage", () => {
     searchParams.value = new URLSearchParams("schedule=0.0.4");
 
     render(<GovernanceHomePage />);
-    fireEvent.click(screen.getByRole("button", { pressed: false }));
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
     expect(replace).toHaveBeenLastCalledWith("/?schedule=0.0.1", { scroll: false });
 
-    fireEvent.click(screen.getByRole("button", { pressed: true }));
+    fireEvent.click(screen.getByRole("button", { expanded: true }));
     expect(replace).toHaveBeenLastCalledWith("/", { scroll: false });
   });
 
@@ -175,7 +175,7 @@ describe("GovernanceHomePage", () => {
     searchParams.value = new URLSearchParams("schedule=0.0.1");
 
     const { rerender } = render(<GovernanceHomePage />);
-    fireEvent.click(screen.getByRole("button", { pressed: true }));
+    fireEvent.click(screen.getByRole("button", { expanded: true }));
     searchParams.value = new URLSearchParams();
     rerender(<GovernanceHomePage />);
 
@@ -192,6 +192,6 @@ describe("GovernanceHomePage", () => {
     const detail = screen.getByTestId("proposal-detail");
     expect(detail.textContent).toBe("Detail of 0.0.99 at heading level 2");
     expect(screen.getByRole("search").compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByRole("button", { pressed: true })).toBeNull();
+    expect(screen.queryByRole("button", { expanded: true })).toBeNull();
   });
 });

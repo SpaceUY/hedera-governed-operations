@@ -52,7 +52,7 @@ describe("PendingOperationsList", () => {
   it("reports the schedule id of the row that was clicked", () => {
     const onSelect = vi.fn();
     render(<PendingOperationsList proposals={proposals(2)} selectedScheduleId={null} onSelect={onSelect} />);
-    fireEvent.click(screen.getAllByRole("button", { pressed: false })[1]);
+    fireEvent.click(screen.getAllByRole("button", { expanded: false })[1]);
     expect(onSelect).toHaveBeenCalledWith("0.0.2");
   });
 
