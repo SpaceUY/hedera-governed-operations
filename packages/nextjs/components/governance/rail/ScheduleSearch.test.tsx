@@ -17,19 +17,33 @@ const found = (scheduleId: string): Proposal =>
     registry: { status: "notApplicable" },
   }) as unknown as Proposal;
 
+type SearchProps = Parameters<typeof ScheduleSearch>[0];
+
+const searchProps = (overrides: Partial<SearchProps> = {}): SearchProps => ({
+  governanceAccountId: "0.0.9",
+  executorContractId: "0.0.4242",
+  network: "testnet",
+  selectedScheduleId: null,
+  onSelect: vi.fn(),
+  onToggle: vi.fn(),
+  unlistedSelectionId: null,
+  selectedDetail: null,
+  knownScheduleIds: new Set(),
+  ...overrides,
+});
+
 const renderSearch = (onSelect = vi.fn()) => {
-  render(
-    <ScheduleSearch
-      governanceAccountId="0.0.9"
-      executorContractId="0.0.4242"
-      network="testnet"
-      selectedScheduleId={null}
-      onSelect={onSelect}
-      knownScheduleIds={new Set()}
-    />,
-  );
+  render(<ScheduleSearch {...searchProps({ onSelect })} />);
   return onSelect;
 };
+
+const lookupFinds = (scheduleId: string) =>
+  vi.mocked(useProposalLookup).mockReturnValue({
+    proposal: found(scheduleId),
+    isLoading: false,
+    error: null,
+    refresh: vi.fn(),
+  } as unknown as ReturnType<typeof useProposalLookup>);
 
 const search = (value: string) => {
   fireEvent.change(screen.getByLabelText(/Find a proposal/), { target: { value } });
@@ -55,12 +69,7 @@ describe("ScheduleSearch", () => {
   });
 
   it("selects the schedule it found and shows it as a card", () => {
-    vi.mocked(useProposalLookup).mockReturnValue({
-      proposal: found("0.0.777"),
-      isLoading: false,
-      error: null,
-      refresh: vi.fn(),
-    } as unknown as ReturnType<typeof useProposalLookup>);
+    lookupFinds("0.0.777");
     const onSelect = renderSearch();
     search("0.0.777");
     expect(onSelect).toHaveBeenCalledWith("0.0.777");
@@ -92,17 +101,43 @@ describe("ScheduleSearch", () => {
   });
 
   it("draws no duplicate card for a schedule the inbox already lists", () => {
-    render(
-      <ScheduleSearch
-        governanceAccountId="0.0.9"
-        executorContractId="0.0.4242"
-        network="testnet"
-        selectedScheduleId={null}
-        onSelect={vi.fn()}
-        knownScheduleIds={new Set(["0.0.1"])}
-      />,
-    );
+    render(<ScheduleSearch {...searchProps({ knownScheduleIds: new Set(["0.0.1"]) })} />);
     search("0.0.1");
     expect(useProposalLookup).not.toHaveBeenCalled();
+  });
+
+  it("opens and closes its result like any other card, instead of only selecting it", () => {
+    lookupFinds("0.0.777");
+    const onToggle = vi.fn();
+    const onSelect = vi.fn();
+    render(<ScheduleSearch {...searchProps({ onSelect, onToggle })} />);
+    search("0.0.777");
+    onSelect.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+
+    expect(onToggle).toHaveBeenCalledWith("0.0.777");
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("shows a selection the inbox does not list as its result, with the field filled in and the detail under it", () => {
+    lookupFinds("0.0.99");
+    render(
+      <ScheduleSearch
+        {...searchProps({
+          selectedScheduleId: "0.0.99",
+          unlistedSelectionId: "0.0.99",
+          selectedDetail: <button type="button">Sign</button>,
+        })}
+      />,
+    );
+
+    expect((screen.getByLabelText(/Find a proposal/) as HTMLInputElement).value).toBe("0.0.99");
+    const card = screen.getByRole("button", { expanded: true });
+    const detail = document.getElementById(card.getAttribute("aria-controls") ?? "");
+    expect(detail?.textContent).toBe("Sign");
+    // The detail's own buttons must not submit the search.
+    expect(detail?.closest("form")).toBeNull();
+    expect(screen.getByRole("search").contains(detail)).toBe(true);
   });
 });

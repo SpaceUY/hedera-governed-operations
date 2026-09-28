@@ -3,6 +3,7 @@ import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY } from "~~/services/governance/proposalLabels";
 
@@ -183,15 +184,23 @@ describe("GovernanceHomePage", () => {
     expect(screen.queryByTestId("proposal-detail")).toBeNull();
   });
 
-  it("opens a schedule the inbox does not list right below the search", () => {
-    showInbox([proposal("0.0.1", 1, "pending")]);
+  it("shows a schedule the inbox does not list as the search's result, with its detail under that card", () => {
+    showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.2", 2, "executed")]);
+    vi.mocked(useProposalLookup).mockReturnValue({
+      proposal: proposal("0.0.99", 99, "executed"),
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof useProposalLookup>);
     searchParams.value = new URLSearchParams("schedule=0.0.99");
 
     render(<GovernanceHomePage />);
 
     const detail = screen.getByTestId("proposal-detail");
     expect(detail.textContent).toBe("Detail of 0.0.99 as inline");
-    expect(screen.getByRole("search").compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByRole("button", { expanded: true })).toBeNull();
+    const search = screen.getByRole("search");
+    expect(search.contains(detail)).toBe(true);
+    expect(within(search).getByRole("button", { expanded: true }).textContent).toContain("Run entry 99");
+    // Settled, but not listed by the inbox: it stays with the search, never among the inbox's own sections.
+    expect(screen.getByRole("region", { name: INBOX_COPY.settledHeading }).contains(detail)).toBe(false);
   });
 });

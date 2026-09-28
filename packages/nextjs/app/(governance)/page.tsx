@@ -43,9 +43,10 @@ export default function GovernanceHomePage() {
   const selectedDetail = selectedScheduleId ? (
     <ProposalDetail config={config} scheduleId={selectedScheduleId} variant="inline" />
   ) : null;
-  // A schedule the inbox does not list (found by the search, or named by a link) has no card to open
-  // under, so its detail sits right below the search instead.
-  const isSelectionUnlisted = Boolean(inbox.data && selectedScheduleId && !knownScheduleIds.has(selectedScheduleId));
+  // A schedule the inbox does not list (found by the search, or named by a link) has no card in either
+  // list, so the search shows it as its result, with its detail under that card.
+  const unlistedSelectionId =
+    inbox.data && selectedScheduleId && !knownScheduleIds.has(selectedScheduleId) ? selectedScheduleId : null;
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5">
@@ -62,9 +63,11 @@ export default function GovernanceHomePage() {
         network={network}
         selectedScheduleId={selectedScheduleId}
         onSelect={select}
+        onToggle={toggle}
+        unlistedSelectionId={unlistedSelectionId}
+        selectedDetail={selectedDetail}
         knownScheduleIds={knownScheduleIds}
       />
-      {isSelectionUnlisted && <div className="rounded-lg border border-primary">{selectedDetail}</div>}
 
       {inbox.data && inbox.data.unreachableProposers.length > 0 && (
         <p role="status" className="m-0 text-sm text-warning">
