@@ -1,3 +1,4 @@
+import { COUNCIL_ROTATION_KIND } from "./councilRotation/kind";
 import { TOKEN_ADMIN_KIND } from "./tokenAdmin/kind";
 import { TREASURY_SWAP_KIND } from "./treasurySwap/kind";
 import { TREASURY_TRANSFER_KIND } from "./treasuryTransfer/kind";
@@ -11,4 +12,5 @@ export const WIZARD_KIND_ENTRIES: Record<WizardKind, WizardKindEntry> = {
   treasurySwap: TREASURY_SWAP_KIND,
   tokenAdmin: TOKEN_ADMIN_KIND,
   treasuryTransfer: TREASURY_TRANSFER_KIND,
+  councilRotation: COUNCIL_ROTATION_KIND,
 };

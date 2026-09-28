@@ -55,6 +55,9 @@ vi.mock("~~/components/governance/wizard/kinds/tokenAdmin/TokenAdminForm", () =>
 vi.mock("~~/components/governance/wizard/kinds/treasurySwap/TreasurySwapForm", () => ({
   TreasurySwapForm: () => <div>swap form</div>,
 }));
+vi.mock("~~/components/governance/wizard/kinds/councilRotation/CouncilRotationForm", () => ({
+  CouncilRotationForm: () => <div>rotation form</div>,
+}));
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
@@ -211,6 +214,17 @@ describe("NewProposalPage", () => {
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
     renderPage();
     expect(cta("upgrade").disabled).toBe(true);
+  });
+
+  it("offers a council rotation to any connected account, as one native schedule", () => {
+    setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
+    renderPage();
+
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.councilRotation.title) }));
+
+    expect(screen.getByText("rotation form")).toBeTruthy();
+    expect(screen.queryByText(/does not hold PROPOSER_ROLE/)).toBeNull();
+    expect(screen.getByRole("button", { name: openProposalCopy("councilRotation").cta })).toBeTruthy();
   });
 
   it("lets an account without PROPOSER_ROLE submit a supplier payment", () => {

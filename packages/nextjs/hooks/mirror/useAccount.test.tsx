@@ -1,5 +1,5 @@
 import { createQueryWrapper, jsonResponse } from "./testUtils";
-import { useAccount } from "./useAccount";
+import { useAccount, useAccounts } from "./useAccount";
 import account from "@sh/core/mirror/__fixtures__/account.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -46,5 +46,23 @@ describe("useAccount", () => {
     const { result } = renderHook(() => useAccount("0.0.1"), { wrapper: createQueryWrapper() });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe("useAccounts", () => {
+  it("reads each account once, and keeps the list's identity while no read changes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(account));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(() => useAccounts(["0.0.10590498", "", "alice"]), {
+      wrapper: createQueryWrapper(),
+    });
+
+    await waitFor(() => expect(result.current[0].account?.memo).toBe("POC GOV 2-of-3"));
+    const settled = result.current;
+    rerender();
+    expect(result.current).toBe(settled);
+    expect(result.current.slice(1).map(read => read.account)).toEqual([undefined, undefined]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

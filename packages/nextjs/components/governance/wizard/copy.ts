@@ -54,6 +54,15 @@ export function approverLabel(kind: ProposalKind, council: CouncilKey): string {
   return isContractProposalKind(kind) ? `${rule} Registering the proposal is not an approval.` : rule;
 }
 
+/**
+ * A rotation is approved by two councils, since the schedule waits for the current council's threshold
+ * and for the proposed one's; the preview names both, the proposed one as the decoder read it back.
+ */
+export function rotationApproverLabel(current: CouncilKey | undefined, proposed: CouncilKey): string {
+  const outgoing = current ? `The current ${councilRuleLabel(current)} council` : "The current council";
+  return `${outgoing} and the proposed ${councilRuleLabel(proposed)} council, each to its own threshold.`;
+}
+
 export function openProposalCopy(kind: ProposalKind): { cta: string; note: string } {
   if (isContractProposalKind(kind)) {
     return {

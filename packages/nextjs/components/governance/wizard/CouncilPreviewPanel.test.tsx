@@ -8,7 +8,13 @@ import {
 import { PROPOSAL_EXPIRY_SECONDS } from "@sh/core/governance/schedules";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/components/governance/wizard/copy";
+import {
+  PROPOSAL_PATH_CHIPS,
+  approverLabel,
+  expiryLabel,
+  gasLimitLabel,
+  rotationApproverLabel,
+} from "~~/components/governance/wizard/copy";
 import type { DraftPreview } from "~~/services/governance/drafts";
 
 afterEach(cleanup);
@@ -81,5 +87,21 @@ describe("CouncilPreviewPanel", () => {
     render(<CouncilPreviewPanel preview={unreadable} council={undefined} headingLevel={3} />);
     expect(screen.getByRole("alert").textContent).toContain("odd body");
     expect(screen.queryByText("Function")).toBeNull();
+  });
+
+  it("names both councils as approvers of a rotation, the proposed one as the decoder read it", () => {
+    const proposed = { threshold: 3, memberKeys: ["a", "b", "c", "d"] };
+    const rotation: DraftPreview = {
+      path: "native",
+      kind: "councilRotation",
+      target: "Treasury key · 0.0.1",
+      scheduled: { kind: "councilRotation", accountId: "0.0.1", council: proposed },
+    };
+    render(<CouncilPreviewPanel preview={rotation} council={COUNCIL} headingLevel={2} />);
+
+    expect(screen.getByText(rotationApproverLabel(COUNCIL, proposed))).toBeTruthy();
+    expect(rotationApproverLabel(COUNCIL, proposed)).toBe(
+      "The current 2-of-3 council and the proposed 3-of-4 council, each to its own threshold.",
+    );
   });
 });

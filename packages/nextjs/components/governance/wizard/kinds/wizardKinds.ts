@@ -9,6 +9,7 @@ export const WIZARD_KINDS = [
   "treasurySwap",
   "tokenAdmin",
   "treasuryTransfer",
+  "councilRotation",
 ] as const satisfies readonly ProposalKind[];
 
 export type WizardKind = (typeof WIZARD_KINDS)[number];
