@@ -34,7 +34,7 @@
     },
     {
       "file": "packages/nextjs/app/page.tsx",
-      "contains": ["Governed Operations", "Pending proposals"]
+      "contains": ["Governed Operations", "Proposals"]
     },
     {
       "file": "packages/nextjs/components/SetupNotice.tsx",
@@ -49,7 +49,7 @@
       "contains": ["New proposal"]
     },
     {
-      "file": "packages/nextjs/services/governance/proposalLabels.ts",
+      "file": "packages/nextjs/components/governance/wizard/copy.ts",
       "contains": ["Connect a wallet to propose", "Register and schedule with your wallet"]
     },
     {

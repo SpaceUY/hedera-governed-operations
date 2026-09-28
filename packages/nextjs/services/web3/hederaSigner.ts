@@ -40,6 +40,16 @@ export function isWalletRejection(error: unknown): boolean {
   return typeof message === "string" && USER_REJECTED_MESSAGE.test(message);
 }
 
+/**
+ * The network charges the whole gas limit on a call that reverts for running out of gas, same as on
+ * one that succeeds — so this is a fee already paid, not a no-op to silently retry.
+ */
+export function isInsufficientGasError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const { message } = error as { message?: unknown };
+  return typeof message === "string" && message.includes("INSUFFICIENT_GAS");
+}
+
 const toWalletError = (error: unknown): unknown => (isWalletRejection(error) ? new WalletRejectedError() : error);
 
 const clientsByNetwork = new Map<HederaNetworkName, Client>();

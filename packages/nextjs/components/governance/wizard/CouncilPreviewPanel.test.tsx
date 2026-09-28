@@ -8,8 +8,8 @@ import {
 import { PROPOSAL_EXPIRY_SECONDS } from "@sh/core/governance/schedules";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/components/governance/wizard/copy";
 import type { DraftPreview } from "~~/services/governance/drafts";
-import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/services/governance/proposalLabels";
 
 afterEach(cleanup);
 

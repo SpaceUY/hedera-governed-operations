@@ -79,10 +79,10 @@ function GovernanceHome({ config }: { config: GovernanceConfig }) {
         </div>
       </section>
 
-      <section aria-label="Pending proposals" className="card border border-base-300 bg-base-100 shadow-sm">
+      <section aria-label="Proposals" className="card border border-base-300 bg-base-100 shadow-sm">
         <div className="card-body py-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="card-title text-base">Pending proposals</h2>
+            <h2 className="card-title text-base">Proposals</h2>
             <Link href={GOVERNANCE_ROUTES.newProposal} className="btn btn-primary btn-sm">
               New proposal
             </Link>

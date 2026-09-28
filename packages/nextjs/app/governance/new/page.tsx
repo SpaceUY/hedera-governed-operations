@@ -23,7 +23,7 @@ export default function NewProposalPage() {
       executorContractId={config.executor.hederaContractId}
       onSubmitted={scheduleId => router.push(GOVERNANCE_ROUTES.proposal(scheduleId))}
     >
-      <div className="w-full max-w-[548px] mx-auto flex flex-1 flex-col">
+      <div className="w-full max-w-lg mx-auto flex flex-1 flex-col">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-base-300">
           <Link
             href={GOVERNANCE_ROUTES.home}

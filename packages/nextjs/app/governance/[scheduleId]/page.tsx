@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { MutationError } from "~~/components/governance/MutationError";
-import { GOVERNANCE_CONTRACTS, getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
+import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
@@ -20,28 +20,26 @@ import {
 } from "~~/services/governance/proposalLabels";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
-type ProposalDetailProps = { governanceAccountId: string; executorContractId: string; scheduleId: string };
+type ProposalDetailProps = { config: GovernanceConfig; scheduleId: string };
 
 export default function ProposalDetailPage() {
   const params = useParams<{ scheduleId: string }>();
   const { targetNetwork } = useTargetNetwork();
-  let props: ProposalDetailProps;
+  let config: GovernanceConfig;
   try {
-    props = {
-      governanceAccountId: getGovernanceEntityIds().governanceAccountId,
-      executorContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.executor).hederaContractId,
-      scheduleId: params.scheduleId,
-    };
+    config = resolveGovernanceConfig(targetNetwork.id);
   } catch (error) {
     return <SetupNotice error={error} />;
   }
-  return <ProposalDetail {...props} />;
+  return <ProposalDetail config={config} scheduleId={params.scheduleId} />;
 }
 
-function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }: ProposalDetailProps) {
+function ProposalDetail({ config: { governanceAccountId, executor, network }, scheduleId }: ProposalDetailProps) {
+  const executorContractId = executor.hederaContractId;
   const { proposal, isLoading, error, refresh } = useProposalLookup({
     governanceAccountId,
     executorContractId,
+    network,
     scheduleId,
   });
   const { accountId } = useHederaSigner();
