@@ -121,7 +121,11 @@ function ProposalDetail({ config: { governanceAccountId, executor, network }, sc
               </button>
             )}
           </div>
-          {registryUnreachable && <p className="text-sm text-warning">{UNREACHABLE_REGISTRY_SIGN_WARNING}</p>}
+          {registryUnreachable && (
+            <p role="status" className="text-sm text-warning">
+              {UNREACHABLE_REGISTRY_SIGN_WARNING}
+            </p>
+          )}
           <MutationError error={sign.error} />
           <MutationError error={withdraw.error} />
           {isWithdrawable && (
