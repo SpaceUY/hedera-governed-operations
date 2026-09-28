@@ -167,12 +167,12 @@ async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
   );
 
   for (const scheduleId of result.signed) signedThisRun.add(scheduleId);
-  // Before logging, so a decision that says it is waiting is one the endpoint will already take a
-  // code for.
   for (const decision of result.decisions) {
+    // Registered before it is reported, so a decision that says it is waiting for a code is one the
+    // endpoint already takes one for.
     if (decision.outcome === "pending") approvals.awaitConfirmation(decision.scheduleId);
+    logDecision(decision, sign === null, reported);
   }
-  for (const decision of result.decisions) logDecision(decision, sign === null, reported);
   for (const failure of result.failures) log("signature-failed", failure);
   if (result.unreachableProposers.length > 0) {
     log("partial-inbox", { unreachableProposers: result.unreachableProposers });
