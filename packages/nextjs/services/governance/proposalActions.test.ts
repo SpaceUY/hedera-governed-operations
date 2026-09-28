@@ -4,6 +4,7 @@ import {
   canCancelRegistryEntry,
   canOpenProposal,
   canShowIntent,
+  cancelPlanOf,
   cancellableRegistryId,
   otherOpenScheduleOf,
 } from "./proposalActions";
@@ -185,6 +186,45 @@ describe("cancellableRegistryId", () => {
   it("offers nothing for a native kind, which has no entry", () => {
     const registry: RegistryCrossCheck = { status: "notApplicable" };
     expect(cancellableRegistryId({ state: stateOf("deleted"), execution: NOT_RUN, registry })).toBeNull();
+  });
+});
+
+describe("cancelPlanOf", () => {
+  const CREATOR = "0.0.10671142";
+  const schedule: MirrorSchedule = { ...executedSchedule, creator_account_id: CREATOR };
+  const NOT_RUN: ScheduleExecution = { status: "notRun" };
+
+  it("deletes the live schedule first, then cancels, when the schedule's creator asks", () => {
+    const proposal = { schedule, state: stateOf("pending"), execution: NOT_RUN, registry: entryOf() };
+    expect(cancelPlanOf(proposal, CREATOR)).toEqual({ registryProposalId: 7, withdrawFirst: true });
+  });
+
+  it("offers nothing while the schedule is live to anyone who cannot delete it", () => {
+    const proposal = { schedule, state: stateOf("pending"), execution: NOT_RUN, registry: entryOf() };
+    expect(cancelPlanOf(proposal, "0.0.10671144")).toBeNull();
+    expect(cancelPlanOf(proposal, null)).toBeNull();
+  });
+
+  it.each(["deleted", "expired"] as const)("is cancel alone, for anyone, once the schedule is %s", status => {
+    const proposal = { schedule, state: stateOf(status), execution: NOT_RUN, registry: entryOf() };
+    expect(cancelPlanOf(proposal, "0.0.10671144")).toEqual({ registryProposalId: 7, withdrawFirst: false });
+  });
+
+  it("offers nothing once the entry is no longer pending, or for a native kind", () => {
+    const cancelled = {
+      schedule,
+      state: stateOf("pending"),
+      execution: NOT_RUN,
+      registry: entryOf({ state: "cancelled" }),
+    };
+    expect(cancelPlanOf(cancelled, CREATOR)).toBeNull();
+    const native = {
+      schedule,
+      state: stateOf("pending"),
+      execution: NOT_RUN,
+      registry: { status: "notApplicable" } as const,
+    };
+    expect(cancelPlanOf(native, CREATOR)).toBeNull();
   });
 });
 

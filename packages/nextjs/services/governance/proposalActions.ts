@@ -89,6 +89,29 @@ export function cancellableRegistryId({
 }
 
 /**
+ * How Cancel ends a proposal for the connected account, or null when it cannot offer it. Once no live
+ * schedule points at the entry, it is the one `cancel(id)`. While the viewed schedule is still live,
+ * it is two transactions in a fixed order — delete that schedule, then cancel — since cancelling
+ * under a live schedule would leave it to reach its threshold, revert with `ProposalNotPending` and
+ * bill the governance account. Only the schedule's creator can delete it (their key is its admin
+ * key), so anyone else is offered Cancel only once it is withdrawn, expires, or ran and failed.
+ * Whether the account may call `cancel` at all is `canCancelRegistryEntry`'s question.
+ */
+export type CancelPlan = { registryProposalId: number; withdrawFirst: boolean };
+
+export function cancelPlanOf(
+  proposal: Pick<Proposal, "schedule" | "state" | "execution" | "registry">,
+  accountId: string | null,
+): CancelPlan | null {
+  const afterTheRound = cancellableRegistryId(proposal);
+  if (afterTheRound !== null) return { registryProposalId: afterTheRound, withdrawFirst: false };
+  const { registry } = proposal;
+  if (registry.status !== "read" || registry.entry.state !== "pending") return null;
+  if (!canBeWithdrawnBy(proposal, accountId)) return null;
+  return { registryProposalId: registry.entry.proposalId, withdrawFirst: true };
+}
+
+/**
  * Another schedule of the inbox still collecting signatures for the same registry entry, or null.
  * Anyone can schedule `execute(id)` again, so a withdrawn round does not mean the entry is free:
  * cancelling under that other schedule would leave it to reach its threshold, revert with

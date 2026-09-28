@@ -1,0 +1,97 @@
+import { useCancelProposalFlow } from "./useCancelProposalFlow";
+import { QueryClient } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createQueryWrapper } from "~~/hooks/mirror/testUtils";
+import { useHederaSigner } from "~~/hooks/useHederaSigner";
+
+vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+
+const SCHEDULE_ID = "0.0.10765804";
+const EXECUTOR_CONTRACT_ID = "0.0.10746059";
+const LIVE = { scheduleId: SCHEDULE_ID, executorContractId: EXECUTOR_CONTRACT_ID, registryProposalId: 3 };
+
+/** What each wallet call was: a ScheduleDelete names a schedule, the cancel a contract. */
+const sent = (executeTransaction: ReturnType<typeof vi.fn>) =>
+  executeTransaction.mock.calls.map(([tx]) => (tx.scheduleId ? "delete" : "cancel"));
+
+const rejection = Object.assign(new Error("User rejected"), { code: 5000 });
+
+let executeTransaction: ReturnType<typeof vi.fn>;
+let callbacks: { onWithdrawn: ReturnType<typeof vi.fn>; onCancelled: ReturnType<typeof vi.fn> };
+
+beforeEach(() => {
+  executeTransaction = vi.fn().mockResolvedValue({ transactionId: "0.0.1@1.0" });
+  vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction } as never);
+  callbacks = { onWithdrawn: vi.fn(), onCancelled: vi.fn() };
+});
+
+function renderFlow(withdrawFirst: boolean, queryClient = new QueryClient()) {
+  return renderHook(() => useCancelProposalFlow({ ...LIVE, withdrawFirst }, callbacks), {
+    wrapper: createQueryWrapper(queryClient),
+  });
+}
+
+describe("useCancelProposalFlow", () => {
+  it("deletes the live schedule, then cancels the entry, in that order", async () => {
+    const { result } = renderFlow(true);
+    await act(() => result.current.start());
+
+    expect(sent(executeTransaction)).toEqual(["delete", "cancel"]);
+    expect(executeTransaction.mock.calls[0][0].scheduleId.toString()).toBe(SCHEDULE_ID);
+    expect(executeTransaction.mock.calls[1][0].contractId.toString()).toBe(EXECUTOR_CONTRACT_ID);
+    await waitFor(() => expect(result.current.step).toBe("cancelled"));
+    expect(callbacks.onCancelled).toHaveBeenCalledOnce();
+    expect(callbacks.onWithdrawn).toHaveBeenCalledOnce();
+  });
+
+  it("sends the cancel alone when no schedule is live", async () => {
+    const { result } = renderFlow(false);
+    await act(() => result.current.start());
+
+    expect(sent(executeTransaction)).toEqual(["cancel"]);
+    expect(callbacks.onCancelled).toHaveBeenCalledOnce();
+    expect(callbacks.onWithdrawn).not.toHaveBeenCalled();
+  });
+
+  it("stops after a rejected delete, having changed nothing", async () => {
+    executeTransaction.mockRejectedValueOnce(rejection);
+    const { result } = renderFlow(true);
+    await act(() => result.current.start());
+
+    expect(sent(executeTransaction)).toEqual(["delete"]);
+    await waitFor(() => expect(result.current.error).toBe(rejection));
+    expect(result.current.step).toBe("idle");
+    expect(callbacks.onWithdrawn).not.toHaveBeenCalled();
+    expect(callbacks.onCancelled).not.toHaveBeenCalled();
+  });
+
+  it("says the schedule is withdrawn but the entry is not cancelled when step 2 is rejected, and resumes at step 2", async () => {
+    executeTransaction.mockResolvedValueOnce({ transactionId: "0.0.1@1.0" }).mockRejectedValueOnce(rejection);
+    const { result } = renderFlow(true);
+    await act(() => result.current.start());
+
+    await waitFor(() => expect(result.current.step).toBe("withdrawnNotCancelled"));
+    expect(result.current.error).toBe(rejection);
+    expect(callbacks.onWithdrawn).toHaveBeenCalledOnce();
+    expect(callbacks.onCancelled).not.toHaveBeenCalled();
+
+    await act(() => result.current.start());
+    expect(sent(executeTransaction)).toEqual(["delete", "cancel", "cancel"]);
+    await waitFor(() => expect(result.current.step).toBe("cancelled"));
+  });
+
+  it("remembers a deleted schedule across a remount, so a retry never deletes it again", async () => {
+    const queryClient = new QueryClient();
+    executeTransaction.mockResolvedValueOnce({ transactionId: "0.0.1@1.0" }).mockRejectedValueOnce(new Error("boom"));
+    const first = renderFlow(true, queryClient);
+    await act(() => first.result.current.start());
+    first.unmount();
+
+    // Mirror still reports the schedule live, so the plan still says to withdraw first.
+    const second = renderFlow(true, queryClient);
+    expect(second.result.current.step).toBe("withdrawnNotCancelled");
+    await act(() => second.result.current.start());
+    expect(sent(executeTransaction)).toEqual(["delete", "cancel", "cancel"]);
+  });
+});
