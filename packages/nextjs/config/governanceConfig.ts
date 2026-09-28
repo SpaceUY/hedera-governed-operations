@@ -74,9 +74,15 @@ export const GOVERNANCE_CONTRACTS = {
    * Only the wizard's upgrade form needs it, so it is not part of `resolveGovernanceConfig`.
    */
   vaultNextImplementation: "AcmeVaultV2",
-  /** Holds the token's pause and freeze keys; only the map needs it, so it is not part of the guard. */
+  /**
+   * Holds the token's pause and freeze keys. Only the map and the wizard's token form need it, so it
+   * is not part of the guard.
+   */
   tokenAdmin: "TokenAdmin",
-  /** Sells treasury HBAR on SaucerSwap; only the map needs it, so it is not part of the guard. */
+  /**
+   * Sells treasury HBAR on SaucerSwap. Only the map and the wizard's swap form need it, so it is not
+   * part of the guard.
+   */
   swapAdapter: "SaucerSwapAdapter",
 } as const;
 

@@ -88,3 +88,7 @@ export const ACCOUNT_LOOKUP_LABELS = {
   notFound: (input: string) => `No account found for ${input}`,
   unreachable: (input: string) => `Could not look up ${input} right now. Try again.`,
 } as const satisfies Record<string, (input: string) => string>;
+
+export function tokenUnreadableLabel(tokenId: string): string {
+  return `Could not read token ${tokenId} on the Mirror Node right now.`;
+}

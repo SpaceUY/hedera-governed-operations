@@ -25,7 +25,6 @@ export const TOKEN_ADMIN_COPY = {
     "(TOKEN_NOT_ASSOCIATED_TO_ACCOUNT) and the governance account would pay for the failed call.",
   relationshipUnreadable: (accountId: string) =>
     `Could not read how ${accountId} stands with the token right now. Try again.`,
-  tokenUnreadable: (tokenId: string) => `Could not read token ${tokenId} on the Mirror Node right now.`,
   contractMissing:
     "TokenAdmin, the contract that holds the token's pause and freeze keys, is not deployed on this network. " +
     "Run `yarn hardhat:deploy --network hederaTestnet` to deploy it; paying a supplier works without it.",

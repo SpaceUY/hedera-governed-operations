@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
 import { OPEN_PROPOSAL_NOTICES, PROPOSAL_KIND_COPY, openProposalCopy } from "~~/components/governance/wizard/copy";
 import { TOKEN_ADMIN_COPY } from "~~/components/governance/wizard/kinds/tokenAdmin/copy";
+import { TREASURY_SWAP_COPY } from "~~/components/governance/wizard/kinds/treasurySwap/copy";
 import { VAULT_UPGRADE_COPY } from "~~/components/governance/wizard/kinds/vaultUpgrade/copy";
 import { type GovernanceConfig, findDeployedContract } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
@@ -50,6 +51,9 @@ vi.mock("~~/components/governance/wizard/kinds/vaultUpgrade/UpgradeVaultForm", a
 });
 vi.mock("~~/components/governance/wizard/kinds/tokenAdmin/TokenAdminForm", () => ({
   TokenAdminForm: () => <div>token form</div>,
+}));
+vi.mock("~~/components/governance/wizard/kinds/treasurySwap/TreasurySwapForm", () => ({
+  TreasurySwapForm: () => <div>swap form</div>,
 }));
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
@@ -152,6 +156,17 @@ describe("NewProposalPage", () => {
 
     expect(screen.getByRole("status").textContent).toBe(TOKEN_ADMIN_COPY.contractMissing);
     expect(cta("tokenAdmin").disabled).toBe(true);
+  });
+
+  it("says the swap adapter is not deployed instead of offering a swap form", () => {
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    vi.mocked(findDeployedContract).mockReturnValue(null);
+    renderPage();
+
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.treasurySwap.title) }));
+
+    expect(screen.queryByText("swap form")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(TREASURY_SWAP_COPY.adapterMissing);
   });
 
   it("opens on the vault upgrade, as the prototype does, and asks for a wallet", () => {

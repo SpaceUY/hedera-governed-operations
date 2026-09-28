@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { TOKEN_ADMIN_COPY, TOKEN_ADMIN_OPERATION_LABELS } from "./copy";
 import { HederaAddressInput } from "@scaffold-hbar-ui/components";
 import { type TokenAdminOperation, tokenAdminNeedsAccount } from "@sh/core/governance/proposalTypes";
-import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
+import { ACCOUNT_LOOKUP_LABELS, tokenUnreadableLabel } from "~~/components/governance/wizard/copy";
 import { accountLookup } from "~~/components/governance/wizard/kinds/accountLookup";
 import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
 import { useAccount } from "~~/hooks/mirror/useAccount";
@@ -84,7 +84,7 @@ export const TokenAdminForm = ({
             {TOKEN_ADMIN_COPY.pauseStatus(symbol, token.data.token.pause_status)}
           </span>
         )}
-        {token.isError && <span className="text-sm text-warning">{TOKEN_ADMIN_COPY.tokenUnreadable(tokenId)}</span>}
+        {token.isError && <span className="text-sm text-warning">{tokenUnreadableLabel(tokenId)}</span>}
       </label>
 
       <fieldset className="flex flex-col gap-1.5">
