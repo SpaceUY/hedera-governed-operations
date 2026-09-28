@@ -1,4 +1,12 @@
-import { type MirrorPage, type MirrorRequestOptions, assertValidEntityId, mirrorRequest } from "./client";
+import {
+  DEFAULT_MAX_PAGES,
+  type MirrorPage,
+  type MirrorPaginateOptions,
+  type MirrorRequestOptions,
+  assertValidEntityId,
+  mirrorRequest,
+} from "./client";
+import type { MirrorKey } from "./schedules";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -40,8 +48,29 @@ export type FetchTopicMessagesOptions = MirrorRequestOptions & {
   timestamp?: string;
 };
 
+/** The topic itself from GET /api/v1/topics/{id}; only the fields that say who may write to it. */
+export type MirrorTopic = {
+  topic_id: string;
+  memo: string;
+  deleted: boolean;
+  /** Null means anyone can submit a message. A topic whose contents are evidence needs one. */
+  submit_key: MirrorKey | null;
+  /** Null means the topic is immutable: no submit key can be added to it afterwards. */
+  admin_key: MirrorKey | null;
+};
+
 function assertValidTopicId(topicId: string): void {
   assertValidEntityId(topicId, "topic ID");
+}
+
+export async function fetchTopic(topicId: string, options: MirrorRequestOptions = {}): Promise<MirrorTopic> {
+  assertValidTopicId(topicId);
+  return mirrorRequest<MirrorTopic>(`/api/v1/topics/${topicId}`, options);
+}
+
+/** Whether the network refuses a message from anyone but the holder of the topic's submit key. */
+export function hasSubmitKey(topic: MirrorTopic): boolean {
+  return Boolean(topic.submit_key?.key);
 }
 
 function buildTopicMessagesPath(topicId: string, options: FetchTopicMessagesOptions): string {
@@ -116,4 +145,38 @@ export async function fetchDecodedTopicMessages(
 ): Promise<DecodedTopicMessage[]> {
   const { messages } = await fetchTopicMessages(topicId, options);
   return messages.map(decodeTopicMessage);
+}
+
+export type PagedTopicMessages = {
+  messages: DecodedTopicMessage[];
+  /** True when `maxPages` ran out with more history behind it, so the answer is a window, not the topic. */
+  truncated: boolean;
+};
+
+/**
+ * The same read, following `links.next` instead of stopping at one page.
+ *
+ * A caller that searches the topic for something — rather than showing the last page of a feed —
+ * has to know whether it ran out of pages before it ran out of topic, because "not found in the
+ * window I read" and "not on the topic" are different answers to give a user.
+ */
+export async function fetchDecodedTopicMessagePages(
+  topicId: string,
+  options: FetchTopicMessagesOptions & MirrorPaginateOptions = {},
+): Promise<PagedTopicMessages> {
+  assertValidTopicId(topicId);
+  const { maxPages = DEFAULT_MAX_PAGES, fetchOptions, network, signal, ...messageOptions } = options;
+  const requestOptions: MirrorRequestOptions = { fetchOptions, network, signal };
+
+  const messages: DecodedTopicMessage[] = [];
+  let nextPath: string | null = buildTopicMessagesPath(topicId, { ...messageOptions, limit: MAX_LIMIT });
+
+  for (let page = 0; page < maxPages && nextPath; page += 1) {
+    const response: TopicMessagesResponse = await mirrorRequest<TopicMessagesResponse>(nextPath, requestOptions);
+    for (const message of response.messages ?? []) messages.push(decodeTopicMessage(message));
+    nextPath = response.links?.next ?? null;
+  }
+
+  // `nextPath` still set is the network saying there is more behind what was read.
+  return { messages, truncated: nextPath !== null };
 }

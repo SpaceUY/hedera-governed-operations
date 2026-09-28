@@ -11,7 +11,13 @@ import type { SetupEnv } from "./env";
 import { upsertEnvFile } from "./envFile";
 import { reconcileGovernance } from "./governance";
 import { HARDHAT_ENV_PATH, hardhatEnvEntries } from "./hardhatEnv";
-import { GOVERNANCE_LOW_BALANCE_HBAR, createGovernanceActions, createGovernanceLookups } from "./hederaGovernance";
+import {
+  GOVERNANCE_LOW_BALANCE_HBAR,
+  type ReleaseTopicActions,
+  type ReleaseTopicLookups,
+  createGovernanceActions,
+  createGovernanceLookups,
+} from "./hederaGovernance";
 import type { MirrorLookups } from "./reconcile";
 import { formatSteps } from "./report";
 import { reconcileSeedProposal } from "./seedProposal";
@@ -49,8 +55,9 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
     actions: createGovernanceActions(env, client),
   };
 
-  const { governance, proposers, step } = await reconcileGovernance(ctx.state, env, services);
-  const withGovernance: SetupState = { ...ctx.state, governance };
+  const releaseTopicId = await reconcileReleaseTopic(ctx.state.releaseTopicId, services);
+  const { governance, proposers, step } = await reconcileGovernance({ ...ctx.state, releaseTopicId }, env, services);
+  const withGovernance: SetupState = { ...ctx.state, releaseTopicId, governance };
   saveState(withGovernance);
   upsertEnvFile(HARDHAT_ENV_PATH, hardhatEnvEntries(governance, proposers));
   console.log(formatSteps([step]).join("\n"));
@@ -73,6 +80,30 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
 
   console.log(formatSteps([...token.steps, seed.step]).join("\n"));
   await warnOnLowBalance(governance.accountId, services.lookups.accountHbarBalance);
+}
+
+/**
+ * The topic release manifests go to. It is created before anything else here because it is the only
+ * governance fixture with no dependency on the contracts: an upgrade proposal can be checked against
+ * it on the very first release, and a template scaffolded today has somewhere to publish to.
+ *
+ * Existing is not enough to reuse it, which is the one place this differs from every other fixture:
+ * the topic has to still be one only the submit key can write to. A topic an earlier version of this
+ * script created without one cannot be repaired — it has no admin key either — so the reconcile
+ * replaces it rather than carrying a release log anybody could have written.
+ */
+export async function reconcileReleaseTopic(
+  existing: string | undefined,
+  services: { lookups: ReleaseTopicLookups; actions: ReleaseTopicActions },
+): Promise<string> {
+  const reusable = existing !== undefined && (await services.lookups.releaseTopicIsSigned(existing));
+  const topicId = reusable ? existing : await services.actions.createReleaseTopic();
+  const outcome = reusable ? "reused" : "created";
+  if (!reusable && existing !== undefined) {
+    console.log(`  Release topic ${existing} takes messages from anyone; replacing it with a topic that does not.`);
+  }
+  console.log(formatSteps([{ label: `Release topic ${topicId}`, outcome }]).join("\n"));
+  return topicId;
 }
 
 function deployNextMessage(missing: string[]): string[] {

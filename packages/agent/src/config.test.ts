@@ -43,6 +43,27 @@ describe("parsePolicy", () => {
     );
   });
 
+  it("requires an upgrade rule to say how an implementation is trusted", () => {
+    // Targets alone would approve any implementation at all for a listed proxy.
+    expect(() => parsePolicy(policyOf({ upgrade: { targets: [VAULT] } }))).toThrow(/neither trusts nothing/);
+  });
+
+  it("takes a release topic instead of an allowlist, or both", () => {
+    const byTopic = parsePolicy(policyOf({ upgrade: { targets: [VAULT], manifestTopicId: "0.0.4242" } }));
+    expect(byTopic.upgrade).toMatchObject({ manifestTopicId: "0.0.4242", implementations: undefined });
+
+    const both = parsePolicy(
+      policyOf({ upgrade: { targets: [VAULT], implementations: [VAULT], manifestTopicId: "0.0.4242" } }),
+    );
+    expect(both.upgrade?.implementations).toEqual([VAULT]);
+  });
+
+  it("refuses a release topic that is not a 0.0.x id", () => {
+    expect(() => parsePolicy(policyOf({ upgrade: { targets: [VAULT], manifestTopicId: "4242" } }))).toThrow(
+      /must be a 0.0.x id/,
+    );
+  });
+
   it("says so when the file is not JSON at all", () => {
     expect(() => parsePolicy("not json")).toThrow(/not valid JSON/);
   });

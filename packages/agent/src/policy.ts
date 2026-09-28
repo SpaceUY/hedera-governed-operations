@@ -25,10 +25,17 @@ export type UpgradeRule = {
   /** Proxies the agent may upgrade, as EVM addresses. */
   targets: string[];
   /**
-   * Implementations it may upgrade them to. A published release manifest replaces this list with a
-   * check against the bytecode actually deployed; until then the allowlist is the whole guarantee.
+   * Implementations it may upgrade them to. An allowlist answers "is this address blessed" and
+   * cannot answer "is the code at it still the build we blessed", which is why a policy may instead
+   * — or also — name a release topic below. One of the two is required.
    */
-  implementations: string[];
+  implementations?: string[];
+  /**
+   * HCS topic carrying release manifests. When set, an upgrade is only signed if the code deployed
+   * at the proposed implementation hashes to what a release on that topic published for it. The
+   * check needs the network, so it runs after this pure review rather than inside it.
+   */
+  manifestTopicId?: string;
   /**
    * Whether to sign an upgrade that also runs an initializer. Off by default because the two are not
    * the same operation: the initializer is arbitrary code nested inside what reads as a version bump,
@@ -87,7 +94,7 @@ const hbar = (tinybars: bigint): string => Hbar.fromTinybars(tinybars.toString()
 function reviewUpgrade(operation: Extract<GovernedOperation, { kind: "upgrade" }>, rule: UpgradeRule): Verdict {
   if (!listed(rule.targets, operation.target))
     return refuse(`${operation.target} is not a contract this agent upgrades`);
-  if (!listed(rule.implementations, operation.implementation)) {
+  if (rule.implementations && !listed(rule.implementations, operation.implementation)) {
     return refuse(`implementation ${operation.implementation} is not in the allowlist`);
   }
   if (operation.hasInitializer && rule.allowInitializer !== true) {

@@ -99,6 +99,13 @@ function tokenAdminOperations(value: unknown): TokenAdminRule["operations"] {
   return names as TokenAdminRule["operations"];
 }
 
+function entityId(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^\d+\.\d+\.\d+$/.test(value)) {
+    throw new Error(`policy.${field} must be a 0.0.x id, got ${JSON.stringify(value)}`);
+  }
+  return value;
+}
+
 function optionalBoolean(value: unknown, field: string): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "boolean") throw new Error(`policy.${field} must be true or false`);
@@ -128,10 +135,19 @@ export function parsePolicy(source: string): Policy {
 
   if (root.upgrade !== undefined) {
     const rule = asObject(root.upgrade, "upgrade");
-    rejectUnknownKeys(rule, ["targets", "implementations", "allowInitializer"], "upgrade");
+    rejectUnknownKeys(rule, ["targets", "implementations", "manifestTopicId", "allowInitializer"], "upgrade");
+    // An upgrade rule has to say how an implementation is trusted, and there are two ways: a list of
+    // addresses, or a release topic whose manifests the deployed code is checked against. Neither
+    // means the rule would approve any implementation at all for a listed proxy.
+    if (rule.implementations === undefined && rule.manifestTopicId === undefined) {
+      throw new Error("policy.upgrade needs implementations, manifestTopicId, or both: neither trusts nothing");
+    }
     policy.upgrade = {
       targets: stringList(rule.targets, "upgrade.targets"),
-      implementations: stringList(rule.implementations, "upgrade.implementations"),
+      implementations:
+        rule.implementations === undefined ? undefined : stringList(rule.implementations, "upgrade.implementations"),
+      manifestTopicId:
+        rule.manifestTopicId === undefined ? undefined : entityId(rule.manifestTopicId, "upgrade.manifestTopicId"),
       allowInitializer: optionalBoolean(rule.allowInitializer, "upgrade.allowInitializer"),
     };
   }

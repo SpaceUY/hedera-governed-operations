@@ -9,10 +9,11 @@
  * and it is the same object a decision published to a topic would carry.
  */
 import { type AgentConfig, loadConfig } from "./config";
-import { type Decision, type SignSchedule, reviewInbox } from "./review";
+import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } from "./review";
 import { Client } from "@hiero-ledger/sdk";
 import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
 import { fetchProposalInbox } from "@sh/core/governance/proposals";
+import { assertReleaseTopicIsSigned, checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
 
 type LogFields = Record<string, unknown>;
@@ -74,11 +75,30 @@ function createSigner(client: Client): SignSchedule {
  */
 type Reported = Map<string, string>;
 
+/**
+ * The half of an upgrade policy that needs the network, or null when the policy names no release
+ * topic — in which case the allowlist of implementations is the whole guarantee, and `parsePolicy`
+ * is what insists an upgrade rule carries one of the two.
+ */
+async function createReleaseVerifier(config: AgentConfig): Promise<VerifyRelease | null> {
+  const topicId = config.policy.upgrade?.manifestTopicId;
+  if (!topicId) return null;
+
+  // Before the first upgrade, not at the first one: a topic anyone can submit to makes every
+  // manifest on it an unsigned claim, and a check against it would pass for an implementation the
+  // attacker published themselves. That is a fact about the configuration, so it belongs with the
+  // rest of what the agent refuses to start on.
+  await assertReleaseTopicIsSigned(topicId, { network: config.network });
+
+  return implementation => checkImplementationAgainstManifest(implementation, topicId, { network: config.network });
+}
+
 async function runOnce(
   config: AgentConfig,
   sign: SignSchedule | null,
   signedThisRun: Set<string>,
   reported: Reported,
+  verifyRelease: VerifyRelease | null,
 ): Promise<void> {
   const lookup = {
     executorContractId: config.executorContractId,
@@ -109,6 +129,7 @@ async function runOnce(
       signedThisRun,
     },
     sign,
+    verifyRelease,
   );
 
   for (const scheduleId of result.signed) signedThisRun.add(scheduleId);
@@ -163,6 +184,7 @@ async function main(): Promise<void> {
     pollIntervalMs: config.pollIntervalMs,
     dryRun: config.dryRun,
     allows: Object.keys(config.policy),
+    releaseTopic: config.policy.upgrade?.manifestTopicId ?? null,
   });
 
   let running = true;
@@ -177,10 +199,11 @@ async function main(): Promise<void> {
 
   const signedThisRun = new Set<string>();
   const reported: Reported = new Map();
+  const verifyRelease = await createReleaseVerifier(config);
 
   while (running) {
     try {
-      await runOnce(config, sign, signedThisRun, reported);
+      await runOnce(config, sign, signedThisRun, reported, verifyRelease);
     } catch (error) {
       // One bad pass is not a reason to stop holding the seat: Mirror and the relay are both
       // eventually consistent, and the next poll is the retry.
