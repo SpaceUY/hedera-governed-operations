@@ -29,7 +29,7 @@ const schedule = (overrides: Partial<Proposal["schedule"]> = {}) =>
     deleted: false,
     memo: "",
     wait_for_expiry: false,
-    admin_key: null,
+    admin_key: { _type: "ED25519", key: "aa".repeat(32) },
     signatures: [],
     transaction_body: "",
     ...overrides,

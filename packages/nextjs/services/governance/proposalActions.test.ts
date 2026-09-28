@@ -120,9 +120,11 @@ describe("canShowIntent", () => {
   });
 });
 
+const ADMIN_KEY = { _type: "ED25519", key: "aa".repeat(32) };
+
 describe("canBeWithdrawnBy", () => {
   const PROPOSER = "0.0.10671142";
-  const schedule: MirrorSchedule = { ...executedSchedule, creator_account_id: PROPOSER };
+  const schedule: MirrorSchedule = { ...executedSchedule, creator_account_id: PROPOSER, admin_key: ADMIN_KEY };
 
   it("lets the proposer withdraw a pending proposal, since their key is the schedule's admin key", () => {
     expect(canBeWithdrawnBy({ schedule, state: stateOf("pending") }, PROPOSER)).toBe(true);
@@ -130,6 +132,12 @@ describe("canBeWithdrawnBy", () => {
 
   it("hides the action from any other account, whose ScheduleDelete the network would refuse", () => {
     expect(canBeWithdrawnBy({ schedule, state: stateOf("pending") }, "0.0.10671144")).toBe(false);
+  });
+
+  it("hides the action from a schedule created without an admin key, which nobody can delete", () => {
+    expect(canBeWithdrawnBy({ schedule: { ...schedule, admin_key: null }, state: stateOf("pending") }, PROPOSER)).toBe(
+      false,
+    );
   });
 
   it("hides the action when no wallet is connected", () => {
@@ -191,7 +199,7 @@ describe("cancellableRegistryId", () => {
 
 describe("cancelPlanOf", () => {
   const CREATOR = "0.0.10671142";
-  const schedule: MirrorSchedule = { ...executedSchedule, creator_account_id: CREATOR };
+  const schedule: MirrorSchedule = { ...executedSchedule, creator_account_id: CREATOR, admin_key: ADMIN_KEY };
   const NOT_RUN: ScheduleExecution = { status: "notRun" };
 
   it("deletes the live schedule first, then cancels, when the schedule's creator asks", () => {
@@ -203,6 +211,12 @@ describe("cancelPlanOf", () => {
     const proposal = { schedule, state: stateOf("pending"), execution: NOT_RUN, registry: entryOf() };
     expect(cancelPlanOf(proposal, "0.0.10671144")).toBeNull();
     expect(cancelPlanOf(proposal, null)).toBeNull();
+  });
+
+  it("never cancels under a live schedule that has no admin key, since deleting it first would fail", () => {
+    const immutable = { ...schedule, admin_key: null };
+    const proposal = { schedule: immutable, state: stateOf("pending"), execution: NOT_RUN, registry: entryOf() };
+    expect(cancelPlanOf(proposal, CREATOR)).toBeNull();
   });
 
   it.each(["deleted", "expired"] as const)("is cancel alone, for anyone, once the schedule is %s", status => {

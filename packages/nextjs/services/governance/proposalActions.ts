@@ -52,13 +52,21 @@ export function canShowIntent(facts: SignableFacts): boolean {
 /**
  * Only the proposer can withdraw: their key is the schedule's admin key, and the one who created the
  * schedule is the one whose key was named there. Offering it to anyone else is a wallet prompt the
- * network then refuses.
+ * network then refuses. A schedule created without an admin key (outside this app) cannot be deleted
+ * by anyone — `SCHEDULE_IS_IMMUTABLE` — and only its expiry ends it. The wallet reports a transaction
+ * as sent before consensus, so that refusal would not stop Cancel's second step from running under a
+ * schedule still live: it is ruled out here instead.
  */
 export function canBeWithdrawnBy(
   { schedule, state }: Pick<Proposal, "schedule" | "state">,
   accountId: string | null,
 ): boolean {
-  return state.status === "pending" && accountId !== null && schedule.creator_account_id === accountId;
+  return (
+    state.status === "pending" &&
+    accountId !== null &&
+    schedule.creator_account_id === accountId &&
+    schedule.admin_key !== null
+  );
 }
 
 /**
