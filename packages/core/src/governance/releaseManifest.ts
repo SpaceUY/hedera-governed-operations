@@ -145,7 +145,18 @@ export async function assertReleaseTopicIsSigned(
   return assertTopicIsSigned(topicId, "release", options);
 }
 
-export type ManifestCheck = { matched: true; manifest: PublishedManifest } | { matched: false; reason: string };
+/**
+ * Why an implementation did not match, as a value a screen can word for itself. `reason` stays the
+ * sentence the agent publishes; this is the same answer without having to parse it.
+ */
+export type ManifestFailure =
+  | { failure: "noCode" }
+  | { failure: "notNamed"; searched: "topic" | "recentReleases" }
+  | { failure: "codeChanged"; versions: string[] };
+
+export type ManifestCheck =
+  | { matched: true; manifest: PublishedManifest }
+  | ({ matched: false; reason: string } & ManifestFailure);
 
 const sameAddress = (left: string, right: string): boolean => left.toLowerCase() === right.toLowerCase();
 
@@ -169,7 +180,11 @@ export async function checkImplementationAgainstManifest(
 
   const runtime = contract.runtime_bytecode;
   if (!runtime || runtime === "0x") {
-    return { matched: false, reason: `${implementation} has no deployed code to check against a release` };
+    return {
+      matched: false,
+      failure: "noCode",
+      reason: `${implementation} has no deployed code to check against a release`,
+    };
   }
 
   const deployed = hashRuntimeBytecode(runtime);
@@ -180,15 +195,22 @@ export async function checkImplementationAgainstManifest(
     const searched = history.truncated
       ? `the ${history.manifests.length} most recent releases on topic ${topicId} do not name`
       : `no release on topic ${topicId} names`;
-    return { matched: false, reason: `${searched} the implementation ${implementation}` };
+    return {
+      matched: false,
+      failure: "notNamed",
+      searched: history.truncated ? "recentReleases" : "topic",
+      reason: `${searched} the implementation ${implementation}`,
+    };
   }
 
   const match = named.find(manifest => manifest.bytecodeHash === deployed);
   if (!match) {
-    const versions = [...new Set(named.map(manifest => manifest.version))].join(", ");
+    const versions = [...new Set(named.map(manifest => manifest.version))];
     return {
       matched: false,
-      reason: `the code at ${implementation} does not match the release published for ${versions} (deployed ${deployed})`,
+      failure: "codeChanged",
+      versions,
+      reason: `the code at ${implementation} does not match the release published for ${versions.join(", ")} (deployed ${deployed})`,
     };
   }
 

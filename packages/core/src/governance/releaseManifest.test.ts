@@ -179,6 +179,7 @@ describe("checkImplementationAgainstManifest", () => {
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
     expect(check).toMatchObject({ matched: false });
+    expect(check).toMatchObject({ failure: "notNamed", searched: "topic" });
     if (!check.matched) expect(check.reason).toContain("no release on topic");
   });
 
@@ -189,6 +190,7 @@ describe("checkImplementationAgainstManifest", () => {
     mockTopic([JSON.parse(buildReleaseManifestMessage(manifest({ implementation: "0x01" })))], true);
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
+    expect(check).toMatchObject({ matched: false, failure: "notNamed", searched: "recentReleases" });
     if (!check.matched) expect(check.reason).toContain("most recent releases on topic");
   });
 
@@ -198,7 +200,7 @@ describe("checkImplementationAgainstManifest", () => {
     mockTopic([JSON.parse(buildReleaseManifestMessage(manifest()))]);
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
-    expect(check).toMatchObject({ matched: false });
+    expect(check).toMatchObject({ matched: false, failure: "codeChanged", versions: ["v2.0.0"] });
     if (!check.matched) {
       expect(check.reason).toContain("does not match the release published for v2.0.0");
     }
@@ -209,6 +211,7 @@ describe("checkImplementationAgainstManifest", () => {
     mockTopic([JSON.parse(buildReleaseManifestMessage(manifest()))]);
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
+    expect(check).toMatchObject({ matched: false, failure: "noCode" });
     if (!check.matched) expect(check.reason).toContain("no deployed code");
   });
 
