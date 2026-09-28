@@ -96,7 +96,14 @@ describe("GovernanceHomePage", () => {
       ...proposal("0.0.3", 3, "deleted"),
       registry: {
         status: "read",
-        entry: { proposalId: 3, state: "cancelled", target: "0x0", proposer: "0x0", calldata: "0x", operation: {} },
+        entry: {
+          proposalId: 3,
+          state: "cancelled",
+          target: "0x0",
+          proposer: "0x0",
+          calldata: "0x",
+          operation: { kind: "upgrade", target: "0x0", implementation: "0x0", initializer: { kind: "none" } },
+        },
       },
     } as unknown as Proposal;
     showInbox([proposal("0.0.1", 1, "pending"), withdrawnThenCancelled]);
@@ -105,8 +112,7 @@ describe("GovernanceHomePage", () => {
     render(<GovernanceHomePage />);
 
     const settled = screen.getByRole("region", { name: INBOX_COPY.settledHeading });
-    expect(within(settled).getByText("Withdrawn")).toBeTruthy();
-    expect(within(settled).getByText("Registry entry: Cancelled")).toBeTruthy();
+    expect(within(settled).getByText("Withdrawn · entry cancelled")).toBeTruthy();
   });
 
   it("keeps showing the partial-inbox warning when a proposer could not be read", () => {

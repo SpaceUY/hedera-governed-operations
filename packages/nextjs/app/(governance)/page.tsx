@@ -73,7 +73,12 @@ export default function GovernanceHomePage() {
           This list may be incomplete: proposals from {inbox.data.unreachableProposers.join(", ")} could not be read.
         </p>
       )}
-      {!inbox.data && <span className="loading loading-spinner loading-sm" aria-label="Loading proposals" />}
+      {!inbox.data && (
+        <div role="status" aria-label={INBOX_COPY.loading} className="flex flex-col gap-2">
+          <div className="skeleton h-16 rounded-box" />
+          <div className="skeleton h-16 rounded-box" />
+        </div>
+      )}
       {inbox.data && pending.length === 0 && <p className="m-0 text-sm text-base-content/60">{INBOX_COPY.noPending}</p>}
       {pending.length > 0 && (
         <PendingOperationsList

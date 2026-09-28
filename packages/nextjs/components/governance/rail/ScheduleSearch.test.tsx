@@ -73,7 +73,7 @@ describe("ScheduleSearch", () => {
     const onSelect = renderSearch();
     search("0.0.777");
     expect(onSelect).toHaveBeenCalledWith("0.0.777");
-    expect(screen.getByText(/Transfer/)).toBeTruthy();
+    expect(screen.getByText("Pay a supplier")).toBeTruthy();
   });
 
   it("says plainly when nothing was found", () => {

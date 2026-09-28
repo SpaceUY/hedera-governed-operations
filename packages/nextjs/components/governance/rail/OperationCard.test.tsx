@@ -25,6 +25,25 @@ const proposal = (overrides: Partial<Proposal> = {}): Proposal =>
     ...overrides,
   }) as unknown as Proposal;
 
+const entry = (state: "pending" | "cancelled") =>
+  ({
+    status: "read",
+    entry: {
+      proposalId: 7,
+      state,
+      target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+      proposer: "0x0",
+      calldata: "0x",
+      operation: {
+        kind: "upgrade",
+        target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+        implementation: "0x0000000000000000000000000000000000a2d434",
+        initializerCalldata: "0x",
+        initializer: { kind: "none" },
+      },
+    },
+  }) as Proposal["registry"];
+
 const renderCard = (props: Partial<Parameters<typeof OperationCard>[0]> = {}) =>
   render(
     <ul>
@@ -33,11 +52,38 @@ const renderCard = (props: Partial<Parameters<typeof OperationCard>[0]> = {}) =>
   );
 
 describe("OperationCard", () => {
-  it("shows what it does, its status and its approvals", () => {
+  it("shows what it does, its family, and how many signatures it still needs", () => {
     renderCard();
     expect(screen.getByText(/Run entry 7 of the registry/)).toBeTruthy();
-    expect(screen.getByText("Collecting signatures")).toBeTruthy();
-    expect(screen.getByText("1 of 2 required signatures")).toBeTruthy();
+    expect(screen.getByText("contract · via registry")).toBeTruthy();
+    expect(screen.getByText("1 more needed")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Created. 1 more signature needed. Not executed." })).toBeTruthy();
+  });
+
+  it("names a registry call by the operation its entry holds once the entry was read", () => {
+    renderCard({ proposal: proposal({ registry: entry("pending") }) });
+    expect(screen.getByText("Upgrade the vault to v2")).toBeTruthy();
+  });
+
+  it("marks a native kind as such", () => {
+    renderCard({
+      proposal: proposal({
+        operation: { kind: "treasuryTransfer", hbar: [], tokens: [] },
+        registry: { status: "notApplicable" },
+      }),
+    });
+    expect(screen.getByText("Pay a supplier")).toBeTruthy();
+    expect(screen.getByText("native · no registry")).toBeTruthy();
+  });
+
+  it("says how a settled proposal ended instead of what it needs", () => {
+    renderCard({
+      proposal: proposal({
+        state: { status: "deleted", signatureCount: 1, executedAt: null, expiresAt: null, isSettled: true },
+      }),
+    });
+    expect(screen.getByText("Withdrawn")).toBeTruthy();
+    expect(screen.queryByText(/more needed/)).toBeNull();
   });
 
   it("reports the selection when the row is pressed", () => {
@@ -88,23 +134,9 @@ describe("OperationCard", () => {
     expect(description.className).toContain("text-warning");
   });
 
-  it("reads a cancelled registry entry as Cancelled even while the schedule itself still looks open", () => {
-    renderCard({
-      proposal: proposal({
-        registry: {
-          status: "read",
-          entry: {
-            proposalId: 7,
-            state: "cancelled",
-            target: "0x0",
-            proposer: "0x0",
-            calldata: "0x",
-            operation: {} as never,
-          },
-        },
-      }),
-    });
-    expect(screen.getByText("Registry entry: Cancelled")).toBeTruthy();
+  it("reads a cancelled registry entry as cancelled even while the schedule itself still looks open", () => {
+    renderCard({ proposal: proposal({ registry: entry("cancelled") }) });
+    expect(screen.getByText("1 more needed · entry cancelled")).toBeTruthy();
   });
 
   it("intensifies the countdown inside the final hour", () => {
@@ -119,7 +151,7 @@ describe("OperationCard", () => {
         },
       }),
     });
-    expect(screen.getByText(/Expires in/).className).toContain("text-error");
+    expect(screen.getByText(/left$/).className).toContain("badge-warning");
   });
 
   it("shows no countdown once the proposal has settled", () => {
@@ -135,6 +167,6 @@ describe("OperationCard", () => {
         execution: { status: "succeeded" } as unknown as Proposal["execution"],
       }),
     });
-    expect(screen.queryByText(/Expires in/)).toBeNull();
+    expect(screen.queryByText(/left$/)).toBeNull();
   });
 });

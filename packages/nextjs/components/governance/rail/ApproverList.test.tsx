@@ -1,6 +1,6 @@
-import { ApproverList } from "./ApproverList";
+import { ApproverList, type ApproverListProps } from "./ApproverList";
 import type { CouncilKey } from "@sh/core/governance/council";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 afterEach(cleanup);
@@ -11,51 +11,58 @@ const PROPOSERS = [
   { accountId: "0.0.102", key: "key-b" },
 ];
 
+const renderList = (props: Partial<ApproverListProps> = {}) =>
+  render(
+    <ApproverList
+      heading="Council"
+      council={COUNCIL}
+      progress={{ signed: 1, threshold: 2, signedBy: ["key-a"] }}
+      proposers={PROPOSERS}
+      viewerAccountId={null}
+      isCollecting
+      {...props}
+    />,
+  );
+
 describe("ApproverList", () => {
   it("renders one row per seat, named by the proposer that holds it or the start of its key", () => {
-    render(
-      <ApproverList
-        heading="Approvals"
-        council={COUNCIL}
-        progress={{ signed: 1, threshold: 2, signedBy: ["key-a"] }}
-        proposers={PROPOSERS}
-        viewerAccountId={null}
-      />,
-    );
-
-    expect(screen.getByRole("heading", { level: 2, name: "Approvals" })).toBeTruthy();
-    expect(screen.getByText("1 of 2 required signatures")).toBeTruthy();
+    renderList();
+    expect(screen.getByRole("heading", { level: 2, name: "Council" })).toBeTruthy();
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByText("0.0.101")).toBeTruthy();
     expect(screen.getByText("0.0.102")).toBeTruthy();
     expect(screen.getByText("Member key-c…")).toBeTruthy();
   });
 
+  it("names the seats as the map does, with the map's caption and the account under the name", () => {
+    renderList({ memberNames: { "key-b": { name: "Bob", caption: "demo co-signer" } } });
+    const bob = screen.getByText("Bob").closest("li")!;
+    expect(within(bob).getByText("demo co-signer")).toBeTruthy();
+    expect(within(bob).getByText("0.0.102")).toBeTruthy();
+  });
+
   it("marks the seats that have signed, and only those", () => {
-    render(
-      <ApproverList
-        heading="Approvals"
-        council={COUNCIL}
-        progress={{ signed: 2, threshold: 2, signedBy: ["key-a", "key-b"] }}
-        proposers={PROPOSERS}
-        viewerAccountId={null}
-      />,
-    );
+    renderList({ progress: { signed: 2, threshold: 2, signedBy: ["key-a", "key-b"] } });
     expect(screen.getAllByText("Signed")).toHaveLength(2);
     expect(screen.getByText("Not yet")).toBeTruthy();
   });
 
-  it("names the connected account's own seat You", () => {
-    render(
-      <ApproverList
-        heading="Approvals"
-        council={COUNCIL}
-        progress={{ signed: 1, threshold: 2, signedBy: ["key-a"] }}
-        proposers={PROPOSERS}
-        viewerAccountId="0.0.102"
-      />,
-    );
-    expect(screen.getByText("You")).toBeTruthy();
-    expect(screen.queryByText("0.0.102")).toBeNull();
+  it("says a seat didn't sign once signatures are no longer collected", () => {
+    renderList({ isCollecting: false });
+    expect(screen.getAllByText("Didn't sign")).toHaveLength(2);
+  });
+
+  it("names the connected account's own seat You, marks it as the viewer's wallet, and puts Sign on it alone", () => {
+    renderList({ viewerAccountId: "0.0.102", signAction: <button type="button">Sign with HashPack</button> });
+    const row = screen.getByText("your wallet").closest("li")!;
+    expect(within(row).getAllByText("You").length).toBeGreaterThan(0);
+    expect(within(row).getByText("0.0.102")).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Sign with HashPack" })).toBeTruthy();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("offers no Sign on the viewer's row once it has signed", () => {
+    renderList({ viewerAccountId: "0.0.101", signAction: <button type="button">Sign with HashPack</button> });
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

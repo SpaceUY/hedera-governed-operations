@@ -54,3 +54,13 @@ const HEDERA_CHAIN_ID = {
 export function getHederaRpcUrl(network: HederaNetworkName): string {
   return scaffoldConfig.rpcOverrides[HEDERA_CHAIN_ID[network]];
 }
+
+const HEDERA_CHAINS = { testnet: chains.hederaTestnet, mainnet: chains.hedera } as const;
+
+/**
+ * A HashScan page for a native entity or a transaction, on the network's own explorer as the chain
+ * config names it. A transaction is addressed by its consensus timestamp or by its id, in either form.
+ */
+export function getHashScanUrl(network: HederaNetworkName, entity: "schedule" | "transaction", id: string): string {
+  return `${HEDERA_CHAINS[network].blockExplorers.default.url}/${entity}/${id}`;
+}

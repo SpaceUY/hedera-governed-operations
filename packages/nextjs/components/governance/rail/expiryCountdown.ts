@@ -10,7 +10,8 @@ export type ExpiryCountdown = { label: string; urgency: ExpiryUrgency };
 /** Below this much time left, the countdown intensifies rather than just ticking down. */
 const FINAL_HOUR_MS = 60 * 60 * 1000;
 
-function formatDuration(ms: number): string {
+/** A span of time the way the rail writes it: "6d 21h", "3h 5m", "12m". */
+export function formatDuration(ms: number): string {
   const totalMinutes = Math.max(0, Math.round(ms / 60_000));
   const days = Math.floor(totalMinutes / (60 * 24));
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
@@ -29,7 +30,7 @@ export function expiryCountdown(
   const remainingMs = expiresAt.getTime() - now.getTime();
   if (remainingMs <= 0) return { label: "Expiring now", urgency: "final-hour" };
   return {
-    label: `Expires in ${formatDuration(remainingMs)}`,
+    label: `${formatDuration(remainingMs)} left`,
     urgency: remainingMs <= FINAL_HOUR_MS ? "final-hour" : "normal",
   };
 }

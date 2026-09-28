@@ -4,12 +4,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useProposals } from "~~/hooks/mirror/useProposals";
-import { useCancelProposal } from "~~/hooks/useCancelProposal";
+import { type CancelFlowStep, useCancelProposalFlow } from "~~/hooks/useCancelProposalFlow";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
-vi.mock("~~/hooks/useCancelProposal", () => ({ useCancelProposal: vi.fn() }));
+vi.mock("~~/hooks/useCancelProposalFlow", () => ({ useCancelProposalFlow: vi.fn() }));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
 
 const EXECUTOR_CONTRACT_ID = "0.0.5000";
@@ -74,12 +74,15 @@ const cancellableEntry = (proposer: string) =>
     },
   }) as Proposal["registry"];
 
+let start: ReturnType<typeof vi.fn>;
+
+function mockFlow(step: CancelFlowStep = "idle", error: unknown = null) {
+  start = vi.fn();
+  vi.mocked(useCancelProposalFlow).mockReturnValue({ step, start, error } as ReturnType<typeof useCancelProposalFlow>);
+}
+
 function mockMutations() {
-  vi.mocked(useCancelProposal).mockReturnValue({
-    mutate: vi.fn(),
-    isPending: false,
-    error: null,
-  } as unknown as ReturnType<typeof useCancelProposal>);
+  mockFlow();
   vi.mocked(useWithdrawProposal).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
@@ -111,152 +114,124 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+const WITHDRAWN = { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true } as const;
+
+const renderActions = (proposal: Proposal, accountId: string | null = PROPOSER_ACCOUNT_ID) =>
+  render(
+    <WithdrawCancelActions
+      proposal={proposal}
+      accountId={accountId}
+      executorContractId={EXECUTOR_CONTRACT_ID}
+      governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+      network="testnet"
+      onWithdrawn={vi.fn()}
+      onCancelled={vi.fn()}
+    />,
+  );
+
+const flowTarget = () => vi.mocked(useCancelProposalFlow).mock.lastCall?.[0];
+
 describe("WithdrawCancelActions", () => {
   it("renders nothing once neither action applies", () => {
     const proposal = baseProposal({
       state: { status: "executed", signatureCount: 2, executedAt: new Date(), expiresAt: null, isSettled: true },
       operation: { kind: "treasuryTransfer", hbar: [], tokens: [] },
     });
-    const { container } = render(
-      <WithdrawCancelActions
-        proposal={proposal}
-        accountId={PROPOSER_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        network="testnet"
-        onWithdrawn={vi.fn()}
-        onCancelled={vi.fn()}
-      />,
-    );
+    const { container } = renderActions(proposal);
     expect(container.textContent).toBe("");
   });
 
-  it("offers Withdraw to the proposer of a pending proposal, and explains the withdraw-then-cancel order", () => {
-    const proposal = baseProposal();
-    render(
-      <WithdrawCancelActions
-        proposal={proposal}
-        accountId={PROPOSER_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        network="testnet"
-        onWithdrawn={vi.fn()}
-        onCancelled={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole("button", { name: "Withdraw my approval round" })).toBeTruthy();
-    expect(screen.getByText(/becomes available once no schedule is still open/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Cancel this proposal" })).toBeNull();
+  it("offers Withdraw and Cancel side by side as two outlined cards while the schedule is live", () => {
+    renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }));
+    const withdraw = screen.getByRole("button", { name: "Withdraw my approval round" });
+    expect(withdraw.className).toContain("btn-outline");
+    expect(screen.getByText(/Deletes this schedule only. The proposal stays registered/)).toBeTruthy();
+    const cancel = screen.getByRole("button", { name: "Cancel this proposal" });
+    expect(cancel.className).toContain("btn-error");
+    expect(screen.getByText(/The live schedule is deleted first/)).toBeTruthy();
+    expect(flowTarget()).toMatchObject({ scheduleId: "0.0.777", registryProposalId: 7, withdrawFirst: true });
   });
 
-  it("offers Cancel, with confirmation, to the entry's own proposer", () => {
-    const onCancelled = vi.fn();
-    const cancelMutate = vi.fn((_input, options?: { onSuccess?: () => void }) => options?.onSuccess?.());
-    vi.mocked(useCancelProposal).mockReturnValue({
-      mutate: cancelMutate,
-      isPending: false,
-      error: null,
-    } as unknown as ReturnType<typeof useCancelProposal>);
+  it("spells out the two transactions before deleting the live schedule and cancelling", () => {
+    renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel this proposal" }));
 
-    const proposal = baseProposal({
-      state: { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true },
-      registry: cancellableEntry(PROPOSER_EVM),
-    });
-    render(
-      <WithdrawCancelActions
-        proposal={proposal}
-        accountId={PROPOSER_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        network="testnet"
-        onWithdrawn={vi.fn()}
-        onCancelled={onCancelled}
-      />,
-    );
+    expect(screen.getByText("Two transactions, in this order")).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByText(/can still reach 2 signatures later/)).toBeTruthy();
+    const confirm = screen.getByRole("button", { name: "Delete schedule, then cancel" });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.click(confirm);
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it("lets a cancel be called off without sending anything, and hands focus back", () => {
+    renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel this proposal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel this proposal" }));
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("is the cancel alone, with a one-step confirmation, once no schedule is live", () => {
+    renderActions(baseProposal({ state: WITHDRAWN, registry: cancellableEntry(PROPOSER_EVM) }));
+    expect(screen.queryByRole("button", { name: "Withdraw my approval round" })).toBeNull();
+    expect(screen.getByText(/No schedule to delete, no signatures needed/)).toBeTruthy();
+    expect(flowTarget()).toMatchObject({ withdrawFirst: false });
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel this proposal" }));
     expect(screen.getByText("Cancel this proposal for good?")).toBeTruthy();
-
     fireEvent.click(screen.getByRole("button", { name: "Confirm cancel" }));
-    expect(cancelMutate).toHaveBeenCalledWith(
-      { executorContractId: EXECUTOR_CONTRACT_ID, registryProposalId: 7 },
-      expect.anything(),
-    );
-    expect(onCancelled).toHaveBeenCalled();
+    expect(start).toHaveBeenCalledOnce();
     // Both accounts are read on the configured network, never on the build's default one.
     expect(useAccount).toHaveBeenCalledWith(PROPOSER_ACCOUNT_ID, expect.objectContaining({ network: "testnet" }));
     expect(useAccount).toHaveBeenCalledWith(GOVERNANCE_ACCOUNT_ID, expect.objectContaining({ network: "testnet" }));
   });
 
-  it("lets a cancel be called off without sending anything", () => {
-    const cancelMutate = vi.fn();
-    vi.mocked(useCancelProposal).mockReturnValue({
-      mutate: cancelMutate,
-      isPending: false,
-      error: null,
-    } as unknown as ReturnType<typeof useCancelProposal>);
+  it("says which wallet step is under way", () => {
+    mockFlow("cancelling");
+    renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }));
+    expect(screen.getByRole("status").textContent).toBe("Step 2 of 2 — approve the cancel in your wallet.");
+    expect(screen.queryByRole("button", { name: "Withdraw my approval round" })).toBeNull();
+  });
 
-    const proposal = baseProposal({
-      state: { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true },
-      registry: cancellableEntry(PROPOSER_EVM),
-    });
-    render(
-      <WithdrawCancelActions
-        proposal={proposal}
-        accountId={PROPOSER_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        network="testnet"
-        onWithdrawn={vi.fn()}
-        onCancelled={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Cancel this proposal" }));
-    fireEvent.click(screen.getByRole("button", { name: "Never mind" }));
-    expect(screen.getByRole("button", { name: "Cancel this proposal" })).toBeTruthy();
-    expect(cancelMutate).not.toHaveBeenCalled();
+  it("says the schedule is withdrawn but the entry is not cancelled after step 2 failed, and offers the cancel alone", () => {
+    mockFlow("withdrawnNotCancelled", Object.assign(new Error("User rejected"), { code: 5000 }));
+    renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }));
+    expect(screen.getByText(/The schedule was withdrawn, but the registry entry is not cancelled yet/)).toBeTruthy();
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Withdraw my approval round" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel the registry entry" }));
+    expect(start).toHaveBeenCalledOnce();
   });
 
   it("says why, instead of showing a button, to an account the contract would refuse", () => {
     mockAccounts("0x00000000000000000000000000000000000000ff", GOVERNANCE_EVM);
-    const proposal = baseProposal({
-      state: { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true },
-      registry: cancellableEntry(PROPOSER_EVM),
-    });
-    render(
-      <WithdrawCancelActions
-        proposal={proposal}
-        accountId="0.0.9999"
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        network="testnet"
-        onWithdrawn={vi.fn()}
-        onCancelled={vi.fn()}
-      />,
-    );
+    renderActions(baseProposal({ state: WITHDRAWN, registry: cancellableEntry(PROPOSER_EVM) }), "0.0.9999");
     expect(screen.queryByRole("button", { name: "Cancel this proposal" })).toBeNull();
     expect(screen.getByText(/Only the account that registered this entry/)).toBeTruthy();
   });
 
   it("authorizes the governance account too, the only EXECUTOR_ROLE holder here", () => {
     mockAccounts(GOVERNANCE_EVM, GOVERNANCE_EVM);
+    renderActions(baseProposal({ state: WITHDRAWN, registry: cancellableEntry(PROPOSER_EVM) }), GOVERNANCE_ACCOUNT_ID);
+    expect(screen.getByRole("button", { name: "Cancel this proposal" })).toBeTruthy();
+  });
+
+  it("keeps a live round's Cancel card away from an account that could never cancel it", () => {
+    mockAccounts(undefined, GOVERNANCE_EVM);
+    const { container } = renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }), null);
+    expect(container.textContent).toBe("");
+  });
+
+  it("tells an account that may cancel, but cannot delete the live schedule, to wait for the round to end", () => {
     const proposal = baseProposal({
-      state: { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true },
+      schedule: schedule({ creator_account_id: "0.0.4999" }),
       registry: cancellableEntry(PROPOSER_EVM),
     });
-    render(
-      <WithdrawCancelActions
-        proposal={proposal}
-        accountId={GOVERNANCE_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        network="testnet"
-        onWithdrawn={vi.fn()}
-        onCancelled={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole("button", { name: "Cancel this proposal" })).toBeTruthy();
+    renderActions(proposal);
+    expect(screen.queryByRole("button", { name: "Cancel this proposal" })).toBeNull();
+    expect(screen.getByText(/Only the account that created this schedule can delete it/)).toBeTruthy();
   });
 
   /**
@@ -264,28 +239,22 @@ describe("WithdrawCancelActions", () => {
    * open: cancelling under it would leave it to reach its threshold and revert at the treasury's cost.
    */
   it("holds Cancel back, pointing at it, while another schedule for the entry is still open", () => {
-    const withdrawn = baseProposal({
-      state: { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true },
-      registry: cancellableEntry(PROPOSER_EVM),
-    });
+    const withdrawn = baseProposal({ state: WITHDRAWN, registry: cancellableEntry(PROPOSER_EVM) });
     const stillOpen = baseProposal({
       schedule: schedule({ schedule_id: "0.0.778" }),
       registry: cancellableEntry(PROPOSER_EVM),
     });
     mockInbox([withdrawn, stillOpen]);
-    render(
-      <WithdrawCancelActions
-        proposal={withdrawn}
-        accountId={PROPOSER_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        network="testnet"
-        onWithdrawn={vi.fn()}
-        onCancelled={vi.fn()}
-      />,
-    );
+    renderActions(withdrawn);
     expect(screen.queryByRole("button", { name: "Cancel this proposal" })).toBeNull();
     expect(screen.getByText(/Another schedule for this entry is still collecting signatures/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "0.0.778" }).getAttribute("href")).toBe("/governance/0.0.778");
+  });
+
+  it("says a native proposal has nothing to cancel: withdrawing ends it", () => {
+    renderActions(baseProposal({ operation: { kind: "treasuryTransfer", hbar: [], tokens: [] } }));
+    expect(screen.getByText(/A native operation has no registry entry, so this ends it/)).toBeTruthy();
+    expect(screen.getByText(/No “cancel” here/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Cancel this proposal" })).toBeNull();
   });
 });

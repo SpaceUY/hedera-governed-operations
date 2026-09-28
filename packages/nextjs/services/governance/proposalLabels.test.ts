@@ -1,10 +1,10 @@
 import {
-  approvalsLabel,
   councilRuleLabel,
   executionFailureLabel,
   memberLabel,
   proposalStatusLabel,
   registryLabel,
+  requiredSignaturesLabel,
 } from "./proposalLabels";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck } from "@sh/core/governance/registry";
@@ -44,15 +44,9 @@ describe("councilRuleLabel", () => {
   });
 });
 
-describe("approvalsLabel", () => {
+describe("requiredSignaturesLabel", () => {
   it("counts signatures against the threshold and says so, not against the council's size", () => {
-    expect(approvalsLabel(progress(1, 2), null)).toBe("1 of 2 required signatures");
-  });
-
-  it("counts both councils for a rotation, which needs each one's threshold", () => {
-    expect(approvalsLabel(progress(2, 2), progress(0, 2))).toBe(
-      "Current council: 2 of 2 required signatures · Incoming council: 0 of 2 required signatures",
-    );
+    expect(requiredSignaturesLabel(progress(1, 2))).toBe("1 of 2 required signatures");
   });
 });
 

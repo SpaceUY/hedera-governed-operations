@@ -14,28 +14,28 @@ describe("expiryCountdown", () => {
 
   it("reads normally with more than an hour left", () => {
     expect(expiryCountdown(new Date("2026-01-01T05:00:00.000Z"), true, NOW)).toEqual({
-      label: "Expires in 5h 0m",
+      label: "5h 0m left",
       urgency: "normal",
     });
   });
 
   it("intensifies inside the final hour", () => {
     expect(expiryCountdown(new Date("2026-01-01T00:45:00.000Z"), true, NOW)).toEqual({
-      label: "Expires in 45m",
+      label: "45m left",
       urgency: "final-hour",
     });
   });
 
   it("intensifies right at the final-hour boundary, not just after it", () => {
     expect(expiryCountdown(new Date("2026-01-01T01:00:00.000Z"), true, NOW)).toEqual({
-      label: "Expires in 1h 0m",
+      label: "1h 0m left",
       urgency: "final-hour",
     });
   });
 
   it("reads normally just outside the final-hour boundary", () => {
     expect(expiryCountdown(new Date("2026-01-01T01:01:00.000Z"), true, NOW)).toEqual({
-      label: "Expires in 1h 1m",
+      label: "1h 1m left",
       urgency: "normal",
     });
   });

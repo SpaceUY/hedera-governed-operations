@@ -1,6 +1,8 @@
-import { CouncilMemberRow } from "./CouncilMemberRow";
+import type { ReactNode } from "react";
+import { CouncilMemberRow, type SeatState } from "./CouncilMemberRow";
 import type { CouncilKey, Proposer, ThresholdProgress } from "@sh/core/governance/council";
-import { memberLabel, requiredSignaturesLabel } from "~~/services/governance/proposalLabels";
+import type { MemberName } from "~~/components/governance/graph/mapModel";
+import { memberLabel } from "~~/services/governance/proposalLabels";
 
 export type ApproverListProps = {
   heading: string;
@@ -8,14 +10,20 @@ export type ApproverListProps = {
   progress: ThresholdProgress;
   proposers: readonly Proposer[];
   viewerAccountId: string | null;
+  /** The seats as the map names them, by key; a seat the map does not show falls back to `memberLabel`. */
+  memberNames?: Readonly<Record<string, MemberName>>;
+  /** Whether signatures are still being collected: a seat that has not signed reads "Not yet" rather than "Didn't sign". */
+  isCollecting: boolean;
+  /** Put on the viewer's own row, while it has not signed. */
+  signAction?: ReactNode;
   /** One below the panel's title: 2 on the detail route, 3 when the panel opens under a card. */
   headingLevel?: 2 | 3;
 };
 
 /**
- * Every seat of one council, one row each, not just the aggregate "n of m" text: who holds the seat
- * (a proposer's account, "You" for the connected one, or the start of the key when nobody proposes
- * it) and whether it has signed. A council rotation renders this twice — see `ProposalDetailPanel` —
+ * Every seat of one council, one row each: who holds it — named as the map names it, "You" for the
+ * connected account's own seat — and whether it has signed. The viewer's own row carries the Sign
+ * button; nobody else's does. A council rotation renders this twice — see `ProposalDetailPanel` —
  * since the schedule waits for both the current council's threshold and the incoming one's own.
  */
 export const ApproverList = ({
@@ -24,21 +32,34 @@ export const ApproverList = ({
   progress,
   proposers,
   viewerAccountId,
+  memberNames = {},
+  isCollecting,
+  signAction,
   headingLevel = 2,
 }: ApproverListProps) => {
   const Heading = headingLevel === 2 ? "h2" : "h3";
+  const stateOf = (key: string): SeatState =>
+    progress.signedBy.includes(key) ? "signed" : isCollecting ? "notYet" : "didNotSign";
   return (
     <section aria-label={heading} className="flex flex-col gap-1">
-      <Heading className="m-0 text-sm font-semibold">{heading}</Heading>
-      <p className="m-0 text-xs text-base-content/60">{requiredSignaturesLabel(progress)}</p>
-      <ul className="m-0 p-0 list-none flex flex-col gap-1">
-        {council.memberKeys.map(key => (
-          <CouncilMemberRow
-            key={key}
-            label={memberLabel(key, proposers, viewerAccountId)}
-            hasSigned={progress.signedBy.includes(key)}
-          />
-        ))}
+      <Heading className="m-0 text-xs font-semibold text-base-content/70">{heading}</Heading>
+      <ul className="m-0 flex list-none flex-col p-0">
+        {council.memberKeys.map(key => {
+          const holder = proposers.find(proposer => proposer.key === key)?.accountId;
+          const isViewer = holder !== undefined && holder === viewerAccountId;
+          const state = stateOf(key);
+          return (
+            <CouncilMemberRow
+              key={key}
+              name={memberNames[key]?.name ?? memberLabel(key, proposers, viewerAccountId)}
+              caption={memberNames[key]?.caption}
+              accountId={holder}
+              isViewer={isViewer}
+              state={state}
+              action={isViewer && state !== "signed" ? signAction : undefined}
+            />
+          );
+        })}
       </ul>
     </section>
   );

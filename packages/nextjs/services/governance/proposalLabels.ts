@@ -3,7 +3,8 @@
  * name the data model; these name what a council member needs to know about the proposal, plus the
  * inbox headings and the status note the live map shows around those states. Wizard copy — kind
  * titles, the path a proposal takes, notices, CTAs — lives in `components/governance/wizard/copy`,
- * and the map's node, edge and legend words in `components/governance/graph/copy`.
+ * the map's node, edge and legend words in `components/governance/graph/copy`, and the rail's card,
+ * detail and Withdraw / Cancel words in `components/governance/rail/copy`.
  */
 import type { CouncilKey, Proposer, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
@@ -63,15 +64,6 @@ export function memberLabel(memberKey: string, proposers: readonly Proposer[], v
 /** The council's rule, the same on the map, the treasury strip and the wizard's preview. */
 export function councilRuleLabel(council: CouncilKey): string {
   return `${council.threshold}-of-${council.memberKeys.length}`;
-}
-
-/** A rotation is counted against both councils, since the schedule waits for each one's threshold. */
-export function approvalsLabel(progress: ThresholdProgress, incomingProgress: ThresholdProgress | null): string {
-  if (!incomingProgress) return requiredSignaturesLabel(progress);
-  return (
-    `Current council: ${requiredSignaturesLabel(progress)} · ` +
-    `Incoming council: ${requiredSignaturesLabel(incomingProgress)}`
-  );
 }
 
 /**
@@ -134,36 +126,10 @@ export const LIVE_MAP_STATUS_NOTE =
   "Each proposal runs by itself the moment the council's threshold has signed it. There is no execute button " +
   "and no reject: a proposal nobody signs in time expires, and nothing runs.";
 
-/**
- * Why Withdraw has to happen before Cancel is offered: a schedule left alive for a cancelled entry
- * would still be able to reach its threshold, and that reverts with `ProposalNotPending` and bills
- * the governance account for the gas rather than doing nothing for free.
- */
-export const WITHDRAW_BEFORE_CANCEL_NOTE =
-  "Cancelling the registry entry becomes available once no schedule is still open for it — withdrawn, " +
-  "expired, or run and failed — so a signature reaching the threshold afterwards can never revert and " +
-  "bill the treasury.";
-
-/**
- * The choice a proposer with an open Cancel button actually faces. The registry entry has no expiry
- * of its own: only its schedule does, and a new one can be opened for it at any time.
- */
-export const CANCEL_VS_EXPIRE_NOTE =
-  "Cancelling ends this proposal for good. Left alone, the entry stays pending and nothing runs, but anyone " +
-  "can schedule it again for the council to approve; an expired or withdrawn schedule does not end it.";
-
-/** Shown in place of Cancel while another schedule for the same entry could still reach its threshold. */
-export const CANCEL_BLOCKED_BY_OPEN_SCHEDULE_NOTE =
-  "Another schedule for this entry is still collecting signatures. It has to be withdrawn or expire before " +
-  "the entry can be cancelled:";
-
-/** Shown in place of the Cancel button to whoever `GovernedExecutor.cancel` would refuse. */
-export const CANCEL_UNAUTHORIZED_NOTE =
-  "Only the account that registered this entry, or the governance account, can cancel it.";
-
 /** The governance home's words for the inbox, split into open approval rounds and settled ones. */
 export const INBOX_COPY = {
   pendingHeading: "Pending proposals",
   settledHeading: "Settled",
   noPending: "No proposal is waiting for signatures.",
+  loading: "Loading proposals",
 } as const;

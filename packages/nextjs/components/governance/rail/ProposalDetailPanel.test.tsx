@@ -1,28 +1,33 @@
 import { ProposalDetailPanel } from "./ProposalDetailPanel";
 import type { Proposal } from "@sh/core/governance/proposals";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useProposals } from "~~/hooks/mirror/useProposals";
-import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
-import { UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
+import { LIVE_MAP_STATUS_NOTE, UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
 
 vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/useSignProposal", () => ({ useSignProposal: vi.fn() }));
-vi.mock("~~/hooks/useCancelProposal", () => ({ useCancelProposal: vi.fn() }));
+vi.mock("~~/hooks/useCancelProposalFlow", () => ({
+  useCancelProposalFlow: () => ({ step: "idle", start: vi.fn(), error: null }),
+}));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.4000";
 const EXECUTOR_CONTRACT_ID = "0.0.5000";
 const MEMBER_A = "0.0.4101";
+const MEMBER_B = "0.0.4102";
 
 const COUNCIL_KEY = { threshold: 2, memberKeys: ["key-a", "key-b"] };
-const PROPOSERS = [{ accountId: MEMBER_A, key: "key-a" }];
+const PROPOSERS = [
+  { accountId: MEMBER_A, key: "key-a" },
+  { accountId: MEMBER_B, key: "key-b" },
+];
 
 const schedule = (overrides: Partial<Proposal["schedule"]> = {}) =>
   ({
@@ -63,11 +68,6 @@ function mockHooks() {
     isPending: false,
     error: null,
   } as unknown as ReturnType<typeof useSignProposal>);
-  vi.mocked(useCancelProposal).mockReturnValue({
-    mutate: vi.fn(),
-    isPending: false,
-    error: null,
-  } as unknown as ReturnType<typeof useCancelProposal>);
   vi.mocked(useWithdrawProposal).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
@@ -82,141 +82,200 @@ function mockHooks() {
 }
 
 beforeEach(mockHooks);
+
+type PanelProps = Parameters<typeof ProposalDetailPanel>[0];
+
+const renderPanel = (props: Partial<PanelProps> = {}) =>
+  render(
+    <ProposalDetailPanel
+      proposal={baseProposal()}
+      accountId={MEMBER_A}
+      signerKind="hashpack"
+      governanceAccountId={GOVERNANCE_ACCOUNT_ID}
+      executorContractId={EXECUTOR_CONTRACT_ID}
+      network="testnet"
+      refresh={vi.fn()}
+      markRegistryEntryCancelled={vi.fn()}
+      {...props}
+    />,
+  );
+
+const REGISTRY_CALL = {
+  kind: "registryCall",
+  proposalId: 7,
+  executorContractId: EXECUTOR_CONTRACT_ID,
+  gas: 150_000,
+  payableTinybars: 0n,
+} as const;
+
+const PENDING_UPGRADE_ENTRY = {
+  status: "read",
+  entry: {
+    proposalId: 7,
+    state: "pending",
+    target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+    proposer: "0x0000000000000000000000000000000000000001",
+    calldata: "0x",
+    operation: {
+      kind: "upgrade",
+      target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+      implementation: "0x0000000000000000000000000000000000a2d434",
+      initializerCalldata: "0x",
+      initializer: { kind: "none" },
+    },
+  },
+} as const;
 afterEach(cleanup);
 
 describe("ProposalDetailPanel", () => {
-  it("shows the status, registry and approvals summary, and one row per council seat", () => {
-    render(
-      <ProposalDetailPanel
-        proposal={baseProposal()}
-        accountId={MEMBER_A}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        network="testnet"
-        refresh={vi.fn()}
-        markRegistryEntryCancelled={vi.fn()}
-      />,
-    );
-
-    const title = screen.getByRole("heading", { level: 1, name: "Proposal 0.0.777" });
+  it("leads the page with the kind, what it does, its three steps and how many signatures it still needs", () => {
+    renderPanel();
+    expect(screen.getByText("Proposal 0.0.777")).toBeTruthy();
+    const title = screen.getByRole("heading", { level: 1, name: "Pay a supplier" });
     expect(title.className).toContain("text-lg");
-    expect(screen.getByText("Collecting signatures")).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 2, name: "Approvals" })).toBeTruthy();
-    expect(screen.getByText("You")).toBeTruthy();
+    expect(screen.getByText("Native operation · no registry entry, no event")).toBeTruthy();
+    for (const stage of ["Create", "Sign", "Executed"]) expect(screen.getByText(stage)).toBeTruthy();
+    expect(screen.getByText("more signature needed")).toBeTruthy();
+    expect(screen.getByText(/2-of-2 council · 1 signed/)).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Council" })).toBeTruthy();
   });
 
-  it("steps its headings down one level and its title below the page's when it opens under a card", () => {
-    render(
-      <ProposalDetailPanel
-        proposal={baseProposal()}
-        accountId={MEMBER_A}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        network="testnet"
-        refresh={vi.fn()}
-        markRegistryEntryCancelled={vi.fn()}
-        variant="inline"
-      />,
-    );
-
-    const title = screen.getByRole("heading", { level: 2, name: "Proposal 0.0.777" });
-    expect(screen.getByRole("heading", { level: 3, name: "Approvals" })).toBeTruthy();
-    // Below the page's text-lg title, and with the narrower padding a card inside the page's own can afford.
-    expect(title.className).toContain("text-base");
-    expect(title.parentElement?.className).toContain("px-3");
-    // No room for a label column in a phone-width card: each value sits under its label.
-    expect(screen.getByText("Status").closest("dl")?.className).toContain("grid-cols-1");
+  it("steps its headings down one level and leaves the visible title to the card when it opens under one", () => {
+    renderPanel({ variant: "inline" });
+    const title = screen.getByRole("heading", { level: 2, name: "Pay a supplier" });
+    expect(title.className).toContain("sr-only");
+    expect(title.parentElement?.className).toContain("px-4");
+    expect(screen.getByRole("heading", { level: 3, name: "Council" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: "On HashScan" })).toBeTruthy();
   });
 
-  it("offers Sign while the proposal can be signed", () => {
+  it("puts Sign on the connected member's own row, and nowhere else", () => {
     const sign = vi.fn();
     vi.mocked(useSignProposal).mockReturnValue({ mutate: sign, isPending: false, error: null } as unknown as ReturnType<
       typeof useSignProposal
     >);
-    render(
-      <ProposalDetailPanel
-        proposal={baseProposal()}
-        accountId={MEMBER_A}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        network="testnet"
-        refresh={vi.fn()}
-        markRegistryEntryCancelled={vi.fn()}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Sign" }));
+    renderPanel({ accountId: MEMBER_B });
+
+    const row = screen.getByText("your wallet").closest("li")!;
+    fireEvent.click(within(row).getByRole("button", { name: "Sign with HashPack" }));
     expect(sign).toHaveBeenCalledWith("0.0.777", expect.anything());
+    expect(screen.getAllByRole("button", { name: /^Sign with/ })).toHaveLength(1);
   });
 
-  it("still offers Sign when the registry could not be read, with a warning right after it", () => {
-    render(
-      <ProposalDetailPanel
-        proposal={baseProposal({
-          operation: {
-            kind: "registryCall",
-            proposalId: 7,
-            executorContractId: EXECUTOR_CONTRACT_ID,
-            gas: 90_000,
-            payableTinybars: 0n,
-          },
-          registry: { status: "unreachable", reason: "fetch failed" },
-        })}
-        accountId={MEMBER_A}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        network="testnet"
-        refresh={vi.fn()}
-        markRegistryEntryCancelled={vi.fn()}
-      />,
-    );
-    const sign = screen.getByRole("button", { name: "Sign" });
+  it("names the signer the button will ask", () => {
+    renderPanel({ accountId: MEMBER_B, signerKind: "burner" });
+    expect(screen.getByRole("button", { name: "Sign with the test signer" })).toBeTruthy();
+  });
+
+  it("offers no Sign to a member who already signed, or with no wallet connected", () => {
+    renderPanel();
+    expect(screen.queryByRole("button", { name: /^Sign with/ })).toBeNull();
+    cleanup();
+    renderPanel({ accountId: null });
+    expect(screen.queryByRole("button", { name: /^Sign with/ })).toBeNull();
+  });
+
+  it("still offers Sign to an account it cannot match to a seat, under the council", () => {
+    renderPanel({ accountId: "0.0.9999" });
+    const sign = screen.getByRole("button", { name: "Sign with HashPack" });
+    expect(sign.closest("li")).toBeNull();
+  });
+
+  it("still offers Sign when the registry could not be read, with a warning after it", () => {
+    renderPanel({
+      accountId: MEMBER_B,
+      proposal: baseProposal({ operation: REGISTRY_CALL, registry: { status: "unreachable", reason: "fetch failed" } }),
+    });
+    const sign = screen.getByRole("button", { name: "Sign with HashPack" });
     const warning = screen.getByText(UNREACHABLE_REGISTRY_SIGN_WARNING);
     expect(warning.getAttribute("role")).toBe("status");
     expect(sign.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("names the seats and the route as the map does", () => {
+    renderPanel({
+      proposal: baseProposal({ operation: REGISTRY_CALL, registry: PENDING_UPGRADE_ENTRY }),
+      memberNames: { "key-a": { name: "You" }, "key-b": { name: "Bob", caption: "demo co-signer" } },
+      route: ["Treasury", "Proposal registry", "Vault"],
+    });
+    expect(screen.getByRole("heading", { level: 1, name: "Upgrade the vault to v2" })).toBeTruthy();
+    expect(screen.getByText("Contract operation · goes through the registry")).toBeTruthy();
+    const route = screen.getByRole("list", { name: "Path it travels" });
+    expect(
+      within(route)
+        .getAllByRole("listitem")
+        .map(item => item.textContent),
+    ).toEqual(["Treasury", "→Proposal registry", "→Vault"]);
+    expect(screen.getByText("Bob")).toBeTruthy();
+    expect(screen.getByText("demo co-signer")).toBeTruthy();
+  });
+
   it("renders both councils for a rotation, each against its own threshold", () => {
     const incomingCouncil = { threshold: 2, memberKeys: ["key-x", "key-y"] };
-    render(
-      <ProposalDetailPanel
-        proposal={baseProposal({
-          operation: { kind: "councilRotation", accountId: GOVERNANCE_ACCOUNT_ID, council: incomingCouncil },
-          incomingProgress: { signed: 0, threshold: 2, signedBy: [] },
-        })}
-        accountId={null}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        network="testnet"
-        refresh={vi.fn()}
-        markRegistryEntryCancelled={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole("heading", { level: 2, name: "Current council" })).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 2, name: "Incoming council" })).toBeTruthy();
+    renderPanel({
+      accountId: null,
+      proposal: baseProposal({
+        operation: { kind: "councilRotation", accountId: GOVERNANCE_ACCOUNT_ID, council: incomingCouncil },
+        incomingProgress: { signed: 0, threshold: 2, signedBy: [] },
+      }),
+    });
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Current council · 1 of 2 required signatures" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Incoming council · 0 of 2 required signatures" }),
+    ).toBeTruthy();
+    // One more from the current council, two from the incoming one.
+    expect(screen.getByText("3")).toBeTruthy();
     expect(screen.getByText(/Replacing the council needs signatures from both sides/)).toBeTruthy();
   });
 
-  it("says there is no reject control and what expiry does", () => {
-    render(
-      <ProposalDetailPanel
-        proposal={baseProposal({
-          state: {
-            status: "pending",
-            signatureCount: 1,
-            executedAt: null,
-            expiresAt: new Date(2030, 0, 1),
-            isSettled: false,
-          },
-        })}
-        accountId={MEMBER_A}
-        governanceAccountId={GOVERNANCE_ACCOUNT_ID}
-        executorContractId={EXECUTOR_CONTRACT_ID}
-        network="testnet"
-        refresh={vi.fn()}
-        markRegistryEntryCancelled={vi.fn()}
-      />,
-    );
-    expect(screen.getByText(/There is no execute button and no reject/)).toBeTruthy();
-    expect(screen.getByText(/the proposal expires/)).toBeTruthy();
+  it("says once that there is no reject and when it expires, without repeating the map's status note", () => {
+    renderPanel({
+      proposal: baseProposal({
+        state: {
+          status: "pending",
+          signatureCount: 1,
+          executedAt: null,
+          expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60_000),
+          isSettled: false,
+        },
+      }),
+    });
+    expect(screen.getByText("There is no reject button.")).toBeTruthy();
+    expect(screen.getByText(/expires on its own — 3d 0h from now/)).toBeTruthy();
+    expect(screen.queryByText(LIVE_MAP_STATUS_NOTE)).toBeNull();
+  });
+
+  it("links the schedule and the transaction that created it on HashScan", () => {
+    renderPanel({ proposal: baseProposal({ schedule: schedule({ consensus_timestamp: "1727500000.000000001" }) }) });
+    const links = within(screen.getByRole("region", { name: "On HashScan" })).getAllByRole("link");
+    expect(links.map(link => link.getAttribute("href"))).toEqual([
+      "https://hashscan.io/testnet/schedule/0.0.777",
+      "https://hashscan.io/testnet/transaction/1727500000.000000001",
+    ]);
+    expect(links[0].textContent).toContain("active");
+    expect(links[1].textContent).toContain(`Scheduled by ${MEMBER_A}`);
+  });
+
+  it("folds the raw ids, function and gas away under one disclosure", () => {
+    renderPanel({ proposal: baseProposal({ operation: REGISTRY_CALL, registry: PENDING_UPGRADE_ENTRY }) });
+    const raw = screen.getByText("Raw ids, function and calldata").closest("details")!;
+    expect(raw.open).toBe(false);
+    expect(within(raw).getByText("execute(7) on the registry")).toBeTruthy();
+    expect(within(raw).getByText(/150,000/)).toBeTruthy();
+  });
+
+  it("says what an executed proposal did", () => {
+    renderPanel({
+      proposal: baseProposal({
+        state: { status: "executed", signatureCount: 2, executedAt: new Date(), expiresAt: null, isSettled: true },
+        execution: { status: "succeeded", transaction: { result: "SUCCESS", consensus_timestamp: "1.2" } } as never,
+        progress: { signed: 2, threshold: 2, signedBy: ["key-a", "key-b"] },
+      }),
+    });
+    expect(screen.getByText(/Status SUCCESS, fee paid by the treasury/)).toBeTruthy();
+    expect(screen.getByText("Scheduled transaction · SUCCESS")).toBeTruthy();
+    expect(screen.queryByText("There is no reject button.")).toBeNull();
   });
 });
