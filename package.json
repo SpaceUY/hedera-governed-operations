@@ -4,20 +4,27 @@
   "private": true,
   "workspaces": {
     "packages": [
+      "packages/agent",
       "packages/core",
       "packages/hardhat",
       "packages/nextjs"
     ]
   },
   "scripts": {
-    "format": "yarn core:format && yarn next:format && yarn hardhat:format",
-    "lint": "yarn core:lint && yarn next:lint && yarn hardhat:lint",
-    "test": "yarn core:test && yarn next:test && yarn hardhat:test",
+    "format": "yarn core:format && yarn agent:format && yarn next:format && yarn hardhat:format",
+    "lint": "yarn core:lint && yarn agent:lint && yarn next:lint && yarn hardhat:lint",
+    "test": "yarn core:test && yarn agent:test && yarn next:test && yarn hardhat:test",
     "core:check-types": "yarn workspace @sh/core check-types",
     "core:format": "yarn workspace @sh/core format",
     "core:lint": "yarn workspace @sh/core lint",
     "core:lint-staged": "yarn workspace @sh/core lint-staged",
     "core:test": "yarn workspace @sh/core test",
+    "agent:check-types": "yarn workspace @sh/agent check-types",
+    "agent:format": "yarn workspace @sh/agent format",
+    "agent:lint": "yarn workspace @sh/agent lint",
+    "agent:lint-staged": "yarn workspace @sh/agent lint-staged",
+    "agent:start": "yarn workspace @sh/agent start",
+    "agent:test": "yarn workspace @sh/agent test",
     "postinstall": "husky",
     "precommit": "lint-staged",
     "lint-staged": "lint-staged",
