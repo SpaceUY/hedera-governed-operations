@@ -5,7 +5,7 @@
  * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
  */
-import type { GhostNode, MapContext, MapDecorator } from "../mapModel";
+import type { GhostNode, MapContext, MapDecorator, MapRegion } from "../mapModel";
 import { EXECUTOR_NODE_ID, GOVERNANCE_ACCOUNT_NODE_ID, type Point, memberNodeId } from "~~/services/governance/graph";
 import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
 
@@ -46,6 +46,12 @@ const CAPTIONS: Partial<Record<string, string>> = {
   [MAP_ENTITY_IDS.vault]: "holds the reserve",
   [MAP_ENTITY_IDS.swapAdapter]: "sells ℏ on SaucerSwap",
 };
+
+/** The two areas of the layout: the council's column down the left, the contracts' across the top. */
+const REGIONS: MapRegion[] = [
+  { label: "Council", position: { x: 24, y: 300 }, orientation: "vertical" },
+  { label: "Contracts", position: { x: 740, y: 22 }, orientation: "horizontal" },
+];
 
 const AGENT: GhostNode = {
   id: "demo:co-signing-agent",
@@ -130,5 +136,5 @@ export const decorateDemoMap: MapDecorator = context => {
     labels[recipient.id] = DEMO_NAMES.supplier;
   }
 
-  return { layout: { ...SIZE, positions, labels }, captions, ghosts: [AGENT] };
+  return { layout: { ...SIZE, positions, labels }, captions, ghosts: [AGENT], regions: REGIONS };
 };

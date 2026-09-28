@@ -57,17 +57,17 @@ export function GraphEdge({ id, kind, phase, route, label, caption, focus, onAct
       <path
         d={path}
         fill="none"
-        strokeWidth={1.6}
         strokeLinecap="round"
         data-phase={phase}
-        // Lighting up is quick; going back to rest is the slow relax that ends every sequence.
-        className={`${PHASE_STROKE[phase]} ${dashOf(kind, phase)} transition-colors motion-reduce:transition-none ${phase === "rest" ? "duration-800" : "duration-150"}`}
+        // `map-edge-line` (globals.css): 1.6 wide, 2.6 under the pointer or keyboard focus, and a quick
+        // colour change into a phase but a slow relax back to rest.
+        className={`map-edge-line ${PHASE_STROKE[phase]} ${dashOf(kind, phase)}`}
       />
       <text
         x={middle.x}
         y={middle.y - 6}
         textAnchor="middle"
-        className="fill-base-content stroke-base-200 text-map-caption opacity-0 [paint-order:stroke] group-hover:opacity-100 group-focus-visible:opacity-100"
+        className="fill-base-content stroke-base-200 text-map-caption opacity-0 transition-opacity duration-180 [paint-order:stroke] group-hover:opacity-100 group-focus-visible:opacity-100"
         strokeWidth={4}
       >
         {caption}

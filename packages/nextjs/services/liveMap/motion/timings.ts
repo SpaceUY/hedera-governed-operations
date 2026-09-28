@@ -21,5 +21,11 @@ export const MOTION_MS = {
   councilChanged: 400,
 } as const;
 
+/**
+ * The map at rest: every node drifts on a loop of its own between 8 and 14 s, and the glow behind the
+ * treasury breathes on a 40 s one.
+ */
+export const AMBIENT_MS = { driftMin: 8_000, driftMax: 14_000, glow: 40_000 } as const;
+
 /** How long a comet takes to cross `hops` hops, one leaving every stagger. */
 export const travelMs = (hops: number): number => MOTION_MS.comet + MOTION_MS.cometStagger * (hops - 1);

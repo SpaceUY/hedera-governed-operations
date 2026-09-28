@@ -141,4 +141,32 @@ describe("GovernanceGraph", () => {
     const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 2, snap: true } } });
     expect(container.querySelector("[data-signed]")?.getAttribute("class")).toContain("animate-map-ring-snap");
   });
+
+  it("lets every node drift on a loop of its own, which reduced motion stops", () => {
+    const { container } = renderGraph();
+    const drifts = [EXECUTOR_NODE_ID, MAP_ENTITY_IDS.vault].map(
+      id => nodeElement(container, id)?.parentElement?.parentElement,
+    );
+    for (const drift of drifts) expect(drift?.getAttribute("class")).toBe("motion-safe:animate-map-drift");
+    const [executor, vault] = drifts.map(drift => drift?.style.animationDuration);
+    expect(executor).not.toBe(vault);
+  });
+
+  it("thickens an edge under the pointer or focus through the stylesheet, and fades its caption in", () => {
+    const { container } = renderGraph();
+    const edge = container.querySelector("[data-edge-id]");
+    expect(edge?.querySelector("[data-phase]")?.getAttribute("class")).toContain("map-edge-line");
+    expect(edge?.querySelector("text")?.getAttribute("class")).toContain("group-hover:opacity-100");
+  });
+
+  it("names the regions a layout gives it, and draws the glow behind the treasury as decoration", () => {
+    const regions = [
+      { label: "Council", position: { x: 20, y: 300 }, orientation: "vertical" as const },
+      { label: "Contracts", position: { x: 700, y: 20 }, orientation: "horizontal" as const },
+    ];
+    const { container } = renderGraph({ regions });
+    expect(screen.getByText("Council").getAttribute("transform")).toBe("rotate(-90 20 300)");
+    expect(screen.getByText("Contracts").getAttribute("transform")).toBeNull();
+    expect(container.querySelector(".motion-safe\\:animate-map-glow")?.getAttribute("aria-hidden")).toBe("true");
+  });
 });

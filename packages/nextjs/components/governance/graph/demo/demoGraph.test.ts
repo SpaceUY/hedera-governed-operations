@@ -85,4 +85,11 @@ describe("decorateDemoMap", () => {
     expect(map.graph.edges.some(edge => edge.from === agent.id || edge.to === agent.id)).toBe(false);
     expect(DEMO_INSPECTOR_COPY[agent.id]).toBeTruthy();
   });
+
+  it("names the council's column and the contracts' row", () => {
+    expect(composeMap(MAP_SNAPSHOT, decorateDemoMap).regions.map(({ label }) => label)).toEqual([
+      "Council",
+      "Contracts",
+    ]);
+  });
 });

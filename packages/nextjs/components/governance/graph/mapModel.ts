@@ -25,6 +25,9 @@ import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
  */
 export type GhostNode = { id: string; label: string; caption: string; position: Point };
 
+/** A name for an area of a hand-composed layout, such as the column the council sits in. */
+export type MapRegion = { label: string; position: Point; orientation: "horizontal" | "vertical" };
+
 export type MapContext = { nodes: readonly GraphNode[]; proposers: GraphSnapshot["proposers"] };
 
 export type MapDecoration = {
@@ -32,6 +35,7 @@ export type MapDecoration = {
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
+  regions?: MapRegion[];
 };
 
 /** Places and names the nodes of one graph; called with the nodes as the ledger produced them. */
@@ -41,6 +45,7 @@ export type ComposedMap = {
   graph: GovernanceGraph;
   captions: Partial<Record<string, string>>;
   ghosts: GhostNode[];
+  regions: MapRegion[];
 };
 
 export const AUTO_MAP_SIZE = { width: 1000, height: 600 } as const;
@@ -98,6 +103,7 @@ export function composeMap(
     graph: deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } }),
     captions: decoration?.captions ?? {},
     ghosts: decoration?.ghosts ?? [],
+    regions: decoration?.regions ?? [],
   };
 }
 

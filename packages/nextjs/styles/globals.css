@@ -217,3 +217,63 @@ textarea.textarea {
     transition: none;
   }
 }
+
+/*
+  The map at rest and under the pointer: each node drifts 2 px on a loop of its own (8–14 s, the
+  duration and phase set per node), the glow behind the treasury breathes on a 40 s loop, and an
+  edge thickens from 1.6 to 2.6 in 180 ms under the pointer or keyboard focus. A countdown in its
+  final hour pulses slowly. All of it stops under reduced motion.
+*/
+@theme {
+  --animate-map-drift: map-drift 5s ease-in-out infinite alternate;
+  --animate-map-glow: map-glow 20s ease-in-out infinite alternate;
+  --animate-expiry-pulse: expiry-pulse 3s ease-in-out infinite;
+
+  @keyframes map-drift {
+    from {
+      translate: -1px -2px;
+    }
+    to {
+      translate: 1px 2px;
+    }
+  }
+  @keyframes map-glow {
+    from {
+      opacity: 0.5;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes expiry-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+.map-edge-line {
+  stroke-width: 1.6;
+  /* Lighting up is quick; going back to rest is the slow relax that ends every sequence. */
+  transition:
+    stroke 150ms ease-out,
+    stroke-width 180ms ease-out;
+}
+
+.map-edge-line[data-phase="rest"] {
+  transition:
+    stroke 800ms ease-out,
+    stroke-width 180ms ease-out;
+}
+
+.group:hover .map-edge-line,
+.group:focus-visible .map-edge-line {
+  stroke-width: 2.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-edge-line,
+  .map-edge-line[data-phase="rest"] {
+    transition: none;
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { AccountNode } from "./AccountNode";
 import { Comet } from "./Comet";
 import { ContractNode } from "./ContractNode";
@@ -10,13 +10,19 @@ import type { MapItemRef } from "./MapItem";
 import { TokenNode } from "./TokenNode";
 import { TreasuryNode } from "./TreasuryNode";
 import { MAP_LABELS, MAP_NODE_CAPTIONS, mapEdgeCaption, mapEdgeLabel } from "./copy";
-import { routeOnMap } from "./geometry";
-import { type GhostNode, readingOrder } from "./mapModel";
+import { TREASURY_OUTLINE, routeOnMap } from "./geometry";
+import { type GhostNode, type MapRegion, readingOrder } from "./mapModel";
 import type { NodeProps } from "./nodeProps";
 import { useRovingFocus } from "./useRovingFocus";
 import type { CouncilKey } from "@sh/core/governance/council";
-import { type GovernanceGraph as Graph, type GraphNode, externalNodeId } from "~~/services/governance/graph";
+import {
+  GOVERNANCE_ACCOUNT_NODE_ID,
+  type GovernanceGraph as Graph,
+  type GraphNode,
+  externalNodeId,
+} from "~~/services/governance/graph";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
+import { driftOf } from "~~/services/liveMap/motion/ambient";
 import { type MapFrame, REST_FRAME } from "~~/services/liveMap/motion/frame";
 
 export type GovernanceGraphProps = {
@@ -24,6 +30,7 @@ export type GovernanceGraphProps = {
   council: CouncilKey;
   captions?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
+  regions?: MapRegion[];
   /**
    * What is lit, travelling or flashing right now (`frameOf`); at rest by default. An edge the frame
    * does not name is at rest, and an `intent` edge is only drawn while the frame names it.
@@ -31,6 +38,26 @@ export type GovernanceGraphProps = {
   frame?: MapFrame;
   onActivate?: (item: MapItemRef) => void;
 };
+
+/**
+ * A node's slow drift, a loop of its own (`driftOf`) — CSS only, and off under reduced motion. The
+ * edges stay where they are: they end under the node's opaque plate, which covers a drift of 2 px.
+ */
+function Drift({ nodeId, children }: { nodeId: string; children: ReactNode }) {
+  const { periodMs, phaseMs } = driftOf(nodeId);
+  return (
+    <g
+      className="motion-safe:animate-map-drift"
+      // `alternate`: out and back is one loop, so each way takes half of it.
+      style={{ animationDuration: `${periodMs / 2}ms`, animationDelay: `-${phaseMs}ms` }}
+    >
+      {children}
+    </g>
+  );
+}
+
+/** Rings of the primary colour fading outwards from the treasury, breathing on a slow loop. */
+const GLOW_RINGS = [3, 2.2, 1.5];
 
 /**
  * The governance graph drawn as SVG: real text, one Tab stop, arrow keys between nodes and edges.
@@ -43,6 +70,7 @@ export function GovernanceGraph({
   council,
   captions = {},
   ghosts = [],
+  regions = [],
   frame = REST_FRAME,
   onActivate,
 }: GovernanceGraphProps) {
@@ -50,6 +78,7 @@ export function GovernanceGraph({
   const nodesById = useMemo(() => new Map(graph.nodes.map(node => [node.id, node])), [graph.nodes]);
   const edgesById = useMemo(() => new Map(graph.edges.map(edge => [edge.id, edge])), [graph.edges]);
   const edges = graph.edges.filter(edge => edge.kind !== "intent" || phases[edge.id] !== undefined);
+  const treasury = nodesById.get(GOVERNANCE_ACCOUNT_NODE_ID);
   const focus = useRovingFocus([...readingOrder([...graph.nodes, ...ghosts]), ...edges.map(edge => edge.id)]);
 
   const propsOf = (node: GraphNode): NodeProps => ({
@@ -103,6 +132,31 @@ export function GovernanceGraph({
         aria-label={MAP_LABELS.title}
         className="min-h-0 w-full flex-1"
       >
+        {treasury && (
+          <g aria-hidden="true" className="pointer-events-none motion-safe:animate-map-glow">
+            {GLOW_RINGS.map(scale => (
+              <circle
+                key={scale}
+                cx={treasury.position.x}
+                cy={treasury.position.y}
+                r={TREASURY_OUTLINE * scale}
+                className="fill-primary/4"
+              />
+            ))}
+          </g>
+        )}
+        {regions.map(({ label, position, orientation }) => (
+          <text
+            key={label}
+            x={position.x}
+            y={position.y}
+            textAnchor="middle"
+            transform={orientation === "vertical" ? `rotate(-90 ${position.x} ${position.y})` : undefined}
+            className="fill-base-content/50 text-map-caption font-semibold uppercase tracking-widest"
+          >
+            {label}
+          </text>
+        ))}
         {edges.map(edge => {
           const from = nodesById.get(edge.from);
           const to = nodesById.get(edge.to);
@@ -129,14 +183,18 @@ export function GovernanceGraph({
           return route ? <Comet key={`${comet.edgeId}:${comet.direction}`} route={route} comet={comet} /> : null;
         })}
         {graph.nodes.map(node => (
-          // A node that failed to take an operation shakes; the group keeps the shake off the node's
-          // own position, which is an SVG transform.
-          <g key={node.id} className={frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : undefined}>
-            {drawNode(node)}
-          </g>
+          <Drift key={node.id} nodeId={node.id}>
+            {/* A node that failed to take an operation shakes; the group keeps the shake off the
+                node's own position, which is an SVG transform. */}
+            <g className={frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : undefined}>
+              {drawNode(node)}
+            </g>
+          </Drift>
         ))}
         {ghosts.map(ghost => (
-          <AccountNode key={ghost.id} {...ghost} focus={focus} onActivate={onActivate} tone="ghost" />
+          <Drift key={ghost.id} nodeId={ghost.id}>
+            <AccountNode {...ghost} focus={focus} onActivate={onActivate} tone="ghost" />
+          </Drift>
         ))}
       </svg>
       <Legend />
