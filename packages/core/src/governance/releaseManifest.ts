@@ -6,21 +6,39 @@
  * council can see the address and cannot see what is at it, and an allowlist of addresses in a
  * config file only moves the question to whoever edits the file. A manifest closes it: at release
  * time the pipeline publishes the address together with the hash of the code actually deployed
- * there, signed by the topic's submit key and timestamped by consensus. Checking an upgrade is then
- * a comparison anyone can repeat, including from HashScan.
+ * there, and consensus timestamps it. Checking an upgrade is then a comparison anyone can repeat,
+ * including from HashScan.
+ *
+ * **The topic's submit key is what makes any of that evidence.** A topic created without one
+ * accepts a message from any account on the network, so a manifest read off it says only that
+ * somebody published those bytes — and an attacker publishing one for their own implementation
+ * would pass the same check as the pipeline. `yarn setup` creates the release topic with the
+ * operator as its submit key, and `assertReleaseTopicIsSigned` is what refuses to treat a topic
+ * without one as a source of releases. Reading is public either way; writing is not.
  *
  * What it does not do is attest the source. That is Sourcify's job, and the two compose: Sourcify
  * says the source matches the deployed code, the manifest says the deployed code is the build the
  * team blessed for this version.
  */
-import { type MirrorRequestOptions, fetchContract, fetchDecodedTopicMessages } from "../mirror";
+import {
+  type MirrorRequestOptions,
+  type MirrorTopic,
+  fetchContract,
+  fetchDecodedTopicMessagePages,
+  fetchTopic,
+  hasSubmitKey,
+} from "../mirror";
 import { type Hex, isHex, keccak256 } from "viem";
 
 /** Carried in every message so a topic can gain another kind of record without breaking readers. */
 export const RELEASE_MANIFEST_SCHEMA = "governed-operations/release-manifest/1";
 
-/** How far back a check reads. A release topic gets one message per release, not per block. */
-export const MANIFEST_HISTORY = 100;
+/**
+ * How far back a check reads, in pages of 100. A release topic gets one message per release, but a
+ * bound has to exist and the refusal says when it was the bound that ended the search rather than
+ * the topic.
+ */
+export const MANIFEST_MAX_PAGES = 10;
 
 export type ReleaseManifest = {
   /** The release this build belongs to, as the team numbers them. */
@@ -85,13 +103,23 @@ export function hashRuntimeBytecode(runtimeBytecode: string): Hex {
   return keccak256(code.toLowerCase() as Hex);
 }
 
+export type ReleaseHistory = {
+  manifests: PublishedManifest[];
+  /** True when the page bound ran out before the topic did, so "no release names it" is not provable. */
+  truncated: boolean;
+};
+
 export async function fetchReleaseManifests(
   topicId: string,
   options: MirrorRequestOptions = {},
-): Promise<PublishedManifest[]> {
-  const messages = await fetchDecodedTopicMessages(topicId, { ...options, limit: MANIFEST_HISTORY, order: "desc" });
+): Promise<ReleaseHistory> {
+  const { messages, truncated } = await fetchDecodedTopicMessagePages(topicId, {
+    ...options,
+    order: "desc",
+    maxPages: MANIFEST_MAX_PAGES,
+  });
 
-  return messages.flatMap(message => {
+  const manifests = messages.flatMap(message => {
     const manifest = parseReleaseManifest(message.json);
     if (!manifest) return [];
     return [
@@ -102,6 +130,29 @@ export async function fetchReleaseManifests(
       },
     ];
   });
+
+  return { manifests, truncated };
+}
+
+/**
+ * The check that has to run before a topic's contents count as releases: a topic with no submit key
+ * takes a message from anyone, so every manifest on it is an unsigned claim. It throws rather than
+ * returning a verdict because it answers a question about the configuration, not about a proposal —
+ * an agent pointed at an open topic should refuse to start, not refuse one upgrade at a time.
+ */
+export async function assertReleaseTopicIsSigned(
+  topicId: string,
+  options: MirrorRequestOptions = {},
+): Promise<MirrorTopic> {
+  const topic = await fetchTopic(topicId, options);
+  if (topic.deleted) throw new Error(`release topic ${topicId} is deleted`);
+  if (!hasSubmitKey(topic)) {
+    throw new Error(
+      `release topic ${topicId} has no submit key, so anyone can publish a manifest on it: ` +
+        "create one with a submit key (yarn setup does) and point the policy at that topic instead",
+    );
+  }
+  return topic;
 }
 
 export type ManifestCheck = { matched: true; manifest: PublishedManifest } | { matched: false; reason: string };
@@ -121,7 +172,7 @@ export async function checkImplementationAgainstManifest(
   topicId: string,
   options: MirrorRequestOptions = {},
 ): Promise<ManifestCheck> {
-  const [contract, manifests] = await Promise.all([
+  const [contract, history] = await Promise.all([
     fetchContract(implementation, options),
     fetchReleaseManifests(topicId, options),
   ]);
@@ -132,9 +183,14 @@ export async function checkImplementationAgainstManifest(
   }
 
   const deployed = hashRuntimeBytecode(runtime);
-  const named = manifests.filter(manifest => sameAddress(manifest.implementation, implementation));
+  const named = history.manifests.filter(manifest => sameAddress(manifest.implementation, implementation));
   if (named.length === 0) {
-    return { matched: false, reason: `no release on topic ${topicId} names the implementation ${implementation}` };
+    // Saying "no release names it" after running out of pages would be a claim about the topic made
+    // from a window of it, and the two deserve different answers even though both refuse.
+    const searched = history.truncated
+      ? `the ${history.manifests.length} most recent releases on topic ${topicId} do not name`
+      : `no release on topic ${topicId} names`;
+    return { matched: false, reason: `${searched} the implementation ${implementation}` };
   }
 
   const match = named.find(manifest => manifest.bytecodeHash === deployed);

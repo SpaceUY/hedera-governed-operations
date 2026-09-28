@@ -25,8 +25,9 @@ import {
   TopicCreateTransaction,
   TransferTransaction,
 } from "@hiero-ledger/sdk";
-import { type MirrorAccount, fetchAccount } from "@sh/core/mirror";
+import { type MirrorAccount, fetchAccount, fetchTopic, hasSubmitKey, isMirrorNotFound } from "@sh/core/mirror";
 import { createPublicClient, http, parseAbi } from "viem";
+import { parseOperatorKey } from "~~/services/operatorKey";
 
 /**
  * HBAR the governance account starts with. It is the payer of every scheduled approval, and the
@@ -159,9 +160,15 @@ async function tokenPauseKeyContractId(client: Client, network: string, tokenId:
   return "a key that is not a contract";
 }
 
+export type ReleaseTopicLookups = {
+  /** Whether the topic exists and only its submit key can write to it. */
+  releaseTopicIsSigned(topicId: string): Promise<boolean>;
+};
+
 export type GovernanceSetupLookups = GovernanceLookups &
   DemoTokenLookups &
-  SeedProposalLookups & { accountHbarBalance(accountId: string): Promise<number> };
+  SeedProposalLookups &
+  ReleaseTopicLookups & { accountHbarBalance(accountId: string): Promise<number> };
 
 export type ReleaseTopicActions = {
   /** Creates the topic release manifests are published to. */
@@ -176,12 +183,39 @@ const RELEASE_TOPIC_MEMO = "governed-operations release manifests";
  * A topic of its own rather than the demo's. Anyone can read either, but mixing release records
  * into a feed the demo also writes to would leave the agent's check filtering someone else's
  * messages out of the answer to "what did this team publish".
+ *
+ * **The submit key is the whole point of the topic.** Without one the network accepts a message
+ * from any account, and a manifest read off it proves only that somebody published those bytes —
+ * an attacker could name their own implementation and the agent's check would pass. The operator
+ * holds it because the operator is what `yarn release:publish` signs with; in a real deployment it
+ * belongs to whatever identity the release pipeline runs as. The admin key is there so a team can
+ * rotate the submit key later: a topic created without one can never be changed.
  */
-async function createReleaseTopic(client: Client): Promise<string> {
-  const response = await new TopicCreateTransaction().setTopicMemo(RELEASE_TOPIC_MEMO).execute(client);
+async function createReleaseTopic(client: Client, env: SetupEnv): Promise<string> {
+  const operatorKey = parseOperatorKey(env.operatorPrivateKey).publicKey;
+  const response = await new TopicCreateTransaction()
+    .setTopicMemo(RELEASE_TOPIC_MEMO)
+    .setSubmitKey(operatorKey)
+    .setAdminKey(operatorKey)
+    .execute(client);
   const { topicId } = await response.getReceipt(client);
   if (!topicId) throw new Error("Release topic creation returned no topic id");
   return topicId.toString();
+}
+
+/**
+ * A topic the state already names is reused only if it still refuses messages from strangers. An
+ * older run of this script created the topic without a submit key, and since it also created it
+ * without an admin key there is no fixing that one in place: the answer is a new topic.
+ */
+async function releaseTopicIsSigned(topicId: string, network: string): Promise<boolean> {
+  try {
+    const topic = await fetchTopic(topicId, { network });
+    return !topic.deleted && hasSubmitKey(topic);
+  } catch (error) {
+    if (isMirrorNotFound(error)) return false;
+    throw error;
+  }
 }
 
 export function createGovernanceLookups(env: SetupEnv, client: Client): GovernanceSetupLookups {
@@ -192,6 +226,7 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
 
   return {
     accountExists: accountId => mirrorHas(`/api/v1/accounts/${accountId}`, network),
+    releaseTopicIsSigned: topicId => releaseTopicIsSigned(topicId, network),
     accountIdentity: accountId => accountIdentity(accountId, network),
     accountHbarBalance: async accountId => {
       const account = await fetchAccount(accountId, { network });
@@ -224,7 +259,7 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
 
 export function createGovernanceActions(env: SetupEnv, client: Client): GovernanceSetupActions {
   return {
-    createReleaseTopic: () => createReleaseTopic(client),
+    createReleaseTopic: () => createReleaseTopic(client, env),
     createGovernanceAccount: members => createGovernanceAccount(client, members),
     createDemoToken: tokenAdminContractId => createDemoToken(client, env, tokenAdminContractId),
     associateToken: (account, tokenId) => associateToken(client, account, tokenId),

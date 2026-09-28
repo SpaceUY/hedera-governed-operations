@@ -11,6 +11,10 @@
  * two differ — immutable variables and the metadata suffix are decided at deploy time — and the
  * check compares against the network, so the publisher has to as well or nothing would ever match.
  *
+ * The operator signs the message because the operator is the topic's submit key, which is what makes
+ * a manifest evidence rather than a claim anybody could have posted. In a real deployment this runs
+ * as the release pipeline, and the submit key is whatever identity that pipeline holds.
+ *
  *   yarn release:publish --contract AcmeVault --version v2.0.0
  *   yarn release:publish --contract AcmeVault --version v2.0.0 --implementation 0x… --commit abc1234
  *
@@ -95,7 +99,7 @@ function requireTopicId(fromArgs: string | undefined): string {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  // The operator signs the message; the topic id is written by `yarn setup` into .env.local.
+  // The topic id is written by `yarn setup` into .env.local, along with the operator that may write to it.
   loadDotenv({ path: resolve(PACKAGE_DIR, ".env"), quiet: true });
   loadDotenv({ path: resolve(PACKAGE_DIR, ".env.local"), quiet: true });
   const env = readSetupEnv(process.env);

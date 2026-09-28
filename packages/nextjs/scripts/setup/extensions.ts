@@ -14,6 +14,7 @@ import { HARDHAT_ENV_PATH, hardhatEnvEntries } from "./hardhatEnv";
 import {
   GOVERNANCE_LOW_BALANCE_HBAR,
   type ReleaseTopicActions,
+  type ReleaseTopicLookups,
   createGovernanceActions,
   createGovernanceLookups,
 } from "./hederaGovernance";
@@ -54,7 +55,7 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
     actions: createGovernanceActions(env, client),
   };
 
-  const releaseTopicId = await reconcileReleaseTopic(ctx, services.actions);
+  const releaseTopicId = await reconcileReleaseTopic(ctx.state.releaseTopicId, services);
   const { governance, proposers, step } = await reconcileGovernance({ ...ctx.state, releaseTopicId }, env, services);
   const withGovernance: SetupState = { ...ctx.state, releaseTopicId, governance };
   saveState(withGovernance);
@@ -85,11 +86,22 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
  * The topic release manifests go to. It is created before anything else here because it is the only
  * governance fixture with no dependency on the contracts: an upgrade proposal can be checked against
  * it on the very first release, and a template scaffolded today has somewhere to publish to.
+ *
+ * Existing is not enough to reuse it, which is the one place this differs from every other fixture:
+ * the topic has to still be one only the submit key can write to. A topic an earlier version of this
+ * script created without one cannot be repaired — it has no admin key either — so the reconcile
+ * replaces it rather than carrying a release log anybody could have written.
  */
-async function reconcileReleaseTopic(ctx: SetupContext, actions: ReleaseTopicActions): Promise<string> {
-  const existing = ctx.state.releaseTopicId;
-  const topicId = existing && (await ctx.lookups.topicExists(existing)) ? existing : await actions.createReleaseTopic();
-  const outcome = topicId === existing ? "reused" : "created";
+export async function reconcileReleaseTopic(
+  existing: string | undefined,
+  services: { lookups: ReleaseTopicLookups; actions: ReleaseTopicActions },
+): Promise<string> {
+  const reusable = existing !== undefined && (await services.lookups.releaseTopicIsSigned(existing));
+  const topicId = reusable ? existing : await services.actions.createReleaseTopic();
+  const outcome = reusable ? "reused" : "created";
+  if (!reusable && existing !== undefined) {
+    console.log(`  Release topic ${existing} takes messages from anyone; replacing it with a topic that does not.`);
+  }
   console.log(formatSteps([{ label: `Release topic ${topicId}`, outcome }]).join("\n"));
   return topicId;
 }

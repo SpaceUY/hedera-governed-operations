@@ -13,7 +13,7 @@ import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } fro
 import { Client } from "@hiero-ledger/sdk";
 import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
 import { fetchProposalInbox } from "@sh/core/governance/proposals";
-import { checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
+import { assertReleaseTopicIsSigned, checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
 
 type LogFields = Record<string, unknown>;
@@ -80,9 +80,16 @@ type Reported = Map<string, string>;
  * topic — in which case the allowlist of implementations is the whole guarantee, and `parsePolicy`
  * is what insists an upgrade rule carries one of the two.
  */
-function createReleaseVerifier(config: AgentConfig): VerifyRelease | null {
+async function createReleaseVerifier(config: AgentConfig): Promise<VerifyRelease | null> {
   const topicId = config.policy.upgrade?.manifestTopicId;
   if (!topicId) return null;
+
+  // Before the first upgrade, not at the first one: a topic anyone can submit to makes every
+  // manifest on it an unsigned claim, and a check against it would pass for an implementation the
+  // attacker published themselves. That is a fact about the configuration, so it belongs with the
+  // rest of what the agent refuses to start on.
+  await assertReleaseTopicIsSigned(topicId, { network: config.network });
+
   return implementation => checkImplementationAgainstManifest(implementation, topicId, { network: config.network });
 }
 
@@ -192,7 +199,7 @@ async function main(): Promise<void> {
 
   const signedThisRun = new Set<string>();
   const reported: Reported = new Map();
-  const verifyRelease = createReleaseVerifier(config);
+  const verifyRelease = await createReleaseVerifier(config);
 
   while (running) {
     try {

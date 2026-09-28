@@ -1,7 +1,8 @@
-import { fetchContract, fetchDecodedTopicMessages } from "../mirror";
+import { fetchContract, fetchDecodedTopicMessagePages, fetchTopic } from "../mirror";
 import {
   RELEASE_MANIFEST_SCHEMA,
   type ReleaseManifest,
+  assertReleaseTopicIsSigned,
   buildReleaseManifestMessage,
   checkImplementationAgainstManifest,
   fetchReleaseManifests,
@@ -13,7 +14,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../mirror", async importOriginal => ({
   ...(await importOriginal<typeof import("../mirror")>()),
   fetchContract: vi.fn(),
-  fetchDecodedTopicMessages: vi.fn(),
+  fetchDecodedTopicMessagePages: vi.fn(),
+  fetchTopic: vi.fn(),
 }));
 
 const IMPLEMENTATION = "0x00000000000000000000000000000000000abcde";
@@ -31,7 +33,7 @@ const manifest = (overrides: Partial<ReleaseManifest> = {}): ReleaseManifest => 
   ...overrides,
 });
 
-/** One decoded message as `fetchDecodedTopicMessages` returns them. */
+/** One decoded message as `fetchDecodedTopicMessagePages` returns them. */
 const message = (json: unknown, sequenceNumber = 1) => ({
   consensus_timestamp: `170000000${sequenceNumber}.000000000`,
   topic_id: TOPIC,
@@ -44,10 +46,15 @@ const message = (json: unknown, sequenceNumber = 1) => ({
   json,
 });
 
-const mockTopic = (messages: unknown[]): void => {
-  vi.mocked(fetchDecodedTopicMessages).mockResolvedValue(
-    messages.map((json, index) => message(json, index + 1)) as never,
-  );
+const mockTopic = (messages: unknown[], truncated = false): void => {
+  vi.mocked(fetchDecodedTopicMessagePages).mockResolvedValue({
+    messages: messages.map((json, index) => message(json, index + 1)),
+    truncated,
+  } as never);
+};
+
+const mockTopicKeys = (submitKey: unknown, deleted = false): void => {
+  vi.mocked(fetchTopic).mockResolvedValue({ topic_id: TOPIC, deleted, submit_key: submitKey } as never);
 };
 
 const mockContract = (runtimeBytecode: string | null): void => {
@@ -103,10 +110,36 @@ describe("fetchReleaseManifests", () => {
   it("keeps the manifests and drops the noise, with the sequence number a reader cites", async () => {
     mockTopic([{ hello: "not a manifest" }, JSON.parse(buildReleaseManifestMessage(manifest())), "plain text"]);
 
-    const manifests = await fetchReleaseManifests(TOPIC, { network: "testnet" });
+    const { manifests } = await fetchReleaseManifests(TOPIC, { network: "testnet" });
 
     expect(manifests).toHaveLength(1);
     expect(manifests[0]).toMatchObject({ version: "v2.0.0", sequenceNumber: 2 });
+  });
+
+  it("passes on that the read stopped at the page bound rather than at the end of the topic", async () => {
+    mockTopic([JSON.parse(buildReleaseManifestMessage(manifest()))], true);
+
+    expect((await fetchReleaseManifests(TOPIC)).truncated).toBe(true);
+  });
+});
+
+describe("assertReleaseTopicIsSigned", () => {
+  it("passes a topic only the submit key can write to", async () => {
+    mockTopicKeys({ _type: "ED25519", key: "302a300506032b6570032100aa" });
+
+    await expect(assertReleaseTopicIsSigned(TOPIC)).resolves.toMatchObject({ topic_id: TOPIC });
+  });
+
+  it("refuses a topic anyone can publish to, which is what makes its manifests unsigned claims", async () => {
+    mockTopicKeys(null);
+
+    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toThrow(/has no submit key/);
+  });
+
+  it("refuses a deleted topic", async () => {
+    mockTopicKeys({ _type: "ED25519", key: "302a300506032b6570032100aa" }, true);
+
+    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toThrow(/is deleted/);
   });
 });
 
@@ -143,6 +176,16 @@ describe("checkImplementationAgainstManifest", () => {
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
     expect(check).toMatchObject({ matched: false });
     if (!check.matched) expect(check.reason).toContain("no release on topic");
+  });
+
+  it("says it read a window, not the topic, when the page bound ended the search", async () => {
+    // Otherwise a topic flooded past the bound would report "no release names it" — a claim about
+    // the whole topic made from part of it.
+    mockContract(RUNTIME);
+    mockTopic([JSON.parse(buildReleaseManifestMessage(manifest({ implementation: "0x01" })))], true);
+
+    const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
+    if (!check.matched) expect(check.reason).toContain("most recent releases on topic");
   });
 
   it("refuses when a release names the address but the code there has changed", async () => {
