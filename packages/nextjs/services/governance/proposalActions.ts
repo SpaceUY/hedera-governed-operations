@@ -10,6 +10,24 @@ function isVouchedEntry(registry: Proposal["registry"]): boolean {
   );
 }
 
+/** Whether an `unreachable` registry read is treated as vouched-for too, or held to the strict rule. */
+type VouchLevel = "vouchedOnly" | "vouchedOrUnreachable";
+
+/**
+ * The gate both `canBeSigned` and `canShowIntent` share: a native kind needs no registry entry, a
+ * contract-backed kind needs a registry call, and `level` decides whether a relay that could not be
+ * asked (`unreachable`) still counts.
+ */
+function isSignableOperation({ state, operation, registry }: SignableFacts, level: VouchLevel): boolean {
+  if (state.status !== "pending") return false;
+  if (operation.kind === "treasuryTransfer" || operation.kind === "councilRotation") {
+    return registry.status === "notApplicable";
+  }
+  if (operation.kind !== "registryCall") return false;
+  if (isVouchedEntry(registry)) return true;
+  return level === "vouchedOrUnreachable" && registry.status === "unreachable";
+}
+
 /**
  * A council member is only asked to sign a proposal the app can vouch for, or one it simply could not
  * check just now: a native kind (no registry entry), a registry call whose entry is still pending and
@@ -17,13 +35,8 @@ function isVouchedEntry(registry: Proposal["registry"]): boolean {
  * (`unreachable`) — the network is the final check either way, so a transient read failure is a
  * warning, not a lock. A missing, cancelled or unrecognised entry still gets no Sign button.
  */
-export function canBeSigned({ state, operation, registry }: SignableFacts): boolean {
-  if (state.status !== "pending") return false;
-  if (operation.kind === "treasuryTransfer" || operation.kind === "councilRotation") {
-    return registry.status === "notApplicable";
-  }
-  if (operation.kind !== "registryCall") return false;
-  return isVouchedEntry(registry) || registry.status === "unreachable";
+export function canBeSigned(facts: SignableFacts): boolean {
+  return isSignableOperation(facts, "vouchedOrUnreachable");
 }
 
 /**
@@ -32,13 +45,8 @@ export function canBeSigned({ state, operation, registry }: SignableFacts): bool
  * currently holds — it may have been cancelled or executed since the last successful read — so a
  * preview drawn from it would claim to know something the app cannot back up.
  */
-export function canShowIntent({ state, operation, registry }: SignableFacts): boolean {
-  if (state.status !== "pending") return false;
-  if (operation.kind === "treasuryTransfer" || operation.kind === "councilRotation") {
-    return registry.status === "notApplicable";
-  }
-  if (operation.kind !== "registryCall") return false;
-  return isVouchedEntry(registry);
+export function canShowIntent(facts: SignableFacts): boolean {
+  return isSignableOperation(facts, "vouchedOnly");
 }
 
 /**
