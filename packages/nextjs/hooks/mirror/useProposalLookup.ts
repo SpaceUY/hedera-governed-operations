@@ -137,5 +137,24 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
     delayedRefresh.current = setTimeout(invalidate, DEFAULT_PENDING_POLL_MS);
   };
 
-  return { proposal, isLoading, error, refresh };
+  /**
+   * After `cancel` succeeds, the transaction receipt is the authoritative answer, and the relay is
+   * not: it serves state a block or two behind, so an immediate re-read of the entry — what
+   * `refresh()` would do — would almost certainly still say "Pending" and overwrite this before
+   * anyone saw "Cancelled". So this only writes the known outcome into the cache now and schedules
+   * one read a poll interval later to reconcile with the relay once it has caught up; nothing here
+   * touches the schedule, which cancel does not change.
+   */
+  const markRegistryEntryCancelled = () => {
+    queryClient.setQueryData<RegistryCrossCheck>(registryKey, current =>
+      current?.status === "read" ? { ...current, entry: { ...current.entry, state: "cancelled" } } : current,
+    );
+    if (delayedRefresh.current) clearTimeout(delayedRefresh.current);
+    delayedRefresh.current = setTimeout(
+      () => void queryClient.invalidateQueries({ queryKey: registryKey }),
+      DEFAULT_PENDING_POLL_MS,
+    );
+  };
+
+  return { proposal, isLoading, error, refresh, markRegistryEntryCancelled };
 }

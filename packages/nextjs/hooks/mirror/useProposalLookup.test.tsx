@@ -161,6 +161,7 @@ describe("useProposalLookup", () => {
               proposalId: 7,
               state: "pending",
               target: "0x1111111111111111111111111111111111111111",
+              proposer: "0x0000000000000000000000000000000000009001",
               calldata: "0x",
               operation: { kind: "unrecognized", target: "0x11", calldata: "0x", reason: "test" },
             },
@@ -232,6 +233,57 @@ describe("useProposalLookup", () => {
     await waitFor(() => expect(result.current.proposal).toBeDefined());
     expect(result.current.proposal?.registry.status).toBe("missing");
     expect(fetchRegistryEntries).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The relay is a block or two behind, so an immediate re-read right after `cancel` succeeds would
+   * likely still answer "Pending" and undo the very update the caller just asked for. The cache is
+   * updated straight away instead, and only reconciled with the relay after a poll interval.
+   */
+  it("marks the entry cancelled immediately, without an immediate re-read that could still say pending", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      deleted: true,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(
+      new Map([
+        [
+          7,
+          {
+            status: "read",
+            entry: {
+              proposalId: 7,
+              state: "pending",
+              target: "0x1111111111111111111111111111111111111111",
+              proposer: "0x0000000000000000000000000000000000009001",
+              calldata: "0x",
+              operation: { kind: "unrecognized", target: "0x11", calldata: "0x", reason: "test" },
+            },
+          },
+        ],
+      ]),
+    );
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+
+    const { result } = lookup("0.0.10671156");
+    await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
+
+    const invalidateCallsBefore = invalidate.mock.calls.length;
+    act(() => result.current.markRegistryEntryCancelled());
+
+    // React Query notifies subscribers on a microtask, so the re-render is awaited rather than
+    // asserted synchronously; no invalidate happens in between, so this is still the write itself,
+    // not a re-read reaching the same answer.
+    await waitFor(() =>
+      expect(result.current.proposal?.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } }),
+    );
+    // No immediate invalidate/re-read: only the delayed one that setTimeout schedules.
+    expect(invalidate.mock.calls.length).toBe(invalidateCallsBefore);
+    invalidate.mockRestore();
   });
 
   it("drops the delayed re-read once the page is gone", () => {
