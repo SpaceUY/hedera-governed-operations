@@ -3,7 +3,12 @@ import { encodeUpgrade } from "@sh/core/governance/encode";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
-import { OPEN_PROPOSAL_NOTICES, PROPOSAL_KIND_COPY, openProposalCopy } from "~~/components/governance/wizard/copy";
+import {
+  OPEN_PROPOSAL_NOTICES,
+  PROPOSAL_KIND_COPY,
+  openProposalCopy,
+  scheduleRegisteredEntryCopy,
+} from "~~/components/governance/wizard/copy";
 import { TOKEN_ADMIN_COPY } from "~~/components/governance/wizard/kinds/tokenAdmin/copy";
 import { TREASURY_SWAP_COPY } from "~~/components/governance/wizard/kinds/treasurySwap/copy";
 import { VAULT_UPGRADE_COPY } from "~~/components/governance/wizard/kinds/vaultUpgrade/copy";
@@ -11,6 +16,7 @@ import { type GovernanceConfig, findDeployedContract } from "~~/config/governanc
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { type ProposalDraft, draftTreasuryTransfer } from "~~/services/governance/drafts";
+import type { UnscheduledEntry } from "~~/services/governance/unscheduledEntry";
 
 const drafts = vi.hoisted(() => ({ upgrade: null as ProposalDraft | null, transfer: null as ProposalDraft | null }));
 const push = vi.hoisted(() => vi.fn());
@@ -24,8 +30,15 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
+const submission = vi.hoisted(() => ({ unscheduledEntry: null as UnscheduledEntry | null }));
 vi.mock("~~/hooks/useSubmitProposalDraft", () => ({
-  useSubmitProposalDraft: () => ({ mutate, reset, status: "idle", error: null }),
+  useSubmitProposalDraft: () => ({
+    mutate,
+    reset,
+    status: "idle",
+    error: null,
+    unscheduledEntry: submission.unscheduledEntry,
+  }),
 }));
 vi.mock("~~/components/governance/wizard/kinds/treasuryTransfer/TransferForm", async () => {
   const { useEffect } = await import("react");
@@ -124,6 +137,7 @@ const cta = (kind: "upgrade" | "tokenAdmin" | "treasuryTransfer") =>
 beforeEach(() => {
   drafts.upgrade = null;
   drafts.transfer = null;
+  submission.unscheduledEntry = null;
 });
 
 afterEach(() => {
@@ -207,6 +221,23 @@ describe("NewProposalPage", () => {
 
     expect(mutate).toHaveBeenCalledWith(UPGRADE_DRAFT, expect.anything());
     expect(push).toHaveBeenCalledWith("/governance/0.0.901");
+  });
+
+  it("offers to schedule the entry an earlier attempt registered for this same call, not to register it again", () => {
+    drafts.upgrade = UPGRADE_DRAFT;
+    submission.unscheduledEntry = {
+      executorContractId: DEPLOYED.hederaContractId,
+      target: UPGRADE_DRAFT.path === "registry" ? UPGRADE_DRAFT.proposal.target : "",
+      calldata: UPGRADE_DRAFT.path === "registry" ? UPGRADE_DRAFT.proposal.calldata : "",
+      registrationTransactionId: `${PROPOSER}@1.0`,
+      registryProposalId: 12,
+    };
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    renderPage();
+
+    const resume = scheduleRegisteredEntryCopy(submission.unscheduledEntry);
+    expect(screen.getByRole("button", { name: resume.cta }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText(resume.note)).toBeTruthy();
   });
 
   it("keeps a vault upgrade from an account without PROPOSER_ROLE", () => {

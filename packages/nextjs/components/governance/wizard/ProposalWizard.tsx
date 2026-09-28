@@ -3,7 +3,7 @@
 import { CouncilPreviewPanel, type HeadingLevel } from "./CouncilPreviewPanel";
 import { OperationTypePicker } from "./OperationTypePicker";
 import { useProposalWizard } from "./ProposalWizardProvider";
-import { OPEN_PROPOSAL_NOTICES, missingProposerRoleLabel, openProposalCopy } from "./copy";
+import { OPEN_PROPOSAL_NOTICES, missingProposerRoleLabel, openProposalCopy, scheduleRegisteredEntryCopy } from "./copy";
 import { WIZARD_KIND_ENTRIES } from "./kinds/registry";
 import type { WizardKind } from "./kinds/wizardKinds";
 import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
@@ -48,7 +48,8 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
   const { network, governanceAccountId } = config;
   const { accountId, isConnected } = useHederaSigner();
   const council = useCouncil({ governanceAccountId, executorContractId: config.executor.hederaContractId, network });
-  const { kind, chooseKind, draft, setDraft, preview, submitStatus, submitError, submit } = useProposalWizard();
+  const { kind, chooseKind, draft, setDraft, preview, submitStatus, submitError, submit, resumableEntry } =
+    useProposalWizard();
   const submitting = submitStatus === "pending";
 
   // A kind that cannot be proposed here says why in place of its form, before anything about roles.
@@ -57,7 +58,7 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
   const notice = opened.status === "unavailable" ? opened.notice : proposerNotice(kind, accountId, council, allowed);
   const canSubmit =
     allowed && preview !== null && isPreviewRecognized(preview) && !submitting && submitStatus !== "success";
-  const copy = openProposalCopy(kind);
+  const copy = resumableEntry ? scheduleRegisteredEntryCopy(resumableEntry) : openProposalCopy(kind);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

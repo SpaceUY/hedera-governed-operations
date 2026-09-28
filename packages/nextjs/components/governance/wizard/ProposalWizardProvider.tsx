@@ -5,6 +5,7 @@ import { WIZARD_KINDS, type WizardKind } from "./kinds/wizardKinds";
 import type { MutationStatus } from "@tanstack/react-query";
 import { useSubmitProposalDraft } from "~~/hooks/useSubmitProposalDraft";
 import { type DraftPreview, type DraftResult, previewDraft } from "~~/services/governance/drafts";
+import { type UnscheduledEntry, isEntryFor } from "~~/services/governance/unscheduledEntry";
 
 export type ProposalWizardState = {
   kind: WizardKind;
@@ -17,6 +18,11 @@ export type ProposalWizardState = {
   submitStatus: MutationStatus;
   submitError: Error | null;
   submit: () => void;
+  /**
+   * The registry entry an earlier submit of this same call registered but did not schedule; submitting
+   * then only schedules it. Null for any other draft.
+   */
+  resumableEntry: UnscheduledEntry | null;
 };
 
 const EMPTY_DRAFT: DraftResult = { status: "empty" };
@@ -37,11 +43,17 @@ type ProposalWizardProviderProps = {
  * `submit`, so no consumer can start one that skips `onSubmitted`.
  */
 export const ProposalWizardProvider = ({ executorContractId, onSubmitted, children }: ProposalWizardProviderProps) => {
-  const { mutate, reset, status, error } = useSubmitProposalDraft(executorContractId);
+  const { mutate, reset, status, error, unscheduledEntry } = useSubmitProposalDraft(executorContractId);
   const [kind, setKind] = useState<WizardKind>(WIZARD_KINDS[0]);
   const [draft, setDraft] = useState<DraftResult>(EMPTY_DRAFT);
 
   const preview = useMemo(() => (draft.status === "ready" ? previewDraft(draft.draft) : null), [draft]);
+  const resumableEntry =
+    draft.status === "ready" &&
+    draft.draft.path === "registry" &&
+    isEntryFor(unscheduledEntry, executorContractId, draft.draft.proposal)
+      ? unscheduledEntry
+      : null;
 
   const chooseKind = useCallback(
     (next: WizardKind) => {
@@ -67,8 +79,18 @@ export const ProposalWizardProvider = ({ executorContractId, onSubmitted, childr
 
   // Memoised so a re-render of the host alone does not re-render every consumer, such as a map.
   const value = useMemo(
-    () => ({ kind, chooseKind, draft, setDraft, preview, submitStatus: status, submitError: error, submit }),
-    [kind, chooseKind, draft, preview, status, error, submit],
+    () => ({
+      kind,
+      chooseKind,
+      draft,
+      setDraft,
+      preview,
+      submitStatus: status,
+      submitError: error,
+      submit,
+      resumableEntry,
+    }),
+    [kind, chooseKind, draft, preview, status, error, submit, resumableEntry],
   );
 
   return <ProposalWizardContext.Provider value={value}>{children}</ProposalWizardContext.Provider>;

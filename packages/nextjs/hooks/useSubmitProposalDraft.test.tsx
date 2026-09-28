@@ -17,7 +17,7 @@ const EXECUTOR = "0.0.4242";
 const mockHooks = () => {
   const createRegistry = vi.fn().mockResolvedValue({ registryProposalId: 7, scheduleId: "0.0.901" });
   const createNative = vi.fn().mockResolvedValue({ scheduleId: "0.0.902" });
-  vi.mocked(useCreateProposal).mockReturnValue({ mutateAsync: createRegistry } as never);
+  vi.mocked(useCreateProposal).mockReturnValue({ mutateAsync: createRegistry, unscheduledEntry: null } as never);
   vi.mocked(useCreateNativeProposal).mockReturnValue({ mutateAsync: createNative } as never);
   return { createRegistry, createNative };
 };
@@ -69,5 +69,21 @@ describe("useSubmitProposalDraft", () => {
       memo: PROPOSAL_KIND_COPY.upgrade.title,
     });
     expect(createNative).not.toHaveBeenCalled();
+  });
+
+  it("passes on the entry a failed registry submit left unscheduled", () => {
+    mockHooks();
+    const entry = {
+      executorContractId: EXECUTOR,
+      target: "0x01",
+      calldata: "0x",
+      registrationTransactionId: "0.0.1@1.0",
+      registryProposalId: 3,
+    };
+    vi.mocked(useCreateProposal).mockReturnValue({ mutateAsync: vi.fn(), unscheduledEntry: entry } as never);
+
+    const { result } = renderHook(() => useSubmitProposalDraft(EXECUTOR), { wrapper: createQueryWrapper() });
+
+    expect(result.current.unscheduledEntry).toBe(entry);
   });
 });

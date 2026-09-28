@@ -7,6 +7,7 @@
 import type { CouncilKey } from "@sh/core/governance/council";
 import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
+import type { UnscheduledEntry } from "~~/services/governance/unscheduledEntry";
 
 /** The title a proposal of each kind goes by, and the short hint beside it in the picker. */
 export const PROPOSAL_KIND_COPY: Record<ProposalKind, { title: string; hint: string }> = {
@@ -73,6 +74,17 @@ export function openProposalCopy(kind: ProposalKind): { cta: string; note: strin
   return {
     cta: "Schedule with your wallet",
     note: "One transaction — a native schedule. No registry entry is created.",
+  };
+}
+
+/** The CTA once this exact call is registered already, and only its schedule is left to create. */
+export function scheduleRegisteredEntryCopy(entry: UnscheduledEntry): { cta: string; note: string } {
+  const name = entry.registryProposalId === null ? "the registered entry" : `entry ${entry.registryProposalId}`;
+  return {
+    cta: `Schedule ${name} with your wallet`,
+    note:
+      `This call is already registered (transaction ${entry.registrationTransactionId}); the last attempt stopped ` +
+      `before its schedule. One transaction: it schedules ${name} and does not register the call again.`,
   };
 }
 

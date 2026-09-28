@@ -117,4 +117,120 @@ describe("useCreateProposal", () => {
     expect(result.current.error?.message).toMatch(/failed on chain/);
     expect(fetchContractResult).toHaveBeenCalledTimes(1);
   });
+
+  describe("after the registration succeeded and the schedule did not", () => {
+    const REGISTERED = { call_result: `0x${"0".repeat(62)}0c`, error_message: null };
+
+    const signerWith = (executeTransaction: ReturnType<typeof vi.fn>) =>
+      vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
+
+    const proposerKeyOnMirror = async () => {
+      const { fetchAccount } = await import("@sh/core/mirror");
+      vi.mocked(fetchAccount).mockResolvedValue({
+        key: { _type: "ECDSA_SECP256K1", key: PrivateKey.generateECDSA().publicKey.toStringRaw() },
+      } as never);
+    };
+
+    it("keeps the entry, and a retry of the same call only schedules it", async () => {
+      await proposerKeyOnMirror();
+      const executeTransaction = vi
+        .fn()
+        .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@1.0` })
+        .mockRejectedValueOnce(new Error("User rejected the request"))
+        .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@3.0` });
+      signerWith(executeTransaction);
+      vi.mocked(fetchContractResult).mockResolvedValue(REGISTERED as never);
+      vi.mocked(fetchTransaction).mockResolvedValue([
+        { transaction_id: `${PROPOSER_ID}-3-0`, name: "SCHEDULECREATE", entity_id: "0.0.999" } as never,
+      ]);
+
+      const { result } = renderHook(() => useCreateProposal(), { wrapper: createQueryWrapper() });
+      result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal, memo: "test proposal" });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.unscheduledEntry).toMatchObject({
+        registrationTransactionId: `${PROPOSER_ID}@1.0`,
+        registryProposalId: 12,
+      });
+
+      result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal, memo: "test proposal" });
+
+      await waitFor(() => expect(result.current.data).toEqual({ registryProposalId: 12, scheduleId: "0.0.999" }));
+      // One createProposal, two ScheduleCreate attempts; the id was read once.
+      expect(executeTransaction).toHaveBeenCalledTimes(3);
+      // The SDK here and in core are separate copies, so the kind of transaction is told by its methods.
+      const isSchedule = (call: unknown[]) => "setScheduledTransaction" in (call[0] as object);
+      expect(executeTransaction.mock.calls.map(isSchedule)).toEqual([false, true, true]);
+      expect(fetchContractResult).toHaveBeenCalledTimes(1);
+      expect(result.current.unscheduledEntry).toBeNull();
+    });
+
+    it("reads the id of a registration Mirror had not indexed, instead of registering again", async () => {
+      await proposerKeyOnMirror();
+      const executeTransaction = vi
+        .fn()
+        .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@1.0` })
+        .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@2.0` });
+      signerWith(executeTransaction);
+      vi.mocked(fetchContractResult)
+        .mockResolvedValueOnce({ call_result: "0x", error_message: null } as never)
+        .mockResolvedValueOnce({ call_result: "0x", error_message: null } as never)
+        .mockResolvedValueOnce({ call_result: "0x", error_message: null } as never)
+        .mockResolvedValueOnce({ call_result: "0x", error_message: null } as never)
+        .mockResolvedValue(REGISTERED as never);
+      vi.mocked(fetchTransaction).mockResolvedValue([
+        { transaction_id: `${PROPOSER_ID}-2-0`, name: "SCHEDULECREATE", entity_id: "0.0.999" } as never,
+      ]);
+
+      const { result } = renderHook(() => useCreateProposal(), { wrapper: createQueryWrapper() });
+      result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal, memo: "test proposal" });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.unscheduledEntry).toMatchObject({ registryProposalId: null });
+
+      result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal, memo: "test proposal" });
+
+      await waitFor(() => expect(result.current.data?.registryProposalId).toBe(12));
+      expect(executeTransaction).toHaveBeenCalledTimes(2);
+    });
+
+    it("registers a different call anew, leaving the earlier entry alone", async () => {
+      await proposerKeyOnMirror();
+      const executeTransaction = vi
+        .fn()
+        .mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@1.0` })
+        .mockRejectedValueOnce(new Error("User rejected the request"))
+        .mockResolvedValue({ transactionId: `${PROPOSER_ID}@3.0` });
+      signerWith(executeTransaction);
+      vi.mocked(fetchContractResult).mockResolvedValue(REGISTERED as never);
+      vi.mocked(fetchTransaction).mockResolvedValue([
+        { transaction_id: `${PROPOSER_ID}-3-0`, name: "SCHEDULECREATE", entity_id: "0.0.999" } as never,
+      ]);
+
+      const { result } = renderHook(() => useCreateProposal(), { wrapper: createQueryWrapper() });
+      result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal, memo: "test proposal" });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+
+      const changed = { ...proposal, calldata: "0x5678" as const };
+      result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal: changed, memo: "test proposal" });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      // createProposal, rejected schedule, then createProposal and schedule for the new call.
+      expect(executeTransaction).toHaveBeenCalledTimes(4);
+    });
+
+    it("forgets a registration that reverted, since it left no entry to schedule", async () => {
+      const executeTransaction = vi.fn().mockResolvedValueOnce({ transactionId: `${PROPOSER_ID}@1.0` });
+      signerWith(executeTransaction);
+      vi.mocked(fetchContractResult).mockResolvedValue({
+        call_result: "0x",
+        error_message: "CONTRACT_REVERT_EXECUTED",
+      } as never);
+
+      const { result } = renderHook(() => useCreateProposal(), { wrapper: createQueryWrapper() });
+      result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, proposal, memo: "test proposal" });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.unscheduledEntry).toBeNull();
+    });
+  });
 });
