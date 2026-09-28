@@ -23,6 +23,7 @@ import {
 } from "~~/services/liveMap/model/graph";
 import { driftOf } from "~~/services/liveMap/motion/ambient";
 import { type MapFrame, REST_FRAME } from "~~/services/liveMap/motion/frame";
+import { AMBIENT_MS } from "~~/services/liveMap/motion/timings";
 
 export type GovernanceGraphProps = {
   graph: Graph;
@@ -56,7 +57,10 @@ function Drift({ nodeId, children }: { nodeId: string; children: ReactNode }) {
   );
 }
 
-/** Rings of the primary colour fading outwards from the treasury, breathing on a slow loop. */
+/**
+ * Rings of the primary colour fading outwards from the treasury, breathing on a slow loop. Lighter in
+ * the light theme, where the same tint over a white page reads as hard-edged discs rather than a glow.
+ */
 const GLOW_RINGS = [3, 2.2, 1.5];
 
 /**
@@ -133,14 +137,19 @@ export function GovernanceGraph({
         className="min-h-0 w-full flex-1"
       >
         {treasury && (
-          <g aria-hidden="true" className="pointer-events-none motion-safe:animate-map-glow">
+          <g
+            aria-hidden="true"
+            className="pointer-events-none motion-safe:animate-map-glow"
+            // `alternate`: brightening and fading back is one loop, so each way takes half of it.
+            style={{ animationDuration: `${AMBIENT_MS.glow / 2}ms` }}
+          >
             {GLOW_RINGS.map(scale => (
               <circle
                 key={scale}
                 cx={treasury.position.x}
                 cy={treasury.position.y}
                 r={TREASURY_OUTLINE * scale}
-                className="fill-primary/4"
+                className="fill-primary/2 dark:fill-primary/4"
               />
             ))}
           </g>

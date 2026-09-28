@@ -220,7 +220,8 @@ textarea.textarea {
 
 /*
   The map at rest and under the pointer: each node drifts 2 px on a loop of its own (8–14 s, the
-  duration and phase set per node), the glow behind the treasury breathes on a 40 s loop, and an
+  duration and phase set per node), the glow behind the treasury breathes on a 40 s loop (both set
+  inline from `AMBIENT_MS`; the durations below are only defaults), and an
   edge thickens from 1.6 to 2.6 in 180 ms under the pointer or keyboard focus. A countdown in its
   final hour pulses slowly. All of it stops under reduced motion.
 */

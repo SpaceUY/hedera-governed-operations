@@ -194,6 +194,10 @@ describe("GovernanceGraph", () => {
     const { container } = renderGraph({ regions });
     expect(screen.getByText("Council").getAttribute("transform")).toBe("rotate(-90 20 300)");
     expect(screen.getByText("Contracts").getAttribute("transform")).toBeNull();
-    expect(container.querySelector(".motion-safe\\:animate-map-glow")?.getAttribute("aria-hidden")).toBe("true");
+    const glow = container.querySelector<SVGGElement>(".motion-safe\\:animate-map-glow");
+    expect(glow?.getAttribute("aria-hidden")).toBe("true");
+    // A 40 s loop, out and back.
+    expect(glow?.style.animationDuration).toBe("20000ms");
+    expect(glow?.querySelector("circle")?.getAttribute("class")).toBe("fill-primary/2 dark:fill-primary/4");
   });
 });
