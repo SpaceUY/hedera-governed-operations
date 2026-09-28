@@ -30,6 +30,14 @@ export function getGovernanceEntityIds(): GovernanceEntityIds {
   return { governanceAccountId, demoTokenId, seedProposalId: parsedSeedProposalId };
 }
 
+/**
+ * The HCS topic `yarn setup` creates for release manifests, or null when none is configured. Optional:
+ * only the upgrade form reads it, to say whether a release vouches for the implementation.
+ */
+export function getReleaseTopicId(): string | null {
+  return process.env.NEXT_PUBLIC_RELEASE_TOPIC_ID?.trim() || null;
+}
+
 /** A deployed contract as the governance screens need it: with the native id a scheduled call targets. */
 export type HederaDeployedContract = GenericContract & { hederaContractId: string };
 

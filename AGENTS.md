@@ -119,6 +119,7 @@ packages/nextjs/
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
+      useReleaseCheck.ts    Whether a published release vouches for an upgrade's implementation (the agent's check)
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
       useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation, the entry after a registry call) when a proposal settles
       useMapSnapshot.ts     Inbox, council and treasury as one snapshot, plus the events since the previous read
