@@ -12,6 +12,7 @@ import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { canBeSigned, canBeWithdrawnBy, cancellableRegistryId } from "~~/services/governance/proposalActions";
 import {
+  UNREACHABLE_REGISTRY_SIGN_WARNING,
   approvalsLabel,
   executionFailureLabel,
   proposalStatusLabel,
@@ -50,6 +51,7 @@ function ProposalDetail({ config: { governanceAccountId, executor, network }, sc
   const isWithdrawable = canBeWithdrawnBy(proposal, accountId);
   const cancellableProposalId = cancellableRegistryId(proposal);
   const executionFailure = executionFailureLabel(proposal);
+  const registryUnreachable = operation.kind === "registryCall" && registry.status === "unreachable";
 
   return (
     <div className="px-6 py-5">
@@ -119,6 +121,7 @@ function ProposalDetail({ config: { governanceAccountId, executor, network }, sc
               </button>
             )}
           </div>
+          {registryUnreachable && <p className="text-sm text-warning">{UNREACHABLE_REGISTRY_SIGN_WARNING}</p>}
           <MutationError error={sign.error} />
           <MutationError error={withdraw.error} />
           {isWithdrawable && (

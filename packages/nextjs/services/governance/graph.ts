@@ -9,7 +9,7 @@
  * pending proposal names that the configuration does not know — a transfer's recipient, an incoming
  * council member — becomes a node of its own, so the map always shows where a proposal would go.
  */
-import { canBeSigned } from "./proposalActions";
+import { canShowIntent } from "./proposalActions";
 import { type DecodedOperation, type RouteRole, decodedOperationOf, routeOf } from "./proposalRoutes";
 import { ContractId } from "@hiero-ledger/sdk";
 import type { CouncilKey, Proposer } from "@sh/core/governance/council";
@@ -72,9 +72,10 @@ export type GraphSnapshot = {
   proposers: Proposer[];
   entities: GraphEntity[];
   /**
-   * Only the ones the council could still sign shape the graph (`canBeSigned`): a settled proposal
-   * would go nowhere any more, and a schedule whose registry entry is cancelled or already ran would
-   * only revert.
+   * Only the ones the graph can vouch for shape it (`canShowIntent`): a settled proposal would go
+   * nowhere any more, a schedule whose registry entry is cancelled or already ran would only revert,
+   * and one the relay could not be asked about draws no preview either — a person may still sign it,
+   * but the map does not claim to know what it would currently do.
    */
   proposals: Proposal[];
 };
@@ -295,7 +296,7 @@ export function autoLayout(
 export function deriveGraphState(snapshot: GraphSnapshot, layout: GraphLayout = AUTO_LAYOUT): GovernanceGraph {
   const graph = structureOf(snapshot);
   for (const proposal of snapshot.proposals) {
-    if (canBeSigned(proposal)) addIntent(decodedOperationOf(proposal), graph);
+    if (canShowIntent(proposal)) addIntent(decodedOperationOf(proposal), graph);
   }
 
   const fallback = autoLayout(graph.nodes, layout);

@@ -1,4 +1,10 @@
-import { canBeSigned, canBeWithdrawnBy, canOpenProposal, cancellableRegistryId } from "./proposalActions";
+import {
+  canBeSigned,
+  canBeWithdrawnBy,
+  canOpenProposal,
+  canShowIntent,
+  cancellableRegistryId,
+} from "./proposalActions";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck, RegistryEntry } from "@sh/core/governance/registry";
 import type { MirrorSchedule, ScheduleExecution, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
@@ -79,9 +85,9 @@ describe("canBeSigned", () => {
     expect(canBeSigned({ state: stateOf("pending"), operation, registry: { status: "notRead" } })).toBe(false);
   });
 
-  it("refuses while the relay cannot be read, even though the schedule is still pending", () => {
+  it("still offers a signature while the relay cannot be read, since the network is the final check", () => {
     const registry: RegistryCrossCheck = { status: "unreachable", reason: "fetch failed" };
-    expect(canBeSigned({ state: stateOf("pending"), operation: REGISTRY_CALL, registry })).toBe(false);
+    expect(canBeSigned({ state: stateOf("pending"), operation: REGISTRY_CALL, registry })).toBe(true);
   });
 
   it("refuses a native kind that somehow carries a registry answer", () => {
@@ -91,6 +97,19 @@ describe("canBeSigned", () => {
   it("refuses a scheduled body the decoder did not understand", () => {
     const operation: ScheduledOperation = { kind: "unrecognized", reason: "unknown body" };
     expect(canBeSigned({ state: stateOf("pending"), operation, registry: { status: "notApplicable" } })).toBe(false);
+  });
+});
+
+describe("canShowIntent", () => {
+  it("agrees with canBeSigned for a registry call the app can vouch for", () => {
+    expect(canShowIntent({ state: stateOf("pending"), operation: REGISTRY_CALL, registry: entryOf() })).toBe(true);
+  });
+
+  it("draws no preview for a registry call the relay could not read, unlike canBeSigned", () => {
+    const registry: RegistryCrossCheck = { status: "unreachable", reason: "fetch failed" };
+    const facts = { state: stateOf("pending"), operation: REGISTRY_CALL, registry };
+    expect(canShowIntent(facts)).toBe(false);
+    expect(canBeSigned(facts)).toBe(true);
   });
 });
 
