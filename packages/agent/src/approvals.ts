@@ -10,7 +10,7 @@
  * alternative — a confirmation that survives in a file — is an approval nobody watched being made
  * still standing after the process that asked for it is gone.
  */
-import { matchingTotpStep } from "./totp";
+import { matchingTotpStep, totpStepAt } from "./totp";
 
 /**
  * How long a confirmation keeps releasing signatures. The agent signs on the pass after the code
@@ -21,10 +21,23 @@ import { matchingTotpStep } from "./totp";
 export const CONFIRMATION_TTL_MS = 15 * 60 * 1000;
 
 /**
- * What came of a code. Each one is a different thing to tell whoever sent it: nothing is waiting
- * under that id, it was already released, or the code itself was not accepted.
+ * Wrong codes a single step will look at. The replay guard stops a code being used twice and does
+ * nothing against guessing: six digits is a million, and the drift window makes three of them valid
+ * at once. RFC 6238 §5.2 and RFC 4226 §7.3 both ask for throttling for that reason, and this is it —
+ * five tries per thirty seconds turns the search from hours into decades.
+ *
+ * It is per step rather than a lockout, so a person who fat-fingered a code waits for the next one
+ * instead of for an operator: an endpoint that can be locked shut from outside is its own denial of
+ * the very approval it guards.
  */
-export type ConfirmationOutcome = "confirmed" | "unknown" | "alreadyConfirmed" | "rejected";
+export const ATTEMPTS_PER_STEP = 5;
+
+/**
+ * What came of a code. Each one is a different thing to tell whoever sent it: nothing is waiting
+ * under that id, it was already released, the attempts for this step are spent, or the code itself
+ * was not accepted.
+ */
+export type ConfirmationOutcome = "confirmed" | "unknown" | "alreadyConfirmed" | "throttled" | "rejected";
 
 export type ApprovalStore = {
   /**
@@ -68,6 +81,10 @@ export function createApprovalStore(secret: Uint8Array | null): ApprovalStore {
    */
   let lastAcceptedStep = -1;
 
+  /** Wrong codes seen in `attemptStep`, reset whenever the clock moves on. */
+  let attemptStep = -1;
+  let wrongThisStep = 0;
+
   return {
     awaitConfirmation(scheduleId) {
       if (!waiting.has(scheduleId)) waiting.set(scheduleId, null);
@@ -78,8 +95,18 @@ export function createApprovalStore(secret: Uint8Array | null): ApprovalStore {
       if (!waiting.has(scheduleId)) return "unknown";
       if (isLive(waiting.get(scheduleId) ?? null, now)) return "alreadyConfirmed";
 
+      const current = totpStepAt(now);
+      if (current !== attemptStep) {
+        attemptStep = current;
+        wrongThisStep = 0;
+      }
+      if (wrongThisStep >= ATTEMPTS_PER_STEP) return "throttled";
+
       const step = matchingTotpStep(code, secret, now);
-      if (step === null || step <= lastAcceptedStep) return "rejected";
+      if (step === null || step <= lastAcceptedStep) {
+        wrongThisStep += 1;
+        return "rejected";
+      }
 
       lastAcceptedStep = step;
       waiting.set(scheduleId, now);

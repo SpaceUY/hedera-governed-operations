@@ -44,6 +44,7 @@ function statusOf(outcome: ConfirmationOutcome, scheduleId: string): ApprovalRes
   if (outcome === "confirmed") return answer(204);
   if (outcome === "unknown") return answer(404, `no proposal ${scheduleId} is waiting for a confirmation`);
   if (outcome === "alreadyConfirmed") return answer(409, `${scheduleId} has already been confirmed`);
+  if (outcome === "throttled") return answer(429, "too many wrong codes for this one; the next code is a new chance");
   return answer(400, "the code was not accepted");
 }
 

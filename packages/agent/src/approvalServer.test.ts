@@ -1,5 +1,5 @@
 import { handleApproval, startApprovalServer } from "./approvalServer";
-import { createApprovalStore } from "./approvals";
+import { ATTEMPTS_PER_STEP, createApprovalStore } from "./approvals";
 import { decodeBase32, totpCode, totpStepAt } from "./totp";
 import { type AddressInfo, connect } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
@@ -172,5 +172,16 @@ describe("the endpoint on a socket", () => {
     const { port } = server.address() as AddressInfo;
 
     await expect(startApprovalServer(waitingStore(), { host: "127.0.0.1", port })).rejects.toThrow(/EADDRINUSE/);
+  });
+});
+
+describe("too many wrong codes", () => {
+  it("answers 429, which is the one refusal that tells the sender to wait rather than retry", () => {
+    const approvals = waitingStore();
+    for (let attempt = 0; attempt < ATTEMPTS_PER_STEP; attempt += 1) {
+      handleApproval(post(`/approvals/${UPGRADE}`, '{"code":"000000"}'), approvals, NOW);
+    }
+
+    expect(handleApproval(post(`/approvals/${UPGRADE}`, '{"code":"000000"}'), approvals, NOW).status).toBe(429);
   });
 });

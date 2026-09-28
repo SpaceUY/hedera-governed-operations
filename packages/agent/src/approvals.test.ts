@@ -1,4 +1,4 @@
-import { CONFIRMATION_TTL_MS, createApprovalStore } from "./approvals";
+import { ATTEMPTS_PER_STEP, CONFIRMATION_TTL_MS, createApprovalStore } from "./approvals";
 import { TOTP_STEP_SECONDS, decodeBase32, totpCode, totpStepAt } from "./totp";
 import { describe, expect, it } from "vitest";
 
@@ -145,5 +145,56 @@ describe("a proposal that has left the inbox", () => {
     store.forgetOutside(new Set([UPGRADE, TRANSFER]));
 
     expect(store.confirmed(NOW).has(UPGRADE)).toBe(true);
+  });
+});
+
+describe("guessing at the code", () => {
+  const wrongTimes = (store: ReturnType<typeof createApprovalStore>, times: number): void => {
+    for (let attempt = 0; attempt < times; attempt += 1) store.confirm(UPGRADE, "000000", NOW);
+  };
+
+  it("stops being answered once a step has spent its attempts", () => {
+    const store = createApprovalStore(SECRET);
+    store.awaitConfirmation(UPGRADE);
+
+    wrongTimes(store, ATTEMPTS_PER_STEP);
+
+    expect(store.confirm(UPGRADE, "000000", NOW)).toBe("throttled");
+  });
+
+  it("stops the right code too, so the window cannot be searched by mixing them in", () => {
+    const store = createApprovalStore(SECRET);
+    store.awaitConfirmation(UPGRADE);
+
+    wrongTimes(store, ATTEMPTS_PER_STEP);
+
+    expect(store.confirm(UPGRADE, codeAt(NOW), NOW)).toBe("throttled");
+  });
+
+  it("gives the next step its own attempts, since a person who mistyped should not wait for an operator", () => {
+    const store = createApprovalStore(SECRET);
+    store.awaitConfirmation(UPGRADE);
+    wrongTimes(store, ATTEMPTS_PER_STEP);
+
+    const next = later(TOTP_STEP_SECONDS);
+    expect(store.confirm(UPGRADE, codeAt(next), next)).toBe("confirmed");
+  });
+
+  it("counts wrong codes rather than requests, so the last attempt still works", () => {
+    const store = createApprovalStore(SECRET);
+    store.awaitConfirmation(UPGRADE);
+    wrongTimes(store, ATTEMPTS_PER_STEP - 1);
+
+    expect(store.confirm(UPGRADE, codeAt(NOW), NOW)).toBe("confirmed");
+  });
+});
+
+describe("a store with no secret, which is an agent whose policy escalates nothing", () => {
+  it("releases nothing, since an empty key would be one everybody knows", () => {
+    const store = createApprovalStore(null);
+    store.awaitConfirmation(UPGRADE);
+
+    expect(store.confirm(UPGRADE, codeAt(NOW), NOW)).toBe("rejected");
+    expect(store.confirmed(NOW).has(UPGRADE)).toBe(false);
   });
 });
