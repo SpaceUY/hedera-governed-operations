@@ -43,6 +43,8 @@ packages/nextjs/
     council.ts                      # threshold key decoding, approval counting, proposer list
     proposals.ts                    # the inbox: schedules by proposer, narrowed and crossed with the registry
     proposalTypes.ts                # the five kinds, their execute gas, decoded shapes
+    proposalRoutes.ts               # the path each kind takes, in roles
+    graph.ts                        # the governance graph: nodes, edges, a proposal's scope, fallback layout
     decode.ts / encode.ts           # scheduled body and registry calldata ↔ described operation
     registry.ts                     # entry reads, cancel, the id createProposal returned
     schedules.ts                    # ScheduleCreate / Sign / Delete builders

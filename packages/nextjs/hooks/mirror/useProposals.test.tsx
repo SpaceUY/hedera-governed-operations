@@ -47,7 +47,11 @@ function stubMirrorWith(body: unknown) {
 
 beforeEach(() => {
   vi.mocked(fetchCouncilKey).mockResolvedValue(council);
-  vi.mocked(fetchProposerAccountIds).mockResolvedValue({ accountIds: [ALICE], unresolvable: [] });
+  vi.mocked(fetchProposerAccountIds).mockResolvedValue({
+    accountIds: [ALICE],
+    proposers: [{ accountId: ALICE, key: null }],
+    unresolvable: [],
+  });
 });
 
 afterEach(() => {

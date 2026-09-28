@@ -2,7 +2,12 @@
 
 import { type MirrorQueryOptions, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
 import { useQuery } from "@tanstack/react-query";
-import { type CouncilKey, fetchCouncilKey, fetchProposerAccountIds } from "~~/services/governance/council";
+import {
+  type CouncilKey,
+  type Proposer,
+  fetchCouncilKey,
+  fetchProposerAccountIds,
+} from "~~/services/governance/council";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /**
@@ -15,6 +20,8 @@ export type CouncilQueryData = {
   key: CouncilKey;
   /** Whose schedules make up the inbox, since Mirror can only list schedules by their creator. */
   proposerAccountIds: string[];
+  /** The same proposers with their keys, so one who holds a seat is recognised as that member. */
+  proposers: Proposer[];
   /** Role holders that resolved to no account, so the inbox can say it is missing their proposals. */
   unresolvableProposers: string[];
 };
@@ -40,7 +47,12 @@ export function useCouncil({ governanceAccountId, executorContractId, ...options
           rpcUrl: getHederaRpcUrl(hederaNetwork),
         }),
       ]);
-      return { key, proposerAccountIds: proposers.accountIds, unresolvableProposers: proposers.unresolvable };
+      return {
+        key,
+        proposerAccountIds: proposers.accountIds,
+        proposers: proposers.proposers,
+        unresolvableProposers: proposers.unresolvable,
+      };
     },
     enabled: (options.enabled ?? true) && governanceAccountId.length > 0 && executorContractId.length > 0,
     staleTime: COUNCIL_STALE_MS,

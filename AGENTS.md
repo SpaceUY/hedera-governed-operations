@@ -97,6 +97,8 @@ packages/nextjs/
       council.ts            Threshold key (who approves) and PROPOSER_ROLE (who proposes), read from the ledger
       proposals.ts          The inbox: schedules by proposer, narrowed to the governance account's, with m-of-n
       proposalTypes.ts      The five kinds, their measured execute gas, and the shapes a decoded proposal takes
+      proposalRoutes.ts     The path each kind takes, in roles (governance account, executor, subject, …)
+      graph.ts              The governance graph: nodes, edges, a proposal's scope, the fallback layout
       encode.ts             Form values to transactions: the five encoders, the registration gas, createProposal
       decode.ts             Scheduled body and registry calldata back to a described operation
       registry.ts           GovernedExecutor: the entry behind a proposal, cancel, and the id a create returned
