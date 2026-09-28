@@ -51,7 +51,8 @@ export const ProposalDetailPanel = ({
   const council = useCouncil({ governanceAccountId, executorContractId, network });
 
   return (
-    <div className="px-6 py-5">
+    // Addresses and ids are single long words; letting them wrap anywhere keeps a phone from scrolling sideways.
+    <div className="px-6 py-5 wrap-anywhere">
       <h1 className="text-lg font-bold mb-4">Proposal {proposal.schedule.schedule_id}</h1>
       <p className="mb-2">{describeScheduledOperation(operation)}</p>
       {registryDescription && <p className="mb-4 text-base-content/70">{registryDescription}</p>}
@@ -150,6 +151,7 @@ export const ProposalDetailPanel = ({
         accountId={accountId}
         executorContractId={executorContractId}
         governanceAccountId={governanceAccountId}
+        network={network}
         onWithdrawn={refresh}
         onCancelled={markRegistryEntryCancelled}
       />

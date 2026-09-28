@@ -23,7 +23,7 @@ describe("ApproverList", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { level: 3, name: "Approvals" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Approvals" })).toBeTruthy();
     expect(screen.getByText("1 of 2 required signatures")).toBeTruthy();
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByText("0.0.101")).toBeTruthy();

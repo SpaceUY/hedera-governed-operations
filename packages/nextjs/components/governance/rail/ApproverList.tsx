@@ -18,7 +18,7 @@ export type ApproverListProps = {
  */
 export const ApproverList = ({ heading, council, progress, proposers, viewerAccountId }: ApproverListProps) => (
   <section aria-label={heading} className="flex flex-col gap-1">
-    <h3 className="m-0 text-sm font-semibold">{heading}</h3>
+    <h2 className="m-0 text-sm font-semibold">{heading}</h2>
     <p className="m-0 text-xs text-base-content/60">{requiredSignaturesLabel(progress)}</p>
     <ul className="m-0 p-0 list-none flex flex-col gap-1">
       {council.memberKeys.map(key => (
