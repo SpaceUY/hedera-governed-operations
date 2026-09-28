@@ -2,7 +2,7 @@
 
 Briefing for coding agents in this app (Cursor, Claude Code, Codex). Claude Code loads it through `CLAUDE.md`.
 
-This is a **Hedera template with two workspaces**: `packages/nextjs` (HCS topics and messages, HTS tokens, Mirror Node reads, HashPack signing through WalletConnect, a SaucerSwap-backed swap provider) and `packages/hardhat` (Solidity contracts deployed through the Hedera JSON-RPC relay). Native writes are Hiero SDK transactions signed either by the user's wallet or by a server-side operator; contract deploys go through Hardhat and regenerate `packages/nextjs/contracts/deployedContracts.ts`. The Proof Wall pages are a demo of the reusable modules, not the product.
+This is a **Hedera template with four workspaces**: `packages/core` (the governance domain and the Mirror Node client — no React, no Next.js, so the app and any service can share one copy), `packages/agent` (a co-signing service that holds one seat on the council and signs what its policy allows), `packages/nextjs` (HCS topics and messages, HTS tokens, HashPack signing through WalletConnect, a SaucerSwap-backed swap provider) and `packages/hardhat` (Solidity contracts deployed through the Hedera JSON-RPC relay). Native writes are Hiero SDK transactions signed either by the user's wallet or by a server-side operator; contract deploys go through Hardhat and regenerate `packages/nextjs/contracts/deployedContracts.ts`. The Proof Wall pages are a demo of the reusable modules, not the product.
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
@@ -17,9 +17,19 @@ yarn setup              # idempotent testnet bootstrap; writes ids to packages/n
 yarn next:dev           # http://localhost:3000
 yarn next:build
 yarn next:check-types
-yarn lint               # next:lint + hardhat:lint
-yarn test               # next:test (Vitest, *.test.ts(x)) + hardhat:test
+yarn lint               # core:lint + agent:lint + next:lint + hardhat:lint
+yarn test               # core:test + agent:test + next:test (Vitest, *.test.ts(x)) + hardhat:test
 yarn format
+
+yarn core:check-types   # the shared domain under packages/core/
+yarn core:lint
+yarn core:test
+
+yarn release:publish --contract AcmeVault --version v2.0.0   # release manifest to the HCS topic
+yarn agent:start        # the co-signing agent; see packages/agent/README.md
+yarn agent:check-types
+yarn agent:lint
+yarn agent:test
 
 yarn hardhat:compile    # contracts under packages/hardhat/contracts/
 yarn hardhat:test
@@ -52,6 +62,38 @@ Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, M
 ## Layout
 
 ```
+packages/core/            @sh/core — the domain, with no framework in it
+  src/
+    mirror/               Typed Mirror Node client (HTTP only, no SDK)
+      client.ts             Base URL per network, MirrorNodeError, mirrorGet, links.next paginator
+      topics.ts             fetchTopicMessages, base64 → text/JSON decoding
+      schedules.ts          fetchSchedule, fetchSchedulesByCreator, deriveScheduleState, fetchScheduleExecution
+      transactions.ts       normalizeTransactionId, fetchTransaction, fetchTransactionsAt
+      accounts.ts / contracts.ts  fetchAccount, fetchContract, fetchContractResult
+      tokens.ts             fetchToken, fetchTokenRelationship, parseTokenDecimals
+      __fixtures__/         Recorded Mirror responses used by the tests
+    governance/           Proposals as scheduled transactions
+      schedules.ts          ScheduleCreate with the governance account as payer, ScheduleSign, ScheduleDelete
+      council.ts            Threshold key (who approves) and PROPOSER_ROLE (who proposes), read from the ledger
+      proposals.ts          The inbox: schedules by proposer, narrowed to the governance account's, with m-of-n
+      proposalTypes.ts      The five kinds, their measured execute gas, and the shapes a decoded proposal takes
+      encode.ts             Form values to transactions: the five encoders, the registration gas, createProposal
+      decode.ts             Scheduled body and registry calldata back to a described operation
+      registry.ts           GovernedExecutor: the entry behind a proposal, cancel, and the id a create returned
+      scheduledBody.ts      The body a schedule carries, built from its transaction (the wizard's preview)
+    releaseManifest.ts    What a release publishes to HCS, and whether an implementation's deployed code matches it
+    relayClient.ts        The viem client every read through the JSON-RPC relay goes through
+    identity.ts           EVM address / account id predicates and formatting
+    network.ts            HederaNetworkName and the narrowing of an env value to it
+packages/agent/           @sh/agent — one seat on the council, signing under a written policy
+  src/
+    policy.ts             The limits, one typed check per kind of operation
+    operation.ts          Proposal to the flat operation a policy reads, and every reason one cannot be read
+    review.ts             One pass over the inbox: decide, then sign what passed
+    config.ts             Environment and policy file, both validated at boot
+    index.ts              The loop, the Hedera client and the JSON log
+  policy.example.json     The shape of a policy; it is mounted, not baked into the image
+  Dockerfile              Built from the repository root, since the agent shares @sh/core with the app
 packages/nextjs/
   app/                    App Router pages and API routes
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
@@ -64,7 +106,7 @@ packages/nextjs/
     useCreateTopic.ts     Admin: create HCS topic
     useCreateToken.ts     Admin: create HTS badge token
     useBadgeTokens.ts     Badge balance / eligibility
-    mirror/               React Query hooks over services/mirror
+    mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
@@ -84,29 +126,13 @@ packages/nextjs/
       burnerSigner.ts       Port adapter over the harness test key (localStorage["burnerWallet.pk"])
       burnerSignerPolicy.ts Where the test signer is allowed (testnet; opt-in in production)
       BurnerSignerProvider.tsx  Reads the key on load, resolves the account, exposes useBurnerSigner
-    mirrorNode.ts         Re-export of services/mirror (kept for existing imports)
-    mirror/               Typed Mirror Node client (HTTP only, no SDK)
-      client.ts             Base URL per network, MirrorNodeError, mirrorGet, links.next paginator
-      topics.ts             fetchTopicMessages, base64 → text/JSON decoding
-      schedules.ts          fetchSchedule, fetchSchedulesByCreator, deriveScheduleState, fetchScheduleExecution
-      transactions.ts       normalizeTransactionId, fetchTransaction, fetchTransactionsAt
-      accounts.ts / contracts.ts  fetchAccount, fetchContract, fetchContractResult
-      tokens.ts             fetchToken, fetchTokenRelationship, parseTokenDecimals
-      __fixtures__/         Recorded Mirror responses used by the tests
-    governance/           Proposals as scheduled transactions
-      schedules.ts          ScheduleCreate with the governance account as payer, ScheduleSign, ScheduleDelete
-      council.ts            Threshold key (who approves) and PROPOSER_ROLE (who proposes), read from the ledger
-      proposals.ts          The inbox: schedules by proposer, narrowed to the governance account's, with m-of-n
-      proposalTypes.ts      The five kinds, their measured execute gas, and the shapes a decoded proposal takes
+    mirrorNode.ts         Re-export of @sh/core/mirror (kept for existing imports)
+    governance/           What governance needs from the app: the screens' rules and words, the graph, the wizard's drafts, the integration tests
       proposalRoutes.ts     The path each kind takes, in roles (governance account, executor, subject, …)
       graph.ts              The governance graph: nodes, edges, a proposal's scope, the fallback layout
-      encode.ts             Form values to transactions: the five encoders, the registration gas, createProposal
-      decode.ts             Scheduled body and registry calldata back to a described operation
-      registry.ts           GovernedExecutor: the entry behind a proposal, cancel, and the id a create returned
       treasury.ts           Treasury balances plus the vault's reserve
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
-      scheduledBody.ts      The body a schedule carries, built from its transaction (the wizard's preview)
       drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
@@ -128,11 +154,11 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 
 ### Stack
 
-- **Hiero SDK** (`@hiero-ledger/sdk`) builds every transaction, on the client and on the server. No `ethers`/`viem` calls for Hedera writes. `packages/nextjs` also declares **`@hiero-ledger/proto`** at an exact version, to decode the governance account's threshold key; it is the copy the SDK already resolves, which is why there is only one in the tree. **Upgrade the two together**, then check with `yarn why @hiero-ledger/proto` that `packages/nextjs` still resolves a single version — raising the SDK alone leaves the SDK on its own newer `proto` while the app imports the older one by name, which nothing fails on today and is exactly the kind of drift found late.
+- **Hiero SDK** (`@hiero-ledger/sdk`) builds every transaction, on the client and on the server. No `ethers`/`viem` calls for Hedera writes. `packages/core` also declares **`@hiero-ledger/proto`** at an exact version, to decode the governance account's threshold key; it is the copy the SDK already resolves, which is why there is only one in the tree. **Upgrade the two together**, then check with `yarn why @hiero-ledger/proto` that `@sh/core` and `@sh/nextjs` still resolve the same instance — raising the SDK alone leaves the SDK on its own newer `proto` while the domain imports the older one by name, which nothing fails on today and is exactly the kind of drift found late.
 - **`yarn install` prints ~25 peer-dependency warnings, and none of them affects runtime.** Seventeen name one of our workspaces and eight are between third parties; the counts and the split are unchanged from the upstream scaffold this template tracks, whose `.yarnrc.yml` this one matches byte for byte. Most are true statements about deliberate choices — wagmi 3 against packages that ask for wagmi 2, `next-themes` 0.3 against React 19 — so they are left visible rather than silenced with `packageExtensions`, which would mean asserting we know better than six packages about their own peers. Two warnings mentioning `@hiero-ledger/sdk@2.88.0` come from `hedera-harness`'s own tree, not from the app.
 - **HashPack via WalletConnect**: `@hashgraph/hedera-wallet-connect` + Reown AppKit (`services/web3/appKitHedera.ts`, `hederaWalletConnect.tsx`). The wallet exposes `hedera_signAndExecuteTransaction` and `hedera_signTransaction`; the app never holds a user key. Both ED25519 and ECDSA accounts work. `components/ConnectWallet.tsx` is an inline connect/disconnect control that shows wallet rejections as a message.
 - **Signing port** (`services/web3/hederaSignerPort.ts`): `HederaSigner = { kind, accountId, network, executeTransaction, signTransaction }` with two implementations — `hashPackSigner.ts` (the WalletConnect session) and `burnerSigner.ts` (an ECDSA key read from `localStorage["burnerWallet.pk"]`, the key Hedera Harness CHAIN injects). `hooks/useHederaSigner.ts` picks one and exposes `executeTransaction(tx)`, `signTransaction(tx)` (sign only, returns the signed `Transaction`), `requireAccountId()`, `signerKind` and `disconnect()`; components never know which signer is active.
-- **Mirror Node REST** for all reads (`services/mirror`, re-exported from `services/mirrorNode.ts`): typed responses, `MirrorNodeError` on non-2xx, `mirrorGetAllPages` for `links.next`. Reads are public, so the hooks in `hooks/mirror/` call the Mirror Node directly from the client: `useTopicMessagesFeed` returns decoded messages (`text`, and `json` when the payload parses); `useSchedule` / `useTransaction` poll every 5 s while pending or not yet indexed (404) and stop once settled; queries stay disabled while the id is empty or malformed. It is eventually consistent: expect a few seconds of lag after a transaction reaches consensus.
+- **Mirror Node REST** for all reads (`@sh/core/mirror`, re-exported from `services/mirrorNode.ts`): typed responses, `MirrorNodeError` on non-2xx, `mirrorGetAllPages` for `links.next`. Reads are public, so the hooks in `hooks/mirror/` call the Mirror Node directly from the client: `useTopicMessagesFeed` returns decoded messages (`text`, and `json` when the payload parses); `useSchedule` / `useTransaction` poll every 5 s while pending or not yet indexed (404) and stop once settled; queries stay disabled while the id is empty or malformed. It is eventually consistent: expect a few seconds of lag after a transaction reaches consensus.
 - **Identity**: account IDs use the `0.0.xxxxx` form; `utils/scaffold-hbar/hederaIdentity.ts` normalizes EVM ↔ native identity and builds CAIP ids for the wallet.
 
 ### Signing conventions
@@ -160,7 +186,8 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 - **These reads take an EVM address, so a decoded proposal needs no id conversion.** A `tokenAdmin` operation names its token and its account as they came out of the calldata, EIP-55 checksummed, and `decodeScheduledOperation` hands back an account with an alias in hex too — turning one into a `0.0.x` id would take a Mirror lookup of its own. It does not need one: `GET /tokens/{id}`, `GET /contracts/{id}` and the `token.id` filter on `GET /accounts/{id}/tokens` all resolve the `0x…` form, mixed case included (verified on testnet). So `fetchToken`, `fetchTokenRelationship` and `fetchContract` accept both forms, as `fetchAccount` already did. Gating one of these on `isValidEntityId` alone is worse than an error, because a disabled React Query reports `fetchStatus: "idle"` with no data and no error: the card renders its loading state forever.
 - **Mirror types the same field differently on different endpoints.** `GET /tokens/{id}` returns `decimals`, `total_supply` and `initial_supply` as **strings** and `expiry_timestamp` as a **number** of nanos, while `GET /accounts/{id}/tokens` returns `decimals` as a **number** and `GET /contracts/{id}` spells the expiry as the usual `seconds.nanos` **string**. A form that multiplies by a string decimals silently produces the wrong amount, so `parseTokenDecimals` takes either shape and is what any amount field reads. It is deliberately stricter than `Number`, which answers 0 for `""`, `" "`, `null` and `[]` and reads `"0x8"` and `"1e2"` as numbers — and the client does not validate the JSON it parses, so a field Mirror left empty arrives typed as a string. The demo token has 0 decimals, which is exactly the value a wrong read produces: the bug would surface only against a real 8-decimal token, as a wrong amount in a governed transfer.
 - **Whether an account is frozen is not in the token.** `GET /tokens/{id}` carries `pause_status` and `freeze_default`, which describe the token as a whole and say nothing about a given holder; the per-account state is `freeze_status` on `GET /accounts/{id}/tokens?token.id=…` (`fetchTokenRelationship`). That endpoint answers with an empty list rather than a 404 for an account that never associated the token — the very case in which freezing it would be refused — so an empty answer is a state to show, not an error. Which not-found it is depends on the form of the id: a `0.0.x` account that does not exist gets a 404 there, an EVM address that belongs to no account gets the same empty list. Neither distinction changes what the screen shows — there is no relationship either way.
-- **`GET /contracts/{id}` hands back an empty `bytecode`.** The field holds the creation code, which only exists for a contract deployed from a HAPI file; one deployed through the JSON-RPC relay reports `"0x"`. The deployed code is `runtime_bytecode`, and it is the only field a release manifest can be checked against.
+- **`GET /contracts/{id}` hands back an empty `bytecode`.** The field holds the creation code, which only exists for a contract deployed from a HAPI file; one deployed through the JSON-RPC relay reports `"0x"`. The deployed code is `runtime_bytecode`, and it is the only field a release manifest can be checked against. **Hash what the network reports, on both sides.** The local artifact's `deployedBytecode` is not the same bytes — immutable variables and the metadata suffix are settled at deploy time — so a publisher that hashes the artifact would produce a manifest nothing ever matches. `yarn release:publish` reads `runtime_bytecode` from Mirror for exactly that reason, which is also what makes the check repeatable by hand from HashScan.
+- **An HCS topic created without a submit key takes a message from anyone, and that cannot be fixed afterwards.** A topic is only evidence of who wrote to it if the network refuses everyone else, so a release log, a decision log or any feed a check reads needs `setSubmitKey` at creation. Without an `adminKey` the topic is immutable and no key can be added later — the only repair is a new topic and a new id everywhere that referenced it. The demo's Proof Wall topic is deliberately open (anyone may post a proof); the release topic is not, and `assertReleaseTopicIsSigned` is what stops the agent from treating an open one as a source of releases.
 - **The HTS system contract reports failure with a response code, not a revert.** A contract that ignores the code turns a refused operation into a successful transaction: the proposal is marked executed and the council's approval is spent on nothing. `TokenAdmin._requireSuccess` reverts with `HtsRejected(code)` so the proposal stays pending and the code reaches Mirror.
 - **Token association is a property of the receiving account, not of the contract doing the work.** A contract deployed through the JSON-RPC relay gets unlimited automatic associations (`max_automatic_token_associations: -1`) and receives any token for free; an account created through the SDK gets none unless asked, and associating one afterwards is a separate transaction that the threshold key has to sign. Create the governance account with association slots, and keep the adapter free of token custody so it never needs one.
 - Inside a contract, `msg.value` arrives in **tinybars** (8 decimals), not wei: the JSON-RPC relay takes the transaction's `value` in weibars (18 decimals) and divides by 10^10. A contract that treats `msg.value` as an opaque `uint256` and hardcodes no HBAR amount behaves identically on the local EVM and on Hedera; the conversion belongs at the UI boundary.
@@ -185,10 +212,10 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 
 ### How to add an operation
 
-1. **Service function** in `services/` that builds and freezes the SDK transaction (pure, testable, no React). Return the frozen transaction or the `transactionId`.
+1. **Service function** that builds and freezes the SDK transaction (pure, testable, no React). Return the frozen transaction or the `transactionId`. It belongs in `packages/core` when it is domain — a proposal, a Mirror read, anything the co-signing agent would also need — and in `packages/nextjs/services/` when it needs the app: the wallet, a route handler, `scaffold.config.ts`. **The rule is one-way: `@sh/core` never imports from the app.** That is what keeps it usable outside the browser, and `import scaffoldConfig` inside it is the way it breaks — pass the relay URL and the network name in as parameters, the way every function there already does.
 2. **Hook** in `hooks/` wrapping it in `useMutation`; get the signer through `useHederaSigner` and call `requireAccountId()` early so it throws when nothing is connected and works with both HashPack and the test signer.
 3. **Read side**: add or reuse a hook under `hooks/mirror/` so the UI refreshes from the Mirror Node after the write; pass the expected sequence number or transaction id so polling knows when to stop.
-4. **Tests** next to the code (`*.test.ts`): assert the transaction shape (type, payer, memo, batch key) with the SDK, mock the wallet and Mirror calls, never hit the network. What only the network can settle goes in a `*.integration.test.ts` that skips without credentials (`services/governance/schedules.integration.test.ts`).
+4. **Tests** next to the code (`*.test.ts`): assert the transaction shape (type, payer, memo, batch key) with the SDK, mock the wallet and Mirror calls, never hit the network. What only the network can settle goes in a `*.integration.test.ts` that skips without credentials (`packages/nextjs/services/governance/schedules.integration.test.ts`); those two stay in the app because they read the fixtures `yarn setup` wrote and sign through the app's signer.
 5. **Env**: any new id or key goes to `packages/nextjs/.env.example` with an empty value; extend `yarn setup` if it can be created on testnet.
 
 ### How to add a harness eval assertion

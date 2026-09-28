@@ -3,17 +3,17 @@
 import { proposalInboxQueryKey } from "./mirror/useProposals";
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useHederaSigner } from "./useHederaSigner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getGovernanceEntityIds } from "~~/config/governanceConfig";
-import { type RegistryProposal, buildCreateProposalCall } from "~~/services/governance/encode";
-import { proposalIdFromContractResult } from "~~/services/governance/registry";
+import { type RegistryProposal, buildCreateProposalCall } from "@sh/core/governance/encode";
+import { proposalIdFromContractResult } from "@sh/core/governance/registry";
 import {
   buildExecuteProposalCall,
   buildProposalSchedule,
   fetchAccountPublicKey,
   scheduleIdFromTransaction,
-} from "~~/services/governance/schedules";
-import { fetchContractResult, fetchTransaction } from "~~/services/mirror";
+} from "@sh/core/governance/schedules";
+import { fetchContractResult, fetchTransaction } from "@sh/core/mirror";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
 import { MIRROR_INDEXING_RETRY_DELAYS_MS, waitForMirrorIndexing } from "~~/utils/scaffold-hbar/waitForMirrorIndexing";
 

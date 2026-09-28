@@ -1,7 +1,7 @@
 import { ContractId } from "@hiero-ledger/sdk";
+import { fetchAccount } from "@sh/core/mirror";
+import { createRelayClient } from "@sh/core/relayClient";
 import { type Address, parseAbi } from "viem";
-import { fetchAccount } from "~~/services/mirror";
-import { createRelayClient } from "~~/services/web3/relayClient";
 
 const ACME_VAULT_ABI = parseAbi(["function totalDeposits() view returns (uint256)"]);
 

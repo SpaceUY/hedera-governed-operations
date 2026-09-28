@@ -1,8 +1,8 @@
 "use client";
 
 import { useHederaSigner } from "./useHederaSigner";
+import { buildCancelProposalCall } from "@sh/core/governance/registry";
 import { useMutation } from "@tanstack/react-query";
-import { buildCancelProposalCall } from "~~/services/governance/registry";
 
 export type CancelProposalInput = { executorContractId: string; registryProposalId: number };
 

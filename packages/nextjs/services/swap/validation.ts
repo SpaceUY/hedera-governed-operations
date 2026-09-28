@@ -1,6 +1,6 @@
 import { SwapValidationError } from "./errors";
 import { type QuoteRequest, type SwapStepRequest, type SwapToken, isHbar } from "./types";
-import { isHederaAccountId } from "~~/utils/scaffold-hbar/identity";
+import { isHederaAccountId } from "@sh/core/identity";
 
 const sameToken = (left: SwapToken, right: SwapToken): boolean => {
   if (isHbar(left) || isHbar(right)) return isHbar(left) && isHbar(right);

@@ -6,6 +6,8 @@
  * Every function here only builds a transaction and leaves it unfrozen: the active signer freezes it
  * with a network client, which is what assigns node account ids (`services/web3/hederaSigner.ts`).
  */
+import { type MirrorTransaction, fetchAccount } from "../mirror";
+import type { HederaNetworkName } from "../network";
 import {
   AccountId,
   ContractExecuteTransaction,
@@ -20,8 +22,6 @@ import {
   Timestamp,
   type Transaction,
 } from "@hiero-ledger/sdk";
-import { type MirrorTransaction, fetchAccount } from "~~/services/mirror";
-import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /** How long a proposal stays open for signatures. Seven days is what the demo runs on. */
 export const PROPOSAL_EXPIRY_SECONDS = 7 * 24 * 60 * 60;

@@ -1,8 +1,8 @@
 import { SwapValidationError } from "./errors";
 import type { SwapNetwork } from "./types";
+import { isEvmAddress } from "@sh/core/identity";
+import { fetchAccount } from "@sh/core/mirror";
 import type { Address } from "viem";
-import { fetchAccount } from "~~/services/mirror";
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 /**
  * Maps a Hedera account id to the EVM address the network knows it by.

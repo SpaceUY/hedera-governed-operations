@@ -9,7 +9,9 @@
  * in two layers, `ScheduledOperation` and `RegistryOperation`.
  */
 import type { CouncilKey } from "./council";
-import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
+import { Hbar } from "@hiero-ledger/sdk";
+
+const formatTinybars = (tinybars: bigint): string => Hbar.fromTinybars(tinybars.toString()).toString();
 
 /** The three that go through `GovernedExecutor`, so they leave a registry entry and burn gas. */
 export type ContractProposalKind = "upgrade" | "treasurySwap" | "tokenAdmin";

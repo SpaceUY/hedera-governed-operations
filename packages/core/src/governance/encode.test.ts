@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { fetchAccount } from "../mirror";
 import { decodeRegistryOperation, decodeScheduledOperation } from "./decode";
 import {
   PROPOSAL_REGISTRATION_BASE_GAS,
@@ -16,10 +17,9 @@ import { scheduledBodyOf } from "./scheduledBody";
 import { PROPOSAL_EXPIRY_SECONDS, buildExecuteProposalCall } from "./schedules";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchAccount } from "~~/services/mirror";
 
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("../mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("../mirror")>()),
   fetchAccount: vi.fn(),
 }));
 

@@ -1,10 +1,10 @@
 import { TransferForm } from "./TransferForm";
+import { MirrorNodeError } from "@sh/core/mirror";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Chain } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { RECIPIENT_LOOKUP_LABELS } from "~~/services/governance/proposalLabels";
-import { MirrorNodeError } from "~~/services/mirror/client";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
 vi.mock("@scaffold-hbar-ui/components", () => ({

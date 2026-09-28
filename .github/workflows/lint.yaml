@@ -30,6 +30,24 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Run core lint
+        run: yarn core:lint --max-warnings=0
+
+      - name: Check typings on core
+        run: yarn core:check-types
+
+      - name: Run core tests
+        run: yarn core:test
+
+      - name: Run agent lint
+        run: yarn agent:lint --max-warnings=0
+
+      - name: Check typings on agent
+        run: yarn agent:check-types
+
+      - name: Run agent tests
+        run: yarn agent:test
+
       - name: Run nextjs lint
         run: yarn next:lint --max-warnings=0
 

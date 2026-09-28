@@ -1,4 +1,4 @@
-import { isHederaAccountId } from "./identity";
+import { isHederaAccountId } from "@sh/core/identity";
 
 // To be used in JSON.stringify when a field might be bigint
 

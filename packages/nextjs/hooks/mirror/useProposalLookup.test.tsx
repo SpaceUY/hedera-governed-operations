@@ -2,18 +2,18 @@ import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useProposalLookup } from "./useProposalLookup";
 import { proto } from "@hiero-ledger/proto";
 import { PrivateKey } from "@hiero-ledger/sdk";
+import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
+import { fetchRegistryEntries } from "@sh/core/governance/registry";
+import { fetchAccount, fetchSchedule } from "@sh/core/mirror";
+import revertedSchedule from "@sh/core/mirror/__fixtures__/schedule-reverted.json";
+import rowsAtRevert from "@sh/core/mirror/__fixtures__/transactions-at-reverted.json";
 import { QueryClient } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import Long from "long";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import recorded from "~~/services/governance/__fixtures__/scheduled-bodies.json";
-import { fetchRegistryEntries } from "~~/services/governance/registry";
-import { fetchAccount, fetchSchedule } from "~~/services/mirror";
-import revertedSchedule from "~~/services/mirror/__fixtures__/schedule-reverted.json";
-import rowsAtRevert from "~~/services/mirror/__fixtures__/transactions-at-reverted.json";
 
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
   fetchSchedule: vi.fn(),
   fetchAccount: vi.fn(),
 }));
@@ -21,13 +21,13 @@ vi.mock("~~/services/mirror", async importOriginal => ({
 // The proposer list comes from the JSON-RPC relay, which viem cannot reach under jsdom (and which
 // this hook never reads); stub it the same way useProposals.test.tsx does, leaving fetchCouncilKey
 // real so it still exercises the actual threshold-key decode against the mocked fetchAccount above.
-vi.mock("~~/services/governance/council", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/governance/council")>()),
+vi.mock("@sh/core/governance/council", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/governance/council")>()),
   fetchProposerAccountIds: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("~~/services/governance/registry", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/governance/registry")>()),
+vi.mock("@sh/core/governance/registry", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/governance/registry")>()),
   fetchRegistryEntries: vi.fn(),
 }));
 

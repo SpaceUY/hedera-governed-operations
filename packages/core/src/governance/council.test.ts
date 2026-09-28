@@ -1,4 +1,7 @@
 // @vitest-environment node
+import type { MirrorSchedule } from "../mirror";
+import governanceAccount from "../mirror/__fixtures__/account.json";
+import executedSchedule from "../mirror/__fixtures__/schedule-executed.json";
 import {
   type CouncilKey,
   countThresholdSignatures,
@@ -7,9 +10,6 @@ import {
   isSignedByKey,
 } from "./council";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MirrorSchedule } from "~~/services/mirror";
-import governanceAccount from "~~/services/mirror/__fixtures__/account.json";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 /** The three members of the fixture's 2-of-3 key, as Mirror writes them on a schedule's signatures. */
 const MEMBER_KEYS = [

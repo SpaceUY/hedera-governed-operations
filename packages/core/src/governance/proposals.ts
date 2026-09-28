@@ -11,11 +11,6 @@
  * registry, the state of the entry behind it. Those two can disagree, and where they do the row is
  * dead: see `registry.ts`.
  */
-import { type CouncilKey, type ThresholdProgress, countThresholdSignatures } from "./council";
-import { decodeScheduledOperation } from "./decode";
-import type { ScheduledOperation } from "./proposalTypes";
-import { type RegistryCrossCheck, type RegistryLookup, fetchRegistryEntries } from "./registry";
-import { ContractId } from "@hiero-ledger/sdk";
 import {
   type MirrorSchedule,
   type ScheduleExecution,
@@ -23,8 +18,13 @@ import {
   deriveScheduleState,
   fetchScheduleExecution,
   fetchSchedulesByCreator,
-} from "~~/services/mirror";
-import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
+} from "../mirror";
+import type { HederaNetworkName } from "../network";
+import { type CouncilKey, type ThresholdProgress, countThresholdSignatures } from "./council";
+import { decodeScheduledOperation } from "./decode";
+import type { ScheduledOperation } from "./proposalTypes";
+import { type RegistryCrossCheck, type RegistryLookup, fetchRegistryEntries } from "./registry";
+import { ContractId } from "@hiero-ledger/sdk";
 
 /**
  * How far back the inbox reads per proposer. The list is the recent state of governance, not an

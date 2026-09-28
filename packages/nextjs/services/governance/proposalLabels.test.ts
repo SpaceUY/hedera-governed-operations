@@ -11,13 +11,13 @@ import {
   registryLabel,
   scheduleStatusLabel,
 } from "./proposalLabels";
-import type { ScheduledOperation } from "./proposalTypes";
-import type { RegistryCrossCheck } from "./registry";
-import { MAX_SCHEDULE_MEMO_BYTES } from "./schedules";
+import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
+import type { RegistryCrossCheck } from "@sh/core/governance/registry";
+import { MAX_SCHEDULE_MEMO_BYTES } from "@sh/core/governance/schedules";
+import type { ScheduleExecution, ScheduleState, ScheduleStatus } from "@sh/core/mirror";
+import rowsAtExecution from "@sh/core/mirror/__fixtures__/transactions-at-executed.json";
+import rowsAtRevert from "@sh/core/mirror/__fixtures__/transactions-at-reverted.json";
 import { describe, expect, it } from "vitest";
-import type { ScheduleExecution, ScheduleState, ScheduleStatus } from "~~/services/mirror";
-import rowsAtExecution from "~~/services/mirror/__fixtures__/transactions-at-executed.json";
-import rowsAtRevert from "~~/services/mirror/__fixtures__/transactions-at-reverted.json";
 
 const progress = (signed: number, threshold: number) => ({ signed, threshold, signedBy: [] });
 

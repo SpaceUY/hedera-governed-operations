@@ -1,0 +1,35 @@
+{
+  "name": "@sh/agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A co-signing agent: holds one seat on the council and signs the proposals its policy allows.",
+  "scripts": {
+    "check-types": "tsc --noEmit --incremental",
+    "format": "prettier --write . '!(node_modules)/**/*'",
+    "lint": "eslint src",
+    "lint-staged": "eslint",
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hiero-ledger/sdk": "^2.80.0",
+    "@sh/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "~3.3.0",
+    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
+    "@types/node": "^18.19.50",
+    "@typescript-eslint/eslint-plugin": "~8.27.0",
+    "@typescript-eslint/parser": "~8.27.0",
+    "eslint": "~9.23.0",
+    "eslint-config-prettier": "~10.1.1",
+    "eslint-plugin-prettier": "~5.2.4",
+    "globals": "~16.0.0",
+    "prettier": "^3.5.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.8.2",
+    "vitest": "^3"
+  },
+  "packageManager": "yarn@3.2.3"
+}

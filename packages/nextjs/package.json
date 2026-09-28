@@ -9,6 +9,7 @@
     "format": "prettier --write . '!(node_modules|.next|contracts)/**/*'",
     "lint": "next lint",
     "serve": "next start",
+    "release:publish": "tsx scripts/publishRelease.ts",
     "setup": "tsx scripts/setup.ts",
     "start": "next dev",
     "test": "vitest run"
@@ -16,7 +17,6 @@
   "dependencies": {
     "@hashgraph/hedera-wallet-connect": "^2.1.1",
     "@heroicons/react": "^2.1.5",
-    "@hiero-ledger/proto": "2.26.0-beta.3",
     "@hiero-ledger/sdk": "^2.80.0",
     "@metamask/connect-evm": "^0.9.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -25,6 +25,7 @@
     "@reown/walletkit": "^1.5.4",
     "@scaffold-hbar-ui/components": "2.0.0",
     "@scaffold-hbar-ui/hooks": "^1.1.0",
+    "@sh/core": "workspace:*",
     "@tanstack/react-query": "^5.59.15",
     "@walletconnect/modal": "^2.7.0",
     "assert": "^2.1.0",

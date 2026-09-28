@@ -1,15 +1,15 @@
 import { CouncilPreviewPanel } from "./CouncilPreviewPanel";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import type { DraftPreview } from "~~/services/governance/drafts";
-import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/services/governance/proposalLabels";
 import {
   type RegistryOperation,
   type ScheduledOperation,
   describeRegistryOperation,
   describeScheduledOperation,
-} from "~~/services/governance/proposalTypes";
-import { PROPOSAL_EXPIRY_SECONDS } from "~~/services/governance/schedules";
+} from "@sh/core/governance/proposalTypes";
+import { PROPOSAL_EXPIRY_SECONDS } from "@sh/core/governance/schedules";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import type { DraftPreview } from "~~/services/governance/drafts";
+import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/services/governance/proposalLabels";
 
 afterEach(cleanup);
 

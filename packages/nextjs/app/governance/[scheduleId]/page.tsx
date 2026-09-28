@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { MutationError } from "~~/components/governance/MutationError";
 import { GOVERNANCE_CONTRACTS, getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
@@ -17,7 +18,6 @@ import {
   proposalStatusLabel,
   registryLabel,
 } from "~~/services/governance/proposalLabels";
-import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
 type ProposalDetailProps = { governanceAccountId: string; executorContractId: string; scheduleId: string };

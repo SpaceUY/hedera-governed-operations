@@ -40,19 +40,20 @@ packages/nextjs/
     useCancelProposal.ts            # GovernedExecutor.cancel
     useSubmitProposalDraft.ts       # one submit for the wizard, whichever path the draft takes
   services/governance/
-    council.ts                      # threshold key decoding, approval counting, proposer list
-    proposals.ts                    # the inbox: schedules by proposer, narrowed and crossed with the registry
-    proposalTypes.ts                # the five kinds, their execute gas, decoded shapes
     proposalRoutes.ts               # the path each kind takes, in roles
     graph.ts                        # the governance graph: nodes, edges, a proposal's scope, fallback layout
-    decode.ts / encode.ts           # scheduled body and registry calldata ↔ described operation
-    registry.ts                     # entry reads, cancel, the id createProposal returned
-    schedules.ts                    # ScheduleCreate / Sign / Delete builders
-    scheduledBody.ts                # the body a schedule carries, from its transaction
     drafts.ts                       # form values → encoders, and the preview read back through decode.ts
     treasury.ts                     # balances plus the vault's reserve
     proposalActions.ts              # which actions a proposal offers, and to whom
     proposalLabels.ts               # the words a screen uses for a proposal's state
+packages/core/src/governance/       # @sh/core, shared with the co-signing agent
+  council.ts                        # threshold key decoding, approval counting, proposer list
+  proposals.ts                      # the inbox: schedules by proposer, narrowed and crossed with the registry
+  proposalTypes.ts                  # the five kinds, their execute gas, decoded shapes
+  decode.ts / encode.ts             # scheduled body and registry calldata ↔ described operation
+  registry.ts                       # entry reads, cancel, the id createProposal returned
+  schedules.ts                      # ScheduleCreate / Sign / Delete builders
+  scheduledBody.ts                  # the body a schedule carries, from its transaction
 ```
 
 Every operation follows the services → hooks → page layering described in "How to add an operation" in `AGENTS.md`: the service builds and freezes the transaction, the hook wraps it in `useMutation` and calls `requireAccountId()` first, and the page only calls the hook.
@@ -106,7 +107,7 @@ A pending proposal also says that it runs as soon as the threshold is reached an
 
 `useCreateProposal` sends two transactions: `createProposal` registers the call in `GovernedExecutor`, then a `ScheduleCreate` wraps `execute(id)` for the council to sign, with the proposer's key as admin key. The registry id only comes back through Mirror (`proposalIdFromContractResult`), so the hook waits for indexing with backoff (`waitForMirrorIndexing`). If Mirror still has not indexed the registration, the hook fails with a message saying the entry is registered and must be scheduled, not registered again. `useCreateNativeProposal` schedules a transfer or a council rotation directly, with no registry entry.
 
-Both hooks take an already-encoded proposal from `services/governance/encode.ts`, which enforces the chain invariants (positive amounts, a reachable threshold, no duplicate council key) before anything becomes a transaction.
+Both hooks take an already-encoded proposal from `@sh/core/governance/encode`, which enforces the chain invariants (positive amounts, a reachable threshold, no duplicate council key) before anything becomes a transaction.
 
 The wizard is two components so that it can live in a page or in a side panel. `ProposalWizardProvider` owns the chosen kind, the current draft, its preview and the submit mutation, and reports the new schedule id through `onSubmitted`; `ProposalWizard` renders the picker, the form, the preview and the submit footer, with no route, title or setup guard of its own. The host renders those, gives the wizard a height (it fills it, scrolls its middle and keeps the footer in view) and the level of its headings. Because the submission lives in the provider, closing a panel while the wallet signs does not lose it, and anything else inside the provider — a map drawing the draft — reads the same preview through `useProposalWizard()`. `/governance/new` is the smallest host: the setup guard, a title, and `onSubmitted` routing to the detail page.
 

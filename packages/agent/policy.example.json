@@ -1,0 +1,14 @@
+{
+  "upgrade": {
+    "targets": ["0x0000000000000000000000000000000000000000"],
+    "manifestTopicId": "0.0.0"
+  },
+  "tokenAdmin": {
+    "operations": ["pause", "unpause"],
+    "tokens": ["0x0000000000000000000000000000000000000000"]
+  },
+  "treasuryTransfer": {
+    "maxTinybars": "5000000000",
+    "recipients": ["0.0.0"]
+  }
+}

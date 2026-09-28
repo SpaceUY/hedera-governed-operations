@@ -1,4 +1,4 @@
-import { isMirrorNotFound } from "~~/services/mirror";
+import { isMirrorNotFound } from "@sh/core/mirror";
 
 /** Mirror lags consensus by seconds; this is how often pending entities are re-read. */
 export const DEFAULT_PENDING_POLL_MS = 5_000;

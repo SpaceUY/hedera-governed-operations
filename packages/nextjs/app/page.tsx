@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { GOVERNANCE_ROUTES, type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { approvalsLabel, proposalStatusLabel } from "~~/services/governance/proposalLabels";
-import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 

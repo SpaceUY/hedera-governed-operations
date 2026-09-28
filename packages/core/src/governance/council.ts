@@ -10,12 +10,12 @@
  * why `@hiero-ledger/proto` is a dependency here; the Hiero SDK already ships the same package, so
  * it costs nothing in the bundle and its version follows the SDK's.
  */
+import { type MirrorKey, type MirrorSchedule, fetchAccount } from "../mirror";
+import type { HederaNetworkName } from "../network";
+import { createRelayClient } from "../relayClient";
 import { proto } from "@hiero-ledger/proto";
 import { ContractId } from "@hiero-ledger/sdk";
 import { type Address, keccak256, parseAbi, toHex } from "viem";
-import { type MirrorKey, type MirrorSchedule, fetchAccount } from "~~/services/mirror";
-import { createRelayClient } from "~~/services/web3/relayClient";
-import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /** How Mirror labels a key it cannot express as one public key: a key list, with or without a threshold. */
 const PROTOBUF_ENCODED = "ProtobufEncoded";

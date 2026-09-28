@@ -4,8 +4,8 @@ import {
   type NativeProposalKind,
   PROPOSAL_TYPES,
   type ScheduledOperation,
-} from "./proposalTypes";
-import type { RegistryCrossCheck } from "./registry";
+} from "@sh/core/governance/proposalTypes";
+import type { RegistryCrossCheck } from "@sh/core/governance/registry";
 import { describe, expect, it } from "vitest";
 
 const VAULT = "0x3f806946439c3521eeD7d740c3f84E09888C0419";

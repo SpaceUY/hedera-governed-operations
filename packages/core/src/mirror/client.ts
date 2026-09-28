@@ -5,7 +5,7 @@
  * Mirror lags consensus by a few seconds: freshly submitted entities may 404
  * and state such as a schedule's `executed_timestamp` needs polling.
  */
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
+import { isEvmAddress } from "../identity";
 
 const MIRROR_BASE: Record<string, string> = {
   testnet: process.env.HEDERA_MIRROR_TESTNET_URL?.trim() || "https://testnet.mirrornode.hedera.com",
@@ -14,7 +14,8 @@ const MIRROR_BASE: Record<string, string> = {
 };
 
 const DEFAULT_NETWORK = "testnet";
-const DEFAULT_MAX_PAGES = 10;
+/** Upper bound on pages any paginated read follows, so a large collection cannot run away. */
+export const DEFAULT_MAX_PAGES = 10;
 const NANOS_PER_MILLI = 1_000_000;
 const MILLIS_PER_SECOND = 1_000;
 const ENTITY_ID_REGEX = /^\d+\.\d+\.\d+$/;

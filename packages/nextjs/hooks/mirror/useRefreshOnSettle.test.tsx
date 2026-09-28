@@ -3,11 +3,11 @@ import { DEFAULT_PENDING_POLL_MS } from "./mirrorQuery";
 import { councilQueryKey } from "./useCouncil";
 import { type SettleScope, useRefreshOnSettle } from "./useRefreshOnSettle";
 import { treasuryFiguresQueryKey } from "./useTreasuryFigures";
+import type { Proposal } from "@sh/core/governance/proposals";
+import type { ScheduleStatus } from "@sh/core/mirror";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Proposal } from "~~/services/governance/proposals";
-import type { ScheduleStatus } from "~~/services/mirror";
 
 const SCOPE: SettleScope = { network: "testnet", governanceAccountId: "0.0.100", executorContractId: "0.0.200" };
 const TREASURY_KEY = treasuryFiguresQueryKey("testnet", "0.0.100");

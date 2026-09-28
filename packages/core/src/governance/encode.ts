@@ -15,6 +15,7 @@
  * What this file does not decide is copy. The schedule's memo is a label the caller chooses and the
  * decoder never reads back, so the default lives with the screen, next to `PROPOSAL_TYPES[kind].label`.
  */
+import type { HederaNetworkName } from "../network";
 import { PROPOSAL_TYPES, type TokenAdminOperation } from "./proposalTypes";
 import { REGISTRY_ABI } from "./registry";
 import { PROPOSAL_EXPIRY_SECONDS, fetchAccountPublicKey } from "./schedules";
@@ -30,7 +31,6 @@ import {
   TransferTransaction,
 } from "@hiero-ledger/sdk";
 import { type Address, type Hex, encodeFunctionData, hexToBytes, parseAbi, size } from "viem";
-import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /**
  * Registering a proposal stores its call in the registry's storage, and Hedera charges for that by

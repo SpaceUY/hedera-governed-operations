@@ -1,10 +1,10 @@
 import { createMirrorNodeAccountResolver } from "./accountResolver";
 import { SwapValidationError } from "./errors";
+import { type MirrorAccount, fetchAccount } from "@sh/core/mirror";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type MirrorAccount, fetchAccount } from "~~/services/mirror";
 
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
   fetchAccount: vi.fn(),
 }));
 
