@@ -9,9 +9,6 @@ const { ProvidePlugin } = nodeRequire("webpack") as {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
-  // The demo signers read this file through `process.cwd()`, which the tracer follows: without the
-  // exclusion a standalone or Vercel build would ship the demo council keys it holds.
-  outputFileTracingExcludes: { "**": ["./setup-state.json"] },
   transpilePackages: ["@hashgraph/hedera-wallet-connect", "@scaffold-hbar-ui/components"],
   typescript: {
     ignoreBuildErrors: process.env.NEXT_PUBLIC_IGNORE_BUILD_ERROR === "true",

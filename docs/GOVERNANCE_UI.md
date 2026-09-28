@@ -22,12 +22,10 @@ packages/nextjs/
     governance/[scheduleId]/page.tsx  # proposal detail
     governance/new/page.tsx         # opening a proposal
     proof-wall/page.tsx
-    api/hedera/demo-signers/route.ts  # demo only: a ScheduleSign signed with a demo member's key
   components/
     SetupNotice.tsx                 # rendered in place of a governance page until setup and the deploy have run
     governance/MutationError.tsx
     governance/wizard/              # ProposalWizardProvider + ProposalWizard, OperationTypePicker, forms/, CouncilPreviewPanel
-    governance/DemoSignButtons.tsx  # demo only: "Sign as Alice / Bob"
   config/governanceConfig.ts        # ids `yarn setup` writes; deployed contract lookup; resolveGovernanceConfig
   hooks/mirror/                     # reads (React Query)
     useCouncil.ts                   # threshold key, members, proposers
@@ -41,7 +39,6 @@ packages/nextjs/
     useWithdrawProposal.ts          # ScheduleDelete
     useCancelProposal.ts            # GovernedExecutor.cancel
     useSubmitProposalDraft.ts       # one submit for the wizard, whichever path the draft takes
-    useDemoSigners.ts               # demo only: available demo members, and the server-side sign
   services/governance/
     council.ts                      # threshold key decoding, approval counting, proposer list
     proposals.ts                    # the inbox: schedules by proposer, narrowed and crossed with the registry
@@ -56,7 +53,6 @@ packages/nextjs/
     treasury.ts                     # balances plus the vault's reserve
     proposalActions.ts              # which actions a proposal offers, and to whom
     proposalLabels.ts               # the words a screen uses for a proposal's state
-  services/demoSigners/             # demo only: keys from setup-state.json (server), who a proposal waits on (client)
 ```
 
 Every operation follows the services → hooks → page layering described in "How to add an operation" in `AGENTS.md`: the service builds and freezes the transaction, the hook wraps it in `useMutation` and calls `requireAccountId()` first, and the page only calls the hook.
@@ -93,15 +89,6 @@ The rules live in `services/governance/proposalActions.ts` and are tested there;
 - **Cancel** (`cancellableRegistryId`): offered only once no live schedule points at the entry — the schedule was withdrawn, expired, or ran and failed (a schedule runs once) — and the registry entry is still pending. Withdraw comes first because a live schedule on a cancelled entry can still reach its threshold, revert with `ProposalNotPending` and bill the governance account for the gas.
 
 Wallet rejections are shown as `WALLET_REJECTED_MESSAGE` (`services/web3/hederaSigner.ts`, next to `isWalletRejection`) rather than as a failure.
-
-### Demo signers ("Sign as Alice / Bob")
-
-`yarn setup` creates two demo accounts, seats them on the council next to yours and keeps their keys in `setup-state.json`, so a demo can reach a 2-of-3 threshold without three wallets. Next to Sign, the detail page shows **Sign as Alice** / **Sign as Bob** for each demo member whose key is on a council the proposal waits for (both councils for a rotation) and who has not signed yet, and only where Sign itself would be offered (`canBeSigned`). The button calls `POST /api/hedera/demo-signers`, which signs the `ScheduleSign` with that member's key on the server; the demo account pays for it.
-
-- **Where it runs**: only on testnet and outside production builds, and only when `setup-state.json` holds the keys. Two demo keys are two of the three seats, so a hosted build must never sign with them. Elsewhere `GET` lists no members and the buttons are not rendered; `POST` answers `503` (`403` when `HEDERA_NETWORK` is not testnet). `POST` only takes an `application/json` body, so a page on another origin cannot make a local dev server sign without a CORS preflight, which the route never answers.
-- **What the route re-checks**: the schedule is pending and the governance account pays for it; `canBeSigned` holds, with the registry entry re-read through the relay for a call to the deployed `GovernedExecutor` (a cancelled or missing entry would revert and bill the governance account); and the member holds a seat and has not signed.
-- **After a success** the button stays disabled with "waiting for the Mirror Node" and the page calls `refresh()`; the approval count only moves when Mirror lists the signature.
-- **Removing it**: delete `services/demoSigners/`, `app/api/hedera/demo-signers/`, `hooks/useDemoSigners.ts` and `components/governance/DemoSignButtons.tsx`, then remove the `DemoSignButtons` element from the detail page.
 
 ## What a proposal says
 

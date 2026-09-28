@@ -36,16 +36,16 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 ## App overview
 
-| Route                      | Purpose                                                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Governance home — treasury figures, council threshold, pending proposals; a setup notice until `yarn setup` and the deploy have run          |
-| `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)            |
-| `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                              |
-| `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                             |
-| `/my-proofs`               | Proofs filtered by connected account; badge display                                                                                          |
-| `/admin`                   | Create HCS topic and HTS badge token (wallet-signed)                                                                                         |
-| `/explorer`                | Read-only Mirror Node view: decoded topic messages and schedule state                                                                        |
-| `/api/hedera/*`            | Mirror Node proxies, operator status, badge airdrop (operator-signed), `demo-signers` (demo only: a council approval signed with a demo key) |
+| Route                      | Purpose                                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                        | Governance home — treasury figures, council threshold, pending proposals; a setup notice until `yarn setup` and the deploy have run |
+| `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)   |
+| `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                     |
+| `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                    |
+| `/my-proofs`               | Proofs filtered by connected account; badge display                                                                                 |
+| `/admin`                   | Create HCS topic and HTS badge token (wallet-signed)                                                                                |
+| `/explorer`                | Read-only Mirror Node view: decoded topic messages and schedule state                                                               |
+| `/api/hedera/*`            | Mirror Node proxies, operator status, badge airdrop (operator-signed)                                                               |
 
 Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env) and `packages/nextjs/config/governanceConfig.ts` (the ids `yarn setup` writes, deployed contract lookup).
 
@@ -54,10 +54,9 @@ Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, M
 ```
 packages/nextjs/
   app/                    App Router pages and API routes
-    api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check, demo-signers (demo only)
+    api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
     governance/           MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
-    governance/DemoSignButtons.tsx  Demo only: "Sign as Alice / Bob" on a proposal
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
     useSubmitProof.ts     HCS TopicMessageSubmitTransaction via native tx hook
@@ -65,7 +64,6 @@ packages/nextjs/
     useCreateTopic.ts     Admin: create HCS topic
     useCreateToken.ts     Admin: create HTS badge token
     useBadgeTokens.ts     Badge balance / eligibility
-    useDemoSigners.ts     Demo only: which demo members the server signs for, and the sign request
     mirror/               React Query hooks over services/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
@@ -110,7 +108,6 @@ packages/nextjs/
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       scheduledBody.ts      The body a schedule carries, built from its transaction (the wizard's preview)
       drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
-    demoSigners/          Demo only: demo council keys from setup-state.json (server) and who a proposal waits on (client)
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)
@@ -143,7 +140,6 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 - **Wallet-signed (client)**: build the transaction with the SDK and hand it to `useHederaSigner` (`executeTransaction` / `signTransaction`); the active signer freezes it with a network `Client`. Use this for anything the user owns or pays for: submitting a proof, creating a topic or token, swapping. Read the payer with `requireAccountId()`, not from the wallet provider, so the code works with both signers.
 - **Test signer (burner)**: `services/web3/BurnerSignerProvider.tsx` reads `localStorage["burnerWallet.pk"]` on load, resolves the account id from the key's EVM alias through the Mirror Node (`GET /api/v1/accounts/0x…`, retried for indexing lag) and takes precedence over HashPack. `burnerSigner.ts` signs with `freezeWith(client)` + `execute(client)` / `sign(key)`; the burner is the client's operator. It only activates on testnet and, in production builds, only when `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` (`burnerSignerPolicy.ts`). The header shows the account with a "test signer" badge; "Disconnect" forgets the key. This is the burner-wallet pattern of the Hedera Harness x402 recipe ([hedera-dev/hedera-harness](https://github.com/hedera-dev/hedera-harness)), adapted to native signing since HashPack cannot be driven by Playwright. `BurnerSigner.publicKey` is the extension point for demo modes that need the ephemeral account on-chain (e.g. as a threshold-key member); a payer-only demo needs nothing beyond `chainValidation.fundingHbar`.
 - **Operator-signed (server route)**: `services/hederaClient.ts` reads `HEDERA_OPERATOR_*` and signs inside `app/api/hedera/*` route handlers. Use this only for actions the app itself pays for (badge airdrops, setup). Never expose the operator key to the client; return `503` when it is missing (see `check-badge/route.ts`).
-- **Demo-signed (server route, demo only)**: `app/api/hedera/demo-signers` signs a `ScheduleSign` with a demo council member's key, which `yarn setup` keeps in `setup-state.json` and never reaches the client (`services/demoSigners/`). The demo account pays for its own approval, like a member signing from a wallet, so the route needs no operator key. Two demo keys are two of the three seats, so the route only runs on testnet and outside production builds: `GET` lists no members and `POST` answers `503` otherwise (`403` when `HEDERA_NETWORK` is not testnet). It re-checks what the Sign button checks — a pending schedule the governance account pays for, `canBeSigned` with the registry entry re-read, a member who has not signed — and the page still waits for Mirror to show the signature. Removing it is two steps, listed in `services/demoSigners/demoSigners.ts`.
 - **Freeze before execute**: always `freeze()` / `freezeWith(client)` a transaction before signing or serialising it. A frozen transaction has its transaction id and node account ids fixed; an unfrozen one cannot be signed by an external wallet.
 - **Batch inner transactions (HIP-551)**: for an inner transaction the wallet signs and the server batches, set `setTransactionId(TransactionId.generate(payer))`, `setBatchKey(serviceKey)`, then `freeze()`. Do **not** call `setNodeAccountIds`: it locks the node list and `freeze()` can no longer pin node `0.0.0`, which a batch requires. The service adds the signed inner tx to a `BatchTransaction` and executes it with the batch key.
 - **Wallet rejections** arrive as WalletConnect JSON-RPC errors (`code` 5000–5003, EIP-1193 `4001`, or a `USER_REJECT` message); `hederaSigner.ts` maps them to `WalletRejectedError` (`isWalletRejection`) so components can show a message instead of a crash.
