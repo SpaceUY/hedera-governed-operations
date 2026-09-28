@@ -41,10 +41,10 @@ export function ContractNode({ tone = "contract", ...node }: NodeProps & { tone?
         }
         strokeWidth={1.5}
       />
-      <text y={-4} textAnchor="middle" className="fill-base-content text-[13px] font-semibold">
+      <text y={-4} textAnchor="middle" className="fill-base-content text-map-label font-semibold">
         {node.label}
       </text>
-      <text y={15} textAnchor="middle" className="fill-base-content/60 text-[11px]">
+      <text y={15} textAnchor="middle" className="fill-base-content/60 text-map-caption">
         {node.caption}
       </text>
     </MapItem>

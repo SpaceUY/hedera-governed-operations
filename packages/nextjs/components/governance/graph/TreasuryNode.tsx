@@ -29,14 +29,14 @@ export function TreasuryNode({ rule, threshold, signed, ...node }: TreasuryNodeP
       <text
         y={-20}
         textAnchor="middle"
-        className="fill-base-content/70 text-[11px] font-semibold uppercase tracking-widest"
+        className="fill-base-content/70 text-map-caption font-semibold uppercase tracking-widest"
       >
         {node.label}
       </text>
       <text y={8} textAnchor="middle" className="fill-base-content text-xl font-bold">
         {rule}
       </text>
-      <text y={28} textAnchor="middle" className="fill-base-content/60 text-[11px]">
+      <text y={28} textAnchor="middle" className="fill-base-content/60 text-map-caption">
         {node.caption}
       </text>
     </MapItem>

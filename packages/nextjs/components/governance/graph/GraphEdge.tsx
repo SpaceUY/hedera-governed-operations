@@ -66,7 +66,7 @@ export function GraphEdge({ id, kind, phase, route, label, caption, focus, onAct
         x={middle.x}
         y={middle.y - 6}
         textAnchor="middle"
-        className="fill-base-content stroke-base-200 text-[11px] opacity-0 [paint-order:stroke] group-hover:opacity-100 group-focus-visible:opacity-100"
+        className="fill-base-content stroke-base-200 text-map-caption opacity-0 [paint-order:stroke] group-hover:opacity-100 group-focus-visible:opacity-100"
         strokeWidth={4}
       >
         {caption}

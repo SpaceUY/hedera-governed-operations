@@ -26,6 +26,10 @@
   --color-hedera-smoke: #9b9b9d;
   /* The governance map's "would happen" line: violet in both themes, where primary is indigo in light. */
   --color-map-preview: var(--color-hedera-ultraviolet);
+  /* The governance map's SVG text, in viewBox units: its fixed layout is spaced for these sizes. */
+  --text-map-label: 13px;
+  --text-map-token: 12px;
+  --text-map-caption: 11px;
 }
 
 @plugin "daisyui" {

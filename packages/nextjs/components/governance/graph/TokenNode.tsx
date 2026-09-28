@@ -20,10 +20,10 @@ export function TokenNode(node: NodeProps) {
         className="fill-base-100 stroke-base-content/40"
         strokeWidth={1.5}
       />
-      <text y={4} textAnchor="middle" className="fill-base-content text-[12px] font-semibold">
+      <text y={4} textAnchor="middle" className="fill-base-content text-map-token font-semibold">
         {node.label}
       </text>
-      <text y={TOKEN_RADIUS + 18} textAnchor="middle" className="fill-base-content/60 text-[11px]">
+      <text y={TOKEN_RADIUS + 18} textAnchor="middle" className="fill-base-content/60 text-map-caption">
         {node.caption}
       </text>
     </MapItem>

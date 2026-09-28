@@ -46,7 +46,7 @@ export default function GovernanceLayout({ children }: { children: ReactNode }) 
             </div>
           </div>
         </section>
-        <div className="flex min-w-0 flex-col border-t border-base-300 lg:w-[38%] lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
+        <div className="flex min-w-0 flex-col border-t border-base-300 lg:w-2/5 lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
           {children}
         </div>
       </div>
