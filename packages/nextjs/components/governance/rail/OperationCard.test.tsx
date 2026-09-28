@@ -69,7 +69,14 @@ describe("OperationCard", () => {
       proposal: proposal({
         registry: {
           status: "read",
-          entry: { proposalId: 7, state: "cancelled", target: "0x0", calldata: "0x", operation: {} as never },
+          entry: {
+            proposalId: 7,
+            state: "cancelled",
+            target: "0x0",
+            proposer: "0x0",
+            calldata: "0x",
+            operation: {} as never,
+          },
         },
       }),
     });
