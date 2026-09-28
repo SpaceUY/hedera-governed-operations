@@ -8,6 +8,7 @@
  * Decisions go out as one JSON object per line. That is what makes them greppable in `docker logs`,
  * and it is the same object a decision published to a topic would carry.
  */
+import { startApprovalServer } from "./approvalServer";
 import { type ApprovalStore, createApprovalStore } from "./approvals";
 import { type AgentConfig, loadConfig } from "./config";
 import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } from "./review";
@@ -200,6 +201,19 @@ async function main(): Promise<void> {
     releaseTopic: config.policy.upgrade?.manifestTopicId ?? null,
   });
 
+  const pass: Pass = {
+    sign,
+    verifyRelease: await createReleaseVerifier(config),
+    signedThisRun: new Set<string>(),
+    reported: new Map(),
+    approvals: createApprovalStore(config.confirmationSecret),
+  };
+
+  // Only when a code could actually arrive. A policy that escalates nothing has nothing to confirm,
+  // and a port open on a service that will never read from it is surface for no reason.
+  const approvalServer = config.confirmationSecret ? await startApprovalServer(pass.approvals, config.approval) : null;
+  if (approvalServer) log("approvals-listening", { host: config.approval.host, port: config.approval.port });
+
   let running = true;
   const { sleep, interrupt } = createInterruptibleSleep();
   const stop = (signal: string) => () => {
@@ -209,14 +223,6 @@ async function main(): Promise<void> {
   };
   process.on("SIGINT", stop("SIGINT"));
   process.on("SIGTERM", stop("SIGTERM"));
-
-  const pass: Pass = {
-    sign,
-    verifyRelease: await createReleaseVerifier(config),
-    signedThisRun: new Set<string>(),
-    reported: new Map(),
-    approvals: createApprovalStore(config.confirmationSecret),
-  };
 
   while (running) {
     try {
@@ -230,6 +236,7 @@ async function main(): Promise<void> {
   }
 
   client?.close();
+  approvalServer?.close();
 }
 
 main().catch((error: Error) => {
