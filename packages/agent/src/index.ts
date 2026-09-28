@@ -8,6 +8,7 @@
  * Decisions go out as one JSON object per line. That is what makes them greppable in `docker logs`,
  * and it is the same object a decision published to a topic would carry.
  */
+import { type ApprovalStore, createApprovalStore } from "./approvals";
 import { type AgentConfig, loadConfig } from "./config";
 import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } from "./review";
 import { Client } from "@hiero-ledger/sdk";
@@ -93,13 +94,19 @@ async function createReleaseVerifier(config: AgentConfig): Promise<VerifyRelease
   return implementation => checkImplementationAgainstManifest(implementation, topicId, { network: config.network });
 }
 
-async function runOnce(
-  config: AgentConfig,
-  sign: SignSchedule | null,
-  signedThisRun: Set<string>,
-  reported: Reported,
-  verifyRelease: VerifyRelease | null,
-): Promise<void> {
+/** Everything one pass carries over from the last one, and the collaborators it acts through. */
+type Pass = {
+  sign: SignSchedule | null;
+  verifyRelease: VerifyRelease | null;
+  /** Proposals this process signed but Mirror has not caught up with. */
+  signedThisRun: Set<string>;
+  /** What was already said about each proposal, so a steady inbox is not reprinted every few seconds. */
+  reported: Reported;
+  approvals: ApprovalStore;
+};
+
+async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
+  const { sign, verifyRelease, signedThisRun, reported, approvals } = pass;
   const lookup = {
     executorContractId: config.executorContractId,
     network: config.network,
@@ -127,33 +134,38 @@ async function runOnce(
       agentPublicKeyHex: config.agentKey.publicKey.toStringRaw(),
       policy: config.policy,
       signedThisRun,
+      confirmed: approvals.confirmed(new Date()),
     },
     sign,
     verifyRelease,
   );
 
   for (const scheduleId of result.signed) signedThisRun.add(scheduleId);
+  // Before logging, so a decision that says it is waiting is one the endpoint will already take a
+  // code for.
+  for (const decision of result.decisions) {
+    if (decision.outcome === "pending") approvals.awaitConfirmation(decision.scheduleId);
+  }
   for (const decision of result.decisions) logDecision(decision, sign === null, reported);
   for (const failure of result.failures) log("signature-failed", failure);
   if (result.unreachableProposers.length > 0) {
     log("partial-inbox", { unreachableProposers: result.unreachableProposers });
   }
 
-  forgetProposalsOutsideInbox(new Set(result.decisions.map(decision => decision.scheduleId)), signedThisRun, reported);
+  forgetProposalsOutsideInbox(new Set(result.decisions.map(decision => decision.scheduleId)), pass);
 }
 
 /**
- * Both of the agent's memories are about proposals it can still see. A schedule that has left the
+ * Every memory the agent keeps is about proposals it can still see. A schedule that has left the
  * inbox is settled or expired, and re-reading it from Mirror would answer the same question again —
- * so keeping its entry only grows two collections for the life of a process meant to run for months.
+ * so keeping its entry only grows these collections for the life of a process meant to run for
+ * months. It is also what bounds a pending approval: a proposal waiting on a code stops waiting when
+ * the schedule it belongs to expires.
  */
-function forgetProposalsOutsideInbox(
-  inInbox: ReadonlySet<string>,
-  signedThisRun: Set<string>,
-  reported: Reported,
-): void {
-  for (const scheduleId of signedThisRun) if (!inInbox.has(scheduleId)) signedThisRun.delete(scheduleId);
-  for (const scheduleId of reported.keys()) if (!inInbox.has(scheduleId)) reported.delete(scheduleId);
+function forgetProposalsOutsideInbox(inInbox: ReadonlySet<string>, pass: Pass): void {
+  for (const scheduleId of pass.signedThisRun) if (!inInbox.has(scheduleId)) pass.signedThisRun.delete(scheduleId);
+  for (const scheduleId of pass.reported.keys()) if (!inInbox.has(scheduleId)) pass.reported.delete(scheduleId);
+  pass.approvals.forgetOutside(inInbox);
 }
 
 function logDecision(decision: Decision, dryRun: boolean, reported: Reported): void {
@@ -168,6 +180,7 @@ function logDecision(decision: Decision, dryRun: boolean, reported: Reported): v
     kind: decision.kind,
     reason: decision.reason,
     proposal: decision.description,
+    confirmation: decision.confirmation,
   });
 }
 
@@ -197,13 +210,17 @@ async function main(): Promise<void> {
   process.on("SIGINT", stop("SIGINT"));
   process.on("SIGTERM", stop("SIGTERM"));
 
-  const signedThisRun = new Set<string>();
-  const reported: Reported = new Map();
-  const verifyRelease = await createReleaseVerifier(config);
+  const pass: Pass = {
+    sign,
+    verifyRelease: await createReleaseVerifier(config),
+    signedThisRun: new Set<string>(),
+    reported: new Map(),
+    approvals: createApprovalStore(config.confirmationSecret),
+  };
 
   while (running) {
     try {
-      await runOnce(config, sign, signedThisRun, reported, verifyRelease);
+      await runOnce(config, pass);
     } catch (error) {
       // One bad pass is not a reason to stop holding the seat: Mirror and the relay are both
       // eventually consistent, and the next poll is the retry.

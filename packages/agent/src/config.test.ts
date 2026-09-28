@@ -72,3 +72,23 @@ describe("parsePolicy", () => {
     expect(parsePolicy("{}")).toEqual({});
   });
 });
+
+describe("parsePolicy on the confirmation a rule can ask for", () => {
+  it("reads it per rule, so one kind can wait on a person while another does not", () => {
+    const policy = parsePolicy(
+      policyOf({
+        upgrade: { targets: [VAULT], implementations: [VAULT], requireConfirmation: true },
+        treasuryTransfer: { maxTinybars: "1", recipients: ["0.0.7"] },
+      }),
+    );
+
+    expect(policy.upgrade?.requireConfirmation).toBe(true);
+    expect(policy.treasuryTransfer?.requireConfirmation).toBeUndefined();
+  });
+
+  it("refuses a value that is not true or false, which a string 'false' would read as on", () => {
+    expect(() =>
+      parsePolicy(policyOf({ tokenAdmin: { operations: ["pause"], tokens: [VAULT], requireConfirmation: "false" } })),
+    ).toThrow(/must be true or false/);
+  });
+});

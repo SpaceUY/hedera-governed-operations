@@ -46,7 +46,12 @@ export type ApprovalStore = {
 const isLive = (confirmedAt: Date | null, now: Date): boolean =>
   confirmedAt !== null && now.getTime() - confirmedAt.getTime() < CONFIRMATION_TTL_MS;
 
-export function createApprovalStore(secret: Uint8Array): ApprovalStore {
+/**
+ * The secret may be null, which is the shape of an agent whose policy escalates nothing. It is a
+ * null rather than an empty secret because an empty key is a real HMAC key: codes generated from it
+ * would verify, and the store would release proposals on a secret anybody can guess.
+ */
+export function createApprovalStore(secret: Uint8Array | null): ApprovalStore {
   /** Schedule id to when a person released it, or null while it is still waiting for a code. */
   const waiting = new Map<string, Date | null>();
 
@@ -69,6 +74,7 @@ export function createApprovalStore(secret: Uint8Array): ApprovalStore {
     },
 
     confirm(scheduleId, code, now) {
+      if (secret === null) return "rejected";
       if (!waiting.has(scheduleId)) return "unknown";
       if (isLive(waiting.get(scheduleId) ?? null, now)) return "alreadyConfirmed";
 
