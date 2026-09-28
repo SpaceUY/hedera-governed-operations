@@ -151,8 +151,11 @@ window. The cost is that confirming two proposals means waiting for the next 30-
 ### Sending one
 
 ```bash
-curl -i -XPOST localhost:8787/approvals/0.0.10720313 -d '{"code":"123456"}'
+curl -i -XPOST 127.0.0.1:8787/approvals/0.0.10720313 -d '{"code":"123456"}'
 ```
+
+The address is `127.0.0.1` rather than `localhost` on purpose: on a dual-stack host `localhost`
+resolves to `::1` first, and a server bound to the IPv4 loopback is not there.
 
 | Status |                                                              |
 | ------ | ------------------------------------------------------------ |

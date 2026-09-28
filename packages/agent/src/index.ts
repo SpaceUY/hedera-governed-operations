@@ -19,6 +19,7 @@ import { assertDecisionTopicAcceptsKey, buildDecisionMessage } from "@sh/core/go
 import { fetchProposalInbox } from "@sh/core/governance/proposals";
 import { assertReleaseTopicIsSigned, checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
+import type { Server } from "node:http";
 
 type LogFields = Record<string, unknown>;
 
@@ -223,64 +224,70 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const client = config.dryRun ? null : createClient(config);
   const sign = client === null ? null : createSigner(client);
+  let approvalServer: Server | null = null;
 
-  log("started", {
-    agent: config.agentAccountId,
-    governanceAccount: config.governanceAccountId,
-    executor: config.executorContractId,
-    network: config.network,
-    pollIntervalMs: config.pollIntervalMs,
-    dryRun: config.dryRun,
-    allows: Object.keys(config.policy),
-    releaseTopic: config.policy.upgrade?.manifestTopicId ?? null,
-    decisionTopic: config.decisionTopicId,
-  });
+  // Everything below runs with a Hedera client open, and an open client holds the event loop. A boot
+  // check that throws would otherwise log its refusal and then leave the process sitting there for
+  // ever, which reads as a hang rather than as a service that refused to start.
+  try {
+    log("started", {
+      agent: config.agentAccountId,
+      governanceAccount: config.governanceAccountId,
+      executor: config.executorContractId,
+      network: config.network,
+      pollIntervalMs: config.pollIntervalMs,
+      dryRun: config.dryRun,
+      allows: Object.keys(config.policy),
+      releaseTopic: config.policy.upgrade?.manifestTopicId ?? null,
+      decisionTopic: config.decisionTopicId,
+    });
 
-  // Before the first decision, not at the first one: a topic anyone can submit to would make the
-  // agent's own record indistinguishable from a stranger's, and a topic held by another key would
-  // refuse every one of them.
-  await assertDecisionTopicAcceptsKey(config.decisionTopicId, config.agentKey.publicKey.toStringRaw(), {
-    network: config.network,
-  });
+    // Before the first decision, not at the first one: a topic anyone can submit to would make the
+    // agent's own record indistinguishable from a stranger's, and a topic held by another key would
+    // refuse every one of them.
+    await assertDecisionTopicAcceptsKey(config.decisionTopicId, config.agentKey.publicKey.toStringRaw(), {
+      network: config.network,
+    });
 
-  const pass: Pass = {
-    sign,
-    verifyRelease: await createReleaseVerifier(config),
-    signedThisRun: new Set<string>(),
-    reported: new Map(),
-    approvals: createApprovalStore(config.confirmationSecret),
-    published: new Map(),
-    publish: client === null ? null : createPublisher(client, config.decisionTopicId),
-  };
+    const pass: Pass = {
+      sign,
+      verifyRelease: await createReleaseVerifier(config),
+      signedThisRun: new Set<string>(),
+      reported: new Map(),
+      approvals: createApprovalStore(config.confirmationSecret),
+      published: new Map(),
+      publish: client === null ? null : createPublisher(client, config.decisionTopicId),
+    };
 
-  // Only when a code could actually arrive. A policy that escalates nothing has nothing to confirm,
-  // and a port open on a service that will never read from it is surface for no reason.
-  const approvalServer = config.confirmationSecret ? await startApprovalServer(pass.approvals, config.approval) : null;
-  if (approvalServer) log("approvals-listening", { host: config.approval.host, port: config.approval.port });
+    // Only when a code could actually arrive. A policy that escalates nothing has nothing to
+    // confirm, and a port open on a service that will never read from it is surface for no reason.
+    approvalServer = config.confirmationSecret ? await startApprovalServer(pass.approvals, config.approval) : null;
+    if (approvalServer) log("approvals-listening", { host: config.approval.host, port: config.approval.port });
 
-  let running = true;
-  const { sleep, interrupt } = createInterruptibleSleep();
-  const stop = (signal: string) => () => {
-    log("stopping", { signal });
-    running = false;
-    interrupt();
-  };
-  process.on("SIGINT", stop("SIGINT"));
-  process.on("SIGTERM", stop("SIGTERM"));
+    let running = true;
+    const { sleep, interrupt } = createInterruptibleSleep();
+    const stop = (signal: string) => () => {
+      log("stopping", { signal });
+      running = false;
+      interrupt();
+    };
+    process.on("SIGINT", stop("SIGINT"));
+    process.on("SIGTERM", stop("SIGTERM"));
 
-  while (running) {
-    try {
-      await runOnce(config, pass);
-    } catch (error) {
-      // One bad pass is not a reason to stop holding the seat: Mirror and the relay are both
-      // eventually consistent, and the next poll is the retry.
-      log("pass-failed", { error: (error as Error).message });
+    while (running) {
+      try {
+        await runOnce(config, pass);
+      } catch (error) {
+        // One bad pass is not a reason to stop holding the seat: Mirror and the relay are both
+        // eventually consistent, and the next poll is the retry.
+        log("pass-failed", { error: (error as Error).message });
+      }
+      if (running) await sleep(config.pollIntervalMs);
     }
-    if (running) await sleep(config.pollIntervalMs);
+  } finally {
+    client?.close();
+    approvalServer?.close();
   }
-
-  client?.close();
-  approvalServer?.close();
 }
 
 main().catch((error: Error) => {
