@@ -59,8 +59,8 @@ export type RegistryEntry = {
  *
  * `notApplicable` and `notRead` are not the same answer either. `notApplicable` is a proposal with no
  * entry to read, a native kind. `notRead` is a registry call whose entry exists but was left unread
- * because its round is over and did not fail, so nothing the council can do depends on it any more:
- * the inbox skips those to spare a relay read per row and poll.
+ * because its schedule ran it and did not fail, so the entry has executed and nothing the council can
+ * do depends on it any more: the inbox skips those to spare a relay read per row and poll.
  */
 export type RegistryCrossCheck =
   | { status: "notApplicable" }
@@ -119,8 +119,8 @@ export function proposalIdFromContractResult(result: MirrorContractResult): numb
 
 /**
  * The registry entries behind a set of proposals, one read each. There is no batching: a multicall
- * would need a contract deployed for it, and the inbox only ever asks about the proposals that are
- * still pending and go through the executor — the settled ones already know how they ended.
+ * would need a contract deployed for it, and the inbox only asks about the entries whose schedule has
+ * not run them and that it has not already seen cancelled or executed, which are final answers.
  *
  * One entry that cannot be read leaves that proposal uncrossed instead of failing the whole inbox,
  * the same partial result the inbox already returns when a proposer cannot be read from Mirror.
