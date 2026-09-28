@@ -51,6 +51,22 @@ describe("edgeRoute", () => {
     expect(route.middle).toEqual({ x: 300, y: 300 - TREASURY_KEEP_OUT });
   });
 
+  it("passes the waypoint smoothly, parallel to the line it replaces, and never doubles back", () => {
+    const [from, to] = [
+      { x: 90, y: 300 },
+      { x: 490, y: 170 },
+    ];
+    const [first, second] = edgeRoute(from, to, KEEP_OUT).curves;
+    const across = { x: second[0].x - first[1].x, y: second[0].y - first[1].y };
+    expect(across.x * (to.y - from.y) - across.y * (to.x - from.x)).toBeCloseTo(0);
+    expect(across.x).toBeGreaterThan(0);
+
+    const route = edgeRoute(from, to, KEEP_OUT);
+    const xs = route.curves.flatMap(points => points.map(({ x }) => x));
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(from.x);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(to.x);
+  });
+
   it("goes under when the line passes below the centre", () => {
     const route = edgeRoute({ x: 90, y: 480 }, { x: 490, y: 170 }, KEEP_OUT);
     expect(route.middle.y).toBeGreaterThan(TREASURY.y);
@@ -83,12 +99,20 @@ describe("routeOnMap", () => {
     const [from, to] = [nodesById.get(seat?.from ?? "")?.position, nodesById.get(GOVERNANCE_ACCOUNT_NODE_ID)?.position];
     expect(seat && from && to && routeOnMap(seat, nodesById)).toEqual(from && to && edgeRoute(from, to));
   });
+
+  it("lets an edge that starts at the treasury run straight out of it", () => {
+    const { graph } = composeMap(MAP_SNAPSHOT_WITH_OPERATOR);
+    const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
+    const call = graph.edges.find(edge => edge.from === GOVERNANCE_ACCOUNT_NODE_ID && edge.to === EXECUTOR_NODE_ID);
+    const [from, to] = [nodesById.get(GOVERNANCE_ACCOUNT_NODE_ID)?.position, nodesById.get(EXECUTOR_NODE_ID)?.position];
+    expect(call && from && to && routeOnMap(call, nodesById)).toEqual(from && to && edgeRoute(from, to));
+  });
 });
 
 describe("monogramOf", () => {
   it("takes the first letter of a name", () => {
     expect(monogramOf("alice")).toBe("A");
-    expect(monogramOf("Your wallet")).toBe("Y");
+    expect(monogramOf("You")).toBe("Y");
   });
 
   it("draws nothing for a name that is an id", () => {
