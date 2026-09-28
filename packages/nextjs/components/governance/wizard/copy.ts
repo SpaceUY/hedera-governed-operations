@@ -13,7 +13,7 @@ import type { UnscheduledEntry } from "~~/services/governance/unscheduledEntry";
 export const PROPOSAL_KIND_COPY: Record<ProposalKind, { title: string; hint: string }> = {
   upgrade: { title: "Upgrade the vault to v2", hint: "unlocks withdrawals" },
   treasurySwap: { title: "Sell treasury HBAR for USDC", hint: "with a floor" },
-  tokenAdmin: { title: "Pause, unpause or freeze ACME", hint: "token keys" },
+  tokenAdmin: { title: "Pause, unpause or freeze the token", hint: "token keys" },
   treasuryTransfer: { title: "Pay a supplier", hint: "direct transfer" },
   councilRotation: { title: "Change the council", hint: "rewrites the treasury key" },
 };
@@ -27,7 +27,7 @@ export const PROPOSAL_FAMILY_HEADINGS = {
 export const PROPOSAL_PATH_CHIPS: Record<ProposalKind, string[]> = {
   upgrade: ["Treasury", "Registry", "Vault"],
   treasurySwap: ["Treasury", "Registry", "Swap adapter", "SaucerSwap", "Treasury"],
-  tokenAdmin: ["Treasury", "Registry", "Token admin", "ACME"],
+  tokenAdmin: ["Treasury", "Registry", "Token admin", "Token"],
   treasuryTransfer: ["Treasury", "Recipient"],
   councilRotation: ["Treasury", "its own key"],
 };

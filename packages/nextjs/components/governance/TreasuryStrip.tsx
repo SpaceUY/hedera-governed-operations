@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
+import { useToken } from "~~/hooks/mirror/useToken";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
@@ -25,6 +26,7 @@ export const TreasuryStrip = () => {
     usdcTokenId: SAUCERSWAP_V2_CONFIG[network].usdcToken,
     network,
   });
+  const token = useToken(demoTokenId, { network });
   const council = useCouncil({ governanceAccountId, executorContractId: executor.hederaContractId, network });
 
   return (
@@ -32,7 +34,7 @@ export const TreasuryStrip = () => {
       <dl className="m-0 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
         <Figure label="HBAR">{treasury.data ? formatTinybars(treasury.data.hbarBalanceTinybar) : "…"}</Figure>
         <Figure label="Vault reserve">{treasury.data ? formatTinybars(treasury.data.vaultReserveTinybar) : "…"}</Figure>
-        <Figure label="ACME">{treasury.data?.acmeBalance ?? "…"}</Figure>
+        <Figure label={token.data?.token.symbol ?? "Token"}>{treasury.data?.demoTokenBalance ?? "…"}</Figure>
         <Figure label="USDC">{treasury.data?.usdcBalance ?? "…"}</Figure>
         <Figure label="Council threshold">
           {council.data ? (

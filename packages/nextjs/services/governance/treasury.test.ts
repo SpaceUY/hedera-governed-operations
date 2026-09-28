@@ -51,7 +51,7 @@ describe("fetchTreasuryFigures", () => {
       }),
     ).toEqual({
       hbarBalanceTinybar: 123_00000000,
-      acmeBalance: 42,
+      demoTokenBalance: 42,
       usdcBalance: 7,
       vaultReserveTinybar: 9_00000000n,
     });
@@ -73,7 +73,7 @@ describe("fetchTreasuryFigures", () => {
       usdcTokenId: USDC_TOKEN_ID,
       rpcUrl: RPC_URL,
     });
-    expect(figures.acmeBalance).toBe(0);
+    expect(figures.demoTokenBalance).toBe(0);
     expect(figures.usdcBalance).toBe(0);
   });
 
