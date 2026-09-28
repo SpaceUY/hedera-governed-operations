@@ -6,6 +6,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY } from "~~/services/governance/proposalLabels";
 
+const replace = vi.hoisted(() => vi.fn());
+const searchParams = vi.hoisted(() => ({ value: new URLSearchParams() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace }),
+  usePathname: () => "/",
+  useSearchParams: () => searchParams.value,
+}));
 vi.mock("~~/components/governance/GovernanceProvider", () => ({
   useGovernanceConfig: () => ({
     network: "testnet",
@@ -14,6 +22,7 @@ vi.mock("~~/components/governance/GovernanceProvider", () => ({
   }),
 }));
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
+vi.mock("~~/hooks/mirror/useProposalLookup", () => ({ useProposalLookup: vi.fn() }));
 
 /** A registry call whose entry id doubles as its name on screen: "Run entry N of the registry…". */
 const proposal = (scheduleId: string, entry: number, status: ScheduleStatus) =>
@@ -23,7 +32,13 @@ const proposal = (scheduleId: string, entry: number, status: ScheduleStatus) =>
     execution: status === "executed" ? { status: "succeeded" } : { status: "notRun" },
     progress: { signed: status === "executed" ? 2 : 1, threshold: 2, signedBy: [] },
     incomingProgress: null,
-    operation: { kind: "registryCall", proposalId: entry, executorContractId: "0.0.4242" },
+    operation: {
+      kind: "registryCall",
+      proposalId: entry,
+      executorContractId: "0.0.4242",
+      gas: 90_000,
+      payableTinybars: 0n,
+    },
     registry: { status: "notApplicable" },
   }) as unknown as Proposal;
 
@@ -35,6 +50,7 @@ const showInbox = (proposals: Proposal[]) =>
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  searchParams.value = new URLSearchParams();
 });
 
 describe("GovernanceHomePage", () => {
@@ -45,29 +61,63 @@ describe("GovernanceHomePage", () => {
       proposal("0.0.3", 3, "expired"),
       proposal("0.0.4", 4, "pending"),
     ]);
+    searchParams.value = new URLSearchParams("schedule=0.0.1");
 
     render(<GovernanceHomePage />);
 
     expect(screen.getByRole("heading", { level: 1, name: INBOX_COPY.pendingHeading })).toBeTruthy();
     const settled = screen.getByRole("region", { name: INBOX_COPY.settledHeading });
-    const settledLinks = within(settled)
-      .getAllByRole("link")
-      .map(link => link.getAttribute("href"));
-    expect(settledLinks).toEqual(["/governance/0.0.2", "/governance/0.0.3"]);
+    expect(within(settled).getAllByText(/Run entry/)).toHaveLength(2);
 
-    const pendingLinks = screen
-      .getAllByRole("link", { name: /Run entry/ })
-      .filter(link => !settled.contains(link))
-      .map(link => link.getAttribute("href"));
-    expect(pendingLinks).toEqual(["/governance/0.0.1", "/governance/0.0.4"]);
+    const pendingDescriptions = screen.getAllByText(/Run entry/).filter(node => !settled.contains(node));
+    expect(pendingDescriptions).toHaveLength(2);
   });
 
   it("says nothing is waiting when every proposal has settled", () => {
     showInbox([proposal("0.0.2", 2, "executed")]);
+    searchParams.value = new URLSearchParams("schedule=0.0.2");
 
     render(<GovernanceHomePage />);
 
     expect(screen.getByText(INBOX_COPY.noPending)).toBeTruthy();
     expect(screen.getByRole("region", { name: INBOX_COPY.settledHeading })).toBeTruthy();
+  });
+
+  it("keeps showing the partial-inbox warning when a proposer could not be read", () => {
+    vi.mocked(useProposals).mockReturnValue({
+      inbox: { data: { proposals: [proposal("0.0.1", 1, "pending")], unreachableProposers: ["0.0.999"] } },
+    } as unknown as ReturnType<typeof useProposals>);
+    searchParams.value = new URLSearchParams("schedule=0.0.1");
+
+    render(<GovernanceHomePage />);
+
+    expect(screen.getByRole("status").textContent).toContain("0.0.999");
+  });
+
+  it("pre-selects the first pending proposal when the URL names none", () => {
+    showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
+
+    render(<GovernanceHomePage />);
+
+    expect(replace).toHaveBeenCalledWith("/?schedule=0.0.1", { scroll: false });
+  });
+
+  it("does not override a selection the URL already names", () => {
+    showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
+    searchParams.value = new URLSearchParams("schedule=0.0.4");
+
+    render(<GovernanceHomePage />);
+
+    expect(replace).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { pressed: true }).textContent).toContain("Run entry 4");
+  });
+
+  it("marks the row the URL names as selected", () => {
+    showInbox([proposal("0.0.1", 1, "pending")]);
+    searchParams.value = new URLSearchParams("schedule=0.0.1");
+
+    render(<GovernanceHomePage />);
+
+    expect(screen.getByRole("button", { pressed: true })).toBeTruthy();
   });
 });
