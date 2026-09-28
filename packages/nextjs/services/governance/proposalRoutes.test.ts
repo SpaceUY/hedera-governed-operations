@@ -15,6 +15,7 @@ const UPGRADE = {
   target: VAULT,
   implementation: "0x0000000000000000000000000000000000a2d434",
   initializerCalldata: "0x",
+  initializer: { kind: "none" },
 } as const;
 
 const READ_ENTRY: RegistryCrossCheck = {

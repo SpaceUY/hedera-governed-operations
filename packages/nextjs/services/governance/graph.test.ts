@@ -63,6 +63,7 @@ const UPGRADE_ENTRY = {
   target: VAULT_ADDRESS.toLowerCase(),
   implementation: "0x0000000000000000000000000000000000a2d434",
   initializerCalldata: "0x",
+  initializer: { kind: "none" },
 } as const;
 
 const UPGRADE: DecodedOperation = UPGRADE_ENTRY;
