@@ -43,7 +43,7 @@
     },
     {
       "file": "packages/nextjs/app/(governance)/layout.tsx",
-      "contains": ["resolveGovernanceConfig", "SetupNotice", "Live map", "GovernanceMap"]
+      "contains": ["resolveGovernanceConfig", "SetupNotice", "Live map", "LiveMapPane"]
     },
     {
       "file": "packages/nextjs/app/(governance)/page.tsx",

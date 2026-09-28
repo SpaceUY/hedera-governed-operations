@@ -21,7 +21,7 @@ The detail route is keyed by **schedule id**, since a proposal is a schedule the
 packages/nextjs/
   app/
     (governance)/                   # route group: shares the live map layout, adds nothing to the URL
-      layout.tsx                    # setup guard, GovernanceProvider, map pane (treasury, status line, map) + rail
+      layout.tsx                    # setup guard, GovernanceProvider, map pane (LiveMapPane) + rail
       page.tsx                      # / — the rail's pending and settled proposals
       governance/[scheduleId]/page.tsx  # proposal detail, in the rail
       governance/new/page.tsx       # opening a proposal, in the rail
@@ -32,10 +32,11 @@ packages/nextjs/
     SetupNotice.tsx                 # rendered in place of the live map until setup and the deploy have run
     MirrorPollStatus.tsx            # the header's "Mirror Node · polled Xs ago"
     governance/GovernanceProvider.tsx  # the resolved config (useGovernanceConfig) and the wizard's provider, for the whole layout
-    governance/TreasuryStrip.tsx    # treasury figures and the council's threshold, above the map
+    governance/LiveMapPane.tsx      # the map pane: one snapshot, its motion, the treasury strip, the status line and the map
+    governance/TreasuryStrip.tsx    # treasury figures (AnimatedNumber) and the council's threshold, above the map
     governance/MutationError.tsx
     governance/wizard/              # ProposalWizardProvider + ProposalWizard, OperationTypePicker, forms/, CouncilPreviewPanel, copy.ts
-    governance/graph/               # GovernanceMap (data) → GovernanceGraph (SVG): nodes, GraphEdge, SignatureRing, Legend; copy.ts
+    governance/graph/               # GovernanceMap (states) → GovernanceGraph (SVG): nodes, GraphEdge, Comet, SignatureRing, Legend; copy.ts
     governance/graph/demo/          # demo only: the hand-composed layout, names, co-signing agent ghost, inspector copy
   config/governanceConfig.ts        # ids `yarn setup` writes; deployed contract lookup; resolveGovernanceConfig
   hooks/mirror/                     # reads (React Query)
@@ -49,6 +50,7 @@ packages/nextjs/
     useCreateProposal.ts            # contract-backed kinds: createProposal, then ScheduleCreate(execute)
     useCreateNativeProposal.ts      # native kinds: ScheduleCreate(transfer / AccountUpdate)
     useSignProposal.ts              # ScheduleSign
+    useProposalAnimationSync.ts     # the map's queue: one event at a time, on the world held until it lands
     useWithdrawProposal.ts          # ScheduleDelete
     useCancelProposal.ts            # GovernedExecutor.cancel
     useSubmitProposalDraft.ts       # one submit for the wizard, whichever path the draft takes
@@ -61,6 +63,7 @@ packages/nextjs/
     treasury.ts                     # balances plus the vault's reserve
     proposalActions.ts              # which actions a proposal offers, and to whom
     proposalLabels.ts               # the words a screen uses for a proposal's state
+  services/liveMap/motion/          # how the map plays an event, pure: timings, sequences, frame, queue
 packages/core/src/governance/       # @sh/core, shared with the co-signing agent
   council.ts                        # threshold key decoding, approval counting, proposer list
   proposals.ts                      # the inbox: schedules by proposer, narrowed and crossed with the registry
@@ -85,7 +88,7 @@ The network comes from `useTargetNetwork()` through `getHederaNetworkNameFromCha
 
 `app/(governance)/layout.tsx` renders every governance route, so what sits beside the rail stays mounted while the rail changes route. On a wide screen it is one fold below the header, and the page itself never scrolls:
 
-- **The map pane** (about 60% of the width) never scrolls. From top to bottom: `TreasuryStrip` (HBAR, vault reserve, ACME, USDC, the council's threshold), a status line (the map's note on how a proposal ends, `LIVE_MAP_STATUS_NOTE`, until something more specific claims the line), and the map itself (`GovernanceMap`, with the demo layout passed as `decorate`), which fills the rest: its box takes the height left over (`flex-1 min-h-0`) and the SVG scales into it, so the drawing never sets the pane's height.
+- **The map pane** (about 60% of the width) never scrolls. It is `LiveMapPane`, which reads one snapshot for all of it and plays what changed (see "Motion" below). From top to bottom: `TreasuryStrip` (HBAR, vault reserve, ACME, USDC, the council's threshold), a status line (the map's note on how a proposal ends, `LIVE_MAP_STATUS_NOTE`, until something more specific claims the line), and the map itself (`GovernanceMap`, with the demo layout passed to the pane as `decorate`), which fills the rest: its box takes the height left over (`flex-1 min-h-0`) and the SVG scales into it, so the drawing never sets the pane's height.
 - **The rail** (40%) scrolls on its own and renders the route's page: the proposal list on `/`, the detail on `/governance/[scheduleId]`, the wizard on `/governance/new`. A page is written as panel content — no page-level width or centring, an `h1` at panel size — and the wizard fills the rail's height, scrolling its middle with its submit button in view.
 - **Shared state** comes from `GovernanceProvider`, mounted once by the layout: the resolved configuration, through `useGovernanceConfig()`, and `ProposalWizardProvider`, so the draft being written in the rail is readable beside it and a submission survives the rail changing route. Once submitted, it routes to the new proposal's page and clears the draft, so the next proposal starts empty. A layout cannot hand props to its page, which is why both are contexts.
 - **On a phone** the map pane and the rail stack, and the page scrolls; nothing scrolls sideways.
@@ -149,14 +152,16 @@ The picker is native radio buttons sharing one name across its two groups ("Cont
 
 ## The governance map
 
-`components/governance/graph/` draws the graph `services/governance/graph.ts` derives. `GovernanceMap` takes the `GovernanceConfig` the host's setup guard resolved, reads the council and the inbox through `useProposals` (so it adds no polling of its own), builds the configured entities with `governanceEntitiesOf` — the vault, `TokenAdmin` and the swap adapter as targets, the token, the SaucerSwap router as an external contract the adapter has exactly one authority link to, and where the money is (router → treasury, the vault's reserve) — and hands the result to `GovernanceGraph`, which only draws.
+`components/governance/graph/` draws the graph `services/governance/graph.ts` derives. `LiveMapPane` takes the `GovernanceConfig` the host's setup guard resolved, reads the council, the inbox and the treasury through `useMapSnapshot` (so it adds no polling of its own), builds the configured entities with `governanceEntitiesOf` — the vault, `TokenAdmin` and the swap adapter as targets, the token, the SaucerSwap router as an external contract the adapter has exactly one authority link to, and where the money is (router → treasury, the vault's reserve) — composes the map with `composeMap`, and hands it to `GovernanceMap`, which shows it through `GovernanceGraph` (or says it is reading, or that the council could not be read). `GovernanceGraph` only draws.
 
 - **Shapes.** An account is a circle (`AccountNode`), a contract a rounded rectangle (`ContractNode`, dashed when it is outside the system), a token a hexagon (`TokenNode`), and the governance account the one large node (`TreasuryNode`), with the council's rule written inside ("2-of-3") and the approvals of the proposal being shown as a separate `SignatureRing`.
-- **Edges.** One `GraphEdge` for every phase — `rest`, `preview`, `progress`, `complete`, `failed` — set by whoever draws the map; at rest authority is a solid grey line and money a dotted one, and an `intent` edge (what a pending proposal would use) is drawn only while that proposal is shown. The `Legend` stays on the canvas. An edge that does not end at the treasury — every `PROPOSER_ROLE` arc from a proposer to the registry — goes around it (`routeOnMap` in `geometry.ts`), on whichever side its straight line passes, so registering never looks like it runs through the council; this holds for any layout, the fallback included.
+- **Edges.** One `GraphEdge` for every phase — `rest`, `preview`, `progress`, `complete`, `failed` — set by the frame the map is given (`MapFrame`); at rest authority is a solid grey line and money a dotted one, and an `intent` edge (what a pending proposal would use) is drawn only while a frame names it. The `Legend` stays on the canvas. An edge that does not end at the treasury — every `PROPOSER_ROLE` arc from a proposer to the registry — goes around it (`routeOnMap` in `geometry.ts`), on whichever side its straight line passes, so registering never looks like it runs through the council; this holds for any layout, the fallback included.
 - **Ids.** Graph ids contain `+/=:.->`, so nothing puts them in a DOM `id` or a selector: an item carries `data-node-id` / `data-edge-id`.
 - **Keyboard.** The map is one Tab stop with a roving tabindex: the arrow keys (and Home / End) move through the nodes in reading order, then the edges, and a focus ring shows where. An item is a `button` when the host passes `onActivate`, a `graphics-symbol` otherwise. Every item has an accessible name, and every name is real SVG text.
 - **Layout.** Without a decoration every node is placed by role (`autoLayout`) and named by role, by the proposer account holding a seat, or by its id. The seat the connected account holds (`useHederaSigner().accountId`) is named "You" over any other name; the account is matched to a seat through the proposer list, the only accounts whose keys the map reads, so with no wallet, or one that is not a proposer, no seat is. `decorate` is where a demo places and names the nodes; the colours are daisyUI tokens plus `--color-map-preview` in `styles/globals.css`, so both themes work.
-- **Removing the demo layout**: delete `components/governance/graph/demo/`, then, in `app/(governance)/layout.tsx` — the only file that imports it — remove the `decorateDemoMap` import and the `decorate={decorateDemoMap}` prop. The map falls back to `autoLayout`.
+- **Motion.** The map animates reads, never clicks: poll → diff → play. `useProposalAnimationSync` queues the events `useMapSnapshot` reports (deduped by `animationEventKey`, since a read can report one twice) and plays them one at a time through a single timer; while the queue plays, the map and the treasury figures show the world the first event leads from (`held`), and move on only between reads, so a threshold run is never cut short by the next poll and the new state is never drawn before the sequence that leads to it. A rotation's `councilChanged` waits for its own run's outcome before it plays. If more than `MAX_QUEUED` events wait, the queue gives up replaying and shows where things are now. What plays is data in `services/liveMap/motion/`: `sequenceOf` turns an event into cues with durations (`MOTION_MS`, the timings of the choreography — a proposer's pulse into the registry for a registry call, nothing for a native one; a signature's pulse into the treasury and the ring filling; a threshold run's ring snap, a comet per hop of the proposal's path, the target flashing, the figures counting, a hold and a relax; a failure turning the path coral, shaking the target and bringing the comet back), and `frameOf` turns a cue into a `MapFrame` — which edges are lit and how, which comets travel, how full the ring is, which node flashes or shakes. A signature from another device plays exactly like one sent from here: the map only sees reads. Lines never stay lit: every sequence ends at rest.
+- **Movement is CSS**, so it stays at 60 fps and reduced motion is honoured live by the stylesheet: a comet is one dash of its edge's own path moved by `stroke-dashoffset` (`animate-map-comet`), a phase change is a colour transition, the ring fills and snaps, a plate flashes, a failed target shakes (`styles/globals.css`, written to `MOTION_MS`). Under `prefers-reduced-motion` comets and flashes are not drawn and colours swap at once, while the sequences keep their timing so every state is still shown long enough to read. The one exception is `AnimatedNumber`, which counts the treasury figures in a leaf with `requestAnimationFrame` and shows the new value at once when `usePrefersReducedMotion` says so.
+- **Removing the demo layout**: delete `components/governance/graph/demo/`, then, in `app/(governance)/layout.tsx` — the only file that imports it — remove the `decorateDemoMap` import and the `decorate={decorateDemoMap}` prop on `LiveMapPane`. The map falls back to `autoLayout`.
 
 ## Not built yet
 

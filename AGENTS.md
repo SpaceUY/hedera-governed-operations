@@ -105,8 +105,8 @@ packages/nextjs/
     (site)/               layout.tsx adds the footer; proof-wall, my-proofs, admin, explorer
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
-    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend); copy.ts holds its words
+    governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: reads, motion, TreasuryStrip with AnimatedNumber figures, map), MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
+    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
@@ -115,6 +115,8 @@ packages/nextjs/
     useCreateTopic.ts     Admin: create HCS topic
     useCreateToken.ts     Admin: create HTS badge token
     useBadgeTokens.ts     Badge balance / eligibility
+    useProposalAnimationSync.ts  The map's queue: plays each read's events one at a time on a held world
+    usePrefersReducedMotion.ts   The reduced-motion setting, followed live
     mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
@@ -147,6 +149,7 @@ packages/nextjs/
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
+    liveMap/motion/       How the map plays an event, pure: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world)
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
     badgeService.ts       Demo: badge airdrop logic (operator-signed)
