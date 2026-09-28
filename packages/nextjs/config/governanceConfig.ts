@@ -79,10 +79,7 @@ export const GOVERNANCE_CONTRACTS = {
    * is not part of the guard.
    */
   tokenAdmin: "TokenAdmin",
-  /**
-   * Sells treasury HBAR on SaucerSwap. Only the map and the wizard's swap form need it, so it is not
-   * part of the guard.
-   */
+  /** Sells treasury HBAR on SaucerSwap; only the map needs it, so it is not part of the guard. */
   swapAdapter: "SaucerSwapAdapter",
 } as const;
 
