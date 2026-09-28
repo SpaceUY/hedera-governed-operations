@@ -74,6 +74,7 @@ describe("GovernanceHomePage", () => {
     render(<GovernanceHomePage />);
 
     expect(screen.getByRole("heading", { level: 1, name: INBOX_COPY.pendingHeading })).toBeTruthy();
+    expect(screen.getByLabelText("2 pending").textContent).toBe("2");
     const settled = screen.getByRole("region", { name: INBOX_COPY.settledHeading });
     expect(within(settled).getAllByText(/Run entry/)).toHaveLength(2);
 

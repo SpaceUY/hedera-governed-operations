@@ -8,6 +8,7 @@ import { OperationCard } from "~~/components/governance/rail/OperationCard";
 import { PendingOperationsList } from "~~/components/governance/rail/PendingOperationsList";
 import { ProposalDetail } from "~~/components/governance/rail/ProposalDetail";
 import { ScheduleSearch } from "~~/components/governance/rail/ScheduleSearch";
+import { pendingSummaryLabel } from "~~/components/governance/rail/pendingCollapse";
 import { cardPlaceOf, useRefocusMovedCard } from "~~/components/governance/rail/useRefocusMovedCard";
 import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
@@ -50,7 +51,14 @@ export default function GovernanceHomePage() {
   return (
     <div className="flex flex-col gap-4 px-6 py-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="m-0 text-lg font-bold">{INBOX_COPY.pendingHeading}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="m-0 text-lg font-bold">{INBOX_COPY.pendingHeading}</h1>
+          {inbox.data && (
+            <span className="badge badge-sm badge-ghost font-semibold" aria-label={pendingSummaryLabel(pending.length)}>
+              {pending.length}
+            </span>
+          )}
+        </div>
         <Link href={GOVERNANCE_ROUTES.newProposal} className="btn btn-primary btn-sm">
           New proposal
         </Link>

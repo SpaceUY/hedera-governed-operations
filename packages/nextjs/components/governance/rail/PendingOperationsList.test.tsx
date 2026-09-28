@@ -26,11 +26,6 @@ const proposal = (n: number): Proposal =>
 const proposals = (count: number): Proposal[] => Array.from({ length: count }, (_unused, index) => proposal(index + 1));
 
 describe("PendingOperationsList", () => {
-  it("names how many are pending", () => {
-    render(<PendingOperationsList proposals={proposals(5)} selectedScheduleId={null} onSelect={vi.fn()} />);
-    expect(screen.getByText("5 pending")).toBeTruthy();
-  });
-
   it("shows only the first few and a show-more control for the rest", () => {
     render(<PendingOperationsList proposals={proposals(5)} selectedScheduleId={null} onSelect={vi.fn()} />);
     expect(screen.getAllByRole("listitem")).toHaveLength(COLLAPSED_VISIBLE_COUNT);

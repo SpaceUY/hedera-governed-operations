@@ -154,9 +154,17 @@ export const HASHSCAN_COPY = {
   executed: (result: string) => `Scheduled transaction · ${result}`,
 } as const;
 
+const RESULT_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+};
+
 /** What an executed proposal did, beside its HashScan links. */
 export function executedResult(executedAt: Date | null, result: string) {
-  const when = executedAt ? ` at ${executedAt.toLocaleString()}` : "";
+  const when = executedAt ? ` at ${executedAt.toLocaleString(undefined, RESULT_DATE_FORMAT)}` : "";
   return {
     title: "Executed",
     line: `Executed by the network${when}. Status ${result}, fee paid by the treasury.`,

@@ -2,7 +2,7 @@
 
 import { type ReactNode, useState } from "react";
 import { OperationCard } from "./OperationCard";
-import { pendingSummaryLabel, resolveCollapse } from "./pendingCollapse";
+import { resolveCollapse } from "./pendingCollapse";
 import type { Proposal } from "@sh/core/governance/proposals";
 
 export type PendingOperationsListProps = {
@@ -14,8 +14,8 @@ export type PendingOperationsListProps = {
 };
 
 /**
- * The pending section, collapsed to its summary count with the first few rows expanded and a "show
- * more" control for the rest (U2). A row the URL already points at is never one of the hidden ones:
+ * The pending section: the first few rows, and a "show more" control for the rest (U2); the host
+ * heads it with the count. A row the URL already points at is never one of the hidden ones:
  * `resolveCollapse` forces the list open when the selection sits past the fold, so a direct link or
  * the schedule-id search never lands on a card nothing shows.
  */
@@ -31,7 +31,6 @@ export const PendingOperationsList = ({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="m-0 text-xs font-semibold text-base-content/60">{pendingSummaryLabel(proposals.length)}</p>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {proposals.slice(0, visibleCount).map(proposal => (
           <OperationCard
