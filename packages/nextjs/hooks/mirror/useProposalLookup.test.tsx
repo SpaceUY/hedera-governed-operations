@@ -1,5 +1,6 @@
+import { DEFAULT_PENDING_POLL_MS } from "./mirrorQuery";
 import { createQueryWrapper, jsonResponse } from "./testUtils";
-import { useProposalLookup } from "./useProposalLookup";
+import { CANCEL_CONFIRMATION_WINDOW_MS, useProposalLookup } from "./useProposalLookup";
 import { proto } from "@hiero-ledger/proto";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
@@ -284,6 +285,75 @@ describe("useProposalLookup", () => {
     // No immediate invalidate/re-read: only the delayed one that setTimeout schedules.
     expect(invalidate.mock.calls.length).toBe(invalidateCallsBefore);
     invalidate.mockRestore();
+  });
+
+  describe("after a cancel is sent", () => {
+    const entry = {
+      proposalId: 7,
+      state: "pending" as const,
+      target: "0x1111111111111111111111111111111111111111" as const,
+      proposer: "0x0000000000000000000000000000000000009001" as const,
+      calldata: "0x" as const,
+      operation: { kind: "unrecognized" as const, target: "0x11", calldata: "0x", reason: "test" },
+    };
+    const reading = (state: "pending" | "cancelled") =>
+      new Map([[7, { status: "read" as const, entry: { ...entry, state } }]]);
+
+    const openWithdrawnProposal = async () => {
+      vi.mocked(fetchAccount).mockResolvedValue({
+        key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+      } as never);
+      vi.mocked(fetchSchedule).mockResolvedValue({
+        ...baseSchedule,
+        deleted: true,
+        transaction_body: recorded.registryCall.transactionBody,
+      } as never);
+      vi.mocked(fetchRegistryEntries).mockResolvedValue(reading("pending"));
+      const rendered = lookup("0.0.10671156");
+      await waitFor(() => expect(rendered.result.current.proposal?.registry.status).toBe("read"));
+      // Fake timers only once the first read settled, so the polling under test is the only clock.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+      return rendered;
+    };
+    const entryState = (result: { current: ReturnType<typeof useProposalLookup> }) =>
+      result.current.proposal?.registry.status === "read" ? result.current.proposal.registry.entry.state : undefined;
+
+    /**
+     * The relay trails consensus, so its first reads after the cancel still say pending. Showing that
+     * would flash the entry back to Pending and offer Cancel again, a second transaction that reverts.
+     */
+    it("reads cancelled while the relay lags, then stops polling once it agrees", async () => {
+      const { result } = await openWithdrawnProposal();
+      act(() => result.current.markRegistryEntryCancelled());
+      // React Query notifies subscribers on a scheduled tick, not synchronously.
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(entryState(result)).toBe("cancelled");
+
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(2);
+      expect(entryState(result)).toBe("cancelled");
+
+      vi.mocked(fetchRegistryEntries).mockResolvedValue(reading("cancelled"));
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(3);
+      expect(entryState(result)).toBe("cancelled");
+
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS * 4));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(3);
+    });
+
+    /** A signer returns on submission, not on a receipt, so a cancel that reverted still gets here. */
+    it("believes the relay once the window is over, since the cancel did not take", async () => {
+      const { result } = await openWithdrawnProposal();
+      act(() => result.current.markRegistryEntryCancelled());
+
+      await act(() => vi.advanceTimersByTimeAsync(CANCEL_CONFIRMATION_WINDOW_MS + DEFAULT_PENDING_POLL_MS));
+      expect(entryState(result)).toBe("pending");
+
+      const reads = vi.mocked(fetchRegistryEntries).mock.calls.length;
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS * 4));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(reads);
+    });
   });
 
   it("drops the delayed re-read once the page is gone", () => {
