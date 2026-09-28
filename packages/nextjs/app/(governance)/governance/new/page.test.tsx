@@ -1,7 +1,8 @@
 import NewProposalPage from "./page";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { findDeployedContract, resolveGovernanceConfig } from "~~/config/governanceConfig";
+import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
+import { type GovernanceConfig, findDeployedContract } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { type ProposalDraft, draftTreasuryTransfer } from "~~/services/governance/drafts";
@@ -48,7 +49,6 @@ vi.mock("~~/components/governance/wizard/forms/UpgradeVaultForm", async () => {
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
-  resolveGovernanceConfig: vi.fn(),
   findDeployedContract: vi.fn(),
 }));
 
@@ -77,15 +77,24 @@ const UNREADABLE_DRAFT: ProposalDraft = {
   proposal: { target: PROXY, calldata: "0x", registerGas: 1, executeGas: 1, payableTinybars: 0n },
 };
 
+const CONFIG: GovernanceConfig = {
+  governanceAccountId: TREASURY,
+  demoTokenId: "0.0.9000",
+  seedProposalId: 1,
+  network: "testnet",
+  executor: DEPLOYED,
+  vault: DEPLOYED,
+};
+
+/** The page as the governance layout hosts it: inside the provider that owns the draft and the submit. */
+const renderPage = () =>
+  render(
+    <GovernanceProvider config={CONFIG}>
+      <NewProposalPage />
+    </GovernanceProvider>,
+  );
+
 const setup = ({ accountId, proposers }: { accountId: string | null; proposers: string[] }) => {
-  vi.mocked(resolveGovernanceConfig).mockReturnValue({
-    governanceAccountId: TREASURY,
-    demoTokenId: "0.0.9000",
-    seedProposalId: 1,
-    network: "testnet",
-    executor: DEPLOYED,
-    vault: DEPLOYED,
-  });
   vi.mocked(findDeployedContract).mockReturnValue(DEPLOYED);
   vi.mocked(useHederaSigner).mockReturnValue({ accountId, isConnected: accountId !== null } as never);
   vi.mocked(useCouncil).mockReturnValue({
@@ -114,20 +123,11 @@ const pickTransfer = () =>
   fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.treasuryTransfer.title) }));
 
 describe("NewProposalPage", () => {
-  it("shows the setup notice when governance is not configured", () => {
-    setup({ accountId: null, proposers: [] });
-    vi.mocked(resolveGovernanceConfig).mockImplementation(() => {
-      throw new Error("Run `yarn setup`");
-    });
-    render(<NewProposalPage />);
-    expect(screen.getByText("Governance is not set up yet")).toBeTruthy();
-  });
-
   it("offers no upgrade form while the vault's next implementation is not deployed, and still pays a supplier", () => {
     drafts.transfer = draftTreasuryTransfer(TREASURY, { recipientAccountId: "0.0.500", amount: "1" });
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
     vi.mocked(findDeployedContract).mockReturnValue(null);
-    render(<NewProposalPage />);
+    renderPage();
     expect(screen.queryByText("Governance is not set up yet")).toBeNull();
     expect(screen.queryByText("upgrade form")).toBeNull();
     expect(screen.getByRole("status").textContent).toBe(OPEN_PROPOSAL_NOTICES.upgradeTargetMissing);
@@ -140,7 +140,7 @@ describe("NewProposalPage", () => {
 
   it("opens on the vault upgrade, as the prototype does, and asks for a wallet", () => {
     setup({ accountId: null, proposers: [PROPOSER] });
-    render(<NewProposalPage />);
+    renderPage();
     expect(screen.getByRole("heading", { level: 1, name: "New proposal" })).toBeTruthy();
     expect(screen.getByText("upgrade form")).toBeTruthy();
     expect(screen.getByText(OPEN_PROPOSAL_NOTICES.connectWallet)).toBeTruthy();
@@ -149,13 +149,13 @@ describe("NewProposalPage", () => {
 
   it("explains that a registry proposal needs PROPOSER_ROLE", () => {
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
-    render(<NewProposalPage />);
+    renderPage();
     expect(screen.getByText(/does not hold PROPOSER_ROLE/)).toBeTruthy();
   });
 
   it("lets anyone connected open a native proposal", () => {
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
-    render(<NewProposalPage />);
+    renderPage();
     pickTransfer();
     expect(screen.getByText("transfer form")).toBeTruthy();
     expect(screen.queryByText(/does not hold PROPOSER_ROLE/)).toBeNull();
@@ -165,7 +165,7 @@ describe("NewProposalPage", () => {
   it("lets a proposer submit a vault upgrade the council can read, then opens its page", () => {
     drafts.upgrade = UPGRADE_DRAFT;
     setup({ accountId: PROPOSER, proposers: [PROPOSER] });
-    render(<NewProposalPage />);
+    renderPage();
     expect(cta("upgrade").disabled).toBe(false);
     expect(screen.getByRole("heading", { level: 2, name: "What the council will see" })).toBeTruthy();
 
@@ -178,14 +178,14 @@ describe("NewProposalPage", () => {
   it("keeps a vault upgrade from an account without PROPOSER_ROLE", () => {
     drafts.upgrade = UPGRADE_DRAFT;
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
-    render(<NewProposalPage />);
+    renderPage();
     expect(cta("upgrade").disabled).toBe(true);
   });
 
   it("lets an account without PROPOSER_ROLE submit a supplier payment", () => {
     drafts.transfer = draftTreasuryTransfer(TREASURY, { recipientAccountId: "0.0.500", amount: "1" });
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
-    render(<NewProposalPage />);
+    renderPage();
     pickTransfer();
     expect(cta("treasuryTransfer").disabled).toBe(false);
   });
@@ -193,7 +193,7 @@ describe("NewProposalPage", () => {
   it("refuses a draft the council could not read, and says why", () => {
     drafts.upgrade = UNREADABLE_DRAFT;
     setup({ accountId: PROPOSER, proposers: [PROPOSER] });
-    render(<NewProposalPage />);
+    renderPage();
     expect(screen.getByRole("alert").textContent).toContain("The council could not read this proposal");
     expect(cta("upgrade").disabled).toBe(true);
   });
@@ -202,7 +202,7 @@ describe("NewProposalPage", () => {
     drafts.upgrade = UPGRADE_DRAFT;
     setup({ accountId: PROPOSER, proposers: [PROPOSER] });
     vi.mocked(useCouncil).mockReturnValue({ data: undefined, isError: true } as never);
-    render(<NewProposalPage />);
+    renderPage();
     expect(screen.getByRole("status").textContent).toBe(OPEN_PROPOSAL_NOTICES.proposersUnreadable);
     expect(cta("upgrade").disabled).toBe(true);
   });
@@ -211,7 +211,7 @@ describe("NewProposalPage", () => {
     drafts.upgrade = UPGRADE_DRAFT;
     setup({ accountId: PROPOSER, proposers: [PROPOSER] });
     vi.mocked(useCouncil).mockReturnValue({ data: undefined, isError: false } as never);
-    render(<NewProposalPage />);
+    renderPage();
     expect(screen.getByRole("status").textContent).toBe(OPEN_PROPOSAL_NOTICES.proposersLoading);
     expect(cta("upgrade").disabled).toBe(true);
   });

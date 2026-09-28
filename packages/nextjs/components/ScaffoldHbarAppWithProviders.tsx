@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
 import { Toaster } from "react-hot-toast";
 import { WagmiProvider } from "wagmi";
-import { Footer } from "~~/components/Footer";
 import { Header } from "~~/components/Header";
 import { BurnerSignerProvider } from "~~/services/web3/BurnerSignerProvider";
 import { NativeTransactionSignerBridge } from "~~/services/web3/NativeTransactionSignerBridge";
@@ -16,8 +15,8 @@ const ScaffoldHbarApp = ({ children }: { children: React.ReactNode }) => {
     <>
       <div className="flex flex-col min-h-screen">
         <Header />
-        <main className="relative flex flex-col flex-1">{children}</main>
-        <Footer />
+        {/* Each route group brings its own chrome below the header: the site pages a footer, the live map none. */}
+        <main className="relative flex flex-col flex-1 min-h-0">{children}</main>
       </div>
       <Toaster />
     </>

@@ -4,16 +4,12 @@ import React, { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bars3Icon,
-  ChatBubbleLeftIcon,
-  Cog6ToothIcon,
-  MagnifyingGlassIcon,
-  MapIcon,
-  UserCircleIcon,
-} from "@heroicons/react/24/outline";
+import { Bars3Icon, ChatBubbleLeftIcon, MapIcon } from "@heroicons/react/24/outline";
+import { MirrorPollStatus } from "~~/components/MirrorPollStatus";
+import { SwitchTheme } from "~~/components/SwitchTheme";
 import { WalletConnectButton } from "~~/components/scaffold-hbar";
-import { useOutsideClick } from "~~/hooks/scaffold-hbar";
+import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
+import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-hbar";
 
 type HeaderMenuLink = {
   label: string;
@@ -21,33 +17,25 @@ type HeaderMenuLink = {
   icon?: React.ReactNode;
 };
 
+// My Proofs, Admin and Explorer are linked from the Proof wall page rather than from here.
 export const menuLinks: HeaderMenuLink[] = [
   {
-    label: "Governance",
-    href: "/",
+    label: "Live map",
+    href: GOVERNANCE_ROUTES.home,
     icon: <MapIcon className="h-4 w-4" />,
   },
   {
-    label: "Proof Wall",
+    label: "Proof wall",
     href: "/proof-wall",
     icon: <ChatBubbleLeftIcon className="h-4 w-4" />,
   },
-  {
-    label: "My Proofs",
-    href: "/my-proofs",
-    icon: <UserCircleIcon className="h-4 w-4" />,
-  },
-  {
-    label: "Admin",
-    href: "/admin",
-    icon: <Cog6ToothIcon className="h-4 w-4" />,
-  },
-  {
-    label: "Explorer",
-    href: "/explorer",
-    icon: <MagnifyingGlassIcon className="h-4 w-4" />,
-  },
 ];
+
+/** The live map owns `/` and every `/governance/…` route, so its link stays lit on a proposal or the wizard. */
+export function isMenuLinkActive(href: string, pathname: string): boolean {
+  if (href === GOVERNANCE_ROUTES.home) return pathname === href || pathname.startsWith("/governance/");
+  return pathname === href;
+}
 
 export const HeaderMenuLinks = () => {
   const pathname = usePathname();
@@ -55,7 +43,7 @@ export const HeaderMenuLinks = () => {
   return (
     <>
       {menuLinks.map(({ label, href, icon }) => {
-        const isActive = pathname === href;
+        const isActive = isMenuLinkActive(href, pathname);
         return (
           <li key={href}>
             <Link
@@ -79,6 +67,7 @@ export const HeaderMenuLinks = () => {
  * Site header
  */
 export const Header = () => {
+  const { targetNetwork } = useTargetNetwork();
   const burgerMenuRef = useRef<HTMLDetailsElement>(null);
   useOutsideClick(burgerMenuRef, () => {
     burgerMenuRef?.current?.removeAttribute("open");
@@ -106,7 +95,7 @@ export const Header = () => {
             <Image alt="Hedera icon" className="cursor-pointer dark:hidden" fill src="/Hedera-Icon-Dark.svg" />
             <Image alt="Hedera icon" className="cursor-pointer hidden dark:block" fill src="/Hedera-Icon-White.svg" />
           </div>
-          <div className="flex flex-col">
+          <div className="hidden sm:flex flex-col">
             <span className="font-bold leading-tight text-base">Governed Operations</span>
             <span className="hidden md:block text-[10px] tracking-wider uppercase text-base-content/50 font-medium">
               Council-Approved Hedera Demo
@@ -117,7 +106,12 @@ export const Header = () => {
           <HeaderMenuLinks />
         </ul>
       </div>
-      <div className="navbar-end grow mr-4">
+      <div className="navbar-end grow mr-4 gap-3">
+        <div className="hidden md:flex">
+          <MirrorPollStatus />
+        </div>
+        <span className="badge badge-outline hidden sm:inline-flex whitespace-nowrap">{targetNetwork.name}</span>
+        <SwitchTheme />
         <WalletConnectButton />
       </div>
     </div>

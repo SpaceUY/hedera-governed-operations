@@ -1,12 +1,12 @@
 // @vitest-environment node
 import recorded from "./__fixtures__/scheduled-bodies.json";
 import type { CouncilKey } from "./council";
-import { type ProposalInbox, fetchProposalInbox } from "./proposals";
+import { type ProposalInbox, fetchProposalInbox, partitionProposals } from "./proposals";
 import { REGISTRY_ABI } from "./registry";
 import { proto } from "@hiero-ledger/proto";
 import { encodeFunctionData, encodeFunctionResult, hexToBytes, parseAbi } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MirrorSchedule } from "~~/services/mirror";
+import type { MirrorSchedule, ScheduleStatus } from "~~/services/mirror";
 import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 import revertedSchedule from "~~/services/mirror/__fixtures__/schedule-reverted.json";
 import rowsAtExecution from "~~/services/mirror/__fixtures__/transactions-at-executed.json";
@@ -414,5 +414,31 @@ describe("crossing a proposal with its registry entry", () => {
     const [proposal] = (await inboxOf([ALICE])).proposals;
 
     expect(proposal.registry.status).toBe("unreachable");
+  });
+});
+
+describe("partitionProposals", () => {
+  const withStatus = (id: string, status: ScheduleStatus) => ({
+    id,
+    state: { status, signatureCount: 0, executedAt: null, expiresAt: null, isSettled: status !== "pending" },
+  });
+
+  it("keeps only open approval rounds as pending, in the inbox's order", () => {
+    const inbox = [
+      withStatus("a", "pending"),
+      withStatus("b", "executed"),
+      withStatus("c", "pending"),
+      withStatus("d", "deleted"),
+      withStatus("e", "expired"),
+    ];
+
+    const { pending, settled } = partitionProposals(inbox);
+
+    expect(pending.map(proposal => proposal.id)).toEqual(["a", "c"]);
+    expect(settled.map(proposal => proposal.id)).toEqual(["b", "d", "e"]);
+  });
+
+  it("returns two empty lists for an empty inbox", () => {
+    expect(partitionProposals([])).toEqual({ pending: [], settled: [] });
   });
 });

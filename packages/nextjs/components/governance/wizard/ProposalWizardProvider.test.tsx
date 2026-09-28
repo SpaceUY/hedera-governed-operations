@@ -82,6 +82,32 @@ describe("ProposalWizardProvider", () => {
     await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith("0.0.901"));
   });
 
+  it("starts the next proposal from an empty draft and an idle submit once one was handed over", async () => {
+    const onSubmitted = vi.fn();
+    const StatusProbe = () => {
+      const { submitStatus } = useProposalWizard();
+      return <p>status: {submitStatus}</p>;
+    };
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ProposalWizardProvider executorContractId="0.0.4242" onSubmitted={onSubmitted}>
+          <FakeWizard />
+          <StatusProbe />
+        </ProposalWizardProvider>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByText("fill"));
+    fireEvent.click(screen.getByText("submit"));
+    await waitFor(() => expect(wallet.resolve).not.toBeNull());
+    await act(async () => wallet.resolve?.("0.0.902"));
+
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith("0.0.902"));
+    expect(screen.getByText("status: idle")).toBeTruthy();
+    expect(screen.getByText("no preview")).toBeTruthy();
+  });
+
   it("does not re-render its consumers when only the host re-renders", () => {
     const renders = vi.fn();
     const MapStandIn = memo(function MapStandIn() {

@@ -6,7 +6,7 @@ This is a **Hedera template with two workspaces**: `packages/nextjs` (HCS topics
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
-The governance UI owns `/`: a governance home (treasury figures, the council's threshold, the pending proposals) and a proposal detail page at `/governance/[scheduleId]` with Sign, Withdraw and Cancel, backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`. `/governance/new` opens a proposal: a vault upgrade or a supplier payment so far, previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
+The governance UI owns `/` as the **live map**: `app/(governance)/layout.tsx` hosts `/`, `/governance/[scheduleId]` and `/governance/new` as one fold below the header — a map pane (treasury figures and the council's threshold, a status line, the map) that never scrolls, and a right rail that renders the route's page (the pending proposals, a proposal's detail with Sign, Withdraw and Cancel, or the wizard). The layout runs the setup guard once and provides the config (`useGovernanceConfig()`) and the wizard's draft (`ProposalWizardProvider`) to both panes. The screens are backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`; its pages live in `app/(site)/`, whose layout adds the footer, and the header links only Live map and Proof wall (My Proofs, Admin and Explorer are linked from the Proof Wall page). `/governance/new` opens a proposal: a vault upgrade or a supplier payment so far, previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
 
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
@@ -36,16 +36,16 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 ## App overview
 
-| Route                      | Purpose                                                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Governance home — treasury figures, council threshold, pending proposals; a setup notice until `yarn setup` and the deploy have run          |
-| `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)            |
-| `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                              |
-| `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                             |
-| `/my-proofs`               | Proofs filtered by connected account; badge display                                                                                          |
-| `/admin`                   | Create HCS topic and HTS badge token (wallet-signed)                                                                                         |
-| `/explorer`                | Read-only Mirror Node view: decoded topic messages and schedule state                                                                        |
-| `/api/hedera/*`            | Mirror Node proxies, operator status, badge airdrop (operator-signed), `demo-signers` (demo only: a council approval signed with a demo key) |
+| Route                      | Purpose                                                                                                                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below; a setup notice until `yarn setup` and the deploy have run |
+| `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)                                                |
+| `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                                                                  |
+| `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                                                                 |
+| `/my-proofs`               | Proofs filtered by connected account; badge display                                                                                                                              |
+| `/admin`                   | Create HCS topic and HTS badge token (wallet-signed)                                                                                                                             |
+| `/explorer`                | Read-only Mirror Node view: decoded topic messages and schedule state                                                                                                            |
+| `/api/hedera/*`            | Mirror Node proxies, operator status, badge airdrop (operator-signed), `demo-signers` (demo only: a council approval signed with a demo key)                                     |
 
 Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, Mirror Node / HashScan URLs from env) and `packages/nextjs/config/governanceConfig.ts` (the ids `yarn setup` writes, deployed contract lookup).
 
@@ -54,9 +54,11 @@ Config: `packages/nextjs/config/proofWallConfig.ts` (topic ID, badge token ID, M
 ```
 packages/nextjs/
   app/                    App Router pages and API routes
+    (governance)/         layout.tsx: the live map — setup guard, GovernanceProvider, map pane + rail; page.tsx (/), governance/[scheduleId], governance/new
+    (site)/               layout.tsx adds the footer; proof-wall, my-proofs, admin, explorer
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check, demo-signers (demo only)
-  components/             ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
-    governance/           MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
+  components/             Header (nav, MirrorPollStatus, network, theme, wallet), ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
+    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
     governance/DemoSignButtons.tsx  Demo only: "Sign as Alice / Bob" on a proposal
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
@@ -70,6 +72,7 @@ packages/nextjs/
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
+      useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
       useRefreshOnSettle.ts Re-reads treasury figures (and the council after a rotation) when a proposal settles
       useTransaction.ts     Mirror rows for a tx id; polls until indexed
       useAccount.ts         Account by 0.0.x id or EVM address

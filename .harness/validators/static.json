@@ -19,6 +19,7 @@
       "packages/hardhat/hardhat.config.ts",
       "packages/hardhat/contracts/GovernedExecutor.sol",
       "packages/hardhat/.env.example",
+      "packages/nextjs/app/(governance)/layout.tsx",
       ".harness/spec.yaml",
       ".harness/prd.md"
     ],
@@ -30,8 +31,20 @@
       "contains": ["yarn install", "yarn next:dev"]
     },
     {
-      "file": "packages/nextjs/app/page.tsx",
-      "contains": ["Governed Operations", "Pending proposals"]
+      "file": "packages/nextjs/components/Header.tsx",
+      "contains": ["Governed Operations", "Live map", "Proof wall", "MirrorPollStatus"]
+    },
+    {
+      "file": "packages/nextjs/components/MirrorPollStatus.tsx",
+      "contains": ["Mirror Node · "]
+    },
+    {
+      "file": "packages/nextjs/app/(governance)/layout.tsx",
+      "contains": ["resolveGovernanceConfig", "SetupNotice", "Live map"]
+    },
+    {
+      "file": "packages/nextjs/app/(governance)/page.tsx",
+      "contains": ["New proposal", "partitionProposals"]
     },
     {
       "file": "packages/nextjs/components/SetupNotice.tsx",
@@ -42,12 +55,12 @@
       "contains": ["hederaTestnet", "hederaMainnet", "sourcify"]
     },
     {
-      "file": "packages/nextjs/app/governance/new/page.tsx",
+      "file": "packages/nextjs/app/(governance)/governance/new/page.tsx",
       "contains": ["New proposal"]
     },
     {
       "file": "packages/nextjs/services/governance/proposalLabels.ts",
-      "contains": ["Connect a wallet to propose", "Register and schedule with your wallet"]
+      "contains": ["Connect a wallet to propose", "Register and schedule with your wallet", "Pending proposals"]
     },
     {
       "file": "packages/nextjs/components/governance/wizard/CouncilPreviewPanel.tsx",

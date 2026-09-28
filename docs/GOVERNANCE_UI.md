@@ -4,12 +4,14 @@ How the Governed Operations screens are put together: the routes, the layers und
 
 ## Routes
 
-| Route                      | What it shows                                                                                                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Treasury figures (HBAR, vault reserve, ACME, USDC), the council's threshold, and the council's proposals with their status and approvals                                 |
+| Route                      | What it shows                                                                                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                        | The live map: in the rail, the proposals still collecting signatures under "Pending proposals" and the settled ones below, each with its status and approvals                |
 | `/governance/[scheduleId]` | One proposal: what it does, the schedule's status, the registry entry behind it, the gas and HBAR the treasury pays, approvals, and Sign / Withdraw / Cancel when they apply |
-| `/governance/new`          | Opening a proposal: the operation picker, its form, what the council will see, and the wallet transactions that register and/or schedule it                              |
-| `/proof-wall`              | The Proof Wall demo, moved off the root                                                                                                                                   |
+| `/governance/new`          | Opening a proposal: the operation picker, its form, what the council will see, and the wallet transactions that register and/or schedule it                                  |
+| `/proof-wall`              | The Proof Wall demo, moved off the root; it links My Proofs, Admin and Explorer, which the header no longer lists                                                            |
+
+The three governance routes share one layout, described under "The live map" below; the treasury figures and the council's threshold sit in its map pane, above every one of them. The header's navigation is Live map (`/`, lit on every `/governance/…` route too) and Proof wall. A Settings item joins it when there is a settings page to open.
 
 The detail route is keyed by **schedule id**, since a proposal is a schedule the governance account pays for. A registry entry that was registered but never scheduled has no schedule id, and so no page.
 
@@ -18,13 +20,20 @@ The detail route is keyed by **schedule id**, since a proposal is a schedule the
 ```
 packages/nextjs/
   app/
-    page.tsx                        # governance home
-    governance/[scheduleId]/page.tsx  # proposal detail
-    governance/new/page.tsx         # opening a proposal
-    proof-wall/page.tsx
+    (governance)/                   # route group: shares the live map layout, adds nothing to the URL
+      layout.tsx                    # setup guard, GovernanceProvider, map pane (treasury, status line, map) + rail
+      page.tsx                      # / — the rail's pending and settled proposals
+      governance/[scheduleId]/page.tsx  # proposal detail, in the rail
+      governance/new/page.tsx       # opening a proposal, in the rail
+    (site)/                         # route group: the pages with a footer
+      layout.tsx
+      proof-wall/page.tsx           # links my-proofs, admin, explorer
     api/hedera/demo-signers/route.ts  # demo only: a ScheduleSign signed with a demo member's key
   components/
-    SetupNotice.tsx                 # rendered in place of a governance page until setup and the deploy have run
+    SetupNotice.tsx                 # rendered in place of the live map until setup and the deploy have run
+    MirrorPollStatus.tsx            # the header's "Mirror Node · polled Xs ago"
+    governance/GovernanceProvider.tsx  # the resolved config (useGovernanceConfig) and the wizard's provider, for the whole layout
+    governance/TreasuryStrip.tsx    # treasury figures and the council's threshold, above the map
     governance/MutationError.tsx
     governance/wizard/              # ProposalWizardProvider + ProposalWizard, OperationTypePicker, forms/, CouncilPreviewPanel
     governance/DemoSignButtons.tsx  # demo only: "Sign as Alice / Bob"
@@ -34,6 +43,7 @@ packages/nextjs/
     useProposals.ts                 # the inbox
     useProposalLookup.ts            # one proposal by schedule id
     useTreasuryFigures.ts
+    useInboxUpdatedAt.ts            # when any inbox on the network was last read, from the query cache
   hooks/                            # writes (useMutation), flat like useSubmitProof.ts
     useCreateProposal.ts            # contract-backed kinds: createProposal, then ScheduleCreate(execute)
     useCreateNativeProposal.ts      # native kinds: ScheduleCreate(transfer / AccountUpdate)
@@ -63,11 +73,24 @@ Every operation follows the services → hooks → page layering described in "H
 
 ## Before setup
 
-A freshly scaffolded app has no `.env.local` and no deployment, and the governance pages have to render anyway. Each page resolves its configuration first — `resolveGovernanceConfig(chainId)`, which gathers `getGovernanceEntityIds()`, the network and every `getDeployedContract(chainId, name)` a governance screen reads — and renders `SetupNotice` with the error's message if it throws. Each of those throws a message naming the command to run. `getDeployedContract` also throws for an entry without a `hederaContractId`, and returns the id typed as a `string`, so a half-written deployment falls into the same notice rather than travelling on as `undefined`.
+A freshly scaffolded app has no `.env.local` and no deployment, and the governance pages have to render anyway. The governance layout resolves the configuration once for all three routes — `resolveGovernanceConfig(chainId)`, which gathers `getGovernanceEntityIds()`, the network and every `getDeployedContract(chainId, name)` a governance screen reads — and renders `SetupNotice` with the error's message, in place of both panes, if it throws. A page inside the layout reads the result with `useGovernanceConfig()` and has no guard of its own. Each of those throws a message naming the command to run. `getDeployedContract` also throws for an entry without a `hederaContractId`, and returns the id typed as a `string`, so a half-written deployment falls into the same notice rather than travelling on as `undefined`.
 
-The guard asks only for what every screen needs: the ids, the network, `GovernedExecutor` and `AcmeVault`. `AcmeVaultV2`, the implementation a vault upgrade points the proxy at, is looked up by the wizard itself with `findDeployedContract`, which returns null where `getDeployedContract` would throw. Without it the home and the detail pages render as usual, and the wizard shows the vault upgrade with no form and a notice naming the deploy command, while paying a supplier still works.
+The guard asks only for what every screen needs: the ids, the network, `GovernedExecutor` and `AcmeVault`. `AcmeVaultV2`, the implementation a vault upgrade points the proxy at, is looked up by the wizard itself with `findDeployedContract`, which returns null where `getDeployedContract` would throw. Without it the map and the rail render as usual, and the wizard shows the vault upgrade with no form and a notice naming the deploy command, while paying a supplier still works.
 
 The network comes from `useTargetNetwork()` through `getHederaNetworkNameFromChainId`, never a literal: a token id from the wrong network's config reads as a balance of 0 rather than an error.
+
+## The live map
+
+`app/(governance)/layout.tsx` renders every governance route, so what sits beside the rail stays mounted while the rail changes route. On a wide screen it is one fold below the header, and the page itself never scrolls:
+
+- **The map pane** (about 62% of the width) never scrolls. From top to bottom: `TreasuryStrip` (HBAR, vault reserve, ACME, USDC, the council's threshold), a status line (the map's note on how a proposal ends, `LIVE_MAP_STATUS_NOTE`, until something more specific claims the line), and the map itself, which fills the rest.
+- **The rail** (38%) scrolls on its own and renders the route's page: the proposal list on `/`, the detail on `/governance/[scheduleId]`, the wizard on `/governance/new`. A page is written as panel content — no page-level width or centring, an `h1` at panel size — and the wizard fills the rail's height, scrolling its middle with its submit button in view.
+- **Shared state** comes from `GovernanceProvider`, mounted once by the layout: the resolved configuration, through `useGovernanceConfig()`, and `ProposalWizardProvider`, so the draft being written in the rail is readable beside it and a submission survives the rail changing route. Once submitted, it routes to the new proposal's page and clears the draft, so the next proposal starts empty. A layout cannot hand props to its page, which is why both are contexts.
+- **On a phone** the map pane and the rail stack, and the page scrolls; nothing scrolls sideways.
+
+The list on `/` splits the inbox with `partitionProposals` (`services/governance/proposals.ts`), from the schedule's state alone: an open approval round is pending, and an executed, withdrawn or expired one is settled whatever its outcome.
+
+The header shows how fresh the list is: "Mirror Node · polled Xs ago", from the `dataUpdatedAt` of the inbox query. `useInboxUpdatedAt` reads it from the query cache rather than from `useProposals`, so the header needs no council ids, and `MirrorPollStatus` ticks once a second without re-rendering anything above it. It stays hidden until an inbox has been read in this session.
 
 ## Reads and state
 

@@ -54,8 +54,16 @@ export const ProposalWizardProvider = ({ executorContractId, onSubmitted, childr
 
   const submit = useCallback(() => {
     if (draft.status !== "ready") return;
-    mutate(draft.draft, { onSuccess: scheduleId => onSubmitted(scheduleId) });
-  }, [draft, mutate, onSubmitted]);
+    mutate(draft.draft, {
+      // The provider outlives the wizard's route, so a finished submission is cleared once handed
+      // over: the next proposal starts from an empty draft and an idle submit.
+      onSuccess: scheduleId => {
+        onSubmitted(scheduleId);
+        setDraft(EMPTY_DRAFT);
+        reset();
+      },
+    });
+  }, [draft, mutate, reset, onSubmitted]);
 
   // Memoised so a re-render of the host alone does not re-render every consumer, such as a map.
   const value = useMemo(

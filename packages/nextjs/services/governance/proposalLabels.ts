@@ -181,3 +181,15 @@ export function executionFailureLabel({
     "again for the council to sign, not proposing it again."
   );
 }
+
+/** The map's status line while nothing else claims it: how a proposal ends, since no button ends it. */
+export const LIVE_MAP_STATUS_NOTE =
+  "Each proposal runs by itself the moment the council's threshold has signed it. There is no execute button " +
+  "and no reject: a proposal nobody signs in time expires, and nothing runs.";
+
+/** The governance home's words for the inbox, split into open approval rounds and settled ones. */
+export const INBOX_COPY = {
+  pendingHeading: "Pending proposals",
+  settledHeading: "Settled",
+  noPending: "No proposal is waiting for signatures.",
+} as const;

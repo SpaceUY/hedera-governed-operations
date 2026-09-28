@@ -120,7 +120,7 @@ The template separates the **demo** from the **reusable patterns** so you can de
 
 | Demo (safe to remove)                                                                                           | Reusable pattern (keep)                                          |
 | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `app/page.tsx`, `app/my-proofs/`, `app/admin/`                                                                  | `services/web3/hederaSigner.ts`, `hooks/useHederaSigner.ts`      |
+| `app/(site)/proof-wall/`, `app/(site)/my-proofs/`, `app/(site)/admin/`                                          | `services/web3/hederaSigner.ts`, `hooks/useHederaSigner.ts`      |
 | `components/ProofWall.tsx`, `ProofCard.tsx`, `SubmitProofForm.tsx`, `TopicSelector.tsx`, `BadgeDisplay.tsx`     | `services/mirrorNode.ts`, `hooks/mirror/*`                       |
 | `hooks/useSubmitProof.ts`, `useTopicMessages.ts`, `useCreateTopic.ts`, `useCreateToken.ts`, `useBadgeTokens.ts` | `services/swap/*`                                                |
 | `services/badgeService.ts`, `app/api/hedera/check-badge`, `airdrop`                                             | `services/hederaClient.ts` and the operator-signed route pattern |
@@ -129,7 +129,7 @@ The template separates the **demo** from the **reusable patterns** so you can de
 To remove the demo:
 
 1. Delete the files in the left column and the `NEXT_PUBLIC_PROOF_WALL_*` lines from `packages/nextjs/.env.example`.
-2. Replace `app/page.tsx` with your own page; keep `app/layout.tsx` and `components/ScaffoldHbarAppWithProviders.tsx` (they wire the wallet and React Query).
+2. Replace `app/(governance)/page.tsx` (the live map's rail) with your own page; keep `app/layout.tsx` and `components/ScaffoldHbarAppWithProviders.tsx` (they wire the wallet and React Query).
 3. Update `.harness/eval.json` and `.harness/validators/playwright-smoke.yaml` so the harness grades your routes instead of the Proof Wall.
 4. Run `yarn next:check-types` to find any leftover imports.
 

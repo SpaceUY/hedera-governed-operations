@@ -11,7 +11,7 @@
  * Removing the feature takes two steps:
  *   1. delete `services/demoSigners/`, `app/api/hedera/demo-signers/`, `hooks/useDemoSigners.ts` and
  *      `components/governance/DemoSignButtons.tsx`;
- *   2. remove the `DemoSignButtons` import and element from `app/governance/[scheduleId]/page.tsx`.
+ *   2. remove the `DemoSignButtons` import and element from `app/(governance)/governance/[scheduleId]/page.tsx`.
  */
 import type { DemoAccountName } from "~~/scripts/setup/state";
 import { type CouncilKey, type ThresholdProgress } from "~~/services/governance/council";

@@ -189,3 +189,14 @@ export async function fetchProposalInbox({
     ],
   };
 }
+
+/**
+ * The inbox split by whether the approval round is still open, in the inbox's order. Read from the
+ * schedule's state and nothing else: an executed proposal is settled whatever its outcome.
+ */
+export function partitionProposals<T extends Pick<Proposal, "state">>(proposals: T[]): { pending: T[]; settled: T[] } {
+  return {
+    pending: proposals.filter(proposal => proposal.state.status === "pending"),
+    settled: proposals.filter(proposal => proposal.state.status !== "pending"),
+  };
+}

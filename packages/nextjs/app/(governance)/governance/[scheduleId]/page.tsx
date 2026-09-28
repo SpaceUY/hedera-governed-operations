@@ -1,12 +1,10 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { SetupNotice } from "~~/components/SetupNotice";
 import { DemoSignButtons } from "~~/components/governance/DemoSignButtons";
+import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { MutationError } from "~~/components/governance/MutationError";
-import { GOVERNANCE_CONTRACTS, getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
-import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useSignProposal } from "~~/hooks/useSignProposal";
@@ -25,18 +23,14 @@ type ProposalDetailProps = { governanceAccountId: string; executorContractId: st
 
 export default function ProposalDetailPage() {
   const params = useParams<{ scheduleId: string }>();
-  const { targetNetwork } = useTargetNetwork();
-  let props: ProposalDetailProps;
-  try {
-    props = {
-      governanceAccountId: getGovernanceEntityIds().governanceAccountId,
-      executorContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.executor).hederaContractId,
-      scheduleId: params.scheduleId,
-    };
-  } catch (error) {
-    return <SetupNotice error={error} />;
-  }
-  return <ProposalDetail {...props} />;
+  const { governanceAccountId, executor } = useGovernanceConfig();
+  return (
+    <ProposalDetail
+      governanceAccountId={governanceAccountId}
+      executorContractId={executor.hederaContractId}
+      scheduleId={params.scheduleId}
+    />
+  );
 }
 
 function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }: ProposalDetailProps) {
@@ -62,8 +56,8 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
   const executionFailure = executionFailureLabel(proposal);
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-6 sm:py-8">
-      <h1 className="text-2xl font-bold mb-4">Proposal {proposal.schedule.schedule_id}</h1>
+    <div className="px-6 py-5">
+      <h1 className="text-lg font-bold mb-4">Proposal {proposal.schedule.schedule_id}</h1>
       <p className="mb-2">{describeScheduledOperation(operation)}</p>
       {registryDescription && <p className="mb-4 text-base-content/70">{registryDescription}</p>}
 
