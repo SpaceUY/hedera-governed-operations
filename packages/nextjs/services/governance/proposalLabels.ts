@@ -110,6 +110,14 @@ export function executionFailureLabel({
   );
 }
 
+/**
+ * Shown next to Sign for a registry call whose entry could not be read: the app cannot confirm it is
+ * still pending, but the network is the final check, so signing goes ahead anyway.
+ */
+export const UNREACHABLE_REGISTRY_SIGN_WARNING =
+  "The registry couldn't be checked just now, so the app can't confirm this entry is still pending. " +
+  "You can still sign — if it turns out the entry no longer accepts signatures, the network will refuse it.";
+
 /** The map's status line while nothing else claims it: how a proposal ends, since no button ends it. */
 export const LIVE_MAP_STATUS_NOTE =
   "Each proposal runs by itself the moment the council's threshold has signed it. There is no execute button " +

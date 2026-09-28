@@ -3,21 +3,50 @@ import type { Proposal } from "@sh/core/governance/proposals";
 
 type SignableFacts = Pick<Proposal, "state" | "operation" | "registry">;
 
+/** A registry entry the app can vouch for: read, still pending, and decoding to a known operation. */
+function isVouchedEntry(registry: Proposal["registry"]): boolean {
+  return (
+    registry.status === "read" && registry.entry.state === "pending" && registry.entry.operation.kind !== "unrecognized"
+  );
+}
+
+/** Whether an `unreachable` registry read is treated as vouched-for too, or held to the strict rule. */
+type VouchLevel = "vouchedOnly" | "vouchedOrUnreachable";
+
 /**
- * A council member is only asked to sign a proposal the app can vouch for: a native kind (no
- * registry entry), or a registry call whose entry is still pending and decodes to an operation this
- * template knows. A missing, cancelled, unreadable or unrecognised entry gets no Sign button, and
- * neither does an entry the relay could not be asked about.
+ * The gate both `canBeSigned` and `canShowIntent` share: a native kind needs no registry entry, a
+ * contract-backed kind needs a registry call, and `level` decides whether a relay that could not be
+ * asked (`unreachable`) still counts.
  */
-export function canBeSigned({ state, operation, registry }: SignableFacts): boolean {
+function isSignableOperation({ state, operation, registry }: SignableFacts, level: VouchLevel): boolean {
   if (state.status !== "pending") return false;
   if (operation.kind === "treasuryTransfer" || operation.kind === "councilRotation") {
     return registry.status === "notApplicable";
   }
   if (operation.kind !== "registryCall") return false;
-  return (
-    registry.status === "read" && registry.entry.state === "pending" && registry.entry.operation.kind !== "unrecognized"
-  );
+  if (isVouchedEntry(registry)) return true;
+  return level === "vouchedOrUnreachable" && registry.status === "unreachable";
+}
+
+/**
+ * A council member is only asked to sign a proposal the app can vouch for, or one it simply could not
+ * check just now: a native kind (no registry entry), a registry call whose entry is still pending and
+ * decodes to an operation this template knows, or a registry call the relay could not be asked about
+ * (`unreachable`) — the network is the final check either way, so a transient read failure is a
+ * warning, not a lock. A missing, cancelled or unrecognised entry still gets no Sign button.
+ */
+export function canBeSigned(facts: SignableFacts): boolean {
+  return isSignableOperation(facts, "vouchedOrUnreachable");
+}
+
+/**
+ * Whether the map may draw the operation's route as an intent edge. Stricter than `canBeSigned`: an
+ * `unreachable` read lets a person decide to sign anyway, but the app still cannot say what the entry
+ * currently holds — it may have been cancelled or executed since the last successful read — so a
+ * preview drawn from it would claim to know something the app cannot back up.
+ */
+export function canShowIntent(facts: SignableFacts): boolean {
+  return isSignableOperation(facts, "vouchedOnly");
 }
 
 /**
