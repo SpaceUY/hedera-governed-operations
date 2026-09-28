@@ -8,12 +8,15 @@ import {
   resolvePendingRefetchInterval,
 } from "./mirrorQuery";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
+import { useRefreshOnSettle } from "./useRefreshOnSettle";
+import { fetchScheduleQueryData } from "./useSchedule";
 import { ContractId } from "@hiero-ledger/sdk";
 import { countThresholdSignatures } from "@sh/core/governance/council";
 import { decodeScheduledOperation } from "@sh/core/governance/decode";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { type RegistryCrossCheck, fetchRegistryEntries } from "@sh/core/governance/registry";
 import { deriveScheduleState, fetchSchedule } from "@sh/core/mirror";
+import { hasFinalOutcome } from "@sh/core/mirror";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getHederaRpcUrl, toHederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
@@ -50,14 +53,11 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
 
   const scheduleQuery = useQuery({
     queryKey: scheduleKey,
-    queryFn: async () => {
-      const schedule = await fetchSchedule(scheduleId, { network });
-      return { schedule, state: deriveScheduleState(schedule) };
-    },
+    queryFn: () => fetchScheduleQueryData(scheduleId, network),
     retry: false,
     refetchInterval: query =>
       resolvePendingRefetchInterval(
-        { isSettled: query.state.data?.state.isSettled, error: query.state.error },
+        { isSettled: query.state.data && hasFinalOutcome(query.state.data), error: query.state.error },
         DEFAULT_PENDING_POLL_MS,
       ),
   });
@@ -67,11 +67,12 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
     scheduleQuery.data && isGovernancePayer
       ? decodeScheduledOperation(scheduleQuery.data.schedule.transaction_body)
       : undefined;
-  // The entry is still worth reading once a schedule was deleted or expired: that is exactly when
-  // the proposer should cancel it. Only an executed schedule has already spent the entry.
+  // The entry is still worth reading once a schedule was deleted or expired, or ran and failed: that
+  // is exactly when the proposer should cancel it or the council schedule it again. Only a
+  // successful execution has spent the entry.
   const needsRegistryCheck =
     operation?.kind === "registryCall" &&
-    scheduleQuery.data!.state.status !== "executed" &&
+    scheduleQuery.data!.execution.status !== "succeeded" &&
     isThisExecutor(operation.executorContractId, options.executorContractId);
   const proposalId = operation?.kind === "registryCall" ? operation.proposalId : undefined;
   const registryKey = mirrorQueryKey(network, "registry-entry", options.executorContractId, String(proposalId ?? ""));
@@ -106,6 +107,7 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
       ? {
           schedule: scheduleQuery.data.schedule,
           state: scheduleQuery.data.state,
+          execution: scheduleQuery.data.execution,
           operation,
           progress: countThresholdSignatures(scheduleQuery.data.schedule, council.data.key),
           incomingProgress:
@@ -115,6 +117,11 @@ export function useProposalLookup({ scheduleId, ...options }: ProposalLookupOpti
           registry: needsRegistryCheck ? registryQuery.data! : { status: "notApplicable" },
         }
       : undefined;
+  useRefreshOnSettle(proposal ? [proposal] : undefined, {
+    network,
+    governanceAccountId: options.governanceAccountId,
+    executorContractId: options.executorContractId,
+  });
 
   /**
    * Re-reads the schedule and the registry entry after a write. Mirror and the relay both lag

@@ -10,7 +10,7 @@
  * why `@hiero-ledger/proto` is a dependency here; the Hiero SDK already ships the same package, so
  * it costs nothing in the bundle and its version follows the SDK's.
  */
-import { type MirrorSchedule, fetchAccount } from "../mirror";
+import { type MirrorKey, type MirrorSchedule, fetchAccount } from "../mirror";
 import type { HederaNetworkName } from "../network";
 import { createRelayClient } from "../relayClient";
 import { proto } from "@hiero-ledger/proto";
@@ -157,6 +157,15 @@ export function countThresholdSignatures(schedule: MirrorSchedule, council: Coun
   return { signed: signedBy.length, threshold: council.threshold, signedBy };
 }
 
+/** Mirror's names for a key that is one public key, the only kind that can also be a council seat. */
+const SINGLE_KEY_TYPES = ["ED25519", "ECDSA_SECP256K1"];
+
+/** Mirror writes a single public key as bare hex; a seat is the same bytes in base64. */
+function memberKeyOfAccount(key: MirrorKey | null): string | null {
+  if (!key || !SINGLE_KEY_TYPES.includes(key._type)) return null;
+  return toBase64(bytesFromUnprefixedHex(key.key));
+}
+
 export type ProposerLookup = {
   executorContractId: string;
   network: HederaNetworkName;
@@ -164,9 +173,21 @@ export type ProposerLookup = {
   rpcUrl: string;
 };
 
+export type Proposer = {
+  accountId: string;
+  /**
+   * The account's public key in the form `CouncilKey.memberKeys` uses, so a proposer who also holds
+   * a seat can be recognised as the same person. Null when the account's key is not a single public
+   * key (a threshold key or a key list), which can never be a seat.
+   */
+  key: string | null;
+};
+
 export type ProposerAccounts = {
   /** Whose schedules the inbox is assembled from. */
   accountIds: string[];
+  /** The same accounts with their keys, read in the same Mirror request. */
+  proposers: Proposer[];
   /**
    * Role holders whose address the Mirror Node has no account for, kept as the addresses they were
    * granted under. Their proposals are missing from the inbox, which is the same partial answer a
@@ -212,10 +233,16 @@ export async function fetchProposerAccountIds({
 
   const readings = await Promise.allSettled(addresses.map(member => fetchAccount(member, { network })));
 
-  const accountIds = readings.flatMap(reading => (reading.status === "fulfilled" ? [reading.value.account] : []));
+  // The same account can hold the role under both its long-zero address and its alias.
+  const byAccountId = new Map<string, Proposer>();
+  for (const reading of readings) {
+    if (reading.status !== "fulfilled") continue;
+    const { account, key } = reading.value;
+    byAccountId.set(account, { accountId: account, key: memberKeyOfAccount(key) });
+  }
   return {
-    // The same account can hold the role under both its long-zero address and its alias.
-    accountIds: [...new Set(accountIds)],
+    accountIds: [...byAccountId.keys()],
+    proposers: [...byAccountId.values()],
     unresolvable: addresses.filter((_unused, index) => readings[index].status === "rejected"),
   };
 }

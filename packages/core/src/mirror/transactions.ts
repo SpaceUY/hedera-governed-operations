@@ -55,3 +55,25 @@ export async function fetchTransaction(
   const data = await mirrorRequest<MirrorTransactionsResponse>(`/api/v1/transactions/${mirrorId}`, options);
   return data.transactions ?? [];
 }
+
+/** Mirror's `seconds.nanos` form, e.g. a schedule's `executed_timestamp`. */
+const CONSENSUS_TIMESTAMP_REGEX = /^\d+\.\d{1,9}$/;
+
+/**
+ * The transaction that reached consensus at `consensusTimestamp` (GET /api/v1/transactions?timestamp=).
+ * The network gives every transaction a timestamp of its own, so the list holds at most one row; an
+ * empty list means Mirror has not indexed it yet, since this endpoint answers 200 rather than 404.
+ */
+export async function fetchTransactionsAt(
+  consensusTimestamp: string,
+  options: MirrorRequestOptions = {},
+): Promise<MirrorTransaction[]> {
+  if (!CONSENSUS_TIMESTAMP_REGEX.test(consensusTimestamp)) {
+    throw new Error(`Invalid consensus timestamp: expected seconds.nanos, got ${consensusTimestamp}`);
+  }
+  const data = await mirrorRequest<MirrorTransactionsResponse>(
+    `/api/v1/transactions?timestamp=${consensusTimestamp}`,
+    options,
+  );
+  return data.transactions ?? [];
+}

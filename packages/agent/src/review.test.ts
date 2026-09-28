@@ -60,7 +60,13 @@ const UPGRADE_ENTRY: RegistryEntry = {
   state: "pending",
   target: VAULT,
   calldata: "0x",
-  operation: { kind: "upgrade", target: VAULT, implementation: IMPLEMENTATION, initializerCalldata: "0x" },
+  operation: {
+    kind: "upgrade",
+    target: VAULT,
+    implementation: IMPLEMENTATION,
+    initializerCalldata: "0x",
+    initializer: { kind: "none" },
+  },
 };
 
 /** The registry side of a proposal, defaulting to a pending upgrade the policy allows. */
@@ -74,6 +80,7 @@ function proposal(overrides: Partial<Proposal> = {}): Proposal {
     schedule: schedule(),
     state: { status: "pending", signatureCount: 1, executedAt: null, expiresAt: null, isSettled: false },
     progress: { signed: 1, threshold: 2, signedBy: [] },
+    execution: { status: "notRun" },
     incomingProgress: null,
     operation: registryCall,
     registry: entry(),
@@ -233,7 +240,13 @@ describe("reviewInbox", () => {
     const refused = proposal({
       schedule: schedule({ schedule_id: "0.0.9002" }),
       registry: entry({
-        operation: { kind: "upgrade", target: STRANGER, implementation: IMPLEMENTATION, initializerCalldata: "0x" },
+        operation: {
+          kind: "upgrade",
+          target: STRANGER,
+          implementation: IMPLEMENTATION,
+          initializerCalldata: "0x",
+          initializer: { kind: "none" },
+        },
       }),
     });
 

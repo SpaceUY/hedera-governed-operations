@@ -1,4 +1,5 @@
 import { type GenericContract, contracts } from "~~/utils/scaffold-hbar/contract";
+import { type HederaNetworkName, getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
 
 export type GovernanceEntityIds = {
   governanceAccountId: string;
@@ -46,3 +47,48 @@ export function getDeployedContract(chainId: number, name: string): HederaDeploy
   }
   return { ...entry, hederaContractId: entry.hederaContractId };
 }
+
+/** `getDeployedContract` for a contract a screen can do without: null where that one would throw. */
+export function findDeployedContract(chainId: number, name: string): HederaDeployedContract | null {
+  try {
+    return getDeployedContract(chainId, name);
+  } catch {
+    return null;
+  }
+}
+
+/** The deployment names of the contracts the governance screens read, written once. */
+export const GOVERNANCE_CONTRACTS = {
+  executor: "GovernedExecutor",
+  vault: "AcmeVault",
+  /**
+   * Deployed but not live: pointing the vault's proxy at it is the upgrade the council approves.
+   * Only the wizard's upgrade form needs it, so it is not part of `resolveGovernanceConfig`.
+   */
+  vaultNextImplementation: "AcmeVaultV2",
+} as const;
+
+export type GovernanceConfig = GovernanceEntityIds & {
+  network: HederaNetworkName;
+  executor: HederaDeployedContract;
+  vault: HederaDeployedContract;
+};
+
+/**
+ * Everything a governance screen reads before it can render, resolved in one place. Throws the
+ * message `SetupNotice` shows when `yarn setup` or the deploy has not run for this chain.
+ */
+export function resolveGovernanceConfig(chainId: number): GovernanceConfig {
+  return {
+    ...getGovernanceEntityIds(),
+    network: getHederaNetworkNameFromChainId(chainId),
+    executor: getDeployedContract(chainId, GOVERNANCE_CONTRACTS.executor),
+    vault: getDeployedContract(chainId, GOVERNANCE_CONTRACTS.vault),
+  };
+}
+
+export const GOVERNANCE_ROUTES = {
+  home: "/",
+  newProposal: "/governance/new",
+  proposal: (scheduleId: string) => `/governance/${scheduleId}`,
+} as const;

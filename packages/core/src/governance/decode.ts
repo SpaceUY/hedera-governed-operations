@@ -19,9 +19,15 @@
  * comparing it to what arrived.
  */
 import { councilKeyOf } from "./council";
-import type { HbarTransfer, RegistryOperation, ScheduledOperation, TokenTransfer } from "./proposalTypes";
+import type {
+  HbarTransfer,
+  RegistryOperation,
+  ScheduledOperation,
+  TokenTransfer,
+  UpgradeInitializer,
+} from "./proposalTypes";
 import { proto } from "@hiero-ledger/proto";
-import { bytesToHex, decodeFunctionData, parseAbi, toFunctionSelector } from "viem";
+import { bytesToHex, decodeFunctionData, encodeFunctionData, parseAbi, toFunctionSelector } from "viem";
 
 /** The call every contract-backed proposal schedules; its argument is the registry entry to run. */
 const EXECUTE_ABI = parseAbi(["function execute(uint256 id)"]);
@@ -40,6 +46,26 @@ const REGISTRY_OPERATION_ABI = parseAbi([
   "function freeze(address token, address account)",
   "function unfreeze(address token, address account)",
 ]);
+
+/** The initializers an upgrade of this template runs; `initV2` sets the vault's withdrawal limit. */
+const INITIALIZER_ABI = parseAbi(["function initV2(uint256 limit)"]);
+
+/**
+ * An initializer runs arbitrary code on the new implementation, so one this file cannot fully read
+ * leaves the upgrade undescribed: `null`. viem ignores bytes after the arguments, which is why what
+ * was understood is re-encoded and compared with what arrived.
+ */
+function decodeInitializer(calldata: string): UpgradeInitializer | null {
+  if (calldata === "0x") return { kind: "none" };
+  try {
+    const { args } = decodeFunctionData({ abi: INITIALIZER_ABI, data: calldata as `0x${string}` });
+    const reencoded = encodeFunctionData({ abi: INITIALIZER_ABI, functionName: "initV2", args });
+    if (reencoded.toLowerCase() !== calldata.toLowerCase()) return null;
+    return { kind: "setWithdrawalLimit", limitTinybars: args[0] };
+  } catch {
+    return null;
+  }
+}
 
 function decodeKnownCall(calldata: string) {
   try {
@@ -220,7 +246,13 @@ export function decodeRegistryOperation(target: string, calldata: string): Regis
   switch (call.functionName) {
     case "upgradeToAndCall": {
       const [implementation, initializerCalldata] = call.args;
-      return { kind: "upgrade", target, implementation, initializerCalldata };
+      const initializer = decodeInitializer(initializerCalldata);
+      if (!initializer) {
+        return unknown(
+          `the upgrade runs an initializer this template cannot describe, starting with ${initializerCalldata.slice(0, 10)}`,
+        );
+      }
+      return { kind: "upgrade", target, implementation, initializerCalldata, initializer };
     }
     case "swapExactHbarForToken": {
       const [tokenOut, fee, recipient, amountIn, amountOutMinimum, deadline] = call.args;

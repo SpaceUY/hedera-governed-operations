@@ -1,54 +1,45 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Hbar } from "@hiero-ledger/sdk";
 import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { SetupNotice } from "~~/components/SetupNotice";
-import { getDeployedContract, getGovernanceEntityIds } from "~~/config/governanceConfig";
+import { MutationError } from "~~/components/governance/MutationError";
+import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
-import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalActions";
-import { approvalsLabel, registryLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
-import { WALLET_REJECTED_MESSAGE, isWalletRejection } from "~~/services/web3/hederaSigner";
+import { canBeSigned, canBeWithdrawnBy, cancellableRegistryId } from "~~/services/governance/proposalActions";
+import {
+  approvalsLabel,
+  executionFailureLabel,
+  proposalStatusLabel,
+  registryLabel,
+} from "~~/services/governance/proposalLabels";
+import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
-const toFriendlyMessage = (error: unknown) =>
-  isWalletRejection(error)
-    ? WALLET_REJECTED_MESSAGE
-    : `Transaction failed: ${error instanceof Error ? error.message : "unknown error"}`;
-
-const MutationError = ({ error }: { error: unknown }) =>
-  error ? (
-    <p role="alert" className="text-sm text-error">
-      {toFriendlyMessage(error)}
-    </p>
-  ) : null;
-
-type ProposalDetailProps = { governanceAccountId: string; executorContractId: string; scheduleId: string };
+type ProposalDetailProps = { config: GovernanceConfig; scheduleId: string };
 
 export default function ProposalDetailPage() {
   const params = useParams<{ scheduleId: string }>();
   const { targetNetwork } = useTargetNetwork();
-  let props: ProposalDetailProps;
+  let config: GovernanceConfig;
   try {
-    props = {
-      governanceAccountId: getGovernanceEntityIds().governanceAccountId,
-      executorContractId: getDeployedContract(targetNetwork.id, "GovernedExecutor").hederaContractId,
-      scheduleId: params.scheduleId,
-    };
+    config = resolveGovernanceConfig(targetNetwork.id);
   } catch (error) {
     return <SetupNotice error={error} />;
   }
-  return <ProposalDetail {...props} />;
+  return <ProposalDetail config={config} scheduleId={params.scheduleId} />;
 }
 
-function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }: ProposalDetailProps) {
+function ProposalDetail({ config: { governanceAccountId, executor, network }, scheduleId }: ProposalDetailProps) {
+  const executorContractId = executor.hederaContractId;
   const { proposal, isLoading, error, refresh } = useProposalLookup({
     governanceAccountId,
     executorContractId,
+    network,
     scheduleId,
   });
   const { accountId } = useHederaSigner();
@@ -64,14 +55,8 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
   const registryDescription = registry.status === "read" ? describeRegistryOperation(registry.entry.operation) : null;
   const isPending = proposal.state.status === "pending";
   const isWithdrawable = canBeWithdrawnBy(proposal, accountId);
-  // Cancel only once the schedule is gone without running: deleting a live schedule comes first, or
-  // it could still reach threshold on a cancelled entry and charge the governance account the gas.
-  const cancellableProposalId =
-    registry.status === "read" &&
-    registry.entry.state === "pending" &&
-    (proposal.state.status === "deleted" || proposal.state.status === "expired")
-      ? registry.entry.proposalId
-      : null;
+  const cancellableProposalId = cancellableRegistryId(proposal);
+  const executionFailure = executionFailureLabel(proposal);
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4 py-6 sm:py-8">
@@ -81,7 +66,7 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mb-6">
         <dt className="text-base-content/60">Status</dt>
-        <dd>{scheduleStatusLabel(proposal.state.status)}</dd>
+        <dd>{proposalStatusLabel(proposal)}</dd>
         <dt className="text-base-content/60">Registry entry</dt>
         <dd>{registryLabel(registry)}</dd>
         {operation.kind === "registryCall" && (
@@ -89,7 +74,7 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
             {operation.payableTinybars > 0n && (
               <>
                 <dt className="text-base-content/60">HBAR sent by the treasury</dt>
-                <dd>{Hbar.fromTinybars(operation.payableTinybars.toString()).toString()}</dd>
+                <dd>{formatTinybars(operation.payableTinybars)}</dd>
               </>
             )}
             <dt className="text-base-content/60">Gas limit (paid in full by the treasury)</dt>
@@ -99,6 +84,8 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
         <dt className="text-base-content/60">Approvals</dt>
         <dd>{approvalsLabel(proposal.progress, proposal.incomingProgress)}</dd>
       </dl>
+
+      {executionFailure && <p className="text-sm text-error mb-6">{executionFailure}</p>}
 
       {isPending && (
         <div className="text-sm text-base-content/70 mb-6 flex flex-col gap-1">
