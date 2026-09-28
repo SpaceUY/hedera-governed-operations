@@ -1,0 +1,61 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
+import { useHederaSigner } from "./useHederaSigner";
+import { useMutationState } from "@tanstack/react-query";
+import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/governance/mapEvents";
+import { type ApprovedEvent, type SessionWrites, remoteApprovals } from "~~/services/liveMap/remoteApprovals";
+
+type RemoteApprovalsInput = {
+  /** The events of the latest read (`useMapSnapshot`). */
+  events: readonly AnimationEvent[];
+  /** The read they were diffed into. */
+  world: GovernanceSnapshot | null;
+  /** Called once for each approval this session did not send. */
+  onRemote: (approval: ApprovedEvent) => void;
+};
+
+/**
+ * Calls `onRemote` for every approval a read reports that did not come from this session: a council
+ * member signing from another device, the co-signing agent, anyone. What this session sent is read
+ * from its own mutations in the query cache — signing, and opening a proposal, whose creator's
+ * approval arrives with it — so nothing here keeps state about the ledger. Each approval is judged
+ * once, when it is first seen, so a mutation that resolves or expires later never re-announces it.
+ */
+export function useRemoteApprovals({ events, world, onRemote }: RemoteApprovalsInput) {
+  const { accountId } = useHederaSigner();
+  const signed = useMutationState({
+    filters: { mutationKey: GOVERNANCE_MUTATION_KEYS.sign },
+    select: ({ state }) => (state.status === "error" ? null : (state.variables as string | undefined)),
+  });
+  const opens = useMutationState({
+    filters: { mutationKey: GOVERNANCE_MUTATION_KEYS.open },
+    select: ({ state }) => ({
+      status: state.status,
+      scheduleId: (state.data as { scheduleId?: string } | undefined)?.scheduleId,
+    }),
+  });
+
+  const session = useMemo<SessionWrites>(
+    () => ({
+      accountId: accountId ?? null,
+      signed: signed.flatMap(scheduleId => (scheduleId ? [scheduleId] : [])),
+      opened: opens.flatMap(({ scheduleId }) => (scheduleId ? [scheduleId] : [])),
+      opening: opens.some(({ status }) => status === "pending"),
+    }),
+    [accountId, signed, opens],
+  );
+
+  const judged = useRef(new Set<string>());
+  useEffect(() => {
+    if (!world) return;
+    const remote = new Set(remoteApprovals(events, session, world));
+    for (const event of events) {
+      const key = animationEventKey(event);
+      if (event.kind !== "approved" || judged.current.has(key)) continue;
+      judged.current.add(key);
+      if (remote.has(event)) onRemote(event);
+    }
+  }, [events, world, session, onRemote]);
+}

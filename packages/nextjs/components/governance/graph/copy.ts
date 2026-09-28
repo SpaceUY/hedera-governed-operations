@@ -74,3 +74,11 @@ export const MAP_LEGEND = {
   ],
   shapes: { account: "account", contract: "contract", token: "token" },
 } as const;
+
+/**
+ * The toast for an approval this screen did not send, which the map read from the ledger like any
+ * other; `member` is the seat's name on the map, when it has one.
+ */
+export function remoteSignatureMessage(member: string | undefined, proposal: string): string {
+  return `${member ?? "A council member"} signed “${proposal}” elsewhere. Nobody pressed anything here: the map read it from the ledger.`;
+}

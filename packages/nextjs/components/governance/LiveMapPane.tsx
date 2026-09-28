@@ -1,17 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { TreasuryStrip } from "~~/components/governance/TreasuryStrip";
 import { GovernanceMap } from "~~/components/governance/graph/GovernanceMap";
+import { announceRemoteSignature } from "~~/components/governance/graph/announceRemoteSignature";
 import { type MapDecorator, composeMap } from "~~/components/governance/graph/mapModel";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useProposalAnimationSync } from "~~/hooks/useProposalAnimationSync";
+import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
 import { governanceEntitiesOf } from "~~/services/governance/graphEntities";
 import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
 import { REST_FRAME, frameOf, treasuryShown } from "~~/services/liveMap/motion/frame";
+import type { ApprovedEvent } from "~~/services/liveMap/remoteApprovals";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 
 export type LiveMapPaneProps = {
@@ -26,7 +29,8 @@ export type LiveMapPaneProps = {
  * world. It reads nothing of its own — `useMapSnapshot` composes the queries the rail polls too —
  * and plays what changed between two reads (`useProposalAnimationSync`), so while a sequence plays
  * the map and the figures show the world it started from, and catch up when it lands. The seat the
- * connected account holds is named "You".
+ * connected account holds is named "You", and a signature this session did not send is announced
+ * in a toast as well as played.
  */
 export function LiveMapPane({ config, decorate }: LiveMapPaneProps) {
   const { targetNetwork } = useTargetNetwork();
@@ -65,6 +69,11 @@ export function LiveMapPane({ config, decorate }: LiveMapPaneProps) {
     [map, world, playing],
   );
   const treasury = treasuryShown(playing, { shown: world, latest: snapshot });
+  const announce = useCallback(
+    (approval: ApprovedEvent) => announceRemoteSignature(approval, { map, world: snapshot }),
+    [map, snapshot],
+  );
+  useRemoteApprovals({ events, world: snapshot, onRemote: announce });
 
   return (
     <>

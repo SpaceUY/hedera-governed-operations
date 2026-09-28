@@ -6,12 +6,14 @@ import type { MapDecorator } from "~~/components/governance/graph/mapModel";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
+import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
 import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/governance/graph";
 import type { GovernanceSnapshot } from "~~/services/governance/mapEvents";
 import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
 
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({
   contracts: { 296: { SaucerSwapAdapter: { address: "0x5aF0000000000000000000000000000000000003", abi: [] } } },
@@ -117,5 +119,11 @@ describe("LiveMapPane", () => {
     read(null, new Error("Mirror is down"));
     rerender(<LiveMapPane config={CONFIG} />);
     expect(screen.getByRole("alert").textContent).toMatch(/could not be read/);
+  });
+
+  it("watches the latest read for signatures this session did not send", () => {
+    read(WORLD);
+    render(<LiveMapPane config={CONFIG} />);
+    expect(vi.mocked(useRemoteApprovals)).toHaveBeenCalledWith(expect.objectContaining({ events: [], world: WORLD }));
   });
 });

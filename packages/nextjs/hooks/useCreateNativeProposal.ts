@@ -1,5 +1,6 @@
 "use client";
 
+import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
 import { proposalInboxQueryKey } from "./mirror/useProposals";
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useHederaSigner } from "./useHederaSigner";
@@ -22,6 +23,7 @@ export function useCreateNativeProposal() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: GOVERNANCE_MUTATION_KEYS.openNative,
     mutationFn: async ({ innerTransaction, memo }: CreateNativeProposalInput) => {
       const proposerId = requireAccountId();
       const adminKey = await fetchAccountPublicKey(proposerId, network);

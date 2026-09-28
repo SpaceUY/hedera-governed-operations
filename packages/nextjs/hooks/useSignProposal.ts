@@ -1,5 +1,6 @@
 "use client";
 
+import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
 import { useHederaSigner } from "./useHederaSigner";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
 import { useMutation } from "@tanstack/react-query";
@@ -8,5 +9,8 @@ import { useMutation } from "@tanstack/react-query";
  * incoming) the signer's key belongs to. */
 export function useSignProposal() {
   const { executeTransaction } = useHederaSigner();
-  return useMutation({ mutationFn: (scheduleId: string) => executeTransaction(buildScheduleSign(scheduleId)) });
+  return useMutation({
+    mutationKey: GOVERNANCE_MUTATION_KEYS.sign,
+    mutationFn: (scheduleId: string) => executeTransaction(buildScheduleSign(scheduleId)),
+  });
 }
