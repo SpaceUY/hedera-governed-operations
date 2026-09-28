@@ -5,7 +5,7 @@
  * titles, the path a proposal takes, notices, CTAs — lives in `components/governance/wizard/copy`,
  * and the map's node, edge and legend words in `components/governance/graph/copy`.
  */
-import type { CouncilKey, ThresholdProgress } from "@sh/core/governance/council";
+import type { CouncilKey, Proposer, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { RegistryCrossCheck, RegistryEntryState } from "@sh/core/governance/registry";
 import type { ScheduleStatus } from "@sh/core/mirror";
@@ -46,8 +46,19 @@ export function registryLabel(registry: RegistryCrossCheck): string {
  * Signatures collected out of the threshold, never out of the council's size: a bare "2 of 2" beside
  * a 2-of-3 council reads as a council of two, so the count says what it is counted against.
  */
-const requiredSignaturesLabel = ({ signed, threshold }: ThresholdProgress): string =>
+export const requiredSignaturesLabel = ({ signed, threshold }: ThresholdProgress): string =>
   `${signed} of ${threshold} required signatures`;
+
+/**
+ * A council member by the account that holds its seat — matched the same way the map names a node —
+ * or by the start of its key when no proposer holds it. `viewerAccountId` overrides both with "You",
+ * since the connected account reads better as itself than as its own account id.
+ */
+export function memberLabel(memberKey: string, proposers: readonly Proposer[], viewerAccountId: string | null): string {
+  const proposer = proposers.find(candidate => candidate.key === memberKey);
+  if (proposer && proposer.accountId === viewerAccountId) return "You";
+  return proposer?.accountId ?? `Member ${memberKey.slice(0, 6)}…`;
+}
 
 /** The council's rule, the same on the map, the treasury strip and the wizard's preview. */
 export function councilRuleLabel(council: CouncilKey): string {
@@ -114,6 +125,25 @@ export function executionFailureLabel({
 export const LIVE_MAP_STATUS_NOTE =
   "Each proposal runs by itself the moment the council's threshold has signed it. There is no execute button " +
   "and no reject: a proposal nobody signs in time expires, and nothing runs.";
+
+/**
+ * Why Withdraw has to happen before Cancel is offered: a schedule left alive for a cancelled entry
+ * would still be able to reach its threshold, and that reverts with `ProposalNotPending` and bills
+ * the governance account for the gas rather than doing nothing for free.
+ */
+export const WITHDRAW_BEFORE_CANCEL_NOTE =
+  "Cancelling the registry entry becomes available once no schedule is still open for it — withdrawn, " +
+  "expired, or run and failed — so a signature reaching the threshold afterwards can never revert and " +
+  "bill the treasury.";
+
+/** The choice a proposer with an open Cancel button actually faces. */
+export const CANCEL_VS_EXPIRE_NOTE =
+  "Cancelling ends this proposal for good, right away. Left alone, it lapses the same way on its own at " +
+  "expiry — cancel only if the proposer wants that to happen now instead.";
+
+/** Shown in place of the Cancel button to whoever `GovernedExecutor.cancel` would refuse. */
+export const CANCEL_UNAUTHORIZED_NOTE =
+  "Only the account that registered this entry, or the governance account, can cancel it.";
 
 /** The governance home's words for the inbox, split into open approval rounds and settled ones. */
 export const INBOX_COPY = {
