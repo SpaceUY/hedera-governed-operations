@@ -28,13 +28,13 @@ function renderWithSession(onRemote: (approval: AnimationEvent) => void) {
     ({ events, world: read }: Props) => {
       useRemoteApprovals({ events, world: read, onRemote });
       return {
-        sign: useMutation({
+        sign: useMutation<string, Error, string>({
           mutationKey: GOVERNANCE_MUTATION_KEYS.sign,
-          mutationFn: async (_id: string) => "0.0.1@1.1",
+          mutationFn: async () => "0.0.1@1.1",
         }),
-        failedSign: useMutation({
+        failedSign: useMutation<string, Error, string>({
           mutationKey: GOVERNANCE_MUTATION_KEYS.sign,
-          mutationFn: async (_id: string): Promise<string> => {
+          mutationFn: async () => {
             throw new Error("rejected in the wallet");
           },
         }),
