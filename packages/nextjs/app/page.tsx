@@ -6,7 +6,7 @@ import { GOVERNANCE_ROUTES, type GovernanceConfig, resolveGovernanceConfig } fro
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTreasuryFigures } from "~~/hooks/mirror/useTreasuryFigures";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { approvalsLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
+import { approvalsLabel, proposalStatusLabel } from "~~/services/governance/proposalLabels";
 import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
@@ -100,7 +100,7 @@ function GovernanceHome({ config }: { config: GovernanceConfig }) {
               {inbox.data.proposals.map(proposal => (
                 <li key={proposal.schedule.schedule_id}>
                   <Link href={GOVERNANCE_ROUTES.proposal(proposal.schedule.schedule_id)} className="link link-primary">
-                    {describeScheduledOperation(proposal.operation)} — {scheduleStatusLabel(proposal.state.status)} —{" "}
+                    {describeScheduledOperation(proposal.operation)} — {proposalStatusLabel(proposal)} —{" "}
                     {approvalsLabel(proposal.progress, proposal.incomingProgress)}
                   </Link>
                 </li>

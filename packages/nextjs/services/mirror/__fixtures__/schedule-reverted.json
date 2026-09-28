@@ -1,0 +1,39 @@
+{
+  "admin_key": null,
+  "deleted": false,
+  "consensus_timestamp": "1790109108.739927104",
+  "creator_account_id": "0.0.8192684",
+  "executed_timestamp": "1790109109.464489702",
+  "expiration_time": "1790713908.590000000",
+  "memo": "token admin freeze sin asociar",
+  "payer_account_id": "0.0.10590498",
+  "schedule_id": "0.0.10670585",
+  "signatures": [
+    {
+      "consensus_timestamp": "1790109108.739927104",
+      "public_key_prefix": "A8ZOXqRHjGJ59xH6h3Zh96PaVXzEHtJA/DtxSFHTmFO7",
+      "signature": "…",
+      "type": "ECDSA_SECP256K1"
+    },
+    {
+      "consensus_timestamp": "1790109108.739927104",
+      "public_key_prefix": "AoSpRFf/h2qFC+yvgDbEhqRkgSZ5IJzANkz+2d4pqDIa",
+      "signature": "…",
+      "type": "ECDSA_SECP256K1"
+    },
+    {
+      "consensus_timestamp": "1790109109.464489701",
+      "public_key_prefix": "Ax8MbYmp8RO1AM0RSYCMOv2/QHQ60UBTWwtbrbcwzPfs",
+      "signature": "…",
+      "type": "ECDSA_SECP256K1"
+    },
+    {
+      "consensus_timestamp": "1790109109.464489701",
+      "public_key_prefix": "AoSpRFf/h2qFC+yvgDbEhqRkgSZ5IJzANkz+2d4pqDIa",
+      "signature": "…",
+      "type": "ECDSA_SECP256K1"
+    }
+  ],
+  "transaction_body": "CICEr18aMQoFGMmfiwUQkL8FIiT+DZTBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc=",
+  "wait_for_expiry": false
+}

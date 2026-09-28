@@ -10,8 +10,13 @@ import { useCancelProposal } from "~~/hooks/useCancelProposal";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
-import { canBeSigned, canBeWithdrawnBy } from "~~/services/governance/proposalActions";
-import { approvalsLabel, registryLabel, scheduleStatusLabel } from "~~/services/governance/proposalLabels";
+import { canBeSigned, canBeWithdrawnBy, cancellableRegistryId } from "~~/services/governance/proposalActions";
+import {
+  approvalsLabel,
+  executionFailureLabel,
+  proposalStatusLabel,
+  registryLabel,
+} from "~~/services/governance/proposalLabels";
 import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
@@ -52,14 +57,8 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
   const registryDescription = registry.status === "read" ? describeRegistryOperation(registry.entry.operation) : null;
   const isPending = proposal.state.status === "pending";
   const isWithdrawable = canBeWithdrawnBy(proposal, accountId);
-  // Cancel only once the schedule is gone without running: deleting a live schedule comes first, or
-  // it could still reach threshold on a cancelled entry and charge the governance account the gas.
-  const cancellableProposalId =
-    registry.status === "read" &&
-    registry.entry.state === "pending" &&
-    (proposal.state.status === "deleted" || proposal.state.status === "expired")
-      ? registry.entry.proposalId
-      : null;
+  const cancellableProposalId = cancellableRegistryId(proposal);
+  const executionFailure = executionFailureLabel(proposal);
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4 py-6 sm:py-8">
@@ -69,7 +68,7 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mb-6">
         <dt className="text-base-content/60">Status</dt>
-        <dd>{scheduleStatusLabel(proposal.state.status)}</dd>
+        <dd>{proposalStatusLabel(proposal)}</dd>
         <dt className="text-base-content/60">Registry entry</dt>
         <dd>{registryLabel(registry)}</dd>
         {operation.kind === "registryCall" && (
@@ -87,6 +86,8 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
         <dt className="text-base-content/60">Approvals</dt>
         <dd>{approvalsLabel(proposal.progress, proposal.incomingProgress)}</dd>
       </dl>
+
+      {executionFailure && <p className="text-sm text-error mb-6">{executionFailure}</p>}
 
       {isPending && (
         <div className="text-sm text-base-content/70 mb-6 flex flex-col gap-1">

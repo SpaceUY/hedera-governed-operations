@@ -1,9 +1,10 @@
-import { canBeSigned, canBeWithdrawnBy, canOpenProposal } from "./proposalActions";
+import { canBeSigned, canBeWithdrawnBy, canOpenProposal, cancellableRegistryId } from "./proposalActions";
 import type { ScheduledOperation } from "./proposalTypes";
 import type { RegistryCrossCheck, RegistryEntry } from "./registry";
 import { describe, expect, it } from "vitest";
-import type { MirrorSchedule, ScheduleState, ScheduleStatus } from "~~/services/mirror";
+import type { MirrorSchedule, ScheduleExecution, ScheduleState, ScheduleStatus } from "~~/services/mirror";
 import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
+import rowsAtRevert from "~~/services/mirror/__fixtures__/transactions-at-reverted.json";
 
 const stateOf = (status: ScheduleStatus): ScheduleState => ({
   status,
@@ -124,5 +125,36 @@ describe("canOpenProposal", () => {
   it("needs PROPOSER_ROLE for a registry proposal, since createProposal reverts without it", () => {
     expect(canOpenProposal("upgrade", "0.0.5555", proposers)).toBe(false);
     expect(canOpenProposal("upgrade", "0.0.1001", proposers)).toBe(true);
+  });
+});
+
+describe("cancellableRegistryId", () => {
+  const NOT_RUN: ScheduleExecution = { status: "notRun" };
+  const FAILED: ScheduleExecution = {
+    status: "failed",
+    result: "CONTRACT_REVERT_EXECUTED",
+    transaction: rowsAtRevert.transactions[0],
+  };
+
+  it.each(["deleted", "expired"] as const)("offers to cancel a pending entry once its schedule is %s", status => {
+    expect(cancellableRegistryId({ state: stateOf(status), execution: NOT_RUN, registry: entryOf() })).toBe(7);
+  });
+
+  it("offers to cancel a pending entry once its schedule ran and failed, since a schedule runs once", () => {
+    expect(cancellableRegistryId({ state: stateOf("executed"), execution: FAILED, registry: entryOf() })).toBe(7);
+  });
+
+  it("holds cancel back while a live schedule could still reach its threshold", () => {
+    expect(cancellableRegistryId({ state: stateOf("pending"), execution: NOT_RUN, registry: entryOf() })).toBeNull();
+  });
+
+  it("offers nothing once the entry is no longer pending", () => {
+    const registry = entryOf({ state: "cancelled" });
+    expect(cancellableRegistryId({ state: stateOf("executed"), execution: FAILED, registry })).toBeNull();
+  });
+
+  it("offers nothing for a native kind, which has no entry", () => {
+    const registry: RegistryCrossCheck = { status: "notApplicable" };
+    expect(cancellableRegistryId({ state: stateOf("deleted"), execution: NOT_RUN, registry })).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import transaction from "./__fixtures__/transaction.json";
-import { fetchTransaction, normalizeTransactionId } from "./transactions";
+import rowsAtRevert from "./__fixtures__/transactions-at-reverted.json";
+import { fetchTransaction, fetchTransactionsAt, normalizeTransactionId } from "./transactions";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const MIRROR_TX_ID = "0.0.8192684-1789670087-589444591";
@@ -58,6 +59,28 @@ describe("fetchTransaction", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchTransaction("nope")).rejects.toThrow("Invalid transaction ID");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchTransactionsAt", () => {
+  it("filters /api/v1/transactions by the consensus timestamp", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(rowsAtRevert)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rows = await fetchTransactionsAt("1790109109.464489702");
+
+    expect([fetchMock.mock.calls[0][0], rows.map(row => row.result)]).toEqual([
+      "https://testnet.mirrornode.hedera.com/api/v1/transactions?timestamp=1790109109.464489702",
+      ["CONTRACT_REVERT_EXECUTED"],
+    ]);
+  });
+
+  it("rejects anything but seconds.nanos before hitting the network", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchTransactionsAt("gte:1790109109")).rejects.toThrow("Invalid consensus timestamp");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

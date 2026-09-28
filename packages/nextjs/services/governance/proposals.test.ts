@@ -1,13 +1,16 @@
 // @vitest-environment node
 import recorded from "./__fixtures__/scheduled-bodies.json";
 import type { CouncilKey } from "./council";
-import { fetchProposalInbox } from "./proposals";
+import { type ProposalInbox, fetchProposalInbox } from "./proposals";
 import { REGISTRY_ABI } from "./registry";
 import { proto } from "@hiero-ledger/proto";
 import { encodeFunctionData, encodeFunctionResult, hexToBytes, parseAbi } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MirrorSchedule } from "~~/services/mirror";
 import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
+import revertedSchedule from "~~/services/mirror/__fixtures__/schedule-reverted.json";
+import rowsAtExecution from "~~/services/mirror/__fixtures__/transactions-at-executed.json";
+import rowsAtRevert from "~~/services/mirror/__fixtures__/transactions-at-reverted.json";
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.10590498";
 const ALICE = "0.0.10671142";
@@ -75,10 +78,18 @@ const urlOf = (input: unknown): string => {
   return (input as { url?: string })?.url ?? "";
 };
 
+/** What Mirror answers when asked for the transaction at a schedule's `executed_timestamp`. */
+let rowsAtExecutedTimestamp: unknown = rowsAtExecution;
+
+const NOT_INDEXED_YET = { transactions: [], links: { next: null } };
+
 function stubSchedulesPerProposer(...pages: (unknown[] | Error)[]) {
   const mirrorAnswers = [...pages];
   const fetchMock = vi.fn((input: unknown) => {
     if (urlOf(input).startsWith(RPC_URL)) return Promise.resolve(nextRelayAnswer());
+    if (urlOf(input).includes("/api/v1/transactions")) {
+      return Promise.resolve(new Response(JSON.stringify(rowsAtExecutedTimestamp)));
+    }
     const page = mirrorAnswers.shift();
     if (page instanceof Error || page === undefined) return Promise.resolve(new Response("not found", { status: 404 }));
     return Promise.resolve(new Response(JSON.stringify({ schedules: page, links: { next: null } })));
@@ -113,6 +124,7 @@ function inboxOf(proposerAccountIds: string[], unresolvableProposers: string[] =
 afterEach(() => {
   vi.unstubAllGlobals();
   relayAnswers = [];
+  rowsAtExecutedTimestamp = rowsAtExecution;
 });
 
 describe("fetchProposalInbox", () => {
@@ -232,6 +244,82 @@ describe("fetchProposalInbox", () => {
   });
 });
 
+function inboxAfter(previous: ProposalInbox) {
+  return fetchProposalInbox({
+    proposerAccountIds: [ALICE],
+    governanceAccountId: GOVERNANCE_ACCOUNT_ID,
+    council,
+    network: "testnet",
+    registry: { executorContractId: EXECUTOR, rpcUrl: RPC_URL },
+    previous,
+  });
+}
+
+/**
+ * The network marks a schedule executed whether its transaction succeeded or reverted, so the outcome
+ * comes from the scheduled transaction's own row, recorded at the schedule's `executed_timestamp`.
+ */
+describe("how an executed proposal ended", () => {
+  it("reports an execution that succeeded", async () => {
+    stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.execution).toMatchObject({ status: "succeeded" });
+  });
+
+  it("reports an execution that reverted, with the network's response code", async () => {
+    rowsAtExecutedTimestamp = rowsAtRevert;
+    stubSchedulesPerProposer([{ ...revertedSchedule, payer_account_id: GOVERNANCE_ACCOUNT_ID }]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect([proposal.state.status, proposal.execution]).toMatchObject([
+      "executed",
+      { status: "failed", result: "CONTRACT_REVERT_EXECUTED" },
+    ]);
+  });
+
+  it("leaves the outcome unconfirmed while Mirror has not indexed it", async () => {
+    rowsAtExecutedTimestamp = NOT_INDEXED_YET;
+    stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.execution).toEqual({ status: "unconfirmed" });
+  });
+
+  it("reads no outcome for a proposal that never ran", async () => {
+    const fetchMock = stubSchedulesPerProposer([scheduleOf("0.0.1", { executed_timestamp: null, deleted: true })]);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect([proposal.execution, fetchMock.mock.calls.length]).toEqual([{ status: "notRun" }, 1]);
+  });
+
+  it("reuses an outcome the previous read resolved instead of reading it again", async () => {
+    stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+    const previous = await inboxOf([ALICE]);
+    const fetchMock = stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect([proposal.execution.status, fetchMock.mock.calls.length]).toEqual(["succeeded", 1]);
+  });
+
+  it("reads the outcome again when the previous read could not confirm it", async () => {
+    rowsAtExecutedTimestamp = NOT_INDEXED_YET;
+    stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+    const previous = await inboxOf([ALICE]);
+    rowsAtExecutedTimestamp = rowsAtExecution;
+    stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect(proposal.execution.status).toBe("succeeded");
+  });
+});
+
 /**
  * A proposer can call `cancel(id)` straight, with no schedule and no quorum, which kills the entry
  * while its schedule goes on looking open. Without this cross the inbox would invite the council to
@@ -264,12 +352,31 @@ describe("crossing a proposal with its registry entry", () => {
     expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
   });
 
-  it("leaves a settled proposal uncrossed, since its round is over either way", async () => {
-    const fetchMock = stubSchedulesPerProposer([scheduleOf("0.0.1")]);
+  it("leaves a proposal that executed successfully uncrossed, since its entry has run", async () => {
+    const fetchMock = stubSchedulesPerProposer([
+      scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody }),
+    ]);
 
     const [proposal] = (await inboxOf([ALICE])).proposals;
 
-    expect([proposal.registry.status, fetchMock.mock.calls.length]).toEqual(["notApplicable", 1]);
+    const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
+    expect([proposal.registry.status, relayReads.length]).toEqual(["notApplicable", 0]);
+  });
+
+  /** A revert leaves the entry as it was, so the council can still schedule `execute(id)` again. */
+  it("crosses a proposal whose execution reverted, since the revert left its entry as it was", async () => {
+    rowsAtExecutedTimestamp = rowsAtRevert;
+    stubSchedulesPerProposer([
+      scheduleOf("0.0.1", {
+        executed_timestamp: revertedSchedule.executed_timestamp,
+        transaction_body: recorded.registryCall.transactionBody,
+      }),
+    ]);
+    stubRegistryStates(0);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "pending" } });
   });
 
   it("leaves a native proposal uncrossed, since it has no entry at all", async () => {

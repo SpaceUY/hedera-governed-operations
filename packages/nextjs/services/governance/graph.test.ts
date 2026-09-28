@@ -122,6 +122,7 @@ function proposalOf(operation: DecodedOperation, status: ScheduleStatus = "pendi
     state: { status, signatureCount: 1, executedAt: null, expiresAt: null, isSettled: status !== "pending" },
     progress: { signed: 0, threshold: 2, signedBy: [] },
     incomingProgress: null,
+    execution: { status: "notRun" },
     operation: isContract ? REGISTRY_CALL : (operation as ScheduledOperation),
     registry,
   };

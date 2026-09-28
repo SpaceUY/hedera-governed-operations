@@ -42,3 +42,19 @@ export function canOpenProposal(kind: ProposalKind, accountId: string | null, pr
   if (!isContractProposalKind(kind)) return true;
   return proposerAccountIds.includes(accountId);
 }
+
+/**
+ * The registry entry a Cancel button retires, or null when there is none to offer. Only once no live
+ * schedule points at the entry any more — it was withdrawn, it expired, or it ran and failed, since a
+ * schedule runs once — and the entry is still pending. Cancelling under a live schedule would leave
+ * it to reach its threshold, revert with `ProposalNotPending` and bill the governance account.
+ */
+export function cancellableRegistryId({
+  state,
+  execution,
+  registry,
+}: Pick<Proposal, "state" | "execution" | "registry">): number | null {
+  if (registry.status !== "read" || registry.entry.state !== "pending") return null;
+  const scheduleIsDone = state.status === "deleted" || state.status === "expired" || execution.status === "failed";
+  return scheduleIsDone ? registry.entry.proposalId : null;
+}

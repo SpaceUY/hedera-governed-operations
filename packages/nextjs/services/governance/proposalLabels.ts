@@ -4,6 +4,7 @@
  */
 import type { CouncilKey, ThresholdProgress } from "./council";
 import { type ProposalKind, isContractProposalKind } from "./proposalTypes";
+import type { Proposal } from "./proposals";
 import type { RegistryCrossCheck, RegistryEntryState } from "./registry";
 import type { ScheduleStatus } from "~~/services/mirror";
 
@@ -133,3 +134,50 @@ export const RECIPIENT_LOOKUP_LABELS = {
   notFound: (input: string) => `No account found for ${input}`,
   unreachable: (input: string) => `Could not look up ${input} right now. Try again.`,
 } as const satisfies Record<string, (input: string) => string>;
+
+/**
+ * A proposal's status. The schedule's own "Executed" only says the network ran the transaction, and a
+ * call that reverted ran too, so a proposal that executed says whether it worked.
+ */
+export function proposalStatusLabel({ state, execution }: Pick<Proposal, "state" | "execution">): string {
+  if (state.status !== "executed") return scheduleStatusLabel(state.status);
+  switch (execution.status) {
+    case "succeeded":
+      return "Executed";
+    case "failed":
+      return "Failed when it ran";
+    case "notRun":
+    case "unconfirmed":
+      return "Executed, confirming the result";
+  }
+}
+
+/**
+ * What a failed execution means and what retrying takes, or null when nothing failed. A revert leaves
+ * the registry entry as it was, so a pending entry is retried by scheduling `execute(id)` again for
+ * the council to sign — not by proposing it again.
+ */
+export function executionFailureLabel({
+  execution,
+  operation,
+  registry,
+}: Pick<Proposal, "execution" | "operation" | "registry">): string | null {
+  if (execution.status !== "failed") return null;
+  const outcome =
+    `The network ran it and answered ${execution.result}: nothing changed, ` +
+    "and the governance account still paid its fee.";
+  if (operation.kind !== "registryCall") return `${outcome} To try again, schedule the same operation again.`;
+  if (registry.status === "unreachable") {
+    return `${outcome} The registry entry could not be read, so whether it can run again is not known yet.`;
+  }
+  if (registry.status !== "read") {
+    return `${outcome} There is no usable registry entry behind it, so it cannot run again.`;
+  }
+  if (registry.entry.state !== "pending") {
+    return `${outcome} The registry entry is ${REGISTRY_ENTRY_LABELS[registry.entry.state].toLowerCase()}, so it cannot run again.`;
+  }
+  return (
+    `${outcome} The registry entry is still pending: retrying means scheduling execute(${registry.entry.proposalId}) ` +
+    "again for the council to sign, not proposing it again."
+  );
+}

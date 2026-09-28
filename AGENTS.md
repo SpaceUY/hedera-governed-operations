@@ -65,7 +65,7 @@ packages/nextjs/
     useCreateToken.ts     Admin: create HTS badge token
     useBadgeTokens.ts     Badge balance / eligibility
     mirror/               React Query hooks over services/mirror
-      useSchedule.ts        Schedule + derived state; polls while pending
+      useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
       useRefreshOnSettle.ts Re-reads treasury figures (and the council after a rotation) when a proposal settles
@@ -88,8 +88,8 @@ packages/nextjs/
     mirror/               Typed Mirror Node client (HTTP only, no SDK)
       client.ts             Base URL per network, MirrorNodeError, mirrorGet, links.next paginator
       topics.ts             fetchTopicMessages, base64 → text/JSON decoding
-      schedules.ts          fetchSchedule, fetchSchedulesByCreator, deriveScheduleState
-      transactions.ts       normalizeTransactionId, fetchTransaction
+      schedules.ts          fetchSchedule, fetchSchedulesByCreator, deriveScheduleState, fetchScheduleExecution
+      transactions.ts       normalizeTransactionId, fetchTransaction, fetchTransactionsAt
       accounts.ts / contracts.ts  fetchAccount, fetchContract, fetchContractResult
       tokens.ts             fetchToken, fetchTokenRelationship, parseTokenDecimals
       __fixtures__/         Recorded Mirror responses used by the tests
@@ -104,7 +104,7 @@ packages/nextjs/
       decode.ts             Scheduled body and registry calldata back to a described operation
       registry.ts           GovernedExecutor: the entry behind a proposal, cancel, and the id a create returned
       treasury.ts           Treasury balances plus the vault's reserve
-      proposalActions.ts    Which actions a proposal offers (Sign, Withdraw), and to whom
+      proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       scheduledBody.ts      The body a schedule carries, built from its transaction (the wizard's preview)
       drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
@@ -167,6 +167,7 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 - **Gas for a contract call that stores caller-supplied `bytes` scales with their length**, so it cannot be a constant. Measured on `GovernedExecutor` on testnet: 4 bytes of calldata consume 100,263, 36 bytes 145,425, 100 bytes 191,355 and 196 bytes 260,251 — a straight line of roughly 23,000 per 32-byte slot, with the jump from 4 to 36 bytes doubled because Solidity stores `bytes` shorter than 32 in a single slot. `createProposalGas` rounds that up generously, which costs nothing because the limit of a plain `ContractExecute` is not charged; falling short costs the whole fee and returns `INSUFFICIENT_GAS`.
 - Transaction ids come in two forms: the SDK's `0.0.x@sec.nanos` and Mirror's `0.0.x-sec-nanos` (used in paths). `normalizeTransactionId` accepts both; one id can return several rows (parent plus scheduled/child rows). A signer only returns the transaction id, so the id of a schedule comes from the `SCHEDULECREATE` row of that transaction (`scheduleIdFromTransaction`); the child row's `entity_id` is the contract the scheduled call reached, not the schedule.
 - **A schedule can only be withdrawn if it was created with an admin key, and that key has to sign the create.** Without one, `ScheduleDelete` is refused with `SCHEDULE_IS_IMMUTABLE` and the only way out is the expiry; naming a key that does not sign the `ScheduleCreate` fails with `INVALID_SIGNATURE`. Both measured on testnet. That is why the admin key of a proposal is the proposer's own key and never the governance account's: the council's threshold key in that slot would turn opening a proposal into an m-of-n vote of its own.
+- **A schedule that executed is not a schedule that succeeded.** Mirror sets `executed_timestamp` as soon as the network runs the scheduled transaction, and a call that reverts runs too — measured on testnet: schedule `0.0.10670585`, a `TokenAdmin` freeze of an account that never associated the token, reads as executed while its scheduled row says `CONTRACT_REVERT_EXECUTED`. `executed_timestamp` is that row's `consensus_timestamp`, so `GET /api/v1/transactions?timestamp=<executed_timestamp>` returns exactly the scheduled row (`scheduled: true`) and its `result` (`fetchScheduleExecution`; the endpoint answers an empty list, not a 404, until it is indexed). `deriveScheduleState` still says `executed` for both, and `Proposal.execution` says `succeeded` or `failed`. A revert leaves the registry entry as it was, so a pending entry is retried by scheduling `execute(id)` again, not by proposing it again; and since a schedule runs once, nothing live points at the entry any more and Cancel is safe (`cancellableRegistryId`).
 - **Withdrawing a proposal has two layers, and they answer different questions.** `ScheduleDelete` ends one round of approval — the registry entry stays pending and anyone can schedule `execute(id)` again. `GovernedExecutor.cancel(id)` ends the proposal for good, and the proposer can call it straight, with no schedule and no quorum. A schedule left alive for a cancelled proposal is a trap: reaching its threshold reverts with `ProposalNotPending` and the governance account pays the gas consumed, so delete the schedule first and cancel afterwards. A native proposal (a council rotation through `AccountUpdate`) has no registry entry, so there the delete is the only retraction.
 - **Rotating a threshold key needs signatures from both councils, and the schedule waits for them.** Measured on testnet with throwaway accounts: a scheduled `AccountUpdate` that replaces an account's threshold key did **not** run on the outgoing council's threshold alone — the schedule simply stayed pending — and ran as soon as the incoming key's own threshold was also met. Each side needs its **own threshold**, not all of its members: 2-of-3 outgoing plus 2-of-3 incoming was enough. So a council rotation has two progress counts, and `countThresholdSignatures` against the current council alone would show a bar that can never fill. The incoming council is in the decoded body (`decodeScheduledOperation` returns it as a `CouncilKey`), so the inbox counts both: `Proposal.progress` against the council that exists and `Proposal.incomingProgress` against the one being proposed, null for every other kind.
 - **A decoder that describes only part of a body is worse than one that describes none of it**, because the council approves what it was shown. Matching a selector says nothing about the argument behind it — `execute(uint256)` with a truncated argument makes viem throw — and `CryptoUpdate` carries around twenty fields besides the key, so a rotation that also set the account's expiry would read as a plain rotation. The rule in `decode.ts` is that a field it does not read makes the body `unrecognized`, checked by re-encoding what was understood and comparing it against what arrived.
