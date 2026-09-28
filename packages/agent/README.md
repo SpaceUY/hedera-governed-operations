@@ -16,14 +16,20 @@ with a reason attached.
    through `GovernedExecutor` that means reading the registry entry behind `execute(id)` as well as
    the scheduled body: the body alone only says "entry 7".
 3. Runs the policy for that kind of operation.
-4. Signs what passed, with `ScheduleSign`. Reaching the threshold is what makes the network execute.
+4. Asks a person, when the policy says that kind needs one — see [Human in the loop](#human-in-the-loop).
+5. Signs what passed, with `ScheduleSign`. Reaching the threshold is what makes the network execute.
+6. Publishes the decision to an HCS topic — see [The decision log](#the-decision-log).
 
-Every decision is one JSON line on stdout.
+Every decision is also one JSON line on stdout.
 
 ```json
-{"at":"…","event":"decision","scheduleId":"0.0.10720313","outcome":"approved","kind":"treasuryTransfer","reason":"within policy","proposal":"Transfer 0.05 ℏ to 0.0.10671142 out of 0.0.10671146"}
-{"at":"…","event":"decision","scheduleId":"0.0.10720281","outcome":"refused","kind":"treasuryTransfer","reason":"0.0.8192684 is not a recipient this agent pays","proposal":"Transfer 0.05 ℏ to 0.0.8192684 out of 0.0.10671146"}
+{"at":"…","event":"decision","scheduleId":"0.0.10720313","outcome":"approved","kind":"treasuryTransfer","reason":"within policy","proposal":"Transfer 0.05 ℏ to 0.0.10671142 out of 0.0.10671146","confirmation":"notRequired"}
+{"at":"…","event":"decision","scheduleId":"0.0.10720281","outcome":"refused","kind":"treasuryTransfer","reason":"0.0.8192684 is not a recipient this agent pays","proposal":"Transfer 0.05 ℏ to 0.0.8192684 out of 0.0.10671146","confirmation":"notRequired"}
 ```
+
+A decision has four outcomes. `approved` and `refused` are the policy's answer; `skipped` is a
+proposal that needs nothing, already settled or already carrying this agent's signature; `pending` is
+one the policy allows and a person has not released yet.
 
 ## The policy
 
@@ -45,6 +51,8 @@ reads, since a limit its author believes is in force and nothing enforces is the
 | `treasurySwap`     | `maxAmountInTinybars`, `tokensOut`, `recipients`                                                                  |
 | `tokenAdmin`       | `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens`                                                 |
 | `treasuryTransfer` | `maxTinybars`, `recipients`, and `tokens` for HTS transfers                                                       |
+
+Every rule also takes `requireConfirmation`, which is not a limit but an escalation: see below.
 
 Three properties are worth more than the individual limits:
 
@@ -74,7 +82,6 @@ cannot answer "is the code at it the build we blessed". Verified on testnet, all
 | no release names the address                | `refused` — "no release on topic 0.0.… names the implementation 0x…"          |
 | a release names it, the code does not match | `refused` — "the code at 0x… does not match the release published for v2.0.0" |
 
-
 **The topic needs a submit key, and the agent checks for one before it starts.** HCS lets any account
 write to a topic created without one, so manifests on an open topic say that somebody published those
 bytes — not that this team did, which is the only thing worth checking against. `yarn setup` creates
@@ -96,6 +103,131 @@ The agent also refuses anything it cannot fully read: a body that did not decode
 that is missing, cancelled, or could not be fetched, or a call to some other executor. An approver
 that cannot tell what it is approving has one safe answer.
 
+## Human in the loop
+
+The agent holds one of the council's three keys, so every signature it sends is **half a threshold
+delivered on a policy nobody watched it apply**. For most of what it signs that is the point: a
+transfer is bounded by an amount and a list of recipients, and waiting for somebody to open a wallet
+adds nothing. For the operations whose limits cannot bound their impact it is not enough — an upgrade
+replaces the code behind the proxy, and no list of addresses says what that code does.
+
+So a rule can ask for a person as well:
+
+```json
+{
+  "upgrade": { "targets": ["0x…"], "manifestTopicId": "0.0.…", "requireConfirmation": true },
+  "treasuryTransfer": { "maxTinybars": "5000000000", "recipients": ["0.0.…"] }
+}
+```
+
+A proposal under that upgrade rule is decided as usual and then waits, as `pending`, until a
+confirmation code arrives. The transfer is signed on its own, seconds after it appears. **The policy
+is what draws that line**, and a policy that demanded a code for everything would be a policy with no
+agent in it.
+
+It is off by default. `parsePolicy` refuses a key no rule reads, so a misspelled
+`requireConfirmations` stops the agent at boot rather than quietly leaving an upgrade unguarded; the
+only way to lose the escalation is to leave it out, the same as any other limit.
+
+### The code
+
+RFC 6238 TOTP over HMAC-SHA-1, six digits, a 30-second step, one step of drift accepted either side.
+Those are not preferences — they are what every authenticator app generates, so the secret goes into
+1Password, Google Authenticator or `oathtool` and the codes match. The secret is base32 in
+`AGENT_TOTP_SECRET`, is never logged, and never leaves the process:
+
+```bash
+# 20 random bytes as base32, which is what an authenticator takes
+node -e "const b=require('node:crypto').randomBytes(20),A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let s='',x=0,n=0;for(const v of b){x=(x<<8)|v;n+=8;while(n>=5)s+=A[(x>>(n-=5))&31]}console.log(s)"
+```
+
+**A code cannot be used twice.** The agent remembers the last time step it accepted one from and
+refuses anything at or below it, so a code read over somebody's shoulder or out of a proxy log is
+already spent. That memory is deliberately one counter for the whole agent rather than one per
+proposal: a code is generated from the clock and the secret and says nothing about which proposal it
+is for, so a counter per proposal would let a code captured for one release another inside the same
+window. The cost is that confirming two proposals means waiting for the next 30-second step.
+
+### Sending one
+
+```bash
+curl -i -XPOST localhost:8787/approvals/0.0.10720313 -d '{"code":"123456"}'
+```
+
+| Status |                                                              |
+| ------ | ------------------------------------------------------------ |
+| `204`  | accepted; the agent signs on its next pass                   |
+| `400`  | the body is not `{"code":"…"}`, or the code was not accepted |
+| `404`  | no proposal by that id is waiting for a confirmation         |
+| `405`  | a method other than POST                                     |
+| `409`  | that proposal has already been confirmed                     |
+| `413`  | a body too large to be a confirmation                        |
+
+A wrong code and a replayed one answer the same 400 with the same sentence. Telling them apart would
+tell whoever is guessing that their six digits were right.
+
+**It binds to `127.0.0.1` and is not meant to face the internet.** The code is the only thing between
+a request and half a threshold signature, so the endpoint belongs behind whatever already fronts this
+service — an SSH tunnel for an operator, an authenticated internal route for a console.
+`AGENT_APPROVAL_HOST` is what opens it wider, and doing so is a decision, not a default. The server
+only listens at all when a secret is configured: a policy that escalates nothing has nothing to
+confirm.
+
+### What is deliberately not here
+
+**Notifying the person.** There is no mail, no chat webhook, no queue. A proposal entering `pending`
+is a line on stdout and a message on the decision topic, and either is enough to drive a notifier
+that already exists. In code the hook is `ApprovalStore.awaitConfirmation`, which is called on the
+transition into waiting and nowhere else. Bringing a transport in would add a dependency, a set of
+credentials and a retry policy to a service whose whole argument is that it can be read end to end.
+
+**Surviving a restart.** Pending approvals are process memory, like the signatures a pass remembers
+sending. Restarting the agent means asking for a code again — which is the right failure: a
+confirmation nobody watched being made, still standing after the process that asked for it is gone,
+is worse than one more code. A confirmation also lapses on its own after fifteen minutes and the
+proposal goes back to waiting, which only matters when signing keeps failing: a code somebody typed a
+quarter of an hour ago should not still be authorising a transaction.
+
+## The decision log
+
+Every decision — the checks it ran, the outcome, and whether a person released it — goes to an HCS
+topic as one JSON message:
+
+```json
+{
+  "schema": "governed-operations/agent-decision/1",
+  "scheduleId": "0.0.10720313",
+  "outcome": "approved",
+  "reason": "within policy, release v2.0.0",
+  "kind": "upgrade",
+  "proposal": "Upgrade 0x… to 0x… — entry 7",
+  "confirmed": true,
+  "agentAccountId": "0.0.10671144",
+  "decidedAt": "2026-09-28T10:00:00.000Z"
+}
+```
+
+The `reason` is where the checks show: `within policy` is the limits alone, `within policy, release
+v2.0.0` is the limits and the manifest check, and a refusal names the limit it failed. `confirmed`
+says whether a person was in the loop. Consensus timestamps the message, so the log is ordered by
+something other than the agent's own clock.
+
+**The topic's submit key is the agent's own, not the operator's.** That is the whole difference from
+the release topic: a manifest claims "this team published this build", so the publisher is the team;
+a decision claims "this agent approved this proposal", so the publisher is the agent. A log the
+operator could also write to would be a log of what somebody said the agent did. `yarn setup` creates
+it with the seat's key and keeps the admin key on the operator, so the submit key can be rotated when
+the seat changes hands; in a real deployment the key belongs to whatever identity runs the service.
+The agent refuses to start on a topic anyone can publish to, and on one whose single submit key is
+not its own — every message it sent there would come back `INVALID_SIGNATURE`.
+
+Publishing never blocks a decision. It happens after deciding and signing, and a failure is logged
+and stepped over: a fee that failed is not a reason to stop holding a council seat, and the next pass
+retries it. Two records are deliberately never written — a skip, which says nothing about the policy,
+and an approval whose `ScheduleSign` failed, which would put "approved" on the topic next to a
+schedule the agent never signed. Each message costs a fee, so a verdict is published once and again
+only when it changes.
+
 ## Running it
 
 ```bash
@@ -104,8 +236,13 @@ yarn agent:start
 ```
 
 On testnet the seat is one of the demo council members `yarn setup` creates: take
-`demoAccounts.bob` out of `packages/nextjs/setup-state.json`. Set `AGENT_DRY_RUN=true` to watch it
-decide against a real inbox without signing anything — the way to try a new policy.
+`demoAccounts.bob` out of `packages/nextjs/setup-state.json`. It is also the key `yarn setup` gives
+the decision topic, so a different seat means a different topic. Set `AGENT_DRY_RUN=true` to watch it
+decide against a real inbox without signing anything and without publishing anything — the way to try
+a new policy.
+
+The agent pays for what it does out of its own account: a fee per `ScheduleSign` and a fee per
+decision published. A seat with no HBAR decides and then fails at both.
 
 In Docker, built from the repository root:
 
@@ -114,12 +251,15 @@ docker build -f packages/agent/Dockerfile -t governed-operations-agent .
 docker run --rm --env-file packages/agent/.env \
   -v "$PWD/packages/agent/policy.example.json:/policy.json:ro" \
   -e AGENT_POLICY_FILE=/policy.json \
+  -p 127.0.0.1:8787:8787 -e AGENT_APPROVAL_HOST=0.0.0.0 \
   governed-operations-agent
 ```
 
 The key reaches the container through `--env-file` and never through the image: `.dockerignore` at the
 repository root keeps every `.env` out of the build context, and it has to live there rather than next
-to the Dockerfile because Docker reads the one at the root of the context.
+to the Dockerfile because Docker reads the one at the root of the context. The endpoint has to bind
+`0.0.0.0` **inside** the container to be reachable at all, which is why the published port is pinned
+back to `127.0.0.1` on the host: the loopback default only means something where the process runs.
 
 ## Custody
 
@@ -141,6 +281,11 @@ will not sign for them.
 | `src/policy.ts`                       | the limits, one typed check per kind — a map, not a rule engine                                |
 | `src/operation.ts`                    | proposal → the flat operation a policy is written against, and every reason one cannot be read |
 | `src/review.ts`                       | one pass over the inbox: decide, then sign what passed                                         |
+| `src/totp.ts`                         | RFC 6238, and only that: which step a code belongs to, never whether it may be used            |
+| `src/approvals.ts`                    | the proposals waiting on a person, the replay guard, and where a notification would hook       |
+| `src/approvalServer.ts`               | `POST /approvals/{scheduleId}` on `node:http`, one route                                       |
+| `src/publish.ts`                      | which decisions reach the topic, and what a record must never claim                            |
 | `src/config.ts`                       | environment and policy file, validated at boot                                                 |
 | `@sh/core/governance/releaseManifest` | the manifest itself: what a release publishes, and the check against the deployed code         |
+| `@sh/core/governance/decisionLog`     | the decision record: what is published, and the topic's submit key                             |
 | `src/index.ts`                        | the loop, the Hedera client, and the log                                                       |
