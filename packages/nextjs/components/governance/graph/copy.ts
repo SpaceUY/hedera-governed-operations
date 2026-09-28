@@ -1,13 +1,11 @@
 /**
  * The words the governance map uses: node names and captions, edge captions and the legend. Nodes
- * are named for what exists on the ledger, never for an action.
+ * are named for what exists on the ledger, never for an action: an operation is something that
+ * travels along the edges and then switches off.
  */
 import type { EdgeKind, NodeRole } from "~~/services/governance/graph";
 
-/**
- * The words the governance map uses. Nodes are named for what exists on the ledger, never for an
- * action: an operation is something that travels along the edges and then switches off.
- */
+/** The map's title, the names of its standing nodes, and what it says while it cannot draw. */
 export const MAP_LABELS = {
   title: "Map of the governed system: who may act, and where the money is",
   loading: "Reading the council from the Mirror Node…",

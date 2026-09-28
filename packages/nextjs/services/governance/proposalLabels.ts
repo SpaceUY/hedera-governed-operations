@@ -1,7 +1,9 @@
 /**
  * The words a screen uses for a proposal's state. The domain values (`notApplicable`, `deleted`, …)
- * name the data model; these name what a council member needs to know about the proposal. Wizard
- * copy — kind titles, the path a proposal takes, notices, CTAs — lives in `components/governance/wizard/copy`.
+ * name the data model; these name what a council member needs to know about the proposal, plus the
+ * inbox headings and the status note the live map shows around those states. Wizard copy — kind
+ * titles, the path a proposal takes, notices, CTAs — lives in `components/governance/wizard/copy`,
+ * and the map's node, edge and legend words in `components/governance/graph/copy`.
  */
 import type { CouncilKey, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
