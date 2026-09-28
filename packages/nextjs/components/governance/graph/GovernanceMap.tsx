@@ -1,54 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
 import { GovernanceGraph } from "./GovernanceGraph";
 import { MAP_LABELS } from "./copy";
-import { type MapDecorator, composeMap } from "./mapModel";
+import { useComposedMap } from "./useComposedMap";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
-import { useProposals } from "~~/hooks/mirror/useProposals";
-import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { useHederaSigner } from "~~/hooks/useHederaSigner";
-import { governanceEntitiesOf } from "~~/services/governance/graphEntities";
 
 export type GovernanceMapProps = {
   /** Resolved once by the host's setup guard (`resolveGovernanceConfig`). */
   config: GovernanceConfig;
-  /** A hand-composed layout; without one the map places every node by role (`autoLayout`). */
-  decorate?: MapDecorator;
 };
 
 /**
  * The governance map for the configured deployment: the council and the proposers as the ledger
  * has them, the trust chain down to the contracts, and the accounts a pending proposal would pay.
  * It reads through the same queries as the rest of the screen, so it never polls on its own, and
- * names the seat the connected account holds "You".
+ * names the seat the connected account holds "You". A hand-composed layout comes from the host's
+ * `MapDecoratorProvider`; without one every node is placed by role (`autoLayout`).
  */
-export function GovernanceMap({ config, decorate }: GovernanceMapProps) {
-  const { targetNetwork } = useTargetNetwork();
-  const { accountId: viewerAccountId } = useHederaSigner();
-  const { governanceAccountId, network, executor } = config;
-  const { inbox, council } = useProposals({
-    governanceAccountId,
-    executorContractId: executor.hederaContractId,
-    network,
-  });
-  const entities = useMemo(() => governanceEntitiesOf(config, targetNetwork.id), [config, targetNetwork.id]);
-
-  const composed = useMemo(() => {
-    if (!council.data) return null;
-    return composeMap(
-      {
-        governanceAccountId,
-        executor: { ref: executor.hederaContractId, evmAddress: executor.address },
-        council: council.data.key,
-        proposers: council.data.proposers,
-        entities,
-        proposals: inbox.data?.proposals ?? [],
-      },
-      decorate,
-      viewerAccountId,
-    );
-  }, [council.data, inbox.data, entities, governanceAccountId, executor, decorate, viewerAccountId]);
+export function GovernanceMap({ config }: GovernanceMapProps) {
+  const { composed, council } = useComposedMap(config);
 
   if (council.error) {
     return (

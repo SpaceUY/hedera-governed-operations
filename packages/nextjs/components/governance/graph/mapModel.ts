@@ -15,9 +15,11 @@ import {
   type GraphSnapshot,
   type Point,
   deriveGraphState,
+  scopeOf,
 } from "~~/services/governance/graph";
 import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
 import { memberLabel } from "~~/services/governance/proposalLabels";
+import type { DecodedOperation } from "~~/services/governance/proposalRoutes";
 
 /**
  * Something the map shows that the ledger does not have yet, such as an account a demo is about to
@@ -107,4 +109,30 @@ export function readingOrder<T extends { id: string; position: Point }>(items: r
   return [...items]
     .sort((first, second) => first.position.x - second.position.x || first.position.y - second.position.y)
     .map(item => item.id);
+}
+
+/** A council seat as the map names it: its label, and the caption under it when a layout gave one. */
+export type MemberName = { name: string; caption?: string };
+
+/** Every seat on the map, by member key, named exactly as the map names its node. */
+export function memberNamesOf({
+  graph,
+  captions,
+}: Pick<ComposedMap, "graph" | "captions">): Record<string, MemberName> {
+  const names: Record<string, MemberName> = {};
+  for (const node of graph.nodes) {
+    if (node.role === "member") names[node.ref] = { name: node.label, caption: captions[node.id] };
+  }
+  return names;
+}
+
+/**
+ * The nodes an operation would travel, in order and by their names on the map — "Treasury → Proposal
+ * registry → Vault" — or null when the map cannot draw that route (see `scopeOf`).
+ */
+export function routeNamesOf(graph: GovernanceGraph, operation: DecodedOperation): string[] | null {
+  const scope = scopeOf(graph, operation);
+  if (!scope) return null;
+  const labels = new Map(graph.nodes.map(node => [node.id, node.label]));
+  return scope.nodeIds.map(id => labels.get(id) ?? id);
 }
