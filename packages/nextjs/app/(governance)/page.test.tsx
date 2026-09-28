@@ -2,7 +2,7 @@ import GovernanceHomePage from "./page";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY } from "~~/services/governance/proposalLabels";
@@ -202,5 +202,56 @@ describe("GovernanceHomePage", () => {
     expect(within(search).getByRole("button", { expanded: true }).textContent).toContain("Run entry 99");
     // Settled, but not listed by the inbox: it stays with the search, never among the inbox's own sections.
     expect(screen.getByRole("region", { name: INBOX_COPY.settledHeading }).contains(detail)).toBe(false);
+  });
+
+  describe("when the open card moves to another list", () => {
+    const scrollIntoView = vi.fn();
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = scrollIntoView;
+    });
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    const withdrawAfterOpening = () => {
+      showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
+      searchParams.value = new URLSearchParams("schedule=0.0.1");
+      const rendered = render(<GovernanceHomePage />);
+      screen.getByRole("button", { expanded: true }).focus();
+      showInbox([proposal("0.0.4", 4, "pending"), proposal("0.0.1", 1, "deleted")]);
+      return rendered;
+    };
+
+    it("keeps it open and puts focus back on its button in the new place, scrolling only as far as needed", () => {
+      const { rerender } = withdrawAfterOpening();
+
+      rerender(<GovernanceHomePage />);
+
+      const settled = screen.getByRole("region", { name: INBOX_COPY.settledHeading });
+      const moved = within(settled).getByRole("button", { expanded: true });
+      expect(moved.textContent).toContain("Run entry 1");
+      expect(document.activeElement).toBe(moved);
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("leaves focus where the viewer already moved it", () => {
+      const { rerender } = withdrawAfterOpening();
+      const field = screen.getByLabelText(/Find a proposal/);
+      field.focus();
+
+      rerender(<GovernanceHomePage />);
+
+      expect(document.activeElement).toBe(field);
+    });
+
+    it("does not take focus when a card opens where it already is", () => {
+      showInbox([proposal("0.0.1", 1, "pending")]);
+      searchParams.value = new URLSearchParams("schedule=0.0.1");
+
+      render(<GovernanceHomePage />);
+
+      expect(document.activeElement).toBe(document.body);
+    });
   });
 });

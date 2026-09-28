@@ -8,6 +8,7 @@ import { OperationCard } from "~~/components/governance/rail/OperationCard";
 import { PendingOperationsList } from "~~/components/governance/rail/PendingOperationsList";
 import { ProposalDetail } from "~~/components/governance/rail/ProposalDetail";
 import { ScheduleSearch } from "~~/components/governance/rail/ScheduleSearch";
+import { cardPlaceOf, useRefocusMovedCard } from "~~/components/governance/rail/useRefocusMovedCard";
 import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
@@ -20,6 +21,7 @@ export default function GovernanceHomePage() {
   const { inbox } = useProposals({ governanceAccountId, executorContractId, network });
   const { pending, settled } = partitionProposals(inbox.data?.proposals ?? []);
   const { selectedScheduleId, select } = useSelectedSchedule();
+  useRefocusMovedCard(selectedScheduleId, cardPlaceOf(selectedScheduleId, inbox.data ? { pending, settled } : null));
 
   // First impression should show something selected rather than an empty rail: the newest pending
   // proposal, unless the URL already names one (a reload, a shared link, or a search result). Only
