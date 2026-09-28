@@ -81,6 +81,10 @@ docker run --rm --env-file packages/agent/.env \
   governed-operations-agent
 ```
 
+The key reaches the container through `--env-file` and never through the image: `.dockerignore` at the
+repository root keeps every `.env` out of the build context, and it has to live there rather than next
+to the Dockerfile because Docker reads the one at the root of the context.
+
 ## Custody
 
 The demo reads a private key from the environment, which is the right amount of ceremony for a
