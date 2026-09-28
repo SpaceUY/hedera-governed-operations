@@ -9,6 +9,10 @@ import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/eve
 import { ALICE, BOB, TRANSFER, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
 
 vi.mock("./useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+// The connected account's key: Alice's ("alice" in bytes, as Mirror writes it in hex).
+vi.mock("./mirror/useAccount", () => ({
+  useAccount: () => ({ data: { key: { _type: "ED25519", key: "616c696365" } } }),
+}));
 
 const ID = "0.0.9001";
 const WORLD = world([proposal({ id: ID, operation: TRANSFER })]);
@@ -26,7 +30,7 @@ function renderWithSession(onRemote: (approval: AnimationEvent) => void) {
   );
   return renderHook(
     ({ events, world: read }: Props) => {
-      useRemoteApprovals({ events, world: read, onRemote });
+      useRemoteApprovals({ events, world: read, network: "testnet", onRemote });
       return {
         sign: useMutation<string, Error, string>({
           mutationKey: GOVERNANCE_MUTATION_KEYS.sign,

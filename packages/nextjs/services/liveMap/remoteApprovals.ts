@@ -12,6 +12,11 @@ export type ApprovedEvent = Extract<AnimationEvent, { kind: "approved" }>;
 export type SessionWrites = {
   /** The connected account, or null. */
   accountId: string | null;
+  /**
+   * The connected account's key as a council seat writes it (`memberKeyOfAccount`), once read; null
+   * while it is being read, and for an account whose key is not one public key.
+   */
+  memberKey: string | null;
   /** Schedules this session signed (submitted or done; not failed). */
   signed: readonly string[];
   /** Schedules this session opened. */
@@ -23,26 +28,23 @@ export type SessionWrites = {
 /**
  * The approvals in `events` that did not come from this session, oldest first.
  *
- * An approval is this session's when it is on a schedule this session signed — or opened, since the
- * creator's own approval arrives together with `proposed` — and it is by the connected account's
- * seat. That seat is known through the proposer list, the only accounts whose keys the map reads: a
- * proposer's own approvals are the ones by its key (none, when its key holds no seat); for any other
- * account every approval on a schedule this session signed or opened counts as its own, since there
- * is no telling them apart. A proposal read before the session learnt its schedule id (Mirror indexed
- * it while the wallet was still answering) is matched by its creator instead.
+ * An approval is this session's when it is by the connected account's own key and on a schedule this
+ * session signed — or opened, since the creator's own approval arrives together with `proposed`. Until
+ * that key is read, every approval on a schedule this session signed or opened counts as its own, so
+ * nothing is announced that this session may have sent. A proposal read before the session learnt its
+ * schedule id (Mirror indexed it while the wallet was still answering) is matched by its creator.
  */
 export function remoteApprovals(
   events: readonly AnimationEvent[],
   session: SessionWrites,
   world: GovernanceSnapshot,
 ): ApprovedEvent[] {
-  const proposer = world.proposers.find(({ accountId }) => accountId === session.accountId);
   const proposedNow = events.filter(({ kind }) => kind === "proposed").map(({ scheduleId }) => scheduleId);
   const openedBy = (scheduleId: string) =>
     world.proposals.find(({ schedule }) => schedule.schedule_id === scheduleId)?.schedule.creator_account_id;
 
   const isOwn = ({ scheduleId, memberKey }: ApprovedEvent): boolean => {
-    if (proposer && proposer.key !== memberKey) return false;
+    if (session.memberKey !== null && session.memberKey !== memberKey) return false;
     if (session.signed.includes(scheduleId) || session.opened.includes(scheduleId)) return true;
     return session.opening && proposedNow.includes(scheduleId) && openedBy(scheduleId) === session.accountId;
   };

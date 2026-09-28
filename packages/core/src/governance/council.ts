@@ -182,8 +182,11 @@ export function countThresholdSignatures(schedule: MirrorSchedule, council: Coun
 /** Mirror's names for a key that is one public key, the only kind that can also be a council seat. */
 const SINGLE_KEY_TYPES = ["ED25519", "ECDSA_SECP256K1"];
 
-/** Mirror writes a single public key as bare hex; a seat is the same bytes in base64. */
-function memberKeyOfAccount(key: MirrorKey | null): string | null {
+/**
+ * An account's key as a council seat writes it, or null when it is not one public key. Mirror writes
+ * a single public key as bare hex; a seat is the same bytes in base64.
+ */
+export function memberKeyOfAccount(key: MirrorKey | null): string | null {
   if (!key || !SINGLE_KEY_TYPES.includes(key._type)) return null;
   return toBase64(bytesFromUnprefixedHex(key.key));
 }

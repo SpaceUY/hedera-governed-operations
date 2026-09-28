@@ -79,7 +79,7 @@ export function LiveMapPane({ config, decorate, onRemoteSignature }: LiveMapPane
     (approval: ApprovedEvent) => onRemoteSignature?.(remoteSignatureNotice(approval, { map, world: snapshot })),
     [map, snapshot, onRemoteSignature],
   );
-  useRemoteApprovals({ events, world: snapshot, onRemote: announce });
+  useRemoteApprovals({ events, world: snapshot, network, onRemote: announce });
 
   const { selected, activation, inspectorId, close, paneRef, onKeyDown } = useMapSelection();
   const inspector =
