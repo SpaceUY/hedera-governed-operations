@@ -95,13 +95,27 @@ export type ScheduledOperation =
 export type TokenAdminOperation = "pause" | "unpause" | "freeze" | "unfreeze";
 
 /**
+ * The call an upgrade runs on the new implementation in the same transaction. Only the ones this
+ * template builds are named: any other initializer makes the whole upgrade unrecognised, because it
+ * could run arbitrary code the council would never see described.
+ */
+export type UpgradeInitializer = { kind: "none" } | { kind: "setWithdrawalLimit"; limitTinybars: bigint };
+
+/**
  * What a registry entry does, decoded from the call it stores. The kind is decided by the function
  * selector alone: a match names the operation, it does not prove the target is one of this
  * template's contracts, which is why `target` is always carried along. Gating on the target is the
  * co-signing agent's job, not the decoder's.
  */
 export type RegistryOperation =
-  | { kind: "upgrade"; target: string; implementation: string; initializerCalldata: string }
+  | {
+      kind: "upgrade";
+      target: string;
+      implementation: string;
+      /** The raw call nested in the upgrade, for a screen that shows the calldata as it is. */
+      initializerCalldata: string;
+      initializer: UpgradeInitializer;
+    }
   | {
       kind: "treasurySwap";
       target: string;
@@ -161,8 +175,11 @@ export function describeScheduledOperation(operation: ScheduledOperation): strin
 
 export function describeRegistryOperation(operation: RegistryOperation): string {
   switch (operation.kind) {
-    case "upgrade":
-      return `Upgrade ${operation.target} to the implementation at ${operation.implementation}`;
+    case "upgrade": {
+      const upgrade = `Upgrade ${operation.target} to the implementation at ${operation.implementation}`;
+      if (operation.initializer.kind === "none") return upgrade;
+      return `${upgrade}, setting the withdrawal limit to ${formatTinybars(operation.initializer.limitTinybars)}`;
+    }
     case "treasurySwap":
       return (
         `Swap ${formatTinybars(operation.amountInTinybars)} for at least ` +

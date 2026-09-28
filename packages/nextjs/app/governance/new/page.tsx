@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { Chain } from "viem";
 import { ConnectWallet } from "~~/components/ConnectWallet";
 import { SetupNotice } from "~~/components/SetupNotice";
 import { MutationError } from "~~/components/governance/MutationError";
@@ -32,6 +33,7 @@ import { isContractProposalKind } from "~~/services/governance/proposalTypes";
 import { type HederaNetworkName, getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
 
 type NewProposalProps = {
+  chain: Chain;
   network: HederaNetworkName;
   governanceAccountId: string;
   executorContractId: string;
@@ -47,6 +49,7 @@ export default function NewProposalPage() {
     const vault = getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.vault);
     const nextImplementation = getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.vaultNextImplementation);
     props = {
+      chain: targetNetwork,
       network: getHederaNetworkNameFromChainId(targetNetwork.id),
       governanceAccountId: getGovernanceEntityIds().governanceAccountId,
       executorContractId: getDeployedContract(targetNetwork.id, GOVERNANCE_CONTRACTS.executor).hederaContractId,
@@ -63,7 +66,7 @@ export default function NewProposalPage() {
   return <NewProposal {...props} />;
 }
 
-function NewProposal({ network, governanceAccountId, executorContractId, upgradeTargets }: NewProposalProps) {
+function NewProposal({ chain, network, governanceAccountId, executorContractId, upgradeTargets }: NewProposalProps) {
   const router = useRouter();
   const { accountId, isConnected } = useHederaSigner();
   const council = useCouncil({ governanceAccountId, executorContractId, network });
@@ -86,6 +89,7 @@ function NewProposal({ network, governanceAccountId, executorContractId, upgrade
 
   const allowed = canOpenProposal(kind, accountId, council.data?.proposerAccountIds ?? []);
   const showRoleWarning = isConnected && council.data !== undefined && isContractProposalKind(kind) && !allowed;
+  const showCouncilUnreadable = isConnected && council.isError && isContractProposalKind(kind);
   const copy = openProposalCopy(kind);
 
   const canSubmit =
@@ -124,10 +128,14 @@ function NewProposal({ network, governanceAccountId, executorContractId, upgrade
 
         <OperationTypePicker value={kind} onChange={chooseKind} />
 
-        {kind === "upgrade" && <UpgradeVaultForm targets={upgradeTargets} onDraftChange={onDraftChange} />}
+        {kind === "upgrade" && (
+          <UpgradeVaultForm targets={upgradeTargets} chain={chain} onDraftChange={onDraftChange} />
+        )}
         {kind === "treasuryTransfer" && (
           <TransferForm
             governanceAccountId={governanceAccountId}
+            network={network}
+            chain={chain}
             council={council.data?.key}
             onDraftChange={onDraftChange}
           />
@@ -145,6 +153,12 @@ function NewProposal({ network, governanceAccountId, executorContractId, upgrade
           <p role="status" className="m-0 text-[13px] text-warning">
             {accountId} does not hold PROPOSER_ROLE on the registry, so registering this proposal would revert. A native
             proposal, such as paying a supplier, needs no role.
+          </p>
+        )}
+
+        {showCouncilUnreadable && (
+          <p role="status" className="m-0 text-[13px] text-warning">
+            Could not read who holds PROPOSER_ROLE right now, so this proposal cannot be registered yet.
           </p>
         )}
       </div>

@@ -3,11 +3,17 @@
 import { useEffect, useState } from "react";
 import { type DraftResult, type VaultUpgradeTargets, draftVaultUpgrade, tryDraft } from "../drafts";
 import { HbarInput } from "@scaffold-hbar-ui/components";
+import type { Chain } from "viem";
 
-type UpgradeVaultFormProps = { targets: VaultUpgradeTargets; onDraftChange: (result: DraftResult) => void };
+type UpgradeVaultFormProps = {
+  targets: VaultUpgradeTargets;
+  chain: Chain;
+  onDraftChange: (result: DraftResult) => void;
+};
 
 export const UpgradeVaultForm = ({
   targets: { proxy, proxyContractId, implementation, implementationAbi },
+  chain,
   onDraftChange,
 }: UpgradeVaultFormProps) => {
   const [withdrawalLimit, setWithdrawalLimit] = useState("");
@@ -31,7 +37,7 @@ export const UpgradeVaultForm = ({
       </label>
       <label className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold">Withdrawal limit per transaction (ℏ)</span>
-        <HbarInput onValueChange={({ valueInNative }) => setWithdrawalLimit(valueInNative)} />
+        <HbarInput chain={chain} onValueChange={({ valueInNative }) => setWithdrawalLimit(valueInNative)} />
       </label>
       <p className="m-0 text-[13px] text-base-content/60 leading-normal">
         v2 adds withdrawals, capped at this amount. The cap is set in the same call the council approves, so the vault

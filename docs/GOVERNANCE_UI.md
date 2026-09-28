@@ -99,7 +99,7 @@ A pending proposal also says that it runs as soon as the threshold is reached an
 
 Both hooks take an already-encoded proposal from `services/governance/encode.ts`, which enforces the chain invariants (positive amounts, a reachable threshold, no duplicate council key) before anything becomes a transaction.
 
-`/governance/new` builds a draft from the form through `components/governance/wizard/drafts.ts`, which converts amounts without rounding and calls the encoders, and previews it through `decodeScheduledOperation` / `decodeRegistryOperation`: what the proposer reviews is what the detail page will show the council. A body the decoder cannot fully read cannot be submitted. The vault upgrade always runs `initV2(limit)` in the approved call, since `initV2` is a reinitializer anyone could call afterwards. The schedule's memo is the kind's title.
+`/governance/new` builds a draft from the form through `components/governance/wizard/drafts.ts`, which converts amounts without rounding and calls the encoders, and previews it through `decodeScheduledOperation` / `decodeRegistryOperation`: what the proposer reviews is what the detail page will show the council. A body the decoder cannot fully read cannot be submitted. The vault upgrade always runs `initV2(limit)` in the approved call, since `initV2` is a reinitializer anyone could call afterwards. `decodeRegistryOperation` reads the limit back out of that call, so the preview and the detail page both name it; an upgrade that runs any other initializer decodes as unrecognised and is offered no Sign. The schedule's memo is the kind's title.
 
 ## Not built yet
 

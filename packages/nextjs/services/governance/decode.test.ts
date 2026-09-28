@@ -264,20 +264,39 @@ describe("decodeRegistryOperation", () => {
       args: [VAULT_V2, initializer],
     });
 
+  const initV2 = (limit: bigint) =>
+    encodeFunctionData({ abi: parseAbi(["function initV2(uint256 limit)"]), functionName: "initV2", args: [limit] });
+
   it("reads the implementation an upgrade points the proxy at", () => {
     expect(decodeRegistryOperation(VAULT_PROXY, upgradeCalldata("0x"))).toEqual({
       kind: "upgrade",
       target: VAULT_PROXY,
       implementation: VAULT_V2,
       initializerCalldata: "0x",
+      initializer: { kind: "none" },
     });
   });
 
-  it("keeps the initializer nested in an upgrade, which is what makes it expensive to register", () => {
-    const initializer = "0x9623609d" as const;
+  it("reads the withdrawal limit an upgrade sets through initV2", () => {
+    const initializer = initV2(1_000_000_000n);
 
-    expect(decodeRegistryOperation(VAULT_PROXY, upgradeCalldata(initializer))).toMatchObject({
+    expect(decodeRegistryOperation(VAULT_PROXY, upgradeCalldata(initializer))).toEqual({
+      kind: "upgrade",
+      target: VAULT_PROXY,
+      implementation: VAULT_V2,
       initializerCalldata: initializer,
+      initializer: { kind: "setWithdrawalLimit", limitTinybars: 1_000_000_000n },
+    });
+  });
+
+  it.each([
+    ["an initializer this template does not know", "0x9623609d" as const],
+    ["initV2 with bytes after its argument", `${initV2(1n)}00` as const],
+    ["initV2 with its argument cut short", initV2(1n).slice(0, 20) as `0x${string}`],
+  ])("refuses to describe an upgrade that runs %s", (_, initializer) => {
+    expect(decodeRegistryOperation(VAULT_PROXY, upgradeCalldata(initializer))).toMatchObject({
+      kind: "unrecognized",
+      reason: expect.stringContaining("initializer"),
     });
   });
 
@@ -368,7 +387,20 @@ describe("the default description", () => {
         target: VAULT_PROXY,
         implementation: VAULT_V2,
         initializerCalldata: "0x",
+        initializer: { kind: "none" },
       }),
     ).toBe(`Upgrade ${VAULT_PROXY} to the implementation at ${VAULT_V2}`);
+  });
+
+  it("says which withdrawal limit an upgrade sets", () => {
+    expect(
+      describeRegistryOperation({
+        kind: "upgrade",
+        target: VAULT_PROXY,
+        implementation: VAULT_V2,
+        initializerCalldata: "0x",
+        initializer: { kind: "setWithdrawalLimit", limitTinybars: 1_000_000_000n },
+      }),
+    ).toBe(`Upgrade ${VAULT_PROXY} to the implementation at ${VAULT_V2}, setting the withdrawal limit to 10 ℏ`);
   });
 });

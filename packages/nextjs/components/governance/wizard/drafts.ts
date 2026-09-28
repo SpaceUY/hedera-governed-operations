@@ -41,10 +41,6 @@ export type DraftResult =
 export type TreasuryTransferValues = { recipientAccountId: string; amount: string };
 
 export function draftTreasuryTransfer(governanceAccountId: string, values: TreasuryTransferValues): ProposalDraft {
-  if (values.recipientAccountId === governanceAccountId) {
-    throw new Error("The recipient is the treasury itself, so this transfer would move nothing");
-  }
-
   const options = {
     governanceAccountId,
     recipientAccountId: values.recipientAccountId,

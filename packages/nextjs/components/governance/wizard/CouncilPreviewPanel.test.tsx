@@ -24,7 +24,13 @@ const TRANSFER: ScheduledOperation = {
   tokens: [],
 };
 
-const UPGRADE: RegistryOperation = { kind: "upgrade", target: "0xA", implementation: "0xB", initializerCalldata: "0x" };
+const UPGRADE: RegistryOperation = {
+  kind: "upgrade",
+  target: "0xA",
+  implementation: "0xB",
+  initializerCalldata: "0x",
+  initializer: { kind: "setWithdrawalLimit", limitTinybars: 1_000_000_000n },
+};
 
 const NATIVE: DraftPreview = {
   path: "native",

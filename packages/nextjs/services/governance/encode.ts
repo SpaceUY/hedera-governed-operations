@@ -255,6 +255,7 @@ export function buildTreasuryTransfer({
 
   const from = AccountId.fromString(governanceAccountId);
   const to = AccountId.fromString(recipientAccountId);
+  if (from.equals(to)) throw new Error("The recipient is the treasury itself, so this transfer would move nothing");
   if (!tokenId) {
     return new TransferTransaction()
       .addHbarTransfer(from, Hbar.fromTinybars((-amount).toString()))

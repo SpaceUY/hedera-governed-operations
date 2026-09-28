@@ -35,6 +35,7 @@ const entryOf = (overrides: Partial<RegistryEntry> = {}): RegistryCrossCheck => 
       target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
       implementation: "0x0000000000000000000000000000000000a2d434",
       initializerCalldata: "0x",
+      initializer: { kind: "none" },
     },
     ...overrides,
   },

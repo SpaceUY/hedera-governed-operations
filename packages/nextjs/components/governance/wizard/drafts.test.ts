@@ -11,7 +11,7 @@ import {
 } from "./drafts";
 import { decodeFunctionData, parseAbi } from "viem";
 import { describe, expect, it } from "vitest";
-import { PROPOSAL_TYPES } from "~~/services/governance/proposalTypes";
+import { PROPOSAL_TYPES, describeRegistryOperation } from "~~/services/governance/proposalTypes";
 
 const TREASURY = "0.0.10671146";
 const RECIPIENT = "0.0.500";
@@ -85,6 +85,8 @@ describe("draftVaultUpgrade", () => {
       functionName: "initV2",
       args: [1_000_000_000n],
     });
+    expect(preview.operation.initializer).toEqual({ kind: "setWithdrawalLimit", limitTinybars: 1_000_000_000n });
+    expect(describeRegistryOperation(preview.operation)).toContain("setting the withdrawal limit to 10 ℏ");
   });
 
   it.each(["", "  ", "0"])("refuses a missing or zero withdrawal limit (%j)", withdrawalLimit => {
