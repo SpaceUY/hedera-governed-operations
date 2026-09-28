@@ -1,7 +1,7 @@
 import type { ExecutedTransaction } from "./hederaSigner";
 import type { HederaSigner } from "./hederaSignerPort";
 import { type Client, PrivateKey, type PublicKey, type Transaction } from "@hiero-ledger/sdk";
-import { fetchAccount, isMirrorNotFound } from "~~/services/mirror";
+import { fetchAccount, isMirrorNotFound } from "@sh/core/mirror";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 /**

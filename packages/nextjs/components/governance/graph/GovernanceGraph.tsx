@@ -12,7 +12,7 @@ import { routeOnMap } from "./geometry";
 import { type GhostNode, readingOrder } from "./mapModel";
 import type { NodeProps } from "./nodeProps";
 import { useRovingFocus } from "./useRovingFocus";
-import type { CouncilKey } from "~~/services/governance/council";
+import type { CouncilKey } from "@sh/core/governance/council";
 import {
   type EdgePhase,
   type GovernanceGraph as Graph,

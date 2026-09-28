@@ -1,4 +1,3 @@
-import { type CouncilKey, countThresholdSignatures } from "./council";
 import {
   type AnimationEvent,
   EVENT_FRESHNESS_MS,
@@ -6,11 +5,12 @@ import {
   animationEventKey,
   diffSnapshots,
 } from "./mapEvents";
-import type { ScheduledOperation } from "./proposalTypes";
-import type { Proposal } from "./proposals";
+import { type CouncilKey, countThresholdSignatures } from "@sh/core/governance/council";
+import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
+import type { Proposal } from "@sh/core/governance/proposals";
+import { type MirrorSchedule, type ScheduleExecution, deriveScheduleState } from "@sh/core/mirror";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import { describe, expect, it } from "vitest";
-import { type MirrorSchedule, type ScheduleExecution, deriveScheduleState } from "~~/services/mirror";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 const [ALICE, BOB, CAROL, DAVE] = ["YWxpY2U=", "Ym9i", "Y2Fyb2w=", "ZGF2ZQ=="];
 /** Pays for schedules and holds no seat, like the fixture's payer. */

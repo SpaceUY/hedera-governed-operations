@@ -2,13 +2,13 @@ import { type ReactNode, StrictMode } from "react";
 import { type MapSnapshotOptions, useMapSnapshot } from "./useMapSnapshot";
 import { useProposals } from "./useProposals";
 import { useTreasuryFigures } from "./useTreasuryFigures";
+import { type CouncilKey, countThresholdSignatures } from "@sh/core/governance/council";
+import type { Proposal, ProposalInbox } from "@sh/core/governance/proposals";
+import { type MirrorSchedule, deriveScheduleState } from "@sh/core/mirror";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type CouncilKey, countThresholdSignatures } from "~~/services/governance/council";
-import type { Proposal, ProposalInbox } from "~~/services/governance/proposals";
 import type { TreasuryFigures } from "~~/services/governance/treasury";
-import { type MirrorSchedule, deriveScheduleState } from "~~/services/mirror";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 // The hook composes queries the screen already runs; what it adds is the history of their answers,
 // so the queries are stood in for by their results.

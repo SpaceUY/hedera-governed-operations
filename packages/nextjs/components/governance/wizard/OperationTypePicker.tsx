@@ -1,7 +1,7 @@
 import { type ComponentType, useId } from "react";
+import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import { ArrowRightIcon, ArrowUpIcon } from "@heroicons/react/24/outline";
 import { PROPOSAL_FAMILY_HEADINGS, PROPOSAL_KIND_COPY } from "~~/services/governance/proposalLabels";
-import { type ProposalKind, isContractProposalKind } from "~~/services/governance/proposalTypes";
 
 /** The kinds that have a form. Adding one is a form component and an entry here. */
 export const WIZARD_KINDS = ["upgrade", "treasuryTransfer"] as const satisfies readonly ProposalKind[];

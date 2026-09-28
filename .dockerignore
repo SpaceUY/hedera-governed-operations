@@ -1,0 +1,27 @@
+# Read from the root of the build context, which is the repository root: the agent's image is built
+# with `-f packages/agent/Dockerfile .` because it shares `@sh/core` with the app. A .dockerignore
+# next to that Dockerfile would not be read, and everything below would reach the image.
+
+# Secrets. `packages/agent/.env` is the one the agent's own README tells an operator to create, and
+# `COPY packages/agent` would otherwise bake a signing key into a distributable image.
+**/.env
+**/.env.local
+packages/nextjs/setup-state.json
+chain-signer.json
+
+# Dependencies and build output: the image runs `yarn install` itself.
+**/node_modules
+**/.next
+**/dist
+**/artifacts
+**/cache
+**/typechain-types
+**/*.tsbuildinfo
+
+# History and local tooling, none of which the build reads.
+.git
+.github
+.harness/runs
+.harness/runtime
+.harness/cache
+**/.DS_Store

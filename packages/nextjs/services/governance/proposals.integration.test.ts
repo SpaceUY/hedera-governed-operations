@@ -11,10 +11,10 @@
  * with is the key the ledger reports, and that a real proposal's progress counts approvals rather
  * than the rows Mirror happens to list.
  */
-import { fetchCouncilKey, fetchProposerAccountIds } from "./council";
-import { fetchProposalInbox } from "./proposals";
-import { fetchRegistryEntries } from "./registry";
 import { PublicKey } from "@hiero-ledger/sdk";
+import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
+import { fetchProposalInbox } from "@sh/core/governance/proposals";
+import { fetchRegistryEntries } from "@sh/core/governance/registry";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { GOVERNANCE_THRESHOLD } from "~~/scripts/setup/governance";

@@ -1,4 +1,5 @@
 import NewProposalPage from "./page";
+import { encodeUpgrade } from "@sh/core/governance/encode";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
@@ -6,7 +7,6 @@ import { type GovernanceConfig, findDeployedContract } from "~~/config/governanc
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { type ProposalDraft, draftTreasuryTransfer } from "~~/services/governance/drafts";
-import { encodeUpgrade } from "~~/services/governance/encode";
 import { OPEN_PROPOSAL_NOTICES, PROPOSAL_KIND_COPY, openProposalCopy } from "~~/services/governance/proposalLabels";
 
 const drafts = vi.hoisted(() => ({ upgrade: null as ProposalDraft | null, transfer: null as ProposalDraft | null }));

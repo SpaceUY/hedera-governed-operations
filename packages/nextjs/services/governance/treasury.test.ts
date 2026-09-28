@@ -1,17 +1,19 @@
 import { fetchTreasuryFigures } from "./treasury";
 import { ContractId } from "@hiero-ledger/sdk";
+import { fetchAccount } from "@sh/core/mirror";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchAccount } from "~~/services/mirror";
 
-vi.mock("~~/services/mirror", async importOriginal => ({
-  ...(await importOriginal<typeof import("~~/services/mirror")>()),
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
   fetchAccount: vi.fn(),
 }));
 
 const mockReadContract = vi.fn();
-vi.mock("viem", async importOriginal => ({
-  ...(await importOriginal<typeof import("viem")>()),
-  createPublicClient: () => ({ readContract: mockReadContract }),
+// The relay client, not viem: `@sh/core` resolves its own copy of viem, so a `vi.mock("viem")` here
+// would replace the app's instance and leave the one the domain actually calls untouched — the read
+// would go to the network. `createRelayClient` is the seam the app depends on either way.
+vi.mock("@sh/core/relayClient", () => ({
+  createRelayClient: () => ({ readContract: mockReadContract }),
 }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.10671146";

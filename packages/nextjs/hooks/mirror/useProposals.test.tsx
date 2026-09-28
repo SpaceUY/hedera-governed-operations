@@ -1,16 +1,16 @@
 import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useProposals } from "./useProposals";
+import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
+import type { MirrorSchedule } from "@sh/core/mirror";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
+import rowsAtExecution from "@sh/core/mirror/__fixtures__/transactions-at-executed.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchCouncilKey, fetchProposerAccountIds } from "~~/services/governance/council";
-import type { MirrorSchedule } from "~~/services/mirror";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
-import rowsAtExecution from "~~/services/mirror/__fixtures__/transactions-at-executed.json";
 
 // The proposers come from the JSON-RPC relay, which viem cannot reach under jsdom; the rest of the
 // inbox goes through the real services against a stubbed Mirror Node.
-vi.mock("~~/services/governance/council", async () => ({
-  ...(await vi.importActual<typeof import("~~/services/governance/council")>("~~/services/governance/council")),
+vi.mock("@sh/core/governance/council", async () => ({
+  ...(await vi.importActual<typeof import("@sh/core/governance/council")>("@sh/core/governance/council")),
   fetchCouncilKey: vi.fn(),
   fetchProposerAccountIds: vi.fn(),
 }));

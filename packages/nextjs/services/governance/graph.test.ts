@@ -12,12 +12,12 @@ import {
   scopeOf,
 } from "./graph";
 import type { DecodedOperation } from "./proposalRoutes";
-import type { RegistryOperation, ScheduledOperation } from "./proposalTypes";
-import type { Proposal } from "./proposals";
-import type { RegistryCrossCheck } from "./registry";
+import type { RegistryOperation, ScheduledOperation } from "@sh/core/governance/proposalTypes";
+import type { Proposal } from "@sh/core/governance/proposals";
+import type { RegistryCrossCheck } from "@sh/core/governance/registry";
+import type { MirrorSchedule, ScheduleStatus } from "@sh/core/mirror";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import { describe, expect, it } from "vitest";
-import type { MirrorSchedule, ScheduleStatus } from "~~/services/mirror";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 const GOVERNANCE = "0.0.4000";
 /** 4000 as a long-zero address, the form a swap names the governance account as its recipient. */

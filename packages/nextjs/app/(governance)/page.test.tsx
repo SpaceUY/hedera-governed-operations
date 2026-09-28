@@ -1,10 +1,10 @@
 import GovernanceHomePage from "./page";
+import type { Proposal } from "@sh/core/governance/proposals";
+import type { ScheduleStatus } from "@sh/core/mirror";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY } from "~~/services/governance/proposalLabels";
-import type { Proposal } from "~~/services/governance/proposals";
-import type { ScheduleStatus } from "~~/services/mirror";
 
 vi.mock("~~/components/governance/GovernanceProvider", () => ({
   useGovernanceConfig: () => ({

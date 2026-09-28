@@ -1,8 +1,8 @@
-import type { CouncilKey } from "~~/services/governance/council";
+import type { CouncilKey } from "@sh/core/governance/council";
+import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
+import { PROPOSAL_EXPIRY_SECONDS } from "@sh/core/governance/schedules";
 import { type DraftPreview, previewFunctionLabel } from "~~/services/governance/drafts";
 import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/services/governance/proposalLabels";
-import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
-import { PROPOSAL_EXPIRY_SECONDS } from "~~/services/governance/schedules";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
 /** The level of the wizard's own headings, one below whatever titles the screen or panel hosting it. */

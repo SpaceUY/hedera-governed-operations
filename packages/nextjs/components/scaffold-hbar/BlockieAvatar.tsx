@@ -1,7 +1,7 @@
 "use client";
 
+import { isEvmAddress } from "@sh/core/identity";
 import { blo } from "blo";
-import { isEvmAddress } from "~~/utils/scaffold-hbar/identity";
 
 type BlockieAvatarProps = {
   address: string;

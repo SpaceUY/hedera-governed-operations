@@ -1,9 +1,9 @@
 /** A small governed system for the map's tests: three seats, one of them proposing, and the configured contracts. */
+import type { Proposal } from "@sh/core/governance/proposals";
+import type { MirrorSchedule } from "@sh/core/mirror";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import type { GraphSnapshot } from "~~/services/governance/graph";
 import { governanceEntities } from "~~/services/governance/graphEntities";
-import type { Proposal } from "~~/services/governance/proposals";
-import type { MirrorSchedule } from "~~/services/mirror";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
 
 export const [KEY_A, KEY_B, KEY_C] = ["YWxpY2U=", "Ym9i", "Y2Fyb2w="];
 

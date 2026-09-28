@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { describeScheduledOperation } from "@sh/core/governance/proposalTypes";
+import { type Proposal, partitionProposals } from "@sh/core/governance/proposals";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY, approvalsLabel, proposalStatusLabel } from "~~/services/governance/proposalLabels";
-import { describeScheduledOperation } from "~~/services/governance/proposalTypes";
-import { type Proposal, partitionProposals } from "~~/services/governance/proposals";
 
 const ProposalLinks = ({ proposals }: { proposals: Proposal[] }) => (
   <ul className="m-0 flex list-none flex-col gap-2 p-0">

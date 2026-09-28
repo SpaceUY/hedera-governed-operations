@@ -1,7 +1,10 @@
+import type { HederaNetworkName } from "@sh/core/network";
 import * as chains from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
 
 export { getBlockExplorerAddressLink, getBlockExplorerTxLink } from "@scaffold-hbar-ui/hooks";
+/** The network name and its narrowing live in `@sh/core`, which the agent shares and this config does not. */
+export { type HederaNetworkName, toHederaNetworkName } from "@sh/core/network";
 
 type ChainAttributes = {
   // color | [lightThemeColor, darkThemeColor]
@@ -13,7 +16,6 @@ type ChainAttributes = {
 
 export type ChainWithAttributes = chains.Chain & Partial<ChainAttributes>;
 export type AllowedChainIds = (typeof scaffoldConfig.targetNetworks)[number]["id"];
-export type HederaNetworkName = "testnet" | "mainnet";
 
 export const NETWORKS_EXTRA_DATA: Record<string, ChainAttributes> = {
   [chains.mainnet.id]: {
@@ -41,14 +43,6 @@ export function getHederaNetworkNameFromChainId(chainId: number): HederaNetworkN
   if (chainId === chains.hedera.id) return "mainnet";
   if (chainId === chains.hederaTestnet.id) return "testnet";
   throw new Error(`Unsupported Hedera chain ID: ${chainId}`);
-}
-
-/**
- * Narrows the free-form network name the env carries (`NEXT_PUBLIC_HEDERA_NETWORK`) to the two the
- * app supports, falling back to testnet the way the Mirror Node client already does.
- */
-export function toHederaNetworkName(network: string): HederaNetworkName {
-  return network.toLowerCase() === "mainnet" ? "mainnet" : "testnet";
 }
 
 const HEDERA_CHAIN_ID = {

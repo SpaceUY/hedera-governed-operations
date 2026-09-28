@@ -7,7 +7,6 @@ import {
   mirrorQueryKey,
   resolvePendingRefetchInterval,
 } from "./mirrorQuery";
-import { useQuery } from "@tanstack/react-query";
 import {
   type MirrorSchedule,
   type ScheduleExecution,
@@ -17,7 +16,8 @@ import {
   fetchScheduleExecution,
   hasFinalOutcome,
   isValidEntityId,
-} from "~~/services/mirror";
+} from "@sh/core/mirror";
+import { useQuery } from "@tanstack/react-query";
 
 export type ScheduleQueryData = {
   schedule: MirrorSchedule;

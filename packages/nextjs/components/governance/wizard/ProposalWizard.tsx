@@ -5,6 +5,7 @@ import { OperationTypePicker, type WizardKind } from "./OperationTypePicker";
 import { useProposalWizard } from "./ProposalWizardProvider";
 import { TransferForm } from "./forms/TransferForm";
 import { UpgradeVaultForm } from "./forms/UpgradeVaultForm";
+import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import type { Chain } from "viem";
 import { ConnectWallet } from "~~/components/ConnectWallet";
 import { MutationError } from "~~/components/governance/MutationError";
@@ -18,7 +19,6 @@ import {
   missingProposerRoleLabel,
   openProposalCopy,
 } from "~~/services/governance/proposalLabels";
-import { isContractProposalKind } from "~~/services/governance/proposalTypes";
 
 type ProposalWizardProps = {
   config: GovernanceConfig;

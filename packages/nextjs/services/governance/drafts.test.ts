@@ -9,9 +9,9 @@ import {
   previewFunctionLabel,
   tryDraft,
 } from "./drafts";
+import { PROPOSAL_TYPES, describeRegistryOperation } from "@sh/core/governance/proposalTypes";
 import { decodeFunctionData, parseAbi } from "viem";
 import { describe, expect, it } from "vitest";
-import { PROPOSAL_TYPES, describeRegistryOperation } from "~~/services/governance/proposalTypes";
 
 const TREASURY = "0.0.10671146";
 const RECIPIENT = "0.0.500";

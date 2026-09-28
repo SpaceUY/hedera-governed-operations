@@ -5,6 +5,7 @@ import { DEMO_ACCOUNT_NAMES, type SetupState } from "./state";
 export function appEnvEntries(state: SetupState): EnvEntries {
   const entries: EnvEntries = {};
   if (state.topicId) entries.NEXT_PUBLIC_PROOF_WALL_TOPIC_ID = state.topicId;
+  if (state.releaseTopicId) entries.NEXT_PUBLIC_RELEASE_TOPIC_ID = state.releaseTopicId;
   for (const name of DEMO_ACCOUNT_NAMES) {
     const account = state.demoAccounts[name];
     if (account) entries[`NEXT_PUBLIC_DEMO_ACCOUNT_${name.toUpperCase()}_ID`] = account.accountId;

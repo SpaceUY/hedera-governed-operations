@@ -4,9 +4,9 @@ import { useEffect, useRef } from "react";
 import { DEFAULT_PENDING_POLL_MS, registryEntryQueryKey } from "./mirrorQuery";
 import { councilQueryKey } from "./useCouncil";
 import { treasuryFiguresQueryKey } from "./useTreasuryFigures";
+import type { Proposal } from "@sh/core/governance/proposals";
+import type { ScheduleStatus } from "@sh/core/mirror";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
-import type { Proposal } from "~~/services/governance/proposals";
-import type { ScheduleStatus } from "~~/services/mirror";
 
 export type SettleScope = {
   network: string;

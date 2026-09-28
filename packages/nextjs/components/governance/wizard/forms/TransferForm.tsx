@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { HbarInput, HederaAddressInput } from "@scaffold-hbar-ui/components";
+import type { CouncilKey } from "@sh/core/governance/council";
+import { MirrorNodeError, isMirrorEntityRef } from "@sh/core/mirror";
 import type { Chain } from "viem";
 import { useAccount } from "~~/hooks/mirror/useAccount";
-import type { CouncilKey } from "~~/services/governance/council";
 import { type DraftResult, draftTreasuryTransfer, tryDraft } from "~~/services/governance/drafts";
 import { RECIPIENT_LOOKUP_LABELS, councilRuleLabel } from "~~/services/governance/proposalLabels";
-import { MirrorNodeError, isMirrorEntityRef } from "~~/services/mirror";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 type TransferFormProps = {

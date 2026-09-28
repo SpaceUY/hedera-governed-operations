@@ -9,8 +9,8 @@
  * account, reaches the executor, which is the only caller its target accepts, and goes on from
  * there. The two native kinds never touch the executor: the network runs them directly.
  */
-import type { ProposalKind, RegistryOperation, ScheduledOperation } from "./proposalTypes";
-import type { Proposal } from "./proposals";
+import type { ProposalKind, RegistryOperation, ScheduledOperation } from "@sh/core/governance/proposalTypes";
+import type { Proposal } from "@sh/core/governance/proposals";
 
 /**
  * - `governanceAccount`, `executor`: the two fixed points of the trust chain.

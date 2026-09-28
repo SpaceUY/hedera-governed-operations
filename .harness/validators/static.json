@@ -13,8 +13,11 @@
       "README.md",
       "AGENTS.md",
       "package.json",
+      "packages/core/package.json",
+      "packages/agent/package.json",
       "packages/nextjs/package.json",
       "packages/nextjs/.env.example",
+      "packages/agent/.env.example",
       "packages/hardhat/package.json",
       "packages/hardhat/hardhat.config.ts",
       "packages/hardhat/contracts/GovernedExecutor.sol",
@@ -23,7 +26,7 @@
       ".harness/spec.yaml",
       ".harness/prd.md"
     ],
-    "forbidden": [".env", "packages/nextjs/.env", "packages/hardhat/.env"]
+    "forbidden": [".env", "packages/nextjs/.env", "packages/hardhat/.env", "packages/agent/.env"]
   },
   "textAssertions": [
     {

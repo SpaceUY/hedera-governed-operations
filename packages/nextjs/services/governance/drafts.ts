@@ -5,16 +5,16 @@
  * detail page uses, so the wizard shows what a council member will be shown, not what the form meant.
  */
 import type { Transaction } from "@hiero-ledger/sdk";
-import { type Abi, type Address, encodeFunctionData } from "viem";
-import { decodeRegistryOperation, decodeScheduledOperation } from "~~/services/governance/decode";
-import { type RegistryProposal, buildTreasuryTransfer, encodeUpgrade } from "~~/services/governance/encode";
+import { decodeRegistryOperation, decodeScheduledOperation } from "@sh/core/governance/decode";
+import { type RegistryProposal, buildTreasuryTransfer, encodeUpgrade } from "@sh/core/governance/encode";
 import type {
   ContractProposalKind,
   NativeProposalKind,
   RegistryOperation,
   ScheduledOperation,
-} from "~~/services/governance/proposalTypes";
-import { scheduledBodyOf } from "~~/services/governance/scheduledBody";
+} from "@sh/core/governance/proposalTypes";
+import { scheduledBodyOf } from "@sh/core/governance/scheduledBody";
+import { type Abi, type Address, encodeFunctionData } from "viem";
 import { HBAR_DECIMALS, parseAmount } from "~~/utils/scaffold-hbar/hbarAmount";
 
 export type ProposalDraft =

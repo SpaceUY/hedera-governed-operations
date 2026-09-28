@@ -1,11 +1,11 @@
 import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useSchedule } from "./useSchedule";
+import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
+import revertedSchedule from "@sh/core/mirror/__fixtures__/schedule-reverted.json";
+import rowsAtExecution from "@sh/core/mirror/__fixtures__/transactions-at-executed.json";
+import rowsAtRevert from "@sh/core/mirror/__fixtures__/transactions-at-reverted.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import executedSchedule from "~~/services/mirror/__fixtures__/schedule-executed.json";
-import revertedSchedule from "~~/services/mirror/__fixtures__/schedule-reverted.json";
-import rowsAtExecution from "~~/services/mirror/__fixtures__/transactions-at-executed.json";
-import rowsAtRevert from "~~/services/mirror/__fixtures__/transactions-at-reverted.json";
 
 const SCHEDULE_ID = "0.0.10590552";
 const FAST_POLL_MS = 20;

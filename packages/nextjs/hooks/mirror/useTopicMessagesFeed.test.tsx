@@ -1,8 +1,8 @@
 import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useTopicMessagesFeed } from "./useTopicMessagesFeed";
+import page1 from "@sh/core/mirror/__fixtures__/topic-messages-page-1.json";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import page1 from "~~/services/mirror/__fixtures__/topic-messages-page-1.json";
 
 const TOPIC_ID = "0.0.10590564";
 const FAST_POLL_MS = 20;

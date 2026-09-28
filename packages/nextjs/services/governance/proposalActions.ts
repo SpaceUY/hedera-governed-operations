@@ -1,5 +1,5 @@
-import { type ProposalKind, isContractProposalKind } from "./proposalTypes";
-import type { Proposal } from "./proposals";
+import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
+import type { Proposal } from "@sh/core/governance/proposals";
 
 type SignableFacts = Pick<Proposal, "state" | "operation" | "registry">;
 

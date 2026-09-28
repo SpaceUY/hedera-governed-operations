@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { DemoSignButtons } from "~~/components/governance/DemoSignButtons";
+import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { MutationError } from "~~/components/governance/MutationError";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
@@ -16,7 +16,6 @@ import {
   proposalStatusLabel,
   registryLabel,
 } from "~~/services/governance/proposalLabels";
-import { describeRegistryOperation, describeScheduledOperation } from "~~/services/governance/proposalTypes";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
 type ProposalDetailProps = { governanceAccountId: string; executorContractId: string; scheduleId: string };
@@ -125,12 +124,6 @@ function ProposalDetail({ governanceAccountId, executorContractId, scheduleId }:
           </div>
           <MutationError error={sign.error} />
           <MutationError error={withdraw.error} />
-          <DemoSignButtons
-            proposal={proposal}
-            governanceAccountId={governanceAccountId}
-            executorContractId={executorContractId}
-            onSigned={refresh}
-          />
           {isWithdrawable && (
             <p className="text-sm text-base-content/60">
               Withdrawing deletes the schedule and every approval on it; only you, as the proposer, can do it.

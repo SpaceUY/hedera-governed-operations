@@ -10,10 +10,10 @@
  * read that lagged, shows where things are now rather than replaying what happened while nobody
  * watched.
  */
-import { type CouncilKey, type Proposer, memberSignedAt } from "./council";
-import type { Proposal } from "./proposals";
 import type { TreasuryFigures } from "./treasury";
-import { compareMirrorTimestamps, mirrorTimestampToDate } from "~~/services/mirror";
+import { type CouncilKey, type Proposer, memberSignedAt } from "@sh/core/governance/council";
+import type { Proposal } from "@sh/core/governance/proposals";
+import { compareMirrorTimestamps, mirrorTimestampToDate } from "@sh/core/mirror";
 
 /**
  * How old an event may be and still play. A change reaches the screen after Mirror has indexed it
