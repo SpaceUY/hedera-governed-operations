@@ -1,12 +1,17 @@
 import { TransferForm } from "./TransferForm";
+import { TREASURY_TRANSFER_COPY } from "./copy";
 import { MirrorNodeError } from "@sh/core/mirror";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Chain } from "viem";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
 import { useAccount } from "~~/hooks/mirror/useAccount";
+import { useToken } from "~~/hooks/mirror/useToken";
+import { useTokenRelationship } from "~~/hooks/mirror/useTokenRelationship";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
+vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
+vi.mock("~~/hooks/mirror/useTokenRelationship", () => ({ useTokenRelationship: vi.fn() }));
 vi.mock("@scaffold-hbar-ui/components", () => ({
   HederaAddressInput: ({
     value,
@@ -43,6 +48,18 @@ const TREASURY = "0.0.10671146";
 const EVM_RECIPIENT = "0x3353E89f1f9feF7A0881E5E92f8A0A7fd3A13097";
 const CHAIN = { id: 295, name: "Hedera" } as Chain;
 
+const USDC = "0.0.5449";
+
+beforeEach(() => {
+  vi.mocked(useToken).mockImplementation(
+    tokenId =>
+      (tokenId
+        ? { data: { token: { symbol: "USDC" }, decimals: 6 }, error: null }
+        : { data: undefined, error: null }) as never,
+  );
+  vi.mocked(useTokenRelationship).mockReturnValue({ data: undefined, error: null } as never);
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -52,7 +69,7 @@ const renderForm = () => {
   const onDraftChange = vi.fn();
   render(
     <TransferForm
-      targets={{ governanceAccountId: TREASURY }}
+      targets={{ governanceAccountId: TREASURY, tokenIds: [USDC] }}
       network="mainnet"
       chain={CHAIN}
       council={undefined}
@@ -62,8 +79,17 @@ const renderForm = () => {
   return onDraftChange;
 };
 
-const accountFound = (account: string) =>
-  vi.mocked(useAccount).mockReturnValue({ data: { account }, isError: false, error: null } as never);
+const accountFound = (account: string, autoAssociationSlots = 0) =>
+  vi.mocked(useAccount).mockReturnValue({
+    data: { account, max_automatic_token_associations: autoAssociationSlots },
+    isError: false,
+    error: null,
+  } as never);
+
+const pickUsdc = () => fireEvent.change(screen.getByLabelText("Asset"), { target: { value: USDC } });
+
+const fillTokenAmount = (amount: string) =>
+  fireEvent.change(screen.getByLabelText(TREASURY_TRANSFER_COPY.amountLabel("USDC")), { target: { value: amount } });
 
 const accountLookupFails = (status: number) =>
   vi.mocked(useAccount).mockReturnValue({
@@ -166,6 +192,64 @@ describe("TransferForm", () => {
     expect(lastResult(onDraftChange)).toMatchObject({
       status: "invalid",
       message: expect.stringContaining("8 decimal places"),
+    });
+  });
+
+  it("moves a token in its smallest unit, from the decimals the Mirror Node reports", () => {
+    accountFound("0.0.500");
+    vi.mocked(useTokenRelationship).mockReturnValue({ data: { freeze_status: "UNFROZEN" }, error: null } as never);
+    const onDraftChange = renderForm();
+
+    fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "0.0.500" } });
+    pickUsdc();
+    fillTokenAmount("1.5");
+
+    expect(useTokenRelationship).toHaveBeenLastCalledWith("0.0.500", USDC, { network: "mainnet" });
+    const result = lastResult(onDraftChange);
+    if (result?.status !== "ready" || result.draft.path !== "native") throw new Error("expected a native draft");
+    expect(result.draft.buildInnerTransaction().tokenTransfers.get(USDC)?.get("0.0.500")?.toString()).toBe("1500000");
+  });
+
+  it("refuses a token the recipient never associated and has no free slot to receive", () => {
+    accountFound("0.0.500", 0);
+    vi.mocked(useTokenRelationship).mockReturnValue({ data: null, error: null } as never);
+    const onDraftChange = renderForm();
+
+    fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "0.0.500" } });
+    pickUsdc();
+    fillTokenAmount("1");
+
+    expect(lastResult(onDraftChange)).toEqual({
+      status: "invalid",
+      message: TREASURY_TRANSFER_COPY.notAssociated("0.0.500", "USDC"),
+    });
+  });
+
+  it("lets a recipient with automatic association slots receive a token it has not associated, and says so", () => {
+    accountFound("0.0.500", -1);
+    vi.mocked(useTokenRelationship).mockReturnValue({ data: null, error: null } as never);
+    const onDraftChange = renderForm();
+
+    fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "0.0.500" } });
+    pickUsdc();
+    fillTokenAmount("1");
+
+    expect(lastResult(onDraftChange)?.status).toBe("ready");
+    expect(screen.getByText(TREASURY_TRANSFER_COPY.associatesOnReceipt("0.0.500", "USDC"))).toBeTruthy();
+  });
+
+  it("refuses a token amount finer than the token's decimals", () => {
+    accountFound("0.0.500");
+    vi.mocked(useTokenRelationship).mockReturnValue({ data: { freeze_status: "UNFROZEN" }, error: null } as never);
+    const onDraftChange = renderForm();
+
+    fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "0.0.500" } });
+    pickUsdc();
+    fillTokenAmount("1.1234567");
+
+    expect(lastResult(onDraftChange)).toMatchObject({
+      status: "invalid",
+      message: expect.stringContaining("6 decimal places"),
     });
   });
 });

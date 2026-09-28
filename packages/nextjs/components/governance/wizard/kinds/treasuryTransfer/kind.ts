@@ -2,13 +2,20 @@ import { TransferForm } from "./TransferForm";
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { defineWizardKind } from "~~/components/governance/wizard/kinds/wizardKind";
 import type { TreasuryTransferTargets } from "~~/services/governance/drafts";
+import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap";
 
-/** A native transfer out of the treasury: no contract, so nothing can be missing. */
+/**
+ * A native transfer out of the treasury, of HBAR or of the tokens the treasury holds: the setup's
+ * token and the DEX configuration's USDC. No contract, so nothing can be missing.
+ */
 export const TREASURY_TRANSFER_KIND = defineWizardKind<TreasuryTransferTargets>({
   icon: ArrowRightIcon,
   resolveTargets: ({ config }) => ({
     status: "available",
-    targets: { governanceAccountId: config.governanceAccountId },
+    targets: {
+      governanceAccountId: config.governanceAccountId,
+      tokenIds: [config.demoTokenId, SAUCERSWAP_V2_CONFIG[config.network].usdcToken],
+    },
   }),
   Form: TransferForm,
 });
