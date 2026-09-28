@@ -23,7 +23,7 @@ export type OperationCardProps = {
  * under it; "View details" is a separate link to the full page, so a click on the row itself never
  * navigates away and never scrolls.
  *
- * A scheduled body the decoder could not read (T24) has no other shape here to fall back on:
+ * A scheduled body the decoder could not read has no other shape here to fall back on:
  * `describeScheduledOperation` already carries the reason, so the row shows exactly that, styled as a
  * warning rather than a plain description, and offers nothing that could be mistaken for a preview of
  * what it does.
