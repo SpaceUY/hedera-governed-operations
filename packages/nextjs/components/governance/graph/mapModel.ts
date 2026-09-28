@@ -5,7 +5,7 @@
  * The decoration is optional by design. Without one every node is placed by `autoLayout` and named by
  * its role or its ledger id; a demo passes its own decorator, and deleting the demo leaves this.
  */
-import { MAP_LABELS, unnamedMemberLabel } from "./copy";
+import { MAP_LABELS } from "./copy";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -17,6 +17,7 @@ import {
   deriveGraphState,
 } from "~~/services/governance/graph";
 import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+import { memberLabel } from "~~/services/governance/proposalLabels";
 
 /**
  * Something the map shows that the ledger does not have yet, such as an account a demo is about to
@@ -62,7 +63,7 @@ export function genericLabels({ nodes, proposers }: MapContext): Record<string, 
   const labels: Record<string, string> = { ...FIXED_LABELS };
   for (const node of nodes) {
     if (node.role !== "member") continue;
-    labels[node.id] = proposers.find(({ key }) => key === node.ref)?.accountId ?? unnamedMemberLabel(node.ref);
+    labels[node.id] = memberLabel(node.ref, proposers, null);
   }
   return labels;
 }
