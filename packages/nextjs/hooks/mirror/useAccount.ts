@@ -6,7 +6,7 @@ import { type QueryObserverResult, useQueries, useQuery } from "@tanstack/react-
 
 type AccountQueryOptions = Omit<MirrorQueryOptions, "pollIntervalMs">;
 
-function accountQuery(id: string, network: string, enabled: boolean) {
+function accountQuery(id: string, { network, enabled }: { network: string; enabled: boolean }) {
   return {
     queryKey: mirrorQueryKey(network, "account", id),
     queryFn: () => fetchAccount(id, { network }),
@@ -18,7 +18,8 @@ function accountQuery(id: string, network: string, enabled: boolean) {
 /** Reads an account by `0.0.x` id or EVM address. Not polled: account state changes are not awaited here. */
 export function useAccount(accountIdOrEvm: string | null | undefined, options: AccountQueryOptions = {}) {
   const network = options.network ?? getDefaultMirrorNetwork();
-  return useQuery<MirrorAccount, Error>(accountQuery(accountIdOrEvm?.trim() ?? "", network, options.enabled ?? true));
+  const enabled = options.enabled ?? true;
+  return useQuery<MirrorAccount, Error>(accountQuery(accountIdOrEvm?.trim() ?? "", { network, enabled }));
 }
 
 /** One of the accounts `useAccounts` reads, as the form asking for it needs it. */
@@ -36,7 +37,7 @@ export function useAccounts(accountIdsOrEvm: string[], options: AccountQueryOpti
   const network = options.network ?? getDefaultMirrorNetwork();
   const enabled = options.enabled ?? true;
   return useQueries({
-    queries: accountIdsOrEvm.map(id => accountQuery(id.trim(), network, enabled)),
+    queries: accountIdsOrEvm.map(id => accountQuery(id.trim(), { network, enabled })),
     combine: combineAccountReads,
   });
 }
