@@ -1,6 +1,8 @@
 import { DEFAULT_PENDING_POLL_MS } from "./mirrorQuery";
+import { CANCEL_CONFIRMATION_WINDOW_MS, readSentCancels, sentCancelsQueryKey } from "./sentCancels";
 import { createQueryWrapper, jsonResponse } from "./testUtils";
-import { CANCEL_CONFIRMATION_WINDOW_MS, useProposalLookup } from "./useProposalLookup";
+import { useProposalLookup } from "./useProposalLookup";
+import { proposalInboxQueryKey } from "./useProposals";
 import { proto } from "@hiero-ledger/proto";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
@@ -333,10 +335,14 @@ describe("useProposalLookup", () => {
       expect(fetchRegistryEntries).toHaveBeenCalledTimes(2);
       expect(entryState(result)).toBe("cancelled");
 
+      const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
       vi.mocked(fetchRegistryEntries).mockResolvedValue(reading("cancelled"));
       await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS));
       expect(fetchRegistryEntries).toHaveBeenCalledTimes(3);
       expect(entryState(result)).toBe("cancelled");
+      // The wait is over, so the inbox's card is re-read to land on the same answer.
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalInboxQueryKey("testnet") });
+      invalidate.mockRestore();
 
       await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS * 4));
       expect(fetchRegistryEntries).toHaveBeenCalledTimes(3);
@@ -371,5 +377,61 @@ describe("useProposalLookup", () => {
     expect(immediateReads).toBeGreaterThan(0);
     expect(invalidate).toHaveBeenCalledTimes(immediateReads);
     invalidate.mockRestore();
+  });
+
+  it("re-reads the inbox along with the proposal, so its card does not wait for the next poll", () => {
+    vi.mocked(fetchSchedule).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchAccount).mockReturnValue(new Promise(() => {}));
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+
+    const { result } = lookup();
+    act(() => result.current.refresh());
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalInboxQueryKey("testnet") });
+    invalidate.mockRestore();
+  });
+
+  it("records a sent cancel in the query cache, where the inbox reads it too", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      deleted: true,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(
+      new Map([
+        [
+          7,
+          {
+            status: "read",
+            entry: {
+              proposalId: 7,
+              state: "pending",
+              target: "0x1111111111111111111111111111111111111111",
+              proposer: "0x0000000000000000000000000000000000009001",
+              calldata: "0x",
+              operation: { kind: "unrecognized", target: "0x11", calldata: "0x", reason: "test" },
+            },
+          },
+        ],
+      ]),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(
+      () =>
+        useProposalLookup({
+          governanceAccountId: GOVERNANCE_ACCOUNT_ID,
+          executorContractId: "0.0.10671156",
+          scheduleId: "0.0.777",
+        }),
+      { wrapper: createQueryWrapper(queryClient) },
+    );
+    await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
+
+    act(() => result.current.markRegistryEntryCancelled());
+
+    expect(readSentCancels(queryClient, sentCancelsQueryKey("testnet", "0.0.10671156"))).toHaveProperty("7");
   });
 });
