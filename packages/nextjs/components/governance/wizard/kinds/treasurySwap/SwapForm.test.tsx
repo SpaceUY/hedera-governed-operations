@@ -3,7 +3,6 @@ import { MirrorNodeError } from "@sh/core/mirror";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Chain } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HederaDeployedContract } from "~~/config/governanceConfig";
 import { useToken } from "~~/hooks/mirror/useToken";
 import { useSwapQuote } from "~~/hooks/swap/useSwapQuote";
 
@@ -27,11 +26,8 @@ vi.mock("@scaffold-hbar-ui/components", () => ({
 
 const TREASURY = "0.0.10671146";
 const CHAIN = { id: 296, name: "Hedera Testnet" } as Chain;
-const ADAPTER = {
-  address: "0x9507B1d193fA1E38F2da77A6b6C82B1c8b7672d3",
-  hederaContractId: "0.0.10671180",
-  abi: [],
-} satisfies Partial<HederaDeployedContract> as HederaDeployedContract;
+const ADAPTER = "0x9507B1d193fA1E38F2da77A6b6C82B1c8b7672d3";
+const ADAPTER_CONTRACT_ID = "0.0.10671180";
 
 const tokenRead = (decimals: number) =>
   vi.mocked(useToken).mockReturnValue({
@@ -63,10 +59,10 @@ const renderForm = () => {
   const onDraftChange = vi.fn();
   render(
     <SwapForm
-      adapter={ADAPTER}
-      governanceAccountId={TREASURY}
+      targets={{ adapter: ADAPTER, adapterLabel: ADAPTER_CONTRACT_ID, governanceAccountId: TREASURY }}
       network="testnet"
       chain={CHAIN}
+      council={undefined}
       onDraftChange={onDraftChange}
     />,
   );
@@ -90,7 +86,7 @@ describe("SwapForm", () => {
 
     expect(lastDraft(onDraftChange)).toMatchObject({
       status: "ready",
-      draft: { path: "registry", kind: "treasurySwap", target: `Swap adapter · ${ADAPTER.hederaContractId}` },
+      draft: { path: "registry", kind: "treasurySwap", target: `Swap adapter · ${ADAPTER_CONTRACT_ID}` },
     });
   });
 

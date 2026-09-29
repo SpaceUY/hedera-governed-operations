@@ -6,7 +6,7 @@ This is a **Hedera template with four workspaces**: `packages/core` (the governa
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
-The governance UI owns `/` as the **live map**: `app/(governance)/layout.tsx` hosts `/`, `/governance/[scheduleId]` and `/governance/new` as one fold below the header — a map pane (treasury figures and the council's threshold, the map) that never scrolls, and a right rail that renders the route's page (the pending proposals, a proposal's detail with Sign, Withdraw and Cancel, or the wizard). The layout runs the setup guard once and provides the config (`useGovernanceConfig()`) and the wizard's draft (`ProposalWizardProvider`) to both panes. The screens are backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`, and `useCancelProposalFlow`, which deletes a live schedule before cancelling its entry). The header links only Live map. `/governance/new` opens a proposal: a vault upgrade or a supplier payment so far, previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
+The governance UI owns `/` as the **live map**: `app/(governance)/layout.tsx` hosts `/`, `/governance/[scheduleId]` and `/governance/new` as one fold below the header — a map pane (treasury figures and the council's threshold, the map) that never scrolls, and a right rail that renders the route's page (the pending proposals, a proposal's detail with Sign, Withdraw and Cancel, or the wizard). The layout runs the setup guard once and provides the config (`useGovernanceConfig()`) and the wizard's draft (`ProposalWizardProvider`) to both panes. The screens are backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`, and `useCancelProposalFlow`, which deletes a live schedule before cancelling its entry). The header links only Live map. `/governance/new` opens a proposal: a vault upgrade, a token pause or freeze, a supplier payment in HBAR or a token, or seating the co-signing agent on the council (a rotation that keeps every member and the threshold) — previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
 
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
@@ -98,7 +98,7 @@ packages/nextjs/
   app/                    App Router pages
     (governance)/         layout.tsx: the live map — setup guard, GovernanceProvider, map pane + rail; page.tsx (/), governance/[scheduleId], governance/new
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ConnectWallet, SetupNotice, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview) and rail/ (pending list, operation cards, search, proposal detail)
+    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
@@ -109,6 +109,7 @@ packages/nextjs/
       useProposalLookup.ts  One proposal by schedule id, listed or not; the detail page and the rail's search
       sentCancels.ts        Cancels just sent, kept reading "cancelled" until the relay catches up
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
+      useReleaseCheck.ts    Whether a published release vouches for an upgrade's implementation (the agent's check)
       useTreasuryFigures.ts Treasury balances plus the vault's reserve
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
       useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation, the entry after a registry call) when a proposal settles
@@ -136,7 +137,7 @@ packages/nextjs/
       treasury.ts           Treasury balances plus the vault's reserve
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
-      drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
+      drafts/               Form values to an encoded draft, one module per kind; draft.ts reads the preview back through decode.ts
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     operatorKey.ts        Parses HEDERA_OPERATOR_PRIVATE_KEY for yarn setup and the scripts (never the app)
   utils/scaffold-hbar/    Hedera tx helpers, identity, networks, waitForMirrorIndexing
@@ -171,6 +172,7 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 - **Freeze before execute**: always `freeze()` / `freezeWith(client)` a transaction before signing or serialising it. A frozen transaction has its transaction id and node account ids fixed; an unfrozen one cannot be signed by an external wallet.
 - **Batch inner transactions (HIP-551)**: for an inner transaction the wallet signs and the server batches, set `setTransactionId(TransactionId.generate(payer))`, `setBatchKey(serviceKey)`, then `freeze()`. Do **not** call `setNodeAccountIds`: it locks the node list and `freeze()` can no longer pin node `0.0.0`, which a batch requires. The service adds the signed inner tx to a `BatchTransaction` and executes it with the batch key.
 - **Wallet rejections** arrive as WalletConnect JSON-RPC errors (`code` 5000–5003, EIP-1193 `4001`, or a `USER_REJECT` message); `hederaSigner.ts` maps them to `WalletRejectedError` (`isWalletRejection`) so components can show a message instead of a crash.
+- **Expired approvals**: a transaction's valid duration (the SDK's default is 120 s) runs from the valid start in its transaction id — set before the wallet shows it, and by the SDK a few seconds in the past — so an approval that takes longer is refused at precheck with `TRANSACTION_EXPIRED` — nothing sent, nothing charged. A wallet relays it as HIP-820 `{ code: 9000, message, data: "4" }`, a plain object — verified against the reference `HIP820Wallet` in `hedera-wallet-connect` only; HashPack's exact shape is still to be confirmed live; `hederaSigner.ts` maps it to `TransactionExpiredError` (`isTransactionExpired`) carrying the transaction's valid duration, and `MutationError` says to try again within it. The network only answers once the wallet submits, so a request left unanswered in HashPack never settles: governance writes go through `useExecuteBeforeDeadline` (`hooks/useWalletRequest.ts`), which sets the transaction id itself and stops waiting at valid start + valid duration with a `WalletRequestExpiredError` ("reject it in HashPack, then try again"). A late success — possible only when the local clock runs ahead of the network's — is kept: all queries are refreshed and the caller's `onLateSuccess` runs.
 - **After a write, poll the Mirror Node** until the entity appears: wrap the read in `waitForMirrorIndexing` (`utils/scaffold-hbar/waitForMirrorIndexing.ts`), as `useCreateProposal` and `useCreateNativeProposal` do with `fetchTransaction` + `scheduleIdFromTransaction`; typically 3–20 s. Never assume a read right after `execute` reflects the write.
 
 ### Verified traps

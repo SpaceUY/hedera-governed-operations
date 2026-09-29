@@ -20,7 +20,7 @@ import {
 import type { HederaNetworkName } from "../network";
 import { createRelayClient } from "../relayClient";
 import { proto } from "@hiero-ledger/proto";
-import { ContractId } from "@hiero-ledger/sdk";
+import { ContractId, PublicKey } from "@hiero-ledger/sdk";
 import { type Address, keccak256, parseAbi, toHex } from "viem";
 
 /** How Mirror labels a key it cannot express as one public key: a key list, with or without a threshold. */
@@ -201,6 +201,15 @@ const SINGLE_KEY_TYPES = ["ED25519", "ECDSA_SECP256K1"];
 export function memberKeyOfAccount(key: MirrorKey | null): string | null {
   if (!key || !SINGLE_KEY_TYPES.includes(key._type)) return null;
   return toBase64(bytesFromUnprefixedHex(key.key));
+}
+
+/**
+ * A seat back as the key an encoder takes, for a proposal that keeps the members already seated. The
+ * seat holds only the raw bytes, and their length is what tells the two kinds apart: 32 for ED25519, 33
+ * for a compressed ECDSA key, which is how `PublicKey.fromBytes` reads them.
+ */
+export function memberPublicKey(memberKey: string): PublicKey {
+  return PublicKey.fromBytes(bytesFromUnprefixedHex(base64ToHex(memberKey)));
 }
 
 export type ProposerLookup = {

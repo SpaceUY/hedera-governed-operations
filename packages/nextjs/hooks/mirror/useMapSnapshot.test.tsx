@@ -53,7 +53,12 @@ function proposal(signers: string[]): Proposal {
 
 const inboxOf = (...proposals: Proposal[]): ProposalInbox => ({ proposals, unreachableProposers: [] });
 const COUNCIL_DATA = { key: COUNCIL, proposerAccountIds: ["0.0.4100"], proposers: [], unresolvableProposers: [] };
-const FIGURES: TreasuryFigures = { hbarBalanceTinybar: 1, acmeBalance: 2, usdcBalance: 3, vaultReserveTinybar: 4n };
+const FIGURES: TreasuryFigures = {
+  hbarBalanceTinybar: 1,
+  demoTokenBalance: 2,
+  usdcBalance: 3,
+  vaultReserveTinybar: 4n,
+};
 
 type Reads = { inbox?: ProposalInbox; treasury?: TreasuryFigures; readAt?: number };
 

@@ -1,0 +1,161 @@
+"use client";
+
+import { useEffect, useId, useState } from "react";
+import { TOKEN_ADMIN_COPY, TOKEN_ADMIN_OPERATION_LABELS } from "./copy";
+import { HederaAddressInput } from "@scaffold-hbar-ui/components";
+import { type TokenAdminOperation, tokenAdminNeedsAccount } from "@sh/core/governance/proposalTypes";
+import { ACCOUNT_LOOKUP_LABELS, tokenUnreadableLabel } from "~~/components/governance/wizard/copy";
+import { accountLookup } from "~~/components/governance/wizard/kinds/accountLookup";
+import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
+import { useAccount } from "~~/hooks/mirror/useAccount";
+import { useToken } from "~~/hooks/mirror/useToken";
+import { useTokenRelationship } from "~~/hooks/mirror/useTokenRelationship";
+import { type TokenAdminTargets, draftTokenAdmin, tryDraft } from "~~/services/governance/drafts";
+
+const OPERATIONS = ["pause", "unpause", "freeze", "unfreeze"] as const satisfies readonly TokenAdminOperation[];
+
+export const TokenAdminForm = ({
+  targets: { tokenAdmin, tokenAdminContractId, tokenId },
+  network,
+  chain,
+  onDraftChange,
+}: KindFormProps<TokenAdminTargets>) => {
+  const name = useId();
+  const [operation, setOperation] = useState<TokenAdminOperation>("pause");
+  const [accountText, setAccountText] = useState("");
+  const needsAccount = tokenAdminNeedsAccount(operation);
+  const accountInput = needsAccount ? accountText.trim() : "";
+
+  const token = useToken(tokenId, { network });
+  const account = useAccount(accountInput, { network });
+  const accountId = account.data?.account;
+  const relationship = useTokenRelationship(accountId, tokenId, { network, enabled: needsAccount });
+  const symbol = token.data?.token.symbol ?? tokenId;
+
+  const pauseStatus = token.data?.token.pause_status;
+  const freezeStatus = relationship.data?.freeze_status;
+
+  // Depends on the fields, not on `targets` or the queries: those are rebuilt on every render. A key the
+  // token does not have is refused like an unassociated holder: the council would approve a call that
+  // `TokenAdmin` can only revert, and the governance account would pay for it.
+  useEffect(() => {
+    const draft = (holder: string | null) =>
+      tryDraft(() => draftTokenAdmin({ tokenAdmin, tokenAdminContractId, tokenId }, { operation, accountId: holder }));
+    if (!needsAccount) {
+      if (token.isError) {
+        onDraftChange({ status: "invalid", message: tokenUnreadableLabel(tokenId) });
+        return;
+      }
+      if (pauseStatus === undefined) {
+        onDraftChange({ status: "empty" });
+        return;
+      }
+      if (pauseStatus === "NOT_APPLICABLE") {
+        onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.noPauseKey(symbol) });
+        return;
+      }
+      onDraftChange(draft(null));
+      return;
+    }
+    const lookup = accountLookup(accountInput, { accountId, error: account.error });
+    if (lookup.status !== "found") {
+      onDraftChange(lookup);
+      return;
+    }
+    if (relationship.error) {
+      onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.relationshipUnreadable(lookup.accountId) });
+      return;
+    }
+    if (relationship.data === undefined) {
+      onDraftChange({ status: "empty" });
+      return;
+    }
+    // An empty answer is a state, not a failed read: the account never associated the token.
+    if (relationship.data === null) {
+      onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.notAssociated(lookup.accountId, symbol) });
+      return;
+    }
+    if (freezeStatus === "NOT_APPLICABLE") {
+      onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.noFreezeKey(lookup.accountId, symbol) });
+      return;
+    }
+    onDraftChange(draft(lookup.accountId));
+  }, [
+    operation,
+    needsAccount,
+    accountInput,
+    accountId,
+    account.error,
+    relationship.data,
+    relationship.error,
+    freezeStatus,
+    pauseStatus,
+    token.isError,
+    symbol,
+    tokenAdmin,
+    tokenAdminContractId,
+    tokenId,
+    onDraftChange,
+  ]);
+
+  return (
+    <div className="rounded-box border border-base-300 bg-base-200 p-4 flex flex-col gap-3">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-semibold">Token</span>
+        <input className="input w-full bg-base-300 font-mono text-sm" value={`${symbol} · ${tokenId}`} readOnly />
+        {token.data && (
+          <span className="text-sm text-base-content/60">
+            {TOKEN_ADMIN_COPY.pauseStatus(symbol, token.data.token.pause_status)}
+          </span>
+        )}
+        {token.isError && <span className="text-sm text-warning">{tokenUnreadableLabel(tokenId)}</span>}
+      </label>
+
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 text-sm font-semibold">Operation</legend>
+        <div className="grid grid-cols-2 gap-1.5">
+          {OPERATIONS.map(option => (
+            <label
+              key={option}
+              className="flex cursor-pointer items-center justify-center rounded-box border border-base-300 bg-base-100 px-3 py-2 text-sm font-semibold has-checked:border-primary has-checked:bg-primary/10 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary"
+            >
+              <input
+                type="radio"
+                name={name}
+                value={option}
+                checked={operation === option}
+                onChange={() => setOperation(option)}
+                className="sr-only"
+              />
+              {TOKEN_ADMIN_OPERATION_LABELS[option]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {needsAccount && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-semibold">Account</span>
+          <HederaAddressInput
+            value={accountText}
+            onChange={setAccountText}
+            placeholder="0.0.x or 0x…"
+            chainId={chain.id}
+          />
+          {account.isLoading && (
+            <span role="status" className="text-sm text-base-content/60">
+              {ACCOUNT_LOOKUP_LABELS.loading(accountInput)}
+            </span>
+          )}
+          {accountId && relationship.data && (
+            <span className="text-sm text-base-content/60">
+              {TOKEN_ADMIN_COPY.freezeStatus(accountId, symbol, relationship.data.freeze_status)}
+            </span>
+          )}
+        </label>
+      )}
+
+      <p className="m-0 text-sm text-base-content/60 leading-normal">{TOKEN_ADMIN_COPY.explainer}</p>
+    </div>
+  );
+};

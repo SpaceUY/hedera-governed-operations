@@ -1,7 +1,13 @@
 import type { CouncilKey } from "@sh/core/governance/council";
 import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { PROPOSAL_EXPIRY_SECONDS } from "@sh/core/governance/schedules";
-import { PROPOSAL_PATH_CHIPS, approverLabel, expiryLabel, gasLimitLabel } from "~~/components/governance/wizard/copy";
+import {
+  PROPOSAL_PATH_CHIPS,
+  approverLabel,
+  expiryLabel,
+  gasLimitLabel,
+  rotationApproverLabel,
+} from "~~/components/governance/wizard/copy";
 import { type DraftPreview, previewFunctionLabel } from "~~/services/governance/drafts";
 import { formatTinybars } from "~~/utils/scaffold-hbar/hbarAmount";
 
@@ -15,6 +21,10 @@ const unreadableReason = (preview: DraftPreview): string | null => {
   return preview.operation.kind === "unrecognized" ? preview.operation.reason : null;
 };
 
+/** The council a rotation proposes, as decoded from its body; null for every other kind. */
+const incomingCouncilOf = (preview: DraftPreview): CouncilKey | null =>
+  preview.path === "native" && preview.scheduled.kind === "councilRotation" ? preview.scheduled.council : null;
+
 const summaryOf = (preview: DraftPreview): string =>
   preview.path === "native"
     ? describeScheduledOperation(preview.scheduled)
@@ -24,6 +34,7 @@ export const CouncilPreviewPanel = ({ preview, council, headingLevel }: CouncilP
   const Heading = `h${headingLevel}` as const;
   const reason = unreadableReason(preview);
   const chips = PROPOSAL_PATH_CHIPS[preview.kind];
+  const incoming = incomingCouncilOf(preview);
 
   return (
     <section
@@ -69,11 +80,18 @@ export const CouncilPreviewPanel = ({ preview, council, headingLevel }: CouncilP
         <dd className="m-0">{gasLimitLabel(preview.path === "registry" ? preview.executeGas : null)}</dd>
         <dt className="text-base-content/60">Expires</dt>
         <dd className="m-0">{expiryLabel(PROPOSAL_EXPIRY_SECONDS)}</dd>
-        {council && (
+        {incoming ? (
           <>
             <dt className="text-base-content/60">Who approves</dt>
-            <dd className="m-0">{approverLabel(preview.kind, council)}</dd>
+            <dd className="m-0">{rotationApproverLabel(council, incoming)}</dd>
           </>
+        ) : (
+          council && (
+            <>
+              <dt className="text-base-content/60">Who approves</dt>
+              <dd className="m-0">{approverLabel(preview.kind, council)}</dd>
+            </>
+          )
         )}
       </dl>
 

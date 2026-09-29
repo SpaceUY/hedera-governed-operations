@@ -73,6 +73,25 @@ export function hasSubmitKey(topic: MirrorTopic): boolean {
   return Boolean(topic.submit_key?.key);
 }
 
+/** Why a topic's contents cannot count as evidence: it is gone, or anyone can write to it. */
+export type UnsignedTopicReason = "deleted" | "noSubmitKey";
+
+/**
+ * What `assertTopicIsSigned` throws, so a reader can tell a topic that answered "not signed" from
+ * one that could not be read at all.
+ */
+export class UnsignedTopicError extends Error {
+  override readonly name = "UnsignedTopicError";
+
+  constructor(
+    readonly topicId: string,
+    readonly reason: UnsignedTopicReason,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 /**
  * The check that has to run before a topic's contents count as evidence: a topic with no submit key
  * takes a message from anyone, so everything on it is an unsigned claim. It throws rather than
@@ -88,9 +107,11 @@ export async function assertTopicIsSigned(
   options: MirrorRequestOptions = {},
 ): Promise<MirrorTopic> {
   const topic = await fetchTopic(topicId, options);
-  if (topic.deleted) throw new Error(`${subject} topic ${topicId} is deleted`);
+  if (topic.deleted) throw new UnsignedTopicError(topicId, "deleted", `${subject} topic ${topicId} is deleted`);
   if (!hasSubmitKey(topic)) {
-    throw new Error(
+    throw new UnsignedTopicError(
+      topicId,
+      "noSubmitKey",
       `${subject} topic ${topicId} has no submit key, so anyone can publish on it: ` +
         "create one with a submit key (yarn setup does) and point the configuration at that topic instead",
     );

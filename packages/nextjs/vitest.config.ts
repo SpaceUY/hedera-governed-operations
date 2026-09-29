@@ -11,8 +11,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    // The package ships ESM with extensionless relative imports; Node cannot resolve them, Vite can.
-    server: { deps: { inline: ["@scaffold-hbar-ui/hooks"] } },
+    // These packages ship ESM with extensionless or directory imports; Node cannot resolve them, Vite can.
+    server: { deps: { inline: ["@scaffold-hbar-ui/hooks", "@scaffold-hbar-ui/components"] } },
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules", ".next"],
     passWithNoTests: true,

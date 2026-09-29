@@ -37,7 +37,7 @@ let callbacks: { onWithdrawn: ReturnType<typeof vi.fn>; onCancelled: ReturnType<
 
 beforeEach(() => {
   executeTransaction = vi.fn().mockResolvedValue({ transactionId: "0.0.1@1.0" });
-  vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction } as never);
+  vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => "0.0.1" } as never);
   callbacks = { onWithdrawn: vi.fn(), onCancelled: vi.fn() };
   vi.mocked(fetchTransaction).mockReset().mockResolvedValue(deleteRow("SUCCESS"));
 });

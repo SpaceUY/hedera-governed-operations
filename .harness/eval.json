@@ -24,7 +24,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "The home route renders the live map without a wallet, without a .env file and without browser console errors.",
-      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, ACME, USDC, Council threshold); and beside it a rail headed \"Pending operations\" with a \"New proposal\" link and, under that heading, the line \"Each one runs by itself the moment the N-of-M council has signed it. There is no execute button.\" (N-of-M is the council's threshold, e.g. 2-of-3). The map pane does not repeat that line. No crash banner is shown and the console has no errors."
+      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, the governed token labelled with its symbol from the Mirror Node, USDC, Council threshold); and beside it a rail headed \"Pending operations\" with a \"New proposal\" link and, under that heading, the line \"Each one runs by itself the moment the N-of-M council has signed it. There is no execute button.\" (N-of-M is the council's threshold, e.g. 2-of-3). The map pane does not repeat that line. No crash banner is shown and the console has no errors."
     },
     {
       "id": "E6",
@@ -44,7 +44,7 @@
       "walletRequired": true,
       "verifiableWithoutCredentials": true,
       "statement": "The new-proposal route offers the operation kinds as one radio choice in two groups and explains that a connected wallet is required, without crashing.",
-      "howToVerify": "Navigate to /governance/new without connecting. Confirm either the \"Governance is not set up yet\" notice (no .env or deployment), or: the \"New proposal\" heading; radio buttons grouped under \"Contract calls · through the registry\" and \"Native · no contract, no registry entry\", with \"Upgrade the vault to v2\" checked; the message \"Connect a wallet to propose. The proposal is opened and paid for by your account.\"; and the \"Register and schedule with your wallet\" button disabled. Pressing an arrow key on the focused radio moves the choice to \"Pay a supplier\" and the button then reads \"Schedule with your wallet\". Console has no errors."
+      "howToVerify": "Navigate to /governance/new without connecting. Confirm either the \"Governance is not set up yet\" notice (no .env or deployment), or: the \"New proposal\" heading; radio buttons grouped under \"Contract calls · through the registry\" and \"Native · no contract, no registry entry\", with \"Upgrade the vault to v2\" checked; the message \"Connect a wallet to propose. The proposal is opened and paid for by your account.\"; and the \"Register and schedule with your wallet\" button disabled. Pressing the down arrow on the focused radio moves the choice to the next kind, \"Sell treasury HBAR for USDC\", and the button still reads \"Register and schedule with your wallet\"; choosing \"Pay a supplier\" makes it read \"Schedule with your wallet\". Console has no errors."
     },
     {
       "id": "E8",

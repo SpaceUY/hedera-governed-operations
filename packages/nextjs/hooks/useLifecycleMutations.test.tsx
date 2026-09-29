@@ -27,7 +27,7 @@ const EXECUTOR_CONTRACT_ID = "0.0.10671250";
 describe("useSignProposal", () => {
   it("signs the given schedule", async () => {
     const executeTransaction = vi.fn().mockResolvedValue({ transactionId: "0.0.1@1.0" });
-    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction } as never);
+    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => "0.0.1" } as never);
 
     const { result } = renderHook(() => useSignProposal(), { wrapper: createQueryWrapper() });
     result.current.mutate(SCHEDULE_ID);
@@ -41,6 +41,7 @@ describe("useWithdrawProposal", () => {
   const withdrawWith = (rows: MirrorTransaction[] | null) => {
     vi.mocked(useHederaSigner).mockReturnValue({
       executeTransaction: vi.fn().mockResolvedValue({ transactionId: "0.0.1@1.0" }),
+      requireAccountId: () => "0.0.1",
     } as never);
     vi.mocked(fetchTransaction).mockReset();
     if (rows) vi.mocked(fetchTransaction).mockResolvedValue(rows);
@@ -52,7 +53,7 @@ describe("useWithdrawProposal", () => {
 
   it("deletes the given schedule", async () => {
     const executeTransaction = vi.fn().mockResolvedValue({ transactionId: "0.0.1@1.0" });
-    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction } as never);
+    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => "0.0.1" } as never);
     vi.mocked(fetchTransaction).mockResolvedValue(deleteRow("SUCCESS"));
 
     const { result } = renderHook(() => useWithdrawProposal(), { wrapper: createQueryWrapper() });
@@ -90,7 +91,7 @@ describe("useWithdrawProposal", () => {
 describe("useCancelProposal", () => {
   it("cancels the given registry proposal", async () => {
     const executeTransaction = vi.fn().mockResolvedValue({ transactionId: "0.0.1@1.0" });
-    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction } as never);
+    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => "0.0.1" } as never);
 
     const { result } = renderHook(() => useCancelProposal(), { wrapper: createQueryWrapper() });
     result.current.mutate({ executorContractId: EXECUTOR_CONTRACT_ID, registryProposalId: 3 });
