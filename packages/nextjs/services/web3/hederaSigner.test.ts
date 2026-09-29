@@ -189,6 +189,7 @@ describe("isWalletRejection", () => {
     ["EIP-1193 user rejected request", { code: 4001, message: "User rejected the request." }],
     ["HashPack USER_REJECT", HASHPACK_USER_REJECTED],
     ["Error whose message mentions the rejection", new Error("Request rejected by user")],
+    ["the rejection this module maps a wallet's answer to", new WalletRejectedError()],
   ])("recognises %s", (_label, error) => {
     expect(isWalletRejection(error)).toBe(true);
   });

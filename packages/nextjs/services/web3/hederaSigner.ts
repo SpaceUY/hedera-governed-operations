@@ -33,6 +33,7 @@ const EIP1193_USER_REJECTED_CODE = 4001;
 const USER_REJECTED_MESSAGE = /user.?reject|rejected by (the )?user/i;
 
 export function isWalletRejection(error: unknown): boolean {
+  if (error instanceof WalletRejectedError) return true;
   if (typeof error !== "object" || error === null) return false;
   const { code, message } = error as { code?: unknown; message?: unknown };
   if (code === EIP1193_USER_REJECTED_CODE) return true;

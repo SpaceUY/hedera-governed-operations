@@ -1,7 +1,7 @@
 import { MutationError } from "./MutationError";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { WALLET_REJECTED_MESSAGE } from "~~/services/web3/hederaSigner";
+import { WALLET_REJECTED_MESSAGE, WalletRejectedError } from "~~/services/web3/hederaSigner";
 
 afterEach(cleanup);
 
@@ -13,6 +13,11 @@ describe("MutationError", () => {
 
   it("says the wallet rejected, for an EIP-1193 rejection", () => {
     render(<MutationError error={{ code: 4001, message: "User rejected" }} />);
+    expect(screen.getByRole("alert").textContent).toBe(WALLET_REJECTED_MESSAGE);
+  });
+
+  it("says the wallet rejected, for a rejection the HashPack signer already mapped", () => {
+    render(<MutationError error={new WalletRejectedError()} />);
     expect(screen.getByRole("alert").textContent).toBe(WALLET_REJECTED_MESSAGE);
   });
 
