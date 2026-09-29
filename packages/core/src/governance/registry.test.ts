@@ -3,6 +3,7 @@ import type { MirrorContractResult } from "../mirror";
 import {
   CANCEL_PROPOSAL_GAS,
   REGISTRY_ABI,
+  REGISTRY_READS_AT_ONCE,
   buildCancelProposalCall,
   fetchRegistryEntries,
   proposalIdFromContractResult,
@@ -103,6 +104,28 @@ describe("buildCancelProposalCall", () => {
 });
 
 describe("fetchRegistryEntries", () => {
+  it("reads a cold inbox's entries a few at a time, so a public relay does not throttle the burst", async () => {
+    let inFlight = 0;
+    let mostAtOnce = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        inFlight += 1;
+        mostAtOnce = Math.max(mostAtOnce, inFlight);
+        await new Promise(resolve => setTimeout(resolve, 5));
+        inFlight -= 1;
+        return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: entryResponse(0) }));
+      }),
+    );
+    const ids = Array.from({ length: 10 }, (_unused, index) => index + 1);
+
+    const entries = await fetchRegistryEntries(ids, registry);
+
+    expect(mostAtOnce).toBe(REGISTRY_READS_AT_ONCE);
+    expect([...entries.keys()]).toEqual(ids);
+    expect([...entries.values()].every(entry => entry.status === "read")).toBe(true);
+  });
+
   it("reports an entry the proposer already cancelled, which its schedule cannot know", async () => {
     stubRelay(2);
 

@@ -119,9 +119,34 @@ export function proposalIdFromContractResult(result: MirrorContractResult): numb
 }
 
 /**
- * The registry entries behind a set of proposals, one read each. There is no batching: a multicall
- * would need a contract deployed for it, and the inbox only asks about the entries it has not already
- * seen cancelled or executed, which are final answers.
+ * How many entry reads are in flight at once. A cold inbox asks about every registry call it lists,
+ * and a public relay answers a burst of them with 429s — each one an `unreachable` entry, which the
+ * rail still lets a member sign with only a warning. Waves of this size keep a cold load well under
+ * that without making a warm one, which only asks about the few entries still open, any slower.
+ */
+export const REGISTRY_READS_AT_ONCE = 4;
+
+type RelayClient = ReturnType<typeof createRelayClient>;
+
+/** One entry, as the contract stores it. */
+function readEntry(relay: RelayClient, address: Address, proposalId: number) {
+  return relay.readContract({ address, abi: REGISTRY_ABI, functionName: "proposal", args: [BigInt(proposalId)] });
+}
+
+/** Every entry's read, settled and in the order asked, with at most `REGISTRY_READS_AT_ONCE` in flight. */
+async function readEntriesInWaves(relay: RelayClient, address: Address, proposalIds: number[]) {
+  const readings: PromiseSettledResult<Awaited<ReturnType<typeof readEntry>>>[] = [];
+  for (let start = 0; start < proposalIds.length; start += REGISTRY_READS_AT_ONCE) {
+    const wave = proposalIds.slice(start, start + REGISTRY_READS_AT_ONCE);
+    readings.push(...(await Promise.allSettled(wave.map(proposalId => readEntry(relay, address, proposalId)))));
+  }
+  return readings;
+}
+
+/**
+ * The registry entries behind a set of proposals, one read each, `REGISTRY_READS_AT_ONCE` at a time.
+ * There is no batching: a multicall would need a contract deployed for it, and the inbox only asks
+ * about the entries it has not already seen cancelled or executed, which are final answers.
  *
  * One entry that cannot be read leaves that proposal uncrossed instead of failing the whole inbox,
  * the same partial result the inbox already returns when a proposer cannot be read from Mirror.
@@ -134,11 +159,7 @@ export async function fetchRegistryEntries(
   const address = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as Address;
   const unique = [...new Set(proposalIds)];
 
-  const readings = await Promise.allSettled(
-    unique.map(proposalId =>
-      relay.readContract({ address, abi: REGISTRY_ABI, functionName: "proposal", args: [BigInt(proposalId)] }),
-    ),
-  );
+  const readings = await readEntriesInWaves(relay, address, unique);
 
   return new Map(
     unique.map((proposalId, index): [number, RegistryCrossCheck] => {
