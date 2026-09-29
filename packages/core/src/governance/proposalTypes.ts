@@ -124,6 +124,11 @@ export type ScheduledOperation =
 
 export type TokenAdminOperation = "pause" | "unpause" | "freeze" | "unfreeze";
 
+/** A freeze and an unfreeze act on one holder's balance; a pause and an unpause on the token as a whole. */
+export function tokenAdminNeedsAccount(operation: TokenAdminOperation): operation is "freeze" | "unfreeze" {
+  return operation === "freeze" || operation === "unfreeze";
+}
+
 /**
  * The call an upgrade runs on the new implementation in the same transaction. Only the ones this
  * template builds are named: any other initializer makes the whole upgrade unrecognised, because it

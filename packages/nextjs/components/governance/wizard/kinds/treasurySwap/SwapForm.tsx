@@ -1,24 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SWAP_FORM_LABELS } from "./copy";
 import { AccountId, TokenId } from "@hiero-ledger/sdk";
 import { HbarInput } from "@scaffold-hbar-ui/components";
-import { type Address, type Chain, formatUnits } from "viem";
-import { SWAP_FORM_LABELS } from "~~/components/governance/wizard/copy";
-import type { HederaDeployedContract } from "~~/config/governanceConfig";
+import { type Address, formatUnits } from "viem";
+import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
 import { useToken } from "~~/hooks/mirror/useToken";
 import { useSwapQuote } from "~~/hooks/swap/useSwapQuote";
-import { type DraftResult, draftTreasurySwap, tryDraft } from "~~/services/governance/drafts";
+import { draftTreasurySwap, tryDraft } from "~~/services/governance/drafts";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap";
 import { HBAR_DECIMALS, parseAmount } from "~~/utils/scaffold-hbar/hbarAmount";
-import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
-type SwapFormProps = {
-  adapter: HederaDeployedContract;
+export type SwapFormTargets = {
+  adapter: Address;
+  /** How the preview names the adapter: its native id, or its address when the deploy recorded none. */
+  adapterLabel: string;
+  /** The treasury, which the DEX pays the output back to. */
   governanceAccountId: string;
-  network: HederaNetworkName;
-  chain: Chain;
-  onDraftChange: (result: DraftResult) => void;
 };
 
 /** A Hedera entity with no EVM alias is addressed by its number, which is what both of these have. */
@@ -39,7 +38,12 @@ const tinybarsOrNull = (text: string): bigint | null => {
  * and is shown as a reference only: the proposal is approved later and executes later still, so the
  * floor is the proposer's decision and the one thing the council is really voting on.
  */
-export const SwapForm = ({ adapter, governanceAccountId, network, chain, onDraftChange }: SwapFormProps) => {
+export const SwapForm = ({
+  targets: { adapter, adapterLabel, governanceAccountId },
+  network,
+  chain,
+  onDraftChange,
+}: KindFormProps<SwapFormTargets>) => {
   const [amountIn, setAmountIn] = useState("");
   const [floor, setFloor] = useState("");
 
@@ -68,8 +72,8 @@ export const SwapForm = ({ adapter, governanceAccountId, network, chain, onDraft
       tryDraft(() =>
         draftTreasurySwap(
           {
-            adapter: adapter.address as Address,
-            adapterContractId: adapter.hederaContractId,
+            adapter,
+            adapterContractId: adapterLabel,
             tokenOut: tokenAddress(tokenOutId),
             recipient: accountAddress(governanceAccountId),
             fee: dex.defaultFee,
@@ -84,8 +88,8 @@ export const SwapForm = ({ adapter, governanceAccountId, network, chain, onDraft
     decimals,
     token.isError,
     tokenOutId,
-    adapter.address,
-    adapter.hederaContractId,
+    adapter,
+    adapterLabel,
     governanceAccountId,
     dex.defaultFee,
     onDraftChange,

@@ -6,7 +6,7 @@
  * Every function here only builds a transaction and leaves it unfrozen: the active signer freezes it
  * with a network client, which is what assigns node account ids (`services/web3/hederaSigner.ts`).
  */
-import { type MirrorTransaction, fetchAccount } from "../mirror";
+import { type MirrorKey, type MirrorTransaction, fetchAccount } from "../mirror";
 import type { HederaNetworkName } from "../network";
 import {
   AccountId,
@@ -149,14 +149,25 @@ export function scheduleIdFromTransaction(rows: MirrorTransaction[]): string | n
 }
 
 /**
+ * The one public key an account's key is, or null when it is anything else — a key list, a threshold
+ * key, a contract id, or none. Only such an account can be a schedule's admin key or one seat of a
+ * council, so this is the rule both the proposer's key and a rotation's members are read with.
+ */
+export function singlePublicKey(key: MirrorKey | null): PublicKey | null {
+  if (key?._type === "ECDSA_SECP256K1") return PublicKey.fromStringECDSA(key.key);
+  if (key?._type === "ED25519") return PublicKey.fromStringED25519(key.key);
+  return null;
+}
+
+/**
  * Public key of an account, to be the admin key of the schedules it creates. It comes from the Mirror
  * Node because no signer hands it over: HashPack never exposes a key to the app, and asking consensus
  * would need an operator the browser does not have.
  */
 export async function fetchAccountPublicKey(accountId: string, network: HederaNetworkName): Promise<PublicKey> {
   const { key } = await fetchAccount(accountId, { network });
-  if (key?._type === "ECDSA_SECP256K1") return PublicKey.fromStringECDSA(key.key);
-  if (key?._type === "ED25519") return PublicKey.fromStringED25519(key.key);
+  const publicKey = singlePublicKey(key);
+  if (publicKey) return publicKey;
   throw new Error(
     `Account ${accountId} holds a ${key?._type ?? "missing"} key, so the proposals it creates could never be ` +
       "withdrawn: a proposal is retracted by the key that created it, and only an account with a single key has one.",

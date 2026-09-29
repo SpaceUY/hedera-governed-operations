@@ -6,12 +6,16 @@ import { useMutation } from "@tanstack/react-query";
 import { PROPOSAL_KIND_COPY } from "~~/components/governance/wizard/copy";
 import type { ProposalDraft } from "~~/services/governance/drafts";
 
-/** One submit for the wizard, whichever path the draft takes. Resolves to the new schedule id. */
+/**
+ * One submit for the wizard, whichever path the draft takes. Resolves to the new schedule id, and
+ * passes on the registry entry a failed submit left unscheduled, which the same draft reuses, and
+ * the request the wallet holds while it holds one, and a step the network accepted after its deadline.
+ */
 export function useSubmitProposalDraft(executorContractId: string) {
   const createRegistryProposal = useCreateProposal();
   const createNativeProposal = useCreateNativeProposal();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async (draft: ProposalDraft): Promise<string> => {
       const memo = PROPOSAL_KIND_COPY[draft.kind].title;
 
@@ -31,4 +35,11 @@ export function useSubmitProposalDraft(executorContractId: string) {
       return scheduleId;
     },
   });
+
+  return {
+    ...mutation,
+    unscheduledEntry: createRegistryProposal.unscheduledEntry,
+    walletRequest: createRegistryProposal.walletRequest ?? createNativeProposal.walletRequest,
+    lateSubmission: createRegistryProposal.lateSubmission ?? createNativeProposal.lateSubmission,
+  };
 }

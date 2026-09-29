@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTargetNetwork } from "./scaffold-hbar";
-import { useHederaSigner } from "./useHederaSigner";
+import { useExecuteBeforeDeadline } from "./useWalletRequest";
 import { buildScheduleDelete } from "@sh/core/governance/schedules";
 import { type MirrorTransaction, fetchTransaction } from "@sh/core/mirror";
 import { useMutation } from "@tanstack/react-query";
@@ -48,7 +48,7 @@ const scheduleDeleteRowOf = (rows: MirrorTransaction[]): MirrorTransaction | nul
  * leave a live schedule on a cancelled entry, which reverts and bills the governance account.
  */
 export function useWithdrawProposal() {
-  const { executeTransaction } = useHederaSigner();
+  const executeTransaction = useExecuteBeforeDeadline();
   const { targetNetwork } = useTargetNetwork();
   const network = getHederaNetworkNameFromChainId(targetNetwork.id);
   const [isConfirming, setIsConfirming] = useState(false);
