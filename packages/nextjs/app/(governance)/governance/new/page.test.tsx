@@ -34,12 +34,15 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
-const submission = vi.hoisted(() => ({ unscheduledEntry: null as UnscheduledEntry | null }));
+const submission = vi.hoisted(() => ({
+  unscheduledEntry: null as UnscheduledEntry | null,
+  status: "idle" as "idle" | "pending",
+}));
 vi.mock("~~/hooks/useSubmitProposalDraft", () => ({
   useSubmitProposalDraft: () => ({
     mutate,
     reset,
-    status: "idle",
+    status: submission.status,
     error: null,
     unscheduledEntry: submission.unscheduledEntry,
   }),
@@ -62,7 +65,12 @@ vi.mock("~~/components/governance/wizard/kinds/vaultUpgrade/UpgradeVaultForm", a
       useEffect(() => {
         if (drafts.upgrade) onDraftChange({ status: "ready", draft: drafts.upgrade });
       }, [onDraftChange]);
-      return <div>upgrade form</div>;
+      return (
+        <div>
+          upgrade form
+          <input aria-label="Withdrawal limit" />
+        </div>
+      );
     },
   };
 });
@@ -174,6 +182,7 @@ beforeEach(() => {
   drafts.swap = null;
   drafts.transfer = null;
   submission.unscheduledEntry = null;
+  submission.status = "idle";
 });
 
 afterEach(() => {
@@ -248,6 +257,18 @@ describe("NewProposalPage", () => {
 
     expect(screen.getByRole("status").textContent).toBe(TOKEN_ADMIN_COPY.contractMissing);
     expect(cta("tokenAdmin").disabled).toBe(true);
+  });
+
+  it("locks the form as well as the picker while the wallet holds a request", () => {
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    submission.status = "pending";
+    renderPage();
+
+    // `:disabled` is what a disabled fieldset applies to what it holds; the input's own flag stays false.
+    expect(screen.getByLabelText("Withdrawal limit").matches(":disabled")).toBe(true);
+    expect(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.upgrade.title) }).matches(":disabled")).toBe(
+      true,
+    );
   });
 
   it("opens on the vault upgrade, as the prototype does, and asks for a wallet", () => {
