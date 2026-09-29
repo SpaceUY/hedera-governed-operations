@@ -503,7 +503,9 @@ seat by rotation, so an agent can legitimately be running before it holds one �
 `NO_NEW_VALID_SIGNATURES`, is charged the same fee as a signature that counted, and **leaves no row
 on the schedule**. The missing row is what makes it a drain rather than one wasted fee: nothing
 remembers the attempt, `isSignedByKey` reads false on the next pass, and the agent tries again every
-poll for as long as the proposal stays open, while the log looks healthy. So the seat is read from
+poll for as long as the proposal stays open. It is not silent — each attempt logs `signature-failed`
+with `NO_NEW_VALID_SIGNATURES` — but nothing there names the cause: that status reads like the
+Mirror-lag race above, under a decision line that still says `approved`. So the seat is read from
 the ledger on every pass — `councilHoldsKey`, against the council the inbox was already fetched with
 — and a pass without one decides, logs and publishes its refusals, but signs nothing and holds its
 approvals back from the decision topic.

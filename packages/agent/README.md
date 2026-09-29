@@ -47,8 +47,12 @@ This is a check rather than a comment because of what a seatless signature actua
 testnet: `ScheduleSign` from a key the council does not hold answers `NO_NEW_VALID_SIGNATURES`, is
 **charged the same fee as a signature that counted, and leaves no row on the schedule**. No row means
 nothing remembers the attempt — `isSignedByKey` reads false again — so the next pass repeats it,
-every poll, for as long as the proposal stays open. It is not a wasted fee, it is a drain, and it
-looks like a healthy service in the log.
+every poll, for as long as the proposal stays open. Not a wasted fee: a drain.
+
+It is not silent either, and that is worse than it sounds. Every attempt logs `signature-failed` with
+`NO_NEW_VALID_SIGNATURES`, which is the symptom and not the cause — it reads like the Mirror-lag race
+the agent already guards against — under a decision line that still says `approved` for a schedule
+nothing signed.
 
 ## The policy
 
