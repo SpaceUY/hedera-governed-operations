@@ -145,7 +145,7 @@ It reads `1 signed` because you opened it from a council seat. The network count
 
 One more seat has to sign, and both remaining seats are demo accounts whose keys sit in `setup-state.json`. There are two ways to use one.
 
-**Default: sign as alice from a second wallet.** Import alice's key into a wallet and sign the way any council member would. Use this one first: it works for every kind of proposal, it is what the template is about — a person approving from their own device — and it is the only option for a council rotation, which the agent never signs. Print her account id and key (a testnet key, but still a key: keep it out of screenshots and shared terminals):
+**Default: sign as alice from a second wallet.** Import alice's key into a wallet and sign the way any council member would. The key is a testnet demo key `yarn setup` generated and keeps in a gitignored file: treat it as throwaway, and never move a key that holds real funds this way. Use this one first: it works for every kind of proposal, it is what the template is about — a person approving from their own device — and it is the only option for a council rotation, which the agent never signs. Print her account id and key (a testnet key, but still a key: keep it out of screenshots and shared terminals):
 
 ```bash
 cd packages/nextjs && node --input-type=module -e '
