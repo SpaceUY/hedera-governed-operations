@@ -1,4 +1,5 @@
 import {
+  AGENT_COPY,
   cardStatusLabel,
   endNote,
   noRejectNote,
@@ -115,5 +116,11 @@ describe("signedWhenLabel", () => {
 
   it("names the member and where the link goes", () => {
     expect(signedWhenAriaLabel("Bob", "Signed 3h ago")).toBe("Bob: signed 3h ago — open the signature on HashScan");
+  });
+});
+
+describe("AGENT_COPY", () => {
+  it("names the proposal as the rail titles it", () => {
+    expect(AGENT_COPY.howToSeat("2-of-4")).toBe("Approve “Change to a 2-of-4 council” to seat it.");
   });
 });

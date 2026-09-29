@@ -13,6 +13,10 @@ import { describe, expect, it } from "vitest";
 describe("wizard words", () => {
   const council = { threshold: 2, memberKeys: ["a", "b", "c"] };
 
+  it("titles a council rotation's memo generically, since the rail names the council it proposes", () => {
+    expect(PROPOSAL_KIND_COPY.councilRotation.title).toBe("Change the council");
+  });
+
   it("says a scheduled call's gas is charged in full, and a native one has none", () => {
     expect(gasLimitLabel(150_000)).toBe(`${(150_000).toLocaleString()} — charged in full on success`);
     expect(gasLimitLabel(null)).toBe("n/a — native, network fee only");

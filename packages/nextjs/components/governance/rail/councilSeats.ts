@@ -45,7 +45,7 @@ export function unseatedAgentSeatOf(agent: CoSigningAgent | null, council: Counc
   return agent.seat;
 }
 
-/** The council once that seat is added at the same threshold — what "Add the co-signing agent" proposes. */
+/** The council once that seat is added at the same threshold — what the rail titles "Change to a N-of-M council". */
 export function withSeat(council: CouncilKey, seat: string): CouncilKey {
   return { threshold: council.threshold, memberKeys: [...council.memberKeys, seat] };
 }
