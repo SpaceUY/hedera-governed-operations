@@ -10,7 +10,9 @@ import { useAccount } from "~~/hooks/mirror/useAccount";
 import type { DraftResult } from "~~/services/governance/drafts";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
-vi.mock("~~/components/governance/graph/useComposedMap", () => ({ useComposedMap: () => ({ composed: COMPOSED }) }));
+vi.mock("~~/components/governance/graph/useComposedMap", () => ({
+  useLatestComposedMap: () => ({ composed: COMPOSED }),
+}));
 vi.mock("@scaffold-hbar-ui/components", () => ({
   HederaAddressInput: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <input aria-label="Agent account" value={value} onChange={event => onChange(event.target.value)} />

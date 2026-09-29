@@ -3,22 +3,19 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { type TokenReading, TreasuryStrip } from "~~/components/governance/TreasuryStrip";
 import { GovernanceMap } from "~~/components/governance/graph/GovernanceMap";
-import { useMapDecorator } from "~~/components/governance/graph/MapDecoratorContext";
 import { MapInspector } from "~~/components/governance/graph/MapInspector";
 import { inspectorContentOf } from "~~/components/governance/graph/inspector";
-import { composeMap } from "~~/components/governance/graph/mapModel";
 import { nodeStateCaptions } from "~~/components/governance/graph/nodeStates";
 import { remoteSignatureNotice } from "~~/components/governance/graph/remoteSignatureNotice";
+import { useComposedMap } from "~~/components/governance/graph/useComposedMap";
 import { useMapSelection } from "~~/components/governance/graph/useMapSelection";
 import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
 import { GOVERNANCE_CONTRACTS, type GovernanceConfig, findDeployment } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useToken } from "~~/hooks/mirror/useToken";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useProposalAnimationSync } from "~~/hooks/useProposalAnimationSync";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
-import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
 import { REST_FRAME, frameOf, nodeStatesShown, treasuryShown } from "~~/services/liveMap/motion/frame";
 import type { ApprovedEvent } from "~~/services/liveMap/remoteApprovals";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
@@ -48,9 +45,7 @@ function tokenReadingOf(query: ReturnType<typeof useToken>): TokenReading {
  * from the same map; selecting a proposal on the rail closes it.
  */
 export function LiveMapPane({ config, onRemoteSignature }: LiveMapPaneProps) {
-  const decorate = useMapDecorator();
   const { targetNetwork } = useTargetNetwork();
-  const { accountId: viewerAccountId } = useHederaSigner();
   const { governanceAccountId, network, executor, vault, demoTokenId } = config;
   const usdcTokenId = SAUCERSWAP_V2_CONFIG[network].usdcToken;
   const { snapshot, previous, events, readAt, error } = useMapSnapshot({
@@ -64,25 +59,8 @@ export function LiveMapPane({ config, onRemoteSignature }: LiveMapPaneProps) {
   const governedToken = useToken(demoTokenId, { network });
   const usdc = useToken(usdcTokenId, { network });
   const { world, playing } = useProposalAnimationSync({ snapshot, previous, events, readAt });
-  const entities = useMemo(() => governanceEntitiesOf(config, targetNetwork.id), [config, targetNetwork.id]);
 
-  const map = useMemo(
-    () =>
-      world &&
-      composeMap(
-        {
-          governanceAccountId,
-          executor: { ref: executor.hederaContractId, evmAddress: executor.address },
-          council: world.council,
-          proposers: world.proposers,
-          entities,
-          proposals: world.proposals,
-        },
-        decorate,
-        viewerAccountId,
-      ),
-    [world, entities, governanceAccountId, executor, decorate, viewerAccountId],
-  );
+  const map = useComposedMap(config, world);
   const frame = useMemo(
     () => (map && world ? frameOf(playing, { graph: map.graph, shown: world }) : REST_FRAME),
     [map, world, playing],
