@@ -13,6 +13,14 @@ import { ISwapRouter } from "./interfaces/ISwapRouter.sol";
 /// call and leaves in the same transaction, and the router settles the output straight to
 /// `recipient`. That is what keeps it free of HTS token associations — a contract that never
 /// receives a token never needs one.
+///
+/// It moves the association to `recipient`, which has to be associated with `tokenOut` **before**
+/// the swap runs. The pool pays the output before it collects the input, and it pays it through the
+/// HTS system contract, which charges an automatic association to the call as gas: on testnet that
+/// transfer was handed 169,373 gas, consumed all of it and returned `INSUFFICIENT_GAS`, and the pool
+/// turned that into `TransferFail(21)` — 21 being `UNKNOWN`, the code its helper substitutes when the
+/// system call itself fails. Associated, the same transfer costs 15,284. `yarn setup` associates the
+/// treasury's output token for that reason; it is not something this contract can check or pay for.
 contract SaucerSwapAdapter {
     /// @notice The only account this adapter accepts swaps from: the proposal registry whose
     /// `execute` is reachable only after m of n council members sign.

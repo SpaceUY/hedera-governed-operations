@@ -4,13 +4,19 @@ import { CouncilPreviewPanel, type HeadingLevel } from "./CouncilPreviewPanel";
 import { OperationTypePicker, type WizardKind } from "./OperationTypePicker";
 import { useProposalWizard } from "./ProposalWizardProvider";
 import { OPEN_PROPOSAL_NOTICES, missingProposerRoleLabel, openProposalCopy } from "./copy";
+import { SwapForm } from "./forms/SwapForm";
 import { TransferForm } from "./forms/TransferForm";
 import { UpgradeVaultForm } from "./forms/UpgradeVaultForm";
 import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import type { Chain } from "viem";
 import { ConnectWallet } from "~~/components/ConnectWallet";
 import { MutationError } from "~~/components/governance/MutationError";
-import { GOVERNANCE_CONTRACTS, type GovernanceConfig, findDeployedContract } from "~~/config/governanceConfig";
+import {
+  GOVERNANCE_CONTRACTS,
+  type GovernanceConfig,
+  type HederaDeployedContract,
+  findDeployedContract,
+} from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { isPreviewRecognized } from "~~/services/governance/drafts";
@@ -24,6 +30,15 @@ type ProposalWizardProps = {
 };
 
 type CouncilRead = ReturnType<typeof useCouncil>;
+
+type KindTargets = { upgrade: HederaDeployedContract | null; swap: HederaDeployedContract | null };
+
+/** The contract a kind calls, when it is one the deploy may not have reached on this network yet. */
+function missingTargetNotice(kind: WizardKind, targets: KindTargets): string | null {
+  if (kind === "upgrade" && !targets.upgrade) return OPEN_PROPOSAL_NOTICES.upgradeTargetMissing;
+  if (kind === "treasurySwap" && !targets.swap) return OPEN_PROPOSAL_NOTICES.swapAdapterMissing;
+  return null;
+}
 
 /** Why a connected account cannot open this kind yet, or null when nothing stands in the way. */
 function proposerNotice(
@@ -47,16 +62,16 @@ function proposerNotice(
 export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardProps) => {
   const { network, governanceAccountId, vault } = config;
   const vaultNextImplementation = findDeployedContract(chain.id, GOVERNANCE_CONTRACTS.vaultNextImplementation);
+  const swapAdapter = findDeployedContract(chain.id, GOVERNANCE_CONTRACTS.swapAdapter);
   const { accountId, isConnected } = useHederaSigner();
   const council = useCouncil({ governanceAccountId, executorContractId: config.executor.hederaContractId, network });
   const { kind, chooseKind, draft, setDraft, preview, submitStatus, submitError, submit } = useProposalWizard();
   const submitting = submitStatus === "pending";
 
-  const upgradeUnavailable = kind === "upgrade" && !vaultNextImplementation;
   const allowed = canOpenProposal(kind, accountId, council.data?.proposerAccountIds ?? []);
-  const notice = upgradeUnavailable
-    ? OPEN_PROPOSAL_NOTICES.upgradeTargetMissing
-    : proposerNotice(kind, accountId, council, allowed);
+  const notice =
+    missingTargetNotice(kind, { upgrade: vaultNextImplementation, swap: swapAdapter }) ??
+    proposerNotice(kind, accountId, council, allowed);
   const canSubmit =
     allowed && preview !== null && isPreviewRecognized(preview) && !submitting && submitStatus !== "success";
   const copy = openProposalCopy(kind);
@@ -84,6 +99,15 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
               implementation: vaultNextImplementation.address,
               implementationAbi: vaultNextImplementation.abi,
             }}
+            chain={chain}
+            onDraftChange={setDraft}
+          />
+        )}
+        {kind === "treasurySwap" && swapAdapter && (
+          <SwapForm
+            adapter={swapAdapter}
+            governanceAccountId={governanceAccountId}
+            network={network}
             chain={chain}
             onDraftChange={setDraft}
           />

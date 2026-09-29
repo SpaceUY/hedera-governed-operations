@@ -1,7 +1,7 @@
 schemaVersion: 3
 
-name: template-baseline
-description: Keep the Proof Wall demo installing, linting, building and booting without a wallet or a .env file.
+name: governed-operations
+description: Keep the governance app installing, linting, building and booting without a wallet or a .env file, and grade an approval that reaches the council's threshold on testnet.
 
 baseline:
   commands:
@@ -31,6 +31,17 @@ validator:
 # flagged executableWithTestSigner run end to end. Only `validate-semantic`
 # and `run` use it; `validate` and `doctor --recipe-only` ignore it. Export the
 # operator variables in the shell (the harness does not read .env).
+#
+# Paying for a transaction is not the same as approving one: a `ScheduleSign`
+# only counts towards the threshold if the key sits in the governance account's
+# threshold key. `yarn harness:council-seat` puts the run's signer there, which
+# is what lets E9 grade an approval rather than a button. It is wired into the
+# dev server command in validators/playwright-smoke.yaml rather than into
+# `deploy.commands` below: those are reached from runValidationStages, which
+# `validate-semantic` never calls, so a seat declared there would only ever
+# happen under `harness:run`. The script reads the demo members' keys from the
+# gitignored setup-state.json, so this stage expects a workspace that has
+# already run `yarn setup`.
 chainValidation:
   enabled: true
   network: testnet

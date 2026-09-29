@@ -16,8 +16,10 @@ import type { MirrorLookups } from "./reconcile";
 import { formatSteps } from "./report";
 import { reconcileSeedProposal } from "./seedProposal";
 import { AGENT_SEAT, type SetupState } from "./state";
+import { reconcileTreasuryAssociation } from "./treasuryAssociation";
 import type { Client } from "@hiero-ledger/sdk";
 import deployedContracts from "~~/contracts/deployedContracts";
+import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 
 export type SetupContext = {
   env: SetupEnv;
@@ -62,7 +64,15 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
   const withGovernance: SetupState = { ...ctx.state, ...topics, governance };
   saveState(withGovernance);
   upsertEnvFile(HARDHAT_ENV_PATH, hardhatEnvEntries(governance, proposers));
-  console.log(formatSteps([step]).join("\n"));
+
+  // Before the deployment gate on purpose: the association needs the account and no contract, so a
+  // first pass settles it even when the contracts are not deployed yet.
+  const association = await reconcileTreasuryAssociation(
+    withGovernance,
+    SAUCERSWAP_V2_CONFIG[env.network].usdcToken,
+    services,
+  );
+  console.log(formatSteps([step, association]).join("\n"));
 
   const deployment = readGovernanceDeployment(deployedContracts);
   if (!deployment.ready) {
