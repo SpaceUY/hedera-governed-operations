@@ -13,11 +13,7 @@ export const CO_SIGNING_AGENT_KIND = defineWizardKind<CoSigningAgentTargets>({
   hint: CO_SIGNING_AGENT_COPY.pickerHint,
   resolveTargets: ({ config }) => ({
     status: "available",
-    targets: {
-      governanceAccountId: config.governanceAccountId,
-      executorContractId: config.executor.hederaContractId,
-      suggestedAgentAccountId: null,
-    },
+    targets: { config, suggestedAgentAccountId: null },
   }),
   Form: AddAgentForm,
 });

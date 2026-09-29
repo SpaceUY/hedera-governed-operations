@@ -42,6 +42,13 @@ export type RegistryEntry = {
   proposalId: number;
   state: RegistryEntryState;
   target: Address;
+  /**
+   * Who called `createProposal`. `cancel` is open to this address and to any `EXECUTOR_ROLE`
+   * holder, and nothing else, so this is the ground truth a screen authorizes a Cancel button
+   * against — never the schedule's creator, which happens to be the same account in this app's own
+   * flow but is not what the contract actually checks.
+   */
+  proposer: Address;
   /** The stored call, kept beside the decoded operation so a screen can show the raw bytes too. */
   calldata: Hex;
   operation: RegistryOperation;
@@ -55,16 +62,10 @@ export type RegistryEntry = {
  * `proposal(id)` revert — and signing such a schedule spends the council's approval on a call that
  * reverts and charges the governance account. `unreachable` only means the question could not be
  * asked. So a screen should refuse to sign on `missing` the way it does on a cancelled entry, and
- * merely warn on `unreachable`.
- *
- * `notApplicable` and `notRead` are not the same answer either. `notApplicable` is a proposal with no
- * entry to read, a native kind. `notRead` is a registry call whose entry exists but was left unread
- * because its round is over and did not fail, so nothing the council can do depends on it any more:
- * the inbox skips those to spare a relay read per row and poll.
+ * merely warn on `unreachable`. `notApplicable` is a proposal with no entry at all, a native kind.
  */
 export type RegistryCrossCheck =
   | { status: "notApplicable" }
-  | { status: "notRead" }
   | { status: "read"; entry: RegistryEntry }
   | { status: "missing"; reason: string }
   | { status: "unreachable"; reason: string };
@@ -118,9 +119,34 @@ export function proposalIdFromContractResult(result: MirrorContractResult): numb
 }
 
 /**
- * The registry entries behind a set of proposals, one read each. There is no batching: a multicall
- * would need a contract deployed for it, and the inbox only ever asks about the proposals that are
- * still pending and go through the executor — the settled ones already know how they ended.
+ * How many entry reads are in flight at once. A cold inbox asks about every registry call it lists,
+ * and a public relay answers a burst of them with 429s — each one an `unreachable` entry, which the
+ * rail still lets a member sign with only a warning. Waves of this size keep a cold load well under
+ * that without making a warm one, which only asks about the few entries still open, any slower.
+ */
+export const REGISTRY_READS_AT_ONCE = 4;
+
+type RelayClient = ReturnType<typeof createRelayClient>;
+
+/** One entry, as the contract stores it. */
+function readEntry(relay: RelayClient, address: Address, proposalId: number) {
+  return relay.readContract({ address, abi: REGISTRY_ABI, functionName: "proposal", args: [BigInt(proposalId)] });
+}
+
+/** Every entry's read, settled and in the order asked, with at most `REGISTRY_READS_AT_ONCE` in flight. */
+async function readEntriesInWaves(relay: RelayClient, address: Address, proposalIds: number[]) {
+  const readings: PromiseSettledResult<Awaited<ReturnType<typeof readEntry>>>[] = [];
+  for (let start = 0; start < proposalIds.length; start += REGISTRY_READS_AT_ONCE) {
+    const wave = proposalIds.slice(start, start + REGISTRY_READS_AT_ONCE);
+    readings.push(...(await Promise.allSettled(wave.map(proposalId => readEntry(relay, address, proposalId)))));
+  }
+  return readings;
+}
+
+/**
+ * The registry entries behind a set of proposals, one read each, `REGISTRY_READS_AT_ONCE` at a time.
+ * There is no batching: a multicall would need a contract deployed for it, and the inbox only asks
+ * about the entries it has not already seen cancelled or executed, which are final answers.
  *
  * One entry that cannot be read leaves that proposal uncrossed instead of failing the whole inbox,
  * the same partial result the inbox already returns when a proposer cannot be read from Mirror.
@@ -133,18 +159,14 @@ export async function fetchRegistryEntries(
   const address = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as Address;
   const unique = [...new Set(proposalIds)];
 
-  const readings = await Promise.allSettled(
-    unique.map(proposalId =>
-      relay.readContract({ address, abi: REGISTRY_ABI, functionName: "proposal", args: [BigInt(proposalId)] }),
-    ),
-  );
+  const readings = await readEntriesInWaves(relay, address, unique);
 
   return new Map(
     unique.map((proposalId, index): [number, RegistryCrossCheck] => {
       const reading = readings[index];
       if (reading.status === "rejected") return [proposalId, failureOf(proposalId, reading.reason)];
 
-      const { target, state, data } = reading.value;
+      const { target, proposer, state, data } = reading.value;
       const known = REGISTRY_STATES[state];
       if (!known) {
         return [
@@ -157,7 +179,14 @@ export async function fetchRegistryEntries(
         proposalId,
         {
           status: "read",
-          entry: { proposalId, state: known, target, calldata: data, operation: decodeRegistryOperation(target, data) },
+          entry: {
+            proposalId,
+            state: known,
+            target,
+            proposer,
+            calldata: data,
+            operation: decodeRegistryOperation(target, data),
+          },
         },
       ];
     }),

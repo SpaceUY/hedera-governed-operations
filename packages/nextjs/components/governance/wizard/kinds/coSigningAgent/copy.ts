@@ -1,6 +1,8 @@
 import type { CouncilKey } from "@sh/core/governance/council";
-import type { SeatName } from "~~/components/governance/graph/mapModel";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
+
+/** One council seat as the map names it; `isViewer` marks the connected account's. */
+export type SeatName = { label: string; isViewer: boolean };
 
 /** "A, B and C": the members of a council as a sentence reads them. */
 const listed = (names: string[]): string =>

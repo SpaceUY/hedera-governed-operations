@@ -1,24 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { agentSeatOf, draftAgentSeat } from "./agentSeat";
-import { CO_SIGNING_AGENT_COPY } from "./copy";
+import { CO_SIGNING_AGENT_COPY, type SeatName } from "./copy";
 import { HederaAddressInput } from "@scaffold-hbar-ui/components";
-import { useCouncilSeatNames } from "~~/components/governance/graph/useCouncilSeatNames";
+import type { CouncilKey } from "@sh/core/governance/council";
+import { MAP_LABELS } from "~~/components/governance/graph/copy";
+import { type MemberName, memberNamesOf } from "~~/components/governance/graph/mapModel";
+import { useComposedMap } from "~~/components/governance/graph/useComposedMap";
 import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
 import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
+import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 
 export type CoSigningAgentTargets = {
-  governanceAccountId: string;
-  /** Read with the governance account to name the members, the proposers being who the map can name. */
-  executorContractId: string;
+  /** The deployment the map beside the rail composes, so the members are named as the map names them. */
+  config: GovernanceConfig;
   /** The account the form starts with, when the configuration names the agent's; empty otherwise. */
   suggestedAgentAccountId: string | null;
 };
 
+/** The council's seats in its own order, by their names on the map; the map calls the connected one "You". */
+const seatNamesOf = (council: CouncilKey, names: Record<string, MemberName>): SeatName[] =>
+  council.memberKeys.map(key => {
+    const name = names[key]?.name ?? key;
+    return { label: name, isViewer: name === MAP_LABELS.you };
+  });
+
 export const AddAgentForm = ({
-  targets: { governanceAccountId, executorContractId, suggestedAgentAccountId },
+  targets: { config, suggestedAgentAccountId },
   network,
   chain,
   council,
@@ -27,7 +37,9 @@ export const AddAgentForm = ({
   const [agentText, setAgentText] = useState(suggestedAgentAccountId ?? "");
   const agentInput = agentText.trim();
   const agent = useAccount(agentInput, { network });
-  const seatNames = useCouncilSeatNames({ governanceAccountId, executorContractId, network });
+  const { composed } = useComposedMap(config);
+  const memberNames = useMemo(() => composed && memberNamesOf(composed), [composed]);
+  const { governanceAccountId } = config;
 
   useEffect(() => {
     if (!council) {
@@ -42,7 +54,7 @@ export const AddAgentForm = ({
     onDraftChange(draftAgentSeat(governanceAccountId, council, seat.key));
   }, [agentInput, agent.data, agent.error, council, governanceAccountId, onDraftChange]);
 
-  const newKey = council && seatNames && CO_SIGNING_AGENT_COPY.newKey(council, seatNames);
+  const newKey = council && memberNames && CO_SIGNING_AGENT_COPY.newKey(council, seatNamesOf(council, memberNames));
 
   return (
     <div className="rounded-box border border-base-300 bg-base-200 p-4 flex flex-col gap-3">

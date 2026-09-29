@@ -1,6 +1,7 @@
 "use client";
 
 import { DEFAULT_PENDING_POLL_MS, getDefaultMirrorNetwork, mirrorQueryKey } from "./mirrorQuery";
+import { inboxWhileAwaitingCancels, useSentCancels } from "./sentCancels";
 import { type CouncilOptions, useCouncil } from "./useCouncil";
 import { useRefreshOnSettle } from "./useRefreshOnSettle";
 import { type ProposalInbox, fetchProposalInbox } from "@sh/core/governance/proposals";
@@ -36,6 +37,7 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
   const network = options.network ?? getDefaultMirrorNetwork();
   const council = useCouncil(options);
   const queryClient = useQueryClient();
+  const sentCancels = useSentCancels(network, options.executorContractId);
   // The executor belongs in the key: the inbox is crossed against its registry, so pointing the app
   // at a different one has to invalidate the list and not just the council.
   const queryKey = [
@@ -66,6 +68,8 @@ export function useProposals({ pollIntervalMs = DEFAULT_PENDING_POLL_MS, ...opti
     retry: false,
     refetchInterval: query =>
       query.state.data?.proposals.some(proposal => !hasFinalOutcome(proposal)) ? pollIntervalMs : SETTLED_INBOX_POLL_MS,
+    // A cancel sent from the detail reads as it does there, rather than as the lagging relay answers.
+    select: data => inboxWhileAwaitingCancels(data, sentCancels, Date.now()),
   });
   useRefreshOnSettle(inbox.data?.proposals, {
     network,

@@ -5,11 +5,12 @@ import { type CouncilKey, memberKeyOfAccount } from "@sh/core/governance/council
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Chain } from "viem";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import type { DraftResult } from "~~/services/governance/drafts";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
-vi.mock("~~/components/governance/graph/useCouncilSeatNames", () => ({ useCouncilSeatNames: () => SEATS }));
+vi.mock("~~/components/governance/graph/useComposedMap", () => ({ useComposedMap: () => ({ composed: COMPOSED }) }));
 vi.mock("@scaffold-hbar-ui/components", () => ({
   HederaAddressInput: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <input aria-label="Agent account" value={value} onChange={event => onChange(event.target.value)} />
@@ -28,11 +29,19 @@ const COUNCIL: CouncilKey = {
   threshold: 2,
   memberKeys: [ecdsa(), ecdsa(), bob].map(key => memberKeyOfAccount(key) ?? ""),
 };
-const SEATS = vi.hoisted(() => [
-  { label: "0.0.10746002", isViewer: true },
-  { label: "Alice", isViewer: false },
-  { label: "Bob", isViewer: false },
-]);
+/** The map as composed with the connected account in the first seat, which the map calls "You". */
+const COMPOSED = {
+  graph: {
+    nodes: ["You", "Alice", "Bob"].map((label, index) => ({
+      id: `member:${index}`,
+      role: "member",
+      ref: COUNCIL.memberKeys[index],
+      label,
+    })),
+  },
+  captions: {},
+} as never;
+const CONFIG = { governanceAccountId: TREASURY } as GovernanceConfig;
 
 beforeEach(() => {
   vi.mocked(useAccount).mockReturnValue({ data: undefined, error: null, isLoading: false } as never);
@@ -47,7 +56,7 @@ const renderForm = (suggestedAgentAccountId: string | null = null) => {
   const onDraftChange = vi.fn<(result: DraftResult) => void>();
   render(
     <AddAgentForm
-      targets={{ governanceAccountId: TREASURY, executorContractId: "0.0.4200", suggestedAgentAccountId }}
+      targets={{ config: CONFIG, suggestedAgentAccountId }}
       network="testnet"
       chain={CHAIN}
       council={COUNCIL}

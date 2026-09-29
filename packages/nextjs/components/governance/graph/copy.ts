@@ -32,11 +32,6 @@ export const MAP_NODE_CAPTIONS: Record<NodeRole, string> = {
   external: "outside the system",
 };
 
-/** A council member whose account is not known here, by the start of its key. */
-export function unnamedMemberLabel(key: string): string {
-  return `Member ${key.slice(0, 6)}…`;
-}
-
 const EDGE_KIND_LABELS: Record<EdgeKind, string> = {
   authority: "May act",
   intent: "Would happen",

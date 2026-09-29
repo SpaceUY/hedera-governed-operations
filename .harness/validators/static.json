@@ -1,5 +1,5 @@
 {
-  "name": "template-baseline-static",
+  "name": "governed-operations-static",
   "description": "Files and text a fresh scaffold of this template must ship with. template.json is not asserted: create-scaffold-hbar removes it when scaffolding.",
   "jsonAssertions": [
     {
@@ -35,7 +35,7 @@
     },
     {
       "file": "packages/nextjs/components/Header.tsx",
-      "contains": ["Governed Operations", "Live map", "Proof wall", "MirrorPollStatus"]
+      "contains": ["Governed Operations", "Live map", "MirrorPollStatus"]
     },
     {
       "file": "packages/nextjs/components/MirrorPollStatus.tsx",
@@ -67,7 +67,7 @@
     },
     {
       "file": "packages/nextjs/services/governance/proposalLabels.ts",
-      "contains": ["Pending proposals"]
+      "contains": ["Pending operations", "Recent", "There is no execute button."]
     },
     {
       "file": "packages/nextjs/components/governance/wizard/CouncilPreviewPanel.tsx",
@@ -84,6 +84,10 @@
     {
       "file": "packages/nextjs/components/governance/MutationError.tsx",
       "contains": ["The approval took too long and the transaction expired", "The request expired before it was approved"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["Find a proposal by schedule id", "Show fewer", "Expiring now"]
     }
   ]
 }

@@ -1,11 +1,12 @@
-import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR } from "./mapFixtures";
+import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR, pendingTransferTo } from "./mapFixtures";
 import {
   AUTO_MAP_SIZE,
   type MapDecorator,
   composeMap,
-  councilSeatNames,
   genericLabels,
+  memberNamesOf,
   readingOrder,
+  routeNamesOf,
 } from "./mapModel";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -86,26 +87,6 @@ describe("composeMap with a connected account", () => {
   });
 });
 
-describe("councilSeatNames", () => {
-  const { council, proposers } = MAP_SNAPSHOT;
-
-  it("names the seats in the council's order, as the map does", () => {
-    const decorate: MapDecorator = () => ({
-      layout: { width: 1, height: 1, positions: {}, labels: { [memberNodeId(KEY_B)]: "Bob" } },
-    });
-    expect(councilSeatNames(council, proposers, { decorate, viewerAccountId: "0.0.4103" })).toEqual([
-      { label: "0.0.4101", isViewer: false },
-      { label: "Bob", isViewer: false },
-      { label: "You", isViewer: true },
-    ]);
-  });
-
-  it("falls back to the generic names without a decoration or a wallet", () => {
-    const names = councilSeatNames({ threshold: 1, memberKeys: [KEY_A, KEY_C] }, proposers.slice(0, 1), {});
-    expect(names.map(seat => seat.label)).toEqual(["0.0.4101", "Member Y2Fyb2…"]);
-  });
-});
-
 describe("readingOrder", () => {
   it("reads left to right, then top to bottom", () => {
     const items = [
@@ -114,5 +95,44 @@ describe("readingOrder", () => {
       { id: "upper-left", position: { x: 1, y: 1 } },
     ];
     expect(readingOrder(items)).toEqual(["upper-left", "lower-left", "right"]);
+  });
+});
+
+describe("memberNamesOf", () => {
+  it("names each seat by its key, as the map labels and captions its node", () => {
+    const decorate: MapDecorator = () => ({
+      layout: { width: 400, height: 300, positions: {}, labels: { [memberNodeId(KEY_B)]: "Bob" } },
+      captions: { [memberNodeId(KEY_B)]: "demo co-signer" },
+    });
+    const names = memberNamesOf(composeMap(MAP_SNAPSHOT, decorate, "0.0.4101"));
+    expect(names[KEY_A]).toEqual({ name: "You", caption: undefined });
+    expect(names[KEY_B]).toEqual({ name: "Bob", caption: "demo co-signer" });
+    expect(names[KEY_C]).toEqual({ name: "0.0.4103", caption: undefined });
+  });
+});
+
+describe("routeNamesOf", () => {
+  const UPGRADE = {
+    kind: "upgrade",
+    target: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+    implementation: "0x0000000000000000000000000000000000a2d434",
+    initializerCalldata: "0x",
+    initializer: { kind: "none" },
+  } as const;
+
+  it("names the nodes a vault upgrade travels, in order", () => {
+    const { graph } = composeMap(MAP_SNAPSHOT);
+    expect(routeNamesOf(graph, UPGRADE)).toEqual(["Treasury", "Proposal registry", "Vault"]);
+  });
+
+  it("names a pending transfer's recipient as the map does", () => {
+    const transfer = pendingTransferTo("0.0.7000");
+    const { graph } = composeMap({ ...MAP_SNAPSHOT, proposals: [transfer] });
+    expect(routeNamesOf(graph, transfer.operation as never)).toEqual(["Treasury", "0.0.7000"]);
+  });
+
+  it("is null for a route the map cannot draw", () => {
+    const { graph } = composeMap(MAP_SNAPSHOT);
+    expect(routeNamesOf(graph, { kind: "unrecognized", reason: "unknown selector" })).toBeNull();
   });
 });

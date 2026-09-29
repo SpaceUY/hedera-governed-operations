@@ -1,20 +1,18 @@
 {
-  "name": "template-baseline-eval",
+  "name": "governed-operations-eval",
   "template": "governed-operations",
   "prd": ".harness/prd.md",
-  "version": 1,
+  "version": 2,
   "routes": [
     "/",
-    "/governance/new",
-    "/proof-wall",
-    "/admin",
-    "/explorer"
+    "/governance/new"
   ],
   "evaluationRules": {
     "posture": "adversarial",
     "failOnUncertainty": "If an assertion cannot be positively verified from the running app, mark it FAILED. Absence of evidence is a failure.",
     "credentials": "The app must load and be browsable without any .env, private keys or funded account.",
     "walletGatedFlows": "Without a Test Signer, walletRequired assertions stay affordance-only: verify the control is visible and the app explains a wallet is needed.",
+    "setupNotice": "Without a .env or a deployment every governance route renders the \"Governance is not set up yet\" notice instead of its content. That is the expected state, not a failure: verify the notice and the header, and stop there.",
     "evidence": "Every issue cites route, element and console output."
   },
   "assertions": [
@@ -26,48 +24,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "The home route renders the live map without a wallet, without a .env file and without browser console errors.",
-      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, the governed token labelled with its symbol from the Mirror Node, USDC, Council threshold) and the line \"Each proposal runs by itself the moment the council's threshold has signed it.\"; and beside it a rail headed \"Pending proposals\" with a \"New proposal\" link. No crash banner is shown and the console has no errors."
-    },
-    {
-      "id": "E2",
-      "journey": "Wallet-gated actions",
-      "route": "/admin",
-      "severity": "major",
-      "walletRequired": true,
-      "verifiableWithoutCredentials": true,
-      "statement": "The admin route shows the topic and badge creation controls and explains that a connected wallet is required, without crashing.",
-      "howToVerify": "Navigate to /admin without connecting. Confirm the \"Connect a Hedera wallet to create topics and tokens.\" message, the create-topic and create-token controls (disabled), and no error boundary."
-    },
-    {
-      "id": "E3",
-      "journey": "Create a topic with the test signer",
-      "route": "/admin",
-      "severity": "major",
-      "walletRequired": true,
-      "verifiableWithoutCredentials": false,
-      "executableWithTestSigner": true,
-      "statement": "With the harness test signer stored in localStorage, the app connects on reload without a wallet modal, creates an HCS topic from /admin and the topic exists on the testnet Mirror Node.",
-      "howToVerify": "Store the test signer key under localStorage[\"burnerWallet.pk\"] and reload /admin. Do not open any wallet modal: the header must show the signer's 0.0.x account id with a \"test signer\" badge and the page the \"Wallet connected as 0.0.x.\" message (allow ~20 s for the account to resolve from the Mirror Node). Click \"Create topic\" and wait for \"Topic created\" with a 0.0.x topic id. Then GET https://testnet.mirrornode.hedera.com/api/v1/topics/{topicId} (poll up to 30 s) and confirm memo \"Proof Wall\" and deleted=false."
-    },
-    {
-      "id": "E4",
-      "journey": "Read Mirror Node data without a wallet",
-      "route": "/explorer",
-      "severity": "major",
-      "walletRequired": false,
-      "verifiableWithoutCredentials": true,
-      "statement": "The explorer route reads topic messages and schedule state straight from the testnet Mirror Node, without a wallet, a .env file or console errors.",
-      "howToVerify": "Navigate to /explorer without connecting. Confirm the \"Mirror Explorer\" heading and the two cards \"Topic messages\" and \"Schedule state\". Type 0.0.10650370 in the topic id field: within a few seconds a list of messages (or \"No messages on this topic yet.\") replaces the spinner. Type 0.0.10590552 in the schedule id field: a status badge reading \"executed\" appears with a signature count. Console has no errors."
-    },
-    {
-      "id": "E5",
-      "journey": "Wallet-gated actions",
-      "route": "/governance/new",
-      "severity": "major",
-      "walletRequired": true,
-      "verifiableWithoutCredentials": true,
-      "statement": "The new-proposal route offers the operation kinds as one radio choice in two groups and explains that a connected wallet is required, without crashing.",
-      "howToVerify": "Navigate to /governance/new without connecting. Confirm either the \"Governance is not set up yet\" notice (no .env or deployment), or: the \"New proposal\" heading; radio buttons grouped under \"Contract calls · through the registry\" and \"Native · no contract, no registry entry\", with \"Upgrade the vault to v2\" checked; the message \"Connect a wallet to propose. The proposal is opened and paid for by your account.\"; and the \"Register and schedule with your wallet\" button disabled. Pressing the down arrow on the focused radio moves the choice to the next kind, \"Sell treasury HBAR for USDC\", and the button still reads \"Register and schedule with your wallet\"; choosing \"Pay a supplier\" makes it read \"Schedule with your wallet\". Console has no errors."
+      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, the governed token labelled with its symbol from the Mirror Node, USDC, Council threshold); and beside it a rail headed \"Pending operations\" with a \"New proposal\" link and, under that heading, the line \"Each one runs by itself the moment the N-of-M council has signed it. There is no execute button.\" (N-of-M is the council's threshold, e.g. 2-of-3). The map pane does not repeat that line. No crash banner is shown and the console has no errors."
     },
     {
       "id": "E6",
@@ -76,18 +33,39 @@
       "severity": "major",
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
-      "statement": "The live map is one fold on a desktop screen: the page does not scroll, the rail lists only proposals still collecting signatures under \"Pending proposals\", and the header shows the navigation, the network and how fresh the Mirror Node read is.",
-      "howToVerify": "Without a .env or a deployment / shows the \"Governance is not set up yet\" notice instead: then confirm only the header (\"Live map\" active, \"Proof wall\", a \"Hedera Testnet\" badge) and no console errors. Otherwise, at a 1440×900 viewport navigate to /: document.documentElement.scrollHeight equals window.innerHeight (the page does not scroll; only the rail may). The header shows the links \"Live map\" (active) and \"Proof wall\", a \"Hedera Testnet\" badge and, within ~10 s, \"Mirror Node · polled Ns ago\" whose number increases every second. Every proposal listed directly under \"Pending proposals\" reads \"Collecting signatures\"; executed, withdrawn or expired ones appear only under \"Settled\". Opening /governance/new keeps the treasury figures in place and shows \"← Map\" with the \"New proposal\" heading in the rail. Console has no errors."
+      "statement": "The live map is one fold on a desktop screen: the page does not scroll, the rail lists only proposals still collecting signatures under \"Pending operations\", and the header shows the navigation, the network and how fresh the Mirror Node read is.",
+      "howToVerify": "Without a .env or a deployment / shows the \"Governance is not set up yet\" notice instead: then confirm only the header (\"Live map\" active, a \"Hedera Testnet\" badge) and no console errors. Otherwise, at a 1440×900 viewport navigate to /: document.documentElement.scrollHeight equals window.innerHeight (the page does not scroll; only the rail may). The header shows the \"Live map\" link (active), a \"Hedera Testnet\" badge and, within ~10 s, \"Mirror Node · polled Ns ago\" whose number increases every second. Every proposal listed directly under \"Pending operations\" reads \"N more needed\" (or \"Threshold reached\") with a time-left chip; executed, withdrawn or expired ones appear only under \"Recent\", reading how they ended (\"Executed\", \"Withdrawn\", \"Expired\"). Opening /governance/new keeps the treasury figures in place and shows \"← Map\" with the \"New proposal\" heading in the rail. Console has no errors."
     },
     {
-      "id": "E7",
-      "journey": "Browse without a wallet",
-      "route": "/proof-wall",
-      "severity": "minor",
+      "id": "E5",
+      "journey": "File a proposal",
+      "route": "/governance/new",
+      "severity": "major",
+      "walletRequired": true,
+      "verifiableWithoutCredentials": true,
+      "statement": "The new-proposal route offers the operation kinds as one radio choice in two groups and explains that a connected wallet is required, without crashing.",
+      "howToVerify": "Navigate to /governance/new without connecting. Confirm either the \"Governance is not set up yet\" notice (no .env or deployment), or: the \"New proposal\" heading; radio buttons grouped under \"Contract calls · through the registry\" and \"Native · no contract, no registry entry\", with \"Upgrade the vault to v2\" checked; the message \"Connect a wallet to propose. The proposal is opened and paid for by your account.\"; and the \"Register and schedule with your wallet\" button disabled. Pressing the down arrow on the focused radio moves the choice to the next kind, \"Sell treasury HBAR for USDC\", and the button still reads \"Register and schedule with your wallet\"; choosing \"Pay a supplier\" makes it read \"Schedule with your wallet\". Console has no errors."
+    },
+    {
+      "id": "E8",
+      "journey": "Read a proposal",
+      "route": "/",
+      "severity": "major",
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
-      "statement": "The Proof Wall page links its other pages, which the header no longer lists.",
-      "howToVerify": "Navigate to /proof-wall. Confirm the \"Proof Wall\" heading and the links \"My proofs\", \"Admin\" and \"Explorer\"; clicking \"Explorer\" opens /explorer with the \"Mirror Explorer\" heading. The header lists only \"Live map\" and \"Proof wall\". Console has no errors."
+      "statement": "A proposal's detail page says what the operation would do, how far it is from the threshold and when it expires, read from the Mirror Node without a wallet.",
+      "howToVerify": "Without a .env or a deployment the route renders the \"Governance is not set up yet\" notice: confirm that and stop. Otherwise navigate to / and click the first card under \"Pending operations\" (it reads \"N more needed\" with a time-left chip); its detail opens under the card. Confirm a sentence describing the operation (for example \"Swap 10 ℏ for at least …\"); the steps \"Create\", \"Sign\" and \"Executed\", the last reading \"Runs by itself at the Nth signature. No execute button.\"; the headline \"N more signature(s) needed · M-of-N council · K signed\" with a time-left chip (\"6d 21h left\"); a \"Council\" list naming each member with \"Signed … ago\" or \"Not yet\"; and the line starting \"There is no reject button.\" that says when the schedule expires on its own. Then open /governance/{scheduleId} for the same schedule (its id is under \"On HashScan\", as \"Schedule 0.0.x\") and confirm the same detail under \"Proposal 0.0.x\" with a \"← Map\" link. No wallet is connected and the console has no errors."
+    },
+    {
+      "id": "E9",
+      "journey": "Approve from a wallet",
+      "route": "/",
+      "severity": "critical",
+      "walletRequired": true,
+      "verifiableWithoutCredentials": false,
+      "executableWithTestSigner": true,
+      "statement": "With the harness test signer seated on the council, signing a pending proposal from the app adds that signature to the scheduled transaction on the testnet Mirror Node.",
+      "howToVerify": "The dev server command runs `yarn harness:council-seat` first, which adds this run's test signer to the governance account's threshold key; without that seat the network answers INVALID_SIGNATURE and this assertion fails. Store the test signer key under localStorage[\"burnerWallet.pk\"] and reload /. Do not open any wallet modal: the header must show the signer's 0.0.x account id with a \"test signer\" badge (allow ~20 s for the account to resolve from the Mirror Node). Click a card under \"Pending operations\" that reads \"N more needed\"; in its detail note the schedule id (under \"On HashScan\", as \"Schedule 0.0.x\") and the \"K signed\" count in the headline. GET https://testnet.mirrornode.hedera.com/api/v1/schedules/{scheduleId} and note signatures.length. Click \"Sign with the test signer\" on the signer's own row in the \"Council\" list and wait for \"K signed\" to rise by one. Then GET the same Mirror Node URL again (poll up to 30 s) and confirm signatures.length has risen by one. Console has no errors."
     }
   ]
 }

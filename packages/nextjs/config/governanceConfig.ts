@@ -38,6 +38,14 @@ export function getReleaseTopicId(): string | null {
   return process.env.NEXT_PUBLIC_RELEASE_TOPIC_ID?.trim() || null;
 }
 
+/**
+ * The co-signing agent's account (`packages/agent`), when the app is told which one it runs as: an
+ * account id, public like every other id here. Optional — without it the council list names no agent.
+ */
+export function getCoSigningAgentAccountId(): string | null {
+  return process.env.NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID?.trim() || null;
+}
+
 /** A deployed contract as the governance screens need it: with the native id a scheduled call targets. */
 export type HederaDeployedContract = GenericContract & { hederaContractId: string };
 
