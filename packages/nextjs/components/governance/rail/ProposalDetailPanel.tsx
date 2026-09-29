@@ -124,7 +124,7 @@ export const ProposalDetailPanel = ({
   ) : null;
 
   const headline = signatureHeadline(proposal);
-  const countdown = expiryCountdown(state.expiresAt, isPending);
+  const countdown = isPending ? expiryCountdown(state.expiresAt) : null;
   const creatorKey = proposers.find(proposer => proposer.accountId === schedule.creator_account_id)?.key;
   const creatorName = (creatorKey && memberNames?.[creatorKey]?.name) || schedule.creator_account_id;
   const ending = endNote(proposal);

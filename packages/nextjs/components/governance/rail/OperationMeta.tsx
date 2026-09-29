@@ -11,7 +11,7 @@ export type OperationMetaProps = { proposal: Proposal; family: ProposalIdentity[
  * needs or how it ended, and while it is live, the time it has left — urgent in its final hour.
  */
 export const OperationMeta = ({ proposal, family }: OperationMetaProps) => {
-  const countdown = expiryCountdown(proposal.state.expiresAt, proposal.state.status === "pending");
+  const countdown = proposal.state.status === "pending" ? expiryCountdown(proposal.state.expiresAt) : null;
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/60">
       {family && (

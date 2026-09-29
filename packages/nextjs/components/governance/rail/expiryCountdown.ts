@@ -1,7 +1,7 @@
 /**
  * A pending proposal's time left before it expires, so a card can say how urgent it is without the
- * council having to open the detail page. Only a pending schedule has one to show: a settled schedule
- * either ran or is already done waiting.
+ * council having to open the detail page. Only a pending schedule has one to show — a settled schedule
+ * either ran or is already done waiting — so callers ask for it only while the proposal is pending.
  */
 export type ExpiryUrgency = "normal" | "final-hour";
 
@@ -21,12 +21,8 @@ export function formatDuration(ms: number): string {
   return `${minutes}m`;
 }
 
-export function expiryCountdown(
-  expiresAt: Date | null,
-  isPending: boolean,
-  now: Date = new Date(),
-): ExpiryCountdown | null {
-  if (!isPending || !expiresAt) return null;
+export function expiryCountdown(expiresAt: Date | null, now: Date = new Date()): ExpiryCountdown | null {
+  if (!expiresAt) return null;
   const remainingMs = expiresAt.getTime() - now.getTime();
   if (remainingMs <= 0) return { label: "Expiring now", urgency: "final-hour" };
   return {
