@@ -60,8 +60,7 @@ Every row is a transaction this repository's code produced on Hedera testnet, th
 | A token the council governs but cannot sign for | [token 0.0.10671171](https://hashscan.io/testnet/token/0.0.10671171) | No admin key; its pause and freeze keys are contract 0.0.10671169 (`TokenAdmin`), for good |
 | Releases are published where only the team can write | [topic 0.0.10760100](https://hashscan.io/testnet/topic/0.0.10760100) | A submit key, and the `v2.0.0` manifest with the hash of the deployed runtime bytecode |
 | The agent's decisions are public, refusals included | [topic 0.0.10762625](https://hashscan.io/testnet/topic/0.0.10762625) | The agent's own submit key; approvals, an upgrade held `pending` until a person's code, and a refusal naming the limit it failed |
-
-The agent's approvals on that topic are decisions it made and signatures it sent: none of those proposals was then carried to its threshold, so none of them ran.
+| The agent is one seat, not the owner: its signature plus a member's runs the proposal | [schedule 0.0.10781952](https://hashscan.io/testnet/schedule/0.0.10781952) | The agent's approval as message 11 on the topic above, then a second council signature; the scheduled `CRYPTOTRANSFER` is `SUCCESS`, 0.05 ℏ to 0.0.10671142 |
 
 You do not have to trust this page — read the ledger:
 
