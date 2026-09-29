@@ -32,8 +32,5 @@ export const MOTION_MS = {
   councilChanged: 400,
 } as const;
 
-/** How long comets take to cross `hops` hops, one leaving every stagger. */
-export const travelMs = (hops: number): number => MOTION_MS.comet + MOTION_MS.cometStagger * (hops - 1);
-
 /** How long the comets of a failed run take to come back across `hops` hops. */
 export const retreatMs = (hops: number): number => MOTION_MS.retreat + MOTION_MS.retreatStagger * (hops - 1);

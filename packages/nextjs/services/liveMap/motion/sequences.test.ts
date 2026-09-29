@@ -1,11 +1,13 @@
 import { ALICE, INCOMING, ROTATION, TRANSFER, UPGRADE_CALL, ago, proposal } from "./motionFixtures";
 import { type Step, sequenceOf } from "./sequences";
-import { MOTION_MS, retreatMs, travelMs } from "./timings";
+import { MOTION_MS, retreatMs } from "./timings";
 import { describe, expect, it } from "vitest";
 import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
 
 const names = (steps: Step[]) => steps.map(({ cue }) => ("hop" in cue ? `comet ${cue.hop}` : cue.name));
 const total = (steps: Step[]) => steps.reduce((sum, { ms }) => sum + ms, 0);
+/** How long comets take to cross `hops` hops, one leaving every stagger: what the steps must add up to. */
+const travelMs = (hops: number): number => MOTION_MS.comet + MOTION_MS.cometStagger * (hops - 1);
 
 const UPGRADE = proposal({ id: "0.0.9001", operation: UPGRADE_CALL });
 const event = (kind: "proposed" | "executed" | "reverted", scheduleId = "0.0.9001"): AnimationEvent =>
