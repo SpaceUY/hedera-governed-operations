@@ -4,6 +4,7 @@ import { ApproverList } from "./ApproverList";
 import { HashScanLinks } from "./HashScanLinks";
 import { OperationMeta } from "./OperationMeta";
 import { ProposalStages } from "./ProposalStages";
+import { UnseatedAgentRow } from "./UnseatedAgentRow";
 import { WithdrawCancelActions } from "./WithdrawCancelActions";
 import {
   COUNCIL_HEADINGS,
@@ -19,12 +20,13 @@ import {
 } from "./copy";
 import { expiryCountdown } from "./expiryCountdown";
 import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
-import { memberSignedAt } from "@sh/core/governance/council";
+import { type CouncilKey, memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
 import type { MemberName } from "~~/components/governance/graph/mapModel";
 import { gasLimitLabel } from "~~/components/governance/wizard/copy";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
+import { type CoSigningAgent, useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import {
@@ -99,6 +101,8 @@ export const ProposalDetailPanel = ({
   const registryUnreachable = operation.kind === "registryCall" && registry.status === "unreachable";
   const sign = useSignProposal();
   const council = useCouncil({ governanceAccountId, executorContractId, network });
+  const agent = useCoSigningAgent(network);
+  const unseatedAgentSeat = council.data ? unseatedAgentSeatOf(agent, council.data.key) : null;
   const proposers = council.data?.proposers ?? [];
   const rule = council.data ? councilRuleLabel(council.data.key) : `${proposal.progress.threshold}-of-?`;
   const { Title, sectionHeadingLevel, container, title } = VARIANT_LAYOUT[variant];
@@ -133,6 +137,7 @@ export const ProposalDetailPanel = ({
     memberNames,
     isCollecting: isPending,
     signAction: signButton,
+    agent,
     headingLevel: sectionHeadingLevel,
   };
 
@@ -230,7 +235,11 @@ export const ProposalDetailPanel = ({
               council={council.data.key}
               progress={proposal.progress}
               {...listProps}
-            />
+            >
+              {unseatedAgentSeat && (
+                <UnseatedAgentRow ruleWithAgent={councilRuleLabel(withSeat(council.data.key, unseatedAgentSeat))} />
+              )}
+            </ApproverList>
           )}
         </div>
       )}
@@ -279,6 +288,20 @@ export const ProposalDetailPanel = ({
     </div>
   );
 };
+
+/**
+ * The agent's seat while the council does not hold it. An agent whose key is not one public key can
+ * never be seated, so it gets no row at all.
+ */
+function unseatedAgentSeatOf(agent: CoSigningAgent | null, council: CouncilKey): string | null {
+  if (!agent?.seat || council.memberKeys.includes(agent.seat)) return null;
+  return agent.seat;
+}
+
+/** The council once that seat is added at the same threshold — what "Add the co-signing agent" proposes. */
+function withSeat(council: CouncilKey, seat: string): CouncilKey {
+  return { threshold: council.threshold, memberKeys: [...council.memberKeys, seat] };
+}
 
 /**
  * When each counted seat's signature landed, from the signature rows the schedule already carries —

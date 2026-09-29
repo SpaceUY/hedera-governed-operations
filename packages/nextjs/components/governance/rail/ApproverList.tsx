@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { CouncilMemberRow, type MemberSignature, type SeatState } from "./CouncilMemberRow";
+import { AGENT_COPY } from "./copy";
 import type { CouncilKey, Proposer, ThresholdProgress } from "@sh/core/governance/council";
 import { mirrorTimestampToDate } from "@sh/core/mirror";
 import type { MemberName } from "~~/components/governance/graph/mapModel";
+import type { CoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { memberLabel } from "~~/services/governance/proposalLabels";
 import { type HederaNetworkName, getHashScanUrl } from "~~/utils/scaffold-hbar/networks";
 
@@ -24,6 +26,10 @@ export type ApproverListProps = {
   network?: HederaNetworkName;
   /** Put on the viewer's own row, while it has not signed. */
   signAction?: ReactNode;
+  /** The co-signing agent, when the app knows its account: the seat its key holds is named as the agent. */
+  agent?: CoSigningAgent | null;
+  /** Rows after the members' — the co-signing agent's, while it holds no seat. */
+  children?: ReactNode;
   /** One below the panel's title: 2 on the detail route, 3 when the panel opens under a card. */
   headingLevel?: 2 | 3;
 };
@@ -45,6 +51,8 @@ export const ApproverList = ({
   signedAt = {},
   network,
   signAction,
+  agent,
+  children,
   headingLevel = 2,
 }: ApproverListProps) => {
   const Heading = headingLevel === 2 ? "h2" : "h3";
@@ -59,14 +67,19 @@ export const ApproverList = ({
       <Heading className="m-0 text-xs font-semibold text-base-content/70">{heading}</Heading>
       <ul className="m-0 flex list-none flex-col p-0">
         {council.memberKeys.map(key => {
-          const holder = proposers.find(proposer => proposer.key === key)?.accountId;
+          const isAgent = agent?.seat === key;
+          const holder =
+            proposers.find(proposer => proposer.key === key)?.accountId ?? (isAgent ? agent.accountId : undefined);
           const isViewer = holder !== undefined && holder === viewerAccountId;
           const state = stateOf(key);
           return (
             <CouncilMemberRow
               key={key}
-              name={memberNames[key]?.name ?? memberLabel(key, proposers, viewerAccountId)}
-              caption={memberNames[key]?.caption}
+              name={
+                isAgent ? AGENT_COPY.name : (memberNames[key]?.name ?? memberLabel(key, proposers, viewerAccountId))
+              }
+              caption={isAgent ? undefined : memberNames[key]?.caption}
+              monogram={isAgent ? AGENT_COPY.monogram : undefined}
               accountId={holder}
               isViewer={isViewer}
               state={state}
@@ -75,6 +88,7 @@ export const ApproverList = ({
             />
           );
         })}
+        {children}
       </ul>
     </section>
   );

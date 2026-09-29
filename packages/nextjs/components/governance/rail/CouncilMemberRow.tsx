@@ -9,6 +9,8 @@ export type CouncilMemberRowProps = {
   name: string;
   /** The map's caption for the seat, when it has one ("demo co-signer"). */
   caption?: string;
+  /** In place of the name's first letter in the avatar, for a seat whose name does not start its own ("AG"). */
+  monogram?: string;
   /** The account holding the seat, shown under the name when the name is not already it. */
   accountId?: string;
   isViewer: boolean;
@@ -31,6 +33,7 @@ const STATE_CLASSES: Record<SeatState, string> = {
 export const CouncilMemberRow = ({
   name,
   caption,
+  monogram,
   accountId,
   isViewer,
   state,
@@ -44,7 +47,7 @@ export const CouncilMemberRow = ({
         state === "signed" ? "border-success" : "border-base-content/30"
       }`}
     >
-      {isViewer ? MEMBER_COPY.you : monogramOf(name)}
+      {isViewer ? MEMBER_COPY.you : (monogram ?? monogramOf(name))}
     </span>
     <span className="flex min-w-0 flex-1 flex-col">
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">

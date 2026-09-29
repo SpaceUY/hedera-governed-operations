@@ -138,6 +138,16 @@ export const MEMBER_COPY = {
   didNotSign: "Didn't sign",
 } as const;
 
+/** The co-signing agent in the council list: its own seat's name, or the row saying it has none yet. */
+export const AGENT_COPY = {
+  name: "Co-signing agent",
+  monogram: "AG",
+  notMember: "not a member",
+  notSeated: "not seated",
+  /** `rule` is the council the agent's seat would make, the current threshold over one more member. */
+  howToSeat: (rule: string) => `Approve “Add the co-signing agent” to seat it (${rule} council).`,
+} as const;
+
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const SIGNED_DATE_FORMAT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
 

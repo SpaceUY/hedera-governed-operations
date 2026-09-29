@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useProposals } from "~~/hooks/mirror/useProposals";
+import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
@@ -17,6 +18,7 @@ vi.mock("~~/hooks/useCancelProposalFlow", () => ({
   useCancelProposalFlow: () => ({ step: "idle", start: vi.fn(), error: null }),
 }));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
+vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: vi.fn() }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.4000";
 const EXECUTOR_CONTRACT_ID = "0.0.5000";
@@ -85,6 +87,7 @@ function mockHooks() {
   vi.mocked(useProposals).mockReturnValue({
     inbox: { data: undefined, isLoading: false },
   } as unknown as ReturnType<typeof useProposals>);
+  vi.mocked(useCoSigningAgent).mockReturnValue(null);
 }
 
 beforeEach(mockHooks);
@@ -280,6 +283,29 @@ describe("ProposalDetailPanel", () => {
       `https://hashscan.io/testnet/transaction/${signatureRow.consensus_timestamp}`,
     );
     expect(within(screen.getByText(MEMBER_B).closest("li")!).getByText("Not yet")).toBeTruthy();
+  });
+
+  it("shows the co-signing agent as not seated, with the council seating it would make, while it holds no seat", () => {
+    vi.mocked(useCoSigningAgent).mockReturnValue({ accountId: "0.0.4999", seat: KEY_X });
+    renderPanel();
+    const row = screen.getByText("Co-signing agent").closest("li")!;
+    expect(within(row).getByText("AG")).toBeTruthy();
+    expect(within(row).getByText("not a member")).toBeTruthy();
+    expect(within(row).getByText("not seated")).toBeTruthy();
+    expect(within(row).getByText("Approve “Add the co-signing agent” to seat it (2-of-3 council).")).toBeTruthy();
+  });
+
+  it("names the co-signing agent's own seat instead once it holds one, and shows no agent without one configured", () => {
+    vi.mocked(useCoSigningAgent).mockReturnValue({ accountId: "0.0.4999", seat: KEY_B });
+    renderPanel({ accountId: null });
+    const row = screen.getByText("Co-signing agent").closest("li")!;
+    expect(within(row).getByText("Not yet")).toBeTruthy();
+    expect(screen.queryByText("not seated")).toBeNull();
+    cleanup();
+
+    vi.mocked(useCoSigningAgent).mockReturnValue(null);
+    renderPanel();
+    expect(screen.queryByText("Co-signing agent")).toBeNull();
   });
 
   it("folds the raw ids, function and gas away under one disclosure", () => {

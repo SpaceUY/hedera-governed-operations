@@ -65,4 +65,24 @@ describe("ApproverList", () => {
     renderList({ viewerAccountId: "0.0.101", signAction: <button type="button">Sign with HashPack</button> });
     expect(screen.queryByRole("button")).toBeNull();
   });
+
+  it("names the seat the co-signing agent holds as the agent, with its account under the name", () => {
+    renderList({
+      memberNames: { "key-c": { name: "Bob", caption: "demo co-signer" } },
+      agent: { accountId: "0.0.103", seat: "key-c" },
+    });
+    const row = screen.getByText("Co-signing agent").closest("li")!;
+    expect(within(row).getByText("AG")).toBeTruthy();
+    expect(within(row).getByText("0.0.103")).toBeTruthy();
+    expect(within(row).queryByText("demo co-signer")).toBeNull();
+    expect(screen.queryByText("Bob")).toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("puts the rows it is given after the members'", () => {
+    renderList({ children: <li>after the members</li> });
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(4);
+    expect(rows[3].textContent).toBe("after the members");
+  });
 });
