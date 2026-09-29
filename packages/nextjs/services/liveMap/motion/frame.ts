@@ -198,24 +198,24 @@ const OUTCOME_CUES: ReadonlyArray<Cue["name"]> = ["arrive", "hold", "relax"];
 
 /**
  * The treasury figures to show: the shown world's, except once a run has landed — as its target
- * flashes, or once a failed run's comet is back — when they are the latest read's, so they count to their new values as
- * part of the run rather than after it has relaxed.
+ * flashes, or once a failed run's comet is back — when they are those of the read the run arrived in,
+ * so they count to their new values as part of the run rather than after it has relaxed. Never the
+ * latest read's: it can be newer than events still waiting, and the figures would count back when
+ * the next one starts.
  */
-export function treasuryShown(playing: PlayingEvent | null, worlds: ShownAndLatest): TreasuryFigures | null {
-  return landedWorld(playing, worlds)?.treasury ?? null;
+export function treasuryShown(playing: PlayingEvent | null, shown: GovernanceSnapshot | null): TreasuryFigures | null {
+  return landedWorld(playing, shown)?.treasury ?? null;
 }
 
 /** The vault's and the token's states to show: like the figures, they change when a run lands. */
-export function nodeStatesShown(playing: PlayingEvent | null, worlds: ShownAndLatest): NodeStates | null {
-  return landedWorld(playing, worlds)?.nodeStates ?? null;
+export function nodeStatesShown(playing: PlayingEvent | null, shown: GovernanceSnapshot | null): NodeStates | null {
+  return landedWorld(playing, shown)?.nodeStates ?? null;
 }
 
-type ShownAndLatest = { shown: GovernanceSnapshot | null; latest: GovernanceSnapshot | null };
-
-function landedWorld(playing: PlayingEvent | null, { shown, latest }: ShownAndLatest): GovernanceSnapshot | null {
+function landedWorld(playing: PlayingEvent | null, shown: GovernanceSnapshot | null): GovernanceSnapshot | null {
   const reachedTarget =
     playing !== null &&
     (playing.event.kind === "executed" || playing.event.kind === "reverted") &&
     OUTCOME_CUES.includes(playing.cue.name);
-  return reachedTarget ? latest : shown;
+  return reachedTarget ? playing.world : shown;
 }

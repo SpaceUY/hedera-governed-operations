@@ -12,7 +12,9 @@ import {
   proposal,
   world,
 } from "./motionFixtures";
-import type { Cue } from "./sequences";
+import { EMPTY_QUEUE, type QueueAction, animationQueueReducer } from "./queue";
+import { type Cue, sequenceOf } from "./sequences";
+import { proposalIn } from "./world";
 import { describe, expect, it } from "vitest";
 import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import {
@@ -174,13 +176,17 @@ describe("frameOf", () => {
 describe("treasuryShown", () => {
   const shown = world([]);
   const latest = { ...world([]), treasury: { ...shown.treasury!, hbarBalanceTinybar: 60 } };
-  const playing = (cue: Cue, event: AnimationEvent = EXECUTED): PlayingEvent => ({ event, cue, world: latest });
+  const playing = (cue: Cue, event: AnimationEvent = EXECUTED, read = latest): PlayingEvent => ({
+    event,
+    cue,
+    world: read,
+  });
 
-  it("holds the shown world's figures until the run arrives, then counts them as the target flashes", () => {
-    expect(treasuryShown(null, { shown, latest })).toBe(shown.treasury);
-    expect(treasuryShown(playing({ name: "comet", hop: 1 }), { shown, latest })).toBe(shown.treasury);
-    expect(treasuryShown(playing({ name: "arrive" }), { shown, latest })).toBe(latest.treasury);
-    expect(treasuryShown(playing({ name: "relax" }), { shown, latest })).toBe(latest.treasury);
+  it("holds the shown world's figures until the run arrives, then counts to the read it arrived in", () => {
+    expect(treasuryShown(null, shown)).toBe(shown.treasury);
+    expect(treasuryShown(playing({ name: "comet", hop: 1 }), shown)).toBe(shown.treasury);
+    expect(treasuryShown(playing({ name: "arrive" }), shown)).toBe(latest.treasury);
+    expect(treasuryShown(playing({ name: "relax" }), shown)).toBe(latest.treasury);
   });
 
   it("switches the vault's and the token's states at the same moment as the figures", () => {
@@ -188,21 +194,88 @@ describe("treasuryShown", () => {
       ...latest,
       nodeStates: { vaultImplementation: "0xb87228Be9d802953d9e657f97b827786b22e7305", tokenPaused: true },
     };
-    const worlds = { shown, latest: landed };
-    expect(nodeStatesShown(playing({ name: "comet", hop: 1 }), worlds)).toBe(shown.nodeStates);
-    expect(nodeStatesShown(playing({ name: "arrive" }), worlds)).toBe(landed.nodeStates);
-    expect(nodeStatesShown(null, { shown: null, latest: landed })).toBeNull();
+    expect(nodeStatesShown(playing({ name: "comet", hop: 1 }, EXECUTED, landed), shown)).toBe(shown.nodeStates);
+    expect(nodeStatesShown(playing({ name: "arrive" }, EXECUTED, landed), shown)).toBe(landed.nodeStates);
+    expect(nodeStatesShown(null, null)).toBeNull();
   });
 
   it("switches a failed run's figures once its comet is back, not at the turn", () => {
     for (const name of ["fail", "retreat"] as const) {
-      expect(treasuryShown(playing({ name }, REVERTED), { shown, latest })).toBe(shown.treasury);
+      expect(treasuryShown(playing({ name }, REVERTED), shown)).toBe(shown.treasury);
     }
-    expect(treasuryShown(playing({ name: "hold" }, REVERTED), { shown, latest })).toBe(latest.treasury);
+    expect(treasuryShown(playing({ name: "hold" }, REVERTED), shown)).toBe(latest.treasury);
   });
 
   it("never lets a signature move the figures", () => {
     const approved: AnimationEvent = { kind: "approved", scheduleId: ID, memberKey: BOB, at: ago(1) };
-    expect(treasuryShown(playing({ name: "ringFill" }, approved), { shown, latest })).toBe(shown.treasury);
+    expect(treasuryShown(playing({ name: "ringFill" }, approved), shown)).toBe(shown.treasury);
+  });
+});
+
+describe("the figures across a queue", () => {
+  const OTHER = "0.0.9002";
+  const pendingTransfer = proposal({ id: OTHER, operation: TRANSFER, signatures: [[ALICE, ago(20)]] });
+  const signedTransfer = proposal({
+    id: OTHER,
+    operation: TRANSFER,
+    signatures: [
+      [ALICE, ago(20)],
+      [BOB, ago(1)],
+    ],
+  });
+  const executedUpgrade = proposal({ id: ID, operation: UPGRADE_CALL, executedAt: ago(1), execution: SUCCEEDED });
+  const withHbar = (read: GovernanceSnapshot, hbarBalanceTinybar: number): GovernanceSnapshot => ({
+    ...read,
+    treasury: { ...read.treasury!, hbarBalanceTinybar },
+  });
+  const BOB_SIGNS: AnimationEvent = { kind: "approved", scheduleId: OTHER, memberKey: BOB, at: ago(1) };
+
+  /** The HBAR figure at every cue the queue plays, as `useProposalAnimationSync` walks it, then at rest. */
+  function figuresPlayed(reads: QueueAction[], latest: GovernanceSnapshot): number[] {
+    let state = reads.reduce(animationQueueReducer, EMPTY_QUEUE);
+    const figures: number[] = [];
+    for (let current = state.queue[0]; current; current = state.queue[0]) {
+      const steps = sequenceOf(
+        current.event,
+        proposalIn(state.held, current.event.scheduleId) ?? proposalIn(current.world, current.event.scheduleId),
+      );
+      steps.forEach(({ cue }) => {
+        const playing: PlayingEvent = { event: current.event, cue, world: current.world };
+        figures.push(treasuryShown(playing, state.held)?.hbarBalanceTinybar ?? 0);
+      });
+      state = animationQueueReducer(state, { type: "finish", key: current.key });
+    }
+    return [...figures, latest.treasury?.hbarBalanceTinybar ?? 0];
+  }
+
+  const neverBackwards = (figures: number[]) =>
+    figures.every((figure, index) => index === 0 || figure >= figures[index - 1]);
+
+  it("never counts back when the next event came from an older read than the latest", () => {
+    // The run is read while the treasury read is still stale; the next read brings the new balance.
+    const before = world([pendingUpgrade, pendingTransfer]);
+    const ran = world([executedUpgrade, pendingTransfer]);
+    const refreshed = withHbar(world([executedUpgrade, signedTransfer]), 160);
+    const figures = figuresPlayed(
+      [
+        { type: "read", events: [EXECUTED], previous: before, world: ran },
+        { type: "read", events: [BOB_SIGNS], previous: ran, world: refreshed },
+      ],
+      refreshed,
+    );
+    expect(neverBackwards(figures)).toBe(true);
+    expect(figures.at(-1)).toBe(160);
+  });
+
+  it("never counts back when a run and a later event arrive in the same read", () => {
+    const before = world([pendingUpgrade, pendingTransfer]);
+    const after = withHbar(world([executedUpgrade, signedTransfer]), 160);
+    const figures = figuresPlayed(
+      [{ type: "read", events: [EXECUTED, BOB_SIGNS], previous: before, world: after }],
+      after,
+    );
+    expect(neverBackwards(figures)).toBe(true);
+    // They count as the run lands, not once the signature after it has played.
+    expect(figures.indexOf(160)).toBeLessThan(figures.length - 1);
   });
 });

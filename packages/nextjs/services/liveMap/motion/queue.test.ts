@@ -109,6 +109,18 @@ describe("animationQueueReducer", () => {
     expect(state).toMatchObject({ queue: [], held: null });
   });
 
+  it("keeps a landed run's figures and node states for the next event of its read, and nothing else", () => {
+    const ran = {
+      ...world([proposal({ id: "0.0.1", operation: TRANSFER, executedAt: ago(2), execution: SUCCEEDED })]),
+      treasury: { ...BEFORE.treasury!, hbarBalanceTinybar: 60 },
+      nodeStates: { vaultImplementation: null, tokenPaused: true },
+    };
+    const executed: AnimationEvent = { kind: "executed", scheduleId: "0.0.1", at: ago(2) };
+    let state = run(read([executed, approved(BOB, "0.0.2")], BEFORE, ran));
+    state = animationQueueReducer(state, { type: "finish", key: state.queue[0].key });
+    expect(state.held).toEqual({ ...BEFORE, treasury: ran.treasury, nodeStates: ran.nodeStates });
+  });
+
   describe("a rotation's council change", () => {
     const pendingRun = world([
       proposal({ id: "0.0.7", operation: ROTATION, executedAt: ago(3), execution: { status: "unconfirmed" } }),

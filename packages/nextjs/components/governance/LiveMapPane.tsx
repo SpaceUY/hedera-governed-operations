@@ -87,8 +87,8 @@ export function LiveMapPane({ config, onRemoteSignature }: LiveMapPaneProps) {
     () => (map && world ? frameOf(playing, { graph: map.graph, shown: world }) : REST_FRAME),
     [map, world, playing],
   );
-  const treasury = treasuryShown(playing, { shown: world, latest: snapshot });
-  const nodeStates = nodeStatesShown(playing, { shown: world, latest: snapshot });
+  const treasury = treasuryShown(playing, world);
+  const nodeStates = nodeStatesShown(playing, world);
   const vaultReleases = useMemo(
     () => ({
       first: findDeployment(targetNetwork.id, GOVERNANCE_CONTRACTS.vaultFirstImplementation)?.address,

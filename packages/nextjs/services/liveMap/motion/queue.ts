@@ -100,12 +100,22 @@ function onRead(state: AnimationQueue, action: Extract<QueueAction, { type: "rea
   return { ...state, queue, parked, seen, held: queue.length > 0 ? held : null, reads: read };
 }
 
+/**
+ * The held world once a run has landed: its figures and node states are the read's it arrived in, as
+ * they were while it landed, so the next event of the same read does not count them back. The rest
+ * stays as it was, since that event is drawn on the world before the read.
+ */
+function landedIn(held: GovernanceSnapshot | null, { event, world }: QueuedEvent): GovernanceSnapshot | null {
+  if (!held || (event.kind !== "executed" && event.kind !== "reverted")) return held;
+  return { ...held, treasury: world.treasury, nodeStates: world.nodeStates };
+}
+
 function onFinish(state: AnimationQueue, key: string): AnimationQueue {
   const [finished, next, ...rest] = state.queue;
   if (finished?.key !== key) return state;
   if (!next) return { ...state, queue: [], held: null, step: 0 };
   // Between reads the held world moves on to the one the finished event was read in.
-  const held = next.read === finished.read ? state.held : finished.world;
+  const held = next.read === finished.read ? landedIn(state.held, finished) : finished.world;
   return { ...state, queue: [next, ...rest], held, step: 0 };
 }
 
