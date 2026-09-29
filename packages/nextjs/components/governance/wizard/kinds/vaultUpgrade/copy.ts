@@ -3,7 +3,12 @@ import type { UnsignedTopicReason } from "@sh/core/mirror";
 import type { ReleaseTopicAnswer } from "~~/hooks/mirror/useReleaseCheck";
 
 /** What the upgrade form knows about the release topic's answer at a given moment. */
-export type ReleaseCheckState = { status: "loading" } | { status: "unreadable" } | ReleaseTopicAnswer;
+export type ReleaseCheckState =
+  | { status: "loading" }
+  | { status: "unreadable" }
+  /** The topic may have read fine: it was the implementation's code that could not be fetched. */
+  | { status: "implementationUnreadable" }
+  | ReleaseTopicAnswer;
 
 /** The co-signing agent refuses to start on such a topic, so the line says why nothing on it counts. */
 const UNSIGNED_TOPIC: Record<UnsignedTopicReason, (topicId: string) => string> = {
@@ -38,6 +43,12 @@ export const VAULT_UPGRADE_COPY = {
   release: (state: ReleaseCheckState, topicId: string): string => {
     if (state.status === "loading") return `Checking the releases on topic ${topicId}…`;
     if (state.status === "unreadable") return `Couldn't read the release topic ${topicId}.`;
+    if (state.status === "implementationUnreadable") {
+      return (
+        `Couldn't read this implementation's code on the Mirror Node, so it can't be checked against topic ${topicId} yet. ` +
+        "A contract deployed moments ago can take a few seconds to appear."
+      );
+    }
     if (state.status === "unsigned") return UNSIGNED_TOPIC[state.reason](topicId);
     return releaseAnswer(state.check, topicId);
   },

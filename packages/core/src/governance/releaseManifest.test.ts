@@ -2,6 +2,7 @@ import { fetchContract, fetchDecodedTopicMessagePages } from "../mirror";
 import {
   RELEASE_MANIFEST_SCHEMA,
   type ReleaseManifest,
+  ReleaseReadError,
   assertReleaseTopicIsSigned,
   buildReleaseManifestMessage,
   checkImplementationAgainstManifest,
@@ -221,6 +222,25 @@ describe("checkImplementationAgainstManifest", () => {
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
     expect(check).toMatchObject({ matched: false, failure: "noCode" });
     if (!check.matched) expect(check.reason).toContain("no deployed code");
+  });
+
+  it("says which read failed, keeping that read's own message, when the implementation cannot be read", async () => {
+    vi.mocked(fetchContract).mockRejectedValue(new Error("Mirror node error 404: not indexed yet"));
+    mockTopic([JSON.parse(buildReleaseManifestMessage(manifest()))]);
+
+    const error = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ReleaseReadError);
+    expect(error).toMatchObject({ subject: "implementation", message: "Mirror node error 404: not indexed yet" });
+  });
+
+  it("says the topic is what failed when its releases cannot be read", async () => {
+    mockContract(RUNTIME);
+    vi.mocked(fetchDecodedTopicMessagePages).mockRejectedValue(new Error("Mirror node error 500: boom"));
+
+    const error = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ subject: "topic", message: "Mirror node error 500: boom" });
   });
 
   it("matches the right release when the same address was published twice", async () => {

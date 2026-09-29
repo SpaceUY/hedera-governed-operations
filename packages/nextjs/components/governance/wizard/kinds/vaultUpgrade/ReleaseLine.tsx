@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReleaseCheckState, VAULT_UPGRADE_COPY } from "./copy";
+import { ReleaseReadError } from "@sh/core/governance/releaseManifest";
 import { type ReleaseTopicAnswer, useReleaseCheck } from "~~/hooks/mirror/useReleaseCheck";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
@@ -23,9 +24,14 @@ const toneOf = (state: ReleaseCheckState): string => {
   return TONE.notVouched;
 };
 
-const stateOf = ({ data, isError }: { data: ReleaseTopicAnswer | undefined; isError: boolean }): ReleaseCheckState => {
+type ReleaseQuery = { data: ReleaseTopicAnswer | undefined; error: Error | null };
+
+const stateOf = ({ data, error }: ReleaseQuery): ReleaseCheckState => {
   if (data) return data;
-  if (isError) return { status: "unreadable" };
+  if (error instanceof ReleaseReadError && error.subject === "implementation") {
+    return { status: "implementationUnreadable" };
+  }
+  if (error) return { status: "unreadable" };
   return { status: "loading" };
 };
 

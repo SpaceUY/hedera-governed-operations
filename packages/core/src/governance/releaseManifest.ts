@@ -160,6 +160,31 @@ export type ManifestCheck =
 
 const sameAddress = (left: string, right: string): boolean => left.toLowerCase() === right.toLowerCase();
 
+/** Which of the check's two reads failed: the code at the implementation, or the release topic. */
+export type ReleaseReadSubject = "implementation" | "topic";
+
+/**
+ * A read the check could not make, saying which one. The message is the failed read's own, so a
+ * caller that only reports it (the co-signing agent) reads the same as before; a screen can name
+ * what to go and check.
+ */
+export class ReleaseReadError extends Error {
+  override readonly name = "ReleaseReadError";
+
+  constructor(
+    readonly subject: ReleaseReadSubject,
+    cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+  }
+}
+
+const tagged =
+  (subject: ReleaseReadSubject) =>
+  (error: unknown): never => {
+    throw new ReleaseReadError(subject, error);
+  };
+
 /**
  * Whether the code deployed at `implementation` is a build the topic published.
  *
@@ -174,8 +199,8 @@ export async function checkImplementationAgainstManifest(
   options: MirrorRequestOptions = {},
 ): Promise<ManifestCheck> {
   const [contract, history] = await Promise.all([
-    fetchContract(implementation, options),
-    fetchReleaseManifests(topicId, options),
+    fetchContract(implementation, options).catch(tagged("implementation")),
+    fetchReleaseManifests(topicId, options).catch(tagged("topic")),
   ]);
 
   const runtime = contract.runtime_bytecode;
