@@ -103,12 +103,12 @@ export const WithdrawCancelActions = ({
     entryProposer !== null &&
     canCancelRegistryEntry(entryProposer, account.data?.evm_address ?? null, governance.data?.evm_address ?? null);
 
-  const scheduleGoneHere = flow.step !== "idle";
+  const cancelFlowStarted = flow.step !== "idle";
   // While the round is live, Cancel is only worth a card to someone who could end up pressing it:
   // anyone else reads the reason once the round is over, where Cancel is the only way left.
   const showCancel =
-    entryId != null && (authorizing || authorized || scheduleGoneHere || proposal.state.status !== "pending");
-  const showWithdraw = canBeWithdrawnBy(proposal, accountId) && !scheduleGoneHere;
+    entryId != null && (authorizing || authorized || cancelFlowStarted || proposal.state.status !== "pending");
+  const showWithdraw = canBeWithdrawnBy(proposal, accountId) && !cancelFlowStarted;
   const busy =
     withdraw.isPending ||
     flow.step === "withdrawing" ||
