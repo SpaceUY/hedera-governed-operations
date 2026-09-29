@@ -107,7 +107,7 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
         {preview && <CouncilPreviewPanel preview={preview} council={council.data?.key} headingLevel={headingLevel} />}
 
         {notice && (
-          <p role="status" className="m-0 text-sm text-warning">
+          <p role="status" className="m-0 text-sm text-warning-ink">
             {notice}
           </p>
         )}

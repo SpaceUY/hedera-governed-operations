@@ -13,7 +13,7 @@ export type OperationMetaProps = { proposal: Proposal; family: ProposalIdentity[
 export const OperationMeta = ({ proposal, family }: OperationMetaProps) => {
   const countdown = expiryCountdown(proposal.state.expiresAt, proposal.state.status === "pending");
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/70">
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-base-content/60">
       {family && (
         <span className={family === "contract" ? "font-semibold text-primary" : "font-semibold"}>
           {FAMILY_COPY[family].card}
@@ -23,9 +23,11 @@ export const OperationMeta = ({ proposal, family }: OperationMetaProps) => {
       <span>{cardStatusLabel(proposal)}</span>
       {countdown && (
         <span
-          className={`badge badge-sm font-semibold ${
-            countdown.urgency === "final-hour" ? "badge-warning motion-safe:animate-pulse" : "badge-ghost"
-          }`}
+          className={
+            countdown.urgency === "final-hour"
+              ? "badge badge-sm badge-warning font-semibold motion-safe:animate-pulse"
+              : "chip"
+          }
         >
           {countdown.label}
         </span>

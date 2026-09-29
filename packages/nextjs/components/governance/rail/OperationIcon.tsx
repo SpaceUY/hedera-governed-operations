@@ -17,16 +17,15 @@ const ICON_PATHS: Record<OperationIconKind, string> = {
 
 const NATIVE_KINDS: readonly OperationIconKind[] = ["treasuryTransfer", "councilRotation"];
 
-/** The kind at a glance: a contract kind on the primary tint, a native one on a neutral one. */
+/**
+ * The kind at a glance: a light stroke on the quiet chip grey, square-cornered for a contract kind and
+ * round for a native one; a body nobody can describe in the warning tone.
+ */
 export const OperationIcon = ({ kind }: { kind: OperationIconKind }) => {
-  const tone =
-    kind === "unrecognized"
-      ? "bg-warning/15 text-warning"
-      : NATIVE_KINDS.includes(kind)
-        ? "bg-base-300 text-base-content"
-        : "bg-primary/15 text-primary";
+  const tone = kind === "unrecognized" ? "bg-warning/15 text-warning-ink" : "bg-hedera-smoke/15 text-base-content";
+  const shape = NATIVE_KINDS.includes(kind) ? "rounded-full" : "rounded-lg";
   return (
-    <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${tone}`} aria-hidden="true">
+    <span className={`flex size-8 shrink-0 items-center justify-center ${shape} ${tone}`} aria-hidden="true">
       <svg
         viewBox="0 0 16 16"
         className="size-4 fill-none stroke-current"

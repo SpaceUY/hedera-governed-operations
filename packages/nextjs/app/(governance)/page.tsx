@@ -83,7 +83,7 @@ export default function GovernanceHomePage() {
       />
 
       {inbox.data && inbox.data.unreachableProposers.length > 0 && (
-        <p role="status" className="m-0 text-sm text-warning">
+        <p role="status" className="m-0 text-sm text-warning-ink">
           This list may be incomplete: proposals from {inbox.data.unreachableProposers.join(", ")} could not be read.
         </p>
       )}

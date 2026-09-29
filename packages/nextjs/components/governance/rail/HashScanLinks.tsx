@@ -47,7 +47,7 @@ export const HashScanLinks = ({ headingLevel, ...facts }: HashScanLinksProps) =>
               href={link.href}
               target="_blank"
               rel="noreferrer"
-              className="flex min-h-11 items-center gap-3 text-sm hover:text-primary"
+              className="link flex min-h-11 items-center gap-3 text-sm no-underline"
             >
               <span className="flex-1">{link.label}</span>
               {link.tag && <span className="font-mono text-xs text-base-content/60">{link.tag}</span>}

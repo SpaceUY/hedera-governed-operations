@@ -25,7 +25,7 @@ export type MemberSignature = { at: Date; href: string };
 
 const STATE_CLASSES: Record<SeatState, string> = {
   signed: "badge badge-success badge-sm",
-  notYet: "badge badge-ghost badge-sm",
+  notYet: "chip",
   didNotSign: "text-xs text-base-content/60",
 };
 
@@ -53,7 +53,7 @@ export const CouncilMemberRow = ({
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
         {name}
         {isViewer && <span className="badge badge-primary badge-sm">{MEMBER_COPY.yourWallet}</span>}
-        {caption && <span className="badge badge-ghost badge-sm font-normal">{caption}</span>}
+        {caption && <span className="chip font-normal">{caption}</span>}
       </span>
       {accountId && accountId !== name && <span className="text-xs text-base-content/60">{accountId}</span>}
     </span>
@@ -74,7 +74,7 @@ const SignedWhen = ({ name, signature }: { name: string; signature: MemberSignat
       target="_blank"
       rel="noreferrer"
       aria-label={signedWhenAriaLabel(name, when)}
-      className="inline-flex min-h-8 shrink-0 items-center gap-1 text-xs font-semibold whitespace-nowrap text-success hover:underline"
+      className="inline-flex min-h-8 shrink-0 items-center gap-1 text-xs font-semibold whitespace-nowrap text-success-ink hover:underline"
     >
       <svg
         viewBox="0 0 16 16"

@@ -117,21 +117,23 @@ describe("OperationCard", () => {
     expect(button.hasAttribute("aria-pressed")).toBe(false);
   });
 
-  it("links to the proposal's own page without folding that into the selectable row", () => {
+  it("shows the pointer over the row it can be opened from", () => {
     renderCard();
-    const link = screen.getByRole("link", { name: /View details/ });
-    expect(link.getAttribute("href")).toBe("/governance/0.0.1");
+    expect(screen.getByRole("button", { expanded: false }).className).toContain("cursor-pointer");
   });
 
-  it("drops the link to the full page once the row is open, since the detail is already showing", () => {
+  it("offers no link of its own, open or closed: the chevron says the row expands", () => {
+    renderCard();
+    expect(screen.queryByRole("link")).toBeNull();
+    cleanup();
     renderCard({ selected: true, detail: <p>Proposal detail</p> });
-    expect(screen.queryByRole("link", { name: /View details/ })).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("shows an unrecognized scheduled body with its reason, styled as a warning", () => {
     renderCard({ proposal: proposal({ operation: { kind: "unrecognized", reason: "an unsupported field is set" } }) });
     const description = screen.getByText(/Not a proposal this template recognises: an unsupported field is set/);
-    expect(description.className).toContain("text-warning");
+    expect(description.className).toContain("text-warning-ink");
   });
 
   it("reads a cancelled registry entry as cancelled even while the schedule itself still looks open", () => {

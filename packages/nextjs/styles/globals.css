@@ -32,6 +32,38 @@
   --text-map-caption: 11px;
 }
 
+/*
+  Colours that differ per theme beyond daisyUI's own: the governance prototype's darker ink for text in
+  the success and warning tones and for a link under the pointer, so both stay readable on a light surface.
+  `inline` makes each utility read the variable, which the theme selectors below set.
+*/
+@theme inline {
+  --color-success-ink: var(--success-ink);
+  --color-warning-ink: var(--warning-ink);
+  --color-link-hover: var(--link-hover);
+}
+
+@layer base {
+  :root,
+  [data-theme="light"] {
+    --success-ink: #0b7d59;
+    --warning-ink: #8a5a00;
+    --link-hover: #1f6fcf;
+  }
+  [data-theme="dark"] {
+    --success-ink: var(--color-success);
+    --warning-ink: var(--color-warning);
+    --link-hover: var(--color-accent);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      --success-ink: var(--color-success);
+      --warning-ink: var(--color-warning);
+      --link-hover: var(--color-accent);
+    }
+  }
+}
+
 @plugin "daisyui" {
   themes:
     light,
@@ -142,8 +174,14 @@
   text-underline-offset: 2px;
 }
 
-.link:hover {
-  opacity: 80%;
+/*
+  Text links hover to blue, never to the brand violet the primary colour is. In a layer, so a
+  utility on the link (hover:text-primary) still wins.
+*/
+@layer components {
+  .link:hover {
+    color: var(--color-link-hover);
+  }
 }
 
 /*

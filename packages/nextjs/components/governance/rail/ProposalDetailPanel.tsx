@@ -147,7 +147,7 @@ export const ProposalDetailPanel = ({
       {variant === "page" ? (
         <header className="flex flex-col gap-1">
           <p className="m-0 text-xs text-base-content/60">{DETAIL_COPY.kicker(schedule.schedule_id)}</p>
-          <Title className={`m-0 font-bold ${title} ${identity.unrecognized ? "text-warning" : ""}`}>
+          <Title className={`m-0 font-bold ${title} ${identity.unrecognized ? "text-warning-ink" : ""}`}>
             {identity.title}
           </Title>
           <OperationMeta proposal={proposal} family={identity.family} />
@@ -164,7 +164,9 @@ export const ProposalDetailPanel = ({
             {FAMILY_COPY[identity.family].detail}
           </p>
         )}
-        <p className={`m-0 text-sm ${identity.unrecognized ? "text-warning" : ""}`}>{operationSummaryOf(proposal)}</p>
+        <p className={`m-0 text-sm ${identity.unrecognized ? "text-warning-ink" : ""}`}>
+          {operationSummaryOf(proposal)}
+        </p>
         {route && route.length > 1 && (
           <ol aria-label={DETAIL_COPY.routeLabel} className="m-0 flex list-none flex-wrap items-center gap-1 p-0">
             {route.map((step, index) => (
@@ -180,7 +182,7 @@ export const ProposalDetailPanel = ({
           </ol>
         )}
         {operation.kind === "registryCall" && registry.status === "missing" && (
-          <p role="status" className="m-0 text-sm text-warning">
+          <p role="status" className="m-0 text-sm text-warning-ink">
             {registryLabel(registry)}
           </p>
         )}
@@ -195,9 +197,7 @@ export const ProposalDetailPanel = ({
           <span className="text-base-content/70"> · {signatureSubline(rule, proposal.progress.signed)}</span>
         </p>
         {countdown && (
-          <span
-            className={`badge badge-sm font-semibold ${countdown.urgency === "final-hour" ? "badge-warning" : "badge-ghost"}`}
-          >
+          <span className={countdown.urgency === "final-hour" ? "badge badge-sm badge-warning font-semibold" : "chip"}>
             {countdown.label}
           </span>
         )}
@@ -248,7 +248,7 @@ export const ProposalDetailPanel = ({
         <div className="flex flex-col items-start gap-2">
           {canSign && !viewerIsKnown && signButton}
           {registryUnreachable && (
-            <p role="status" className="m-0 text-sm text-warning">
+            <p role="status" className="m-0 text-sm text-warning-ink">
               {UNREACHABLE_REGISTRY_SIGN_WARNING}
             </p>
           )}
