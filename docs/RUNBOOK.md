@@ -2,10 +2,6 @@
 
 Step-by-step reproduction on Hedera **testnet**, from a fresh account to a transaction you can verify on the Mirror Node and HashScan. Every command is copy-pasteable; replace the `0.0.xxxxx` placeholders with your own ids.
 
-<!-- TODO(product): add the product-specific journey (e.g. governed operation or merchant payment) once the feature set is decided. -->
-
-_Product-specific journeys: coming with the first release._
-
 ## 1. Get a testnet operator account
 
 1. Sign in at [portal.hedera.com](https://portal.hedera.com) and create a **testnet** account. Choose an **ECDSA** key when offered; it also gives the account an EVM alias, which some tooling (including the harness chain validation) expects.

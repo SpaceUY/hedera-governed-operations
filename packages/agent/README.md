@@ -273,7 +273,12 @@ and stepped over: a fee that failed is not a reason to stop holding a council se
 retries it. Two records are deliberately never written — a skip, which says nothing about the policy,
 and an approval whose `ScheduleSign` failed, which would put "approved" on the topic next to a
 schedule the agent never signed. Each message costs a fee, so a verdict is published once and again
-only when it changes.
+only when it changes — across restarts too: at boot the agent reads its own newest message per
+proposal back off the topic (`decisions-recalled` in the log) and publishes only what differs. If
+the Mirror Node cannot be read then, it starts with nothing recalled and logs
+`decisions-not-recalled`: at worst a verdict already on the topic is paid for once more. Agents
+before this recall republished on every restart, so a topic can hold the same verdict more than
+once; a reader takes the newest message per `scheduleId`.
 
 ## Running it
 
