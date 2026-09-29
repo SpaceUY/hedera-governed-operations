@@ -8,7 +8,11 @@ import { FOCUS_RING_CLASS, type NodeProps, plateStrokeClass, translate } from ".
 export type AccountTone = "account" | "ghost";
 
 /** A council member, a proposer or any other account: a circle, named underneath. */
-export function AccountNode({ tone = "account", ...node }: NodeProps & { tone?: AccountTone }) {
+export function AccountNode({
+  tone = "account",
+  monogram,
+  ...node
+}: NodeProps & { tone?: AccountTone; monogram?: string }) {
   return (
     <MapItem
       item={{ kind: "node", id: node.id }}
@@ -25,7 +29,7 @@ export function AccountNode({ tone = "account", ...node }: NodeProps & { tone?: 
           strokeWidth={1.5}
         />
         <text y={5} textAnchor="middle" className="fill-base-content text-sm font-semibold">
-          {monogramOf(node.label)}
+          {monogram ?? monogramOf(node.label)}
         </text>
         <text y={ACCOUNT_RADIUS + 22} textAnchor="middle" className="fill-base-content text-map-label font-semibold">
           {node.label}

@@ -1,5 +1,5 @@
 import NewProposalPage from "./page";
-import { encodeUpgrade } from "@sh/core/governance/encode";
+import { encodeTreasurySwap, encodeUpgrade } from "@sh/core/governance/encode";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
@@ -9,7 +9,11 @@ import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { type ProposalDraft, draftTreasuryTransfer } from "~~/services/governance/drafts";
 
-const drafts = vi.hoisted(() => ({ upgrade: null as ProposalDraft | null, transfer: null as ProposalDraft | null }));
+const drafts = vi.hoisted(() => ({
+  upgrade: null as ProposalDraft | null,
+  swap: null as ProposalDraft | null,
+  transfer: null as ProposalDraft | null,
+}));
 const push = vi.hoisted(() => vi.fn());
 // The wallet and Mirror are out of the picture: the submit resolves at once with a schedule id.
 const reset = vi.hoisted(() => vi.fn());
@@ -46,6 +50,17 @@ vi.mock("~~/components/governance/wizard/forms/UpgradeVaultForm", async () => {
     },
   };
 });
+vi.mock("~~/components/governance/wizard/forms/SwapForm", async () => {
+  const { useEffect } = await import("react");
+  return {
+    SwapForm: ({ onDraftChange }: { onDraftChange: (result: unknown) => void }) => {
+      useEffect(() => {
+        if (drafts.swap) onDraftChange({ status: "ready", draft: drafts.swap });
+      }, [onDraftChange]);
+      return <div>swap form</div>;
+    },
+  };
+});
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
@@ -77,6 +92,20 @@ const UNREADABLE_DRAFT: ProposalDraft = {
   proposal: { target: PROXY, calldata: "0x", registerGas: 1, executeGas: 1, payableTinybars: 0n },
 };
 
+const SWAP_DRAFT: ProposalDraft = {
+  path: "registry",
+  kind: "treasurySwap",
+  target: "Swap adapter · 0.0.4242",
+  proposal: encodeTreasurySwap({
+    adapter: DEPLOYED.address,
+    tokenOut: "0x0000000000000000000000000000000000001549",
+    fee: 3000,
+    recipient: "0x0000000000000000000000000000000000000003",
+    amountInTinybars: 5_000_000_000n,
+    amountOutMinimum: 6_250_000n,
+  }),
+};
+
 const CONFIG: GovernanceConfig = {
   governanceAccountId: TREASURY,
   demoTokenId: "0.0.9000",
@@ -106,11 +135,12 @@ const setup = ({ accountId, proposers }: { accountId: string | null; proposers: 
   } as never);
 };
 
-const cta = (kind: "upgrade" | "treasuryTransfer") =>
+const cta = (kind: "upgrade" | "treasurySwap" | "treasuryTransfer") =>
   screen.getByRole("button", { name: openProposalCopy(kind).cta }) as HTMLButtonElement;
 
 beforeEach(() => {
   drafts.upgrade = null;
+  drafts.swap = null;
   drafts.transfer = null;
 });
 
@@ -119,10 +149,37 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const pickSwap = () =>
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.treasurySwap.title) }));
+
 const pickTransfer = () =>
   fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.treasuryTransfer.title) }));
 
 describe("NewProposalPage", () => {
+  it("offers the swap form once the adapter is deployed, and lets the proposer register it", () => {
+    drafts.swap = SWAP_DRAFT;
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    renderPage();
+
+    pickSwap();
+
+    expect(screen.getByText("swap form")).toBeTruthy();
+    expect(cta("treasurySwap").disabled).toBe(false);
+  });
+
+  it("offers no swap form while the adapter is not deployed", () => {
+    drafts.swap = SWAP_DRAFT;
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    vi.mocked(findDeployedContract).mockReturnValue(null);
+    renderPage();
+
+    pickSwap();
+
+    expect(screen.queryByText("swap form")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(OPEN_PROPOSAL_NOTICES.swapAdapterMissing);
+    expect(cta("treasurySwap").disabled).toBe(true);
+  });
+
   it("offers no upgrade form while the vault's next implementation is not deployed, and still pays a supplier", () => {
     drafts.transfer = draftTreasuryTransfer(TREASURY, { recipientAccountId: "0.0.500", amount: "1" });
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });

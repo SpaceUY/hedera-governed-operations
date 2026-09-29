@@ -37,20 +37,42 @@ describe("decorateDemoMap", () => {
     expect(labelOf(asAlice, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
   });
 
-  it("names the one proposer without a seat the setup operator", () => {
-    const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap);
-    expect(labelOf(map, proposerNodeId("0.0.4001"))).toBe(DEMO_NAMES.operator);
+  it("leaves the proposer without a seat off the demo map, with its edge, which the generic map still draws", () => {
+    const operator = proposerNodeId("0.0.4001");
+    const touches = (edge: { from: string; to: string }) => edge.from === operator || edge.to === operator;
+
+    const demo = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap).graph;
+    expect(demo.nodes.some(node => node.id === operator)).toBe(false);
+    expect(demo.edges.some(touches)).toBe(false);
+
+    const generic = composeMap(MAP_SNAPSHOT_WITH_OPERATOR).graph;
+    expect(generic.nodes.some(node => node.id === operator)).toBe(true);
+    expect(generic.edges.some(touches)).toBe(true);
   });
 
-  it("routes every PROPOSER_ROLE arc around the treasury, Alice's and Bob's included", () => {
+  it("draws only the council account's line to the registry, not Alice's or Bob's, which the generic map keeps", () => {
+    const proposerLines = (map: ReturnType<typeof composeMap>) =>
+      map.graph.edges
+        .filter(edge => edge.to === EXECUTOR_NODE_ID && edge.from !== GOVERNANCE_ACCOUNT_NODE_ID)
+        .map(edge => edge.from);
+
+    const demo = composeMap(MAP_SNAPSHOT, decorateDemoMap);
+    expect(proposerLines(demo)).toEqual([memberNodeId(KEY_A)]);
+    expect(demo.graph.nodes.some(node => node.id === memberNodeId(KEY_B))).toBe(true);
+    expect(demo.graph.nodes.some(node => node.id === memberNodeId(KEY_C))).toBe(true);
+
+    expect(proposerLines(composeMap(MAP_SNAPSHOT)).sort()).toEqual(
+      [memberNodeId(KEY_A), memberNodeId(KEY_B), memberNodeId(KEY_C)].sort(),
+    );
+  });
+
+  it("routes the PROPOSER_ROLE arc it draws around the treasury", () => {
     const { graph } = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap);
     const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
     const treasury = nodesById.get(GOVERNANCE_ACCOUNT_NODE_ID)?.position ?? { x: NaN, y: NaN };
     const arcs = graph.edges.filter(edge => edge.to === EXECUTOR_NODE_ID && edge.from !== GOVERNANCE_ACCOUNT_NODE_ID);
 
-    expect(arcs.map(arc => arc.from)).toEqual(
-      expect.arrayContaining([memberNodeId(KEY_B), memberNodeId(KEY_C), proposerNodeId("0.0.4001")]),
-    );
+    expect(arcs.map(arc => arc.from)).toEqual([memberNodeId(KEY_A)]);
     for (const arc of arcs) {
       const route = routeOnMap(arc, nodesById);
       expect(route && distanceFrom(route, treasury)).toBeGreaterThan(TREASURY_OUTLINE);
@@ -82,6 +104,7 @@ describe("decorateDemoMap", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap);
     const [agent] = map.ghosts;
     expect(agent.label).toBe(DEMO_NAMES.agent);
+    expect(agent.monogram).toBe("AG");
     expect(map.graph.nodes.some(node => node.id === agent.id)).toBe(false);
     expect(map.graph.edges.some(edge => edge.from === agent.id || edge.to === agent.id)).toBe(false);
     expect(map.inspector.nodes[agent.id]).toBeUndefined();

@@ -1,5 +1,8 @@
+import { DEFAULT_PENDING_POLL_MS } from "./mirrorQuery";
+import { CANCEL_CONFIRMATION_WINDOW_MS, readSentCancels, sentCancelsQueryKey } from "./sentCancels";
 import { createQueryWrapper, jsonResponse } from "./testUtils";
 import { useProposalLookup } from "./useProposalLookup";
+import { proposalInboxQueryKey } from "./useProposals";
 import { proto } from "@hiero-ledger/proto";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
@@ -161,6 +164,7 @@ describe("useProposalLookup", () => {
               proposalId: 7,
               state: "pending",
               target: "0x1111111111111111111111111111111111111111",
+              proposer: "0x0000000000000000000000000000000000009001",
               calldata: "0x",
               operation: { kind: "unrecognized", target: "0x11", calldata: "0x", reason: "test" },
             },
@@ -234,6 +238,130 @@ describe("useProposalLookup", () => {
     expect(fetchRegistryEntries).not.toHaveBeenCalled();
   });
 
+  /**
+   * The relay is a block or two behind, so an immediate re-read right after `cancel` succeeds would
+   * likely still answer "Pending" and undo the very update the caller just asked for. The cache is
+   * updated straight away instead, and only reconciled with the relay after a poll interval.
+   */
+  it("marks the entry cancelled immediately, without an immediate re-read that could still say pending", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      deleted: true,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(
+      new Map([
+        [
+          7,
+          {
+            status: "read",
+            entry: {
+              proposalId: 7,
+              state: "pending",
+              target: "0x1111111111111111111111111111111111111111",
+              proposer: "0x0000000000000000000000000000000000009001",
+              calldata: "0x",
+              operation: { kind: "unrecognized", target: "0x11", calldata: "0x", reason: "test" },
+            },
+          },
+        ],
+      ]),
+    );
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+
+    const { result } = lookup("0.0.10671156");
+    await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
+
+    const invalidateCallsBefore = invalidate.mock.calls.length;
+    act(() => result.current.markRegistryEntryCancelled());
+
+    // React Query notifies subscribers on a microtask, so the re-render is awaited rather than
+    // asserted synchronously; no invalidate happens in between, so this is still the write itself,
+    // not a re-read reaching the same answer.
+    await waitFor(() =>
+      expect(result.current.proposal?.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } }),
+    );
+    // No immediate invalidate/re-read: only the delayed one that setTimeout schedules.
+    expect(invalidate.mock.calls.length).toBe(invalidateCallsBefore);
+    invalidate.mockRestore();
+  });
+
+  describe("after a cancel is sent", () => {
+    const entry = {
+      proposalId: 7,
+      state: "pending" as const,
+      target: "0x1111111111111111111111111111111111111111" as const,
+      proposer: "0x0000000000000000000000000000000000009001" as const,
+      calldata: "0x" as const,
+      operation: { kind: "unrecognized" as const, target: "0x11", calldata: "0x", reason: "test" },
+    };
+    const reading = (state: "pending" | "cancelled") =>
+      new Map([[7, { status: "read" as const, entry: { ...entry, state } }]]);
+
+    const openWithdrawnProposal = async () => {
+      vi.mocked(fetchAccount).mockResolvedValue({
+        key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+      } as never);
+      vi.mocked(fetchSchedule).mockResolvedValue({
+        ...baseSchedule,
+        deleted: true,
+        transaction_body: recorded.registryCall.transactionBody,
+      } as never);
+      vi.mocked(fetchRegistryEntries).mockResolvedValue(reading("pending"));
+      const rendered = lookup("0.0.10671156");
+      await waitFor(() => expect(rendered.result.current.proposal?.registry.status).toBe("read"));
+      // Fake timers only once the first read settled, so the polling under test is the only clock.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+      return rendered;
+    };
+    const entryState = (result: { current: ReturnType<typeof useProposalLookup> }) =>
+      result.current.proposal?.registry.status === "read" ? result.current.proposal.registry.entry.state : undefined;
+
+    /**
+     * The relay trails consensus, so its first reads after the cancel still say pending. Showing that
+     * would flash the entry back to Pending and offer Cancel again, a second transaction that reverts.
+     */
+    it("reads cancelled while the relay lags, then stops polling once it agrees", async () => {
+      const { result } = await openWithdrawnProposal();
+      act(() => result.current.markRegistryEntryCancelled());
+      // React Query notifies subscribers on a scheduled tick, not synchronously.
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(entryState(result)).toBe("cancelled");
+
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(2);
+      expect(entryState(result)).toBe("cancelled");
+
+      const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+      vi.mocked(fetchRegistryEntries).mockResolvedValue(reading("cancelled"));
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(3);
+      expect(entryState(result)).toBe("cancelled");
+      // The wait is over, so the inbox's card is re-read to land on the same answer.
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalInboxQueryKey("testnet") });
+      invalidate.mockRestore();
+
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS * 4));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(3);
+    });
+
+    /** A signer returns on submission, not on a receipt, so a cancel that reverted still gets here. */
+    it("believes the relay once the window is over, since the cancel did not take", async () => {
+      const { result } = await openWithdrawnProposal();
+      act(() => result.current.markRegistryEntryCancelled());
+
+      await act(() => vi.advanceTimersByTimeAsync(CANCEL_CONFIRMATION_WINDOW_MS + DEFAULT_PENDING_POLL_MS));
+      expect(entryState(result)).toBe("pending");
+
+      const reads = vi.mocked(fetchRegistryEntries).mock.calls.length;
+      await act(() => vi.advanceTimersByTimeAsync(DEFAULT_PENDING_POLL_MS * 4));
+      expect(fetchRegistryEntries).toHaveBeenCalledTimes(reads);
+    });
+  });
+
   it("drops the delayed re-read once the page is gone", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     vi.mocked(fetchSchedule).mockReturnValue(new Promise(() => {}));
@@ -249,5 +377,61 @@ describe("useProposalLookup", () => {
     expect(immediateReads).toBeGreaterThan(0);
     expect(invalidate).toHaveBeenCalledTimes(immediateReads);
     invalidate.mockRestore();
+  });
+
+  it("re-reads the inbox along with the proposal, so its card does not wait for the next poll", () => {
+    vi.mocked(fetchSchedule).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchAccount).mockReturnValue(new Promise(() => {}));
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+
+    const { result } = lookup();
+    act(() => result.current.refresh());
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalInboxQueryKey("testnet") });
+    invalidate.mockRestore();
+  });
+
+  it("records a sent cancel in the query cache, where the inbox reads it too", async () => {
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },
+    } as never);
+    vi.mocked(fetchSchedule).mockResolvedValue({
+      ...baseSchedule,
+      deleted: true,
+      transaction_body: recorded.registryCall.transactionBody,
+    } as never);
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(
+      new Map([
+        [
+          7,
+          {
+            status: "read",
+            entry: {
+              proposalId: 7,
+              state: "pending",
+              target: "0x1111111111111111111111111111111111111111",
+              proposer: "0x0000000000000000000000000000000000009001",
+              calldata: "0x",
+              operation: { kind: "unrecognized", target: "0x11", calldata: "0x", reason: "test" },
+            },
+          },
+        ],
+      ]),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(
+      () =>
+        useProposalLookup({
+          governanceAccountId: GOVERNANCE_ACCOUNT_ID,
+          executorContractId: "0.0.10671156",
+          scheduleId: "0.0.777",
+        }),
+      { wrapper: createQueryWrapper(queryClient) },
+    );
+    await waitFor(() => expect(result.current.proposal?.registry.status).toBe("read"));
+
+    act(() => result.current.markRegistryEntryCancelled());
+
+    expect(readSentCancels(queryClient, sentCancelsQueryKey("testnet", "0.0.10671156"))).toHaveProperty("7");
   });
 });

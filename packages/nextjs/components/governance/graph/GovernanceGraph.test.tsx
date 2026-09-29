@@ -146,9 +146,16 @@ describe("GovernanceGraph", () => {
   });
 
   it("draws a ghost node with no edge to or from it", () => {
-    const ghost = { id: "ghost", label: "Co-signing agent", caption: "not a member yet", position: { x: 5, y: 5 } };
+    const ghost = {
+      id: "ghost",
+      label: "Co-signing agent",
+      caption: "not a member yet",
+      position: { x: 5, y: 5 },
+      monogram: "AG",
+    };
     const { container } = renderGraph({ ghosts: [ghost] });
     expect(screen.getByText("Co-signing agent")).toBeTruthy();
+    expect(screen.getByText("AG")).toBeTruthy();
     const edgeIds = [...container.querySelectorAll("[data-edge-id]")].map(element =>
       element.getAttribute("data-edge-id"),
     );

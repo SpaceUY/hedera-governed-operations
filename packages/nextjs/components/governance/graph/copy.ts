@@ -41,11 +41,6 @@ export const MAP_NODE_STATES = {
   token: { paused: "Paused", active: "Active" },
 } as const;
 
-/** A council member whose account is not known here, by the start of its key. */
-export function unnamedMemberLabel(key: string): string {
-  return `Member ${key.slice(0, 6)}…`;
-}
-
 const EDGE_KIND_LABELS: Record<EdgeKind, string> = {
   authority: "May act",
   intent: "Would happen",

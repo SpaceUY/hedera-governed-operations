@@ -21,6 +21,9 @@ export function useMapSelection() {
     item?.focus();
   }, [selected]);
 
+  /** Closes the card without moving focus, for when something outside the map takes the reader's attention. */
+  const dismiss = useCallback(() => setSelected(null), []);
+
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (event.key !== "Escape" || !selected) return;
@@ -32,5 +35,5 @@ export function useMapSelection() {
 
   const activation: MapActivation = { onActivate: setSelected, selected, controls: inspectorId };
 
-  return { selected, activation, inspectorId, close, paneRef, onKeyDown };
+  return { selected, activation, inspectorId, close, dismiss, paneRef, onKeyDown };
 }

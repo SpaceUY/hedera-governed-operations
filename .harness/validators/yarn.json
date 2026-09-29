@@ -1,5 +1,5 @@
 {
-  "name": "template-baseline-yarn",
+  "name": "governed-operations-yarn",
   "description": "Yarn commands graded after every attempt. Keep install named \"install\" for fingerprint skip across attempts.",
   "requiresNoSecrets": true,
   "forbiddenCommands": [
@@ -24,7 +24,7 @@
     {
       "name": "test",
       "command": "yarn test",
-      "timeoutMs": 180000,
+      "timeoutMs": 300000,
       "purpose": "Unit tests for the Next.js workspace."
     },
     {

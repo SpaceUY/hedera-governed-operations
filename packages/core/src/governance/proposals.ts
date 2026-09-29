@@ -55,11 +55,14 @@ export type Proposal = {
   /** What the scheduled body does, decoded without the network. */
   operation: ScheduledOperation;
   /**
-   * The registry entry behind a contract-backed proposal. It is only read for the ones still
-   * pending and the ones whose execution failed — a revert leaves the entry as it was, usually still
-   * pending — since a successful execution implies the entry ran, and a deleted or expired schedule
-   * closed the round anyway. `notRead` for those settled registry calls, `missing` for a call to some
-   * other contract, and `notApplicable` for the native kinds, which have no entry at all.
+   * The registry entry behind a contract-backed proposal, read for every registry call to this
+   * executor whatever its schedule's state. A live round needs it to know the proposal is not dead
+   * already; a withdrawn or expired one, because cancelling the entry afterwards is the documented
+   * way to end a proposal and only the entry can say "Cancelled"; and one that ran, because the entry
+   * is what says which operation ran. An entry that already read `cancelled` or `executed` is taken
+   * from `previous` instead of read again, since neither ever changes, so a settled proposal costs
+   * one read, ever. `missing` for a call to some other contract, and `notApplicable` for the native
+   * kinds, which have no entry at all.
    */
   registry: RegistryCrossCheck;
 };
@@ -87,8 +90,9 @@ export type ProposalInboxOptions = {
   /** The registry the contract-backed proposals are crossed against. */
   registry: RegistryLookup;
   /**
-   * The inbox this caller read last. An outcome it already resolved is reused rather than read again,
-   * since the ledger never changes one; without it every settled proposal costs a read per poll.
+   * The inbox this caller read last. An outcome it already resolved, and a registry entry it already
+   * read as cancelled or executed, are reused rather than read again, since neither ever changes;
+   * without it every settled proposal costs a Mirror read and a relay read per poll.
    */
   previous?: ProposalInbox;
 };
@@ -109,32 +113,42 @@ function isThisExecutor(named: string, executorContractId: string): boolean {
 }
 
 /**
- * The entry a row has to be crossed against, or null when there is nothing to cross: the round is
- * already over, the proposal is native, or its body names some other contract — in which case an id
- * from it would point at an unrelated entry of ours.
+ * The entry a row has to be crossed against, or null when there is nothing to cross: the proposal is
+ * native, or its body names some other contract — in which case an id from it would point at an
+ * unrelated entry of ours.
  */
-function registryIdOf(proposal: UncrossedProposal, executorContractId: string): number | null {
-  if (!isRoundOpen(proposal)) return null;
-  if (proposal.operation.kind !== "registryCall") return null;
-  if (!isThisExecutor(proposal.operation.executorContractId, executorContractId)) return null;
-  return proposal.operation.proposalId;
+function registryIdOf({ operation }: UncrossedProposal, executorContractId: string): number | null {
+  if (operation.kind !== "registryCall") return null;
+  if (!isThisExecutor(operation.executorContractId, executorContractId)) return null;
+  return operation.proposalId;
 }
 
-/** Still collecting signatures, or ran and failed, which leaves the entry for another round. */
-const isRoundOpen = ({ state, execution }: UncrossedProposal): boolean =>
-  !state.isSettled || execution.status === "failed";
+/**
+ * Entries the previous read found cancelled or executed, by proposal id. The contract only moves an
+ * entry out of pending, never back, so these answers are final whichever schedule they were read
+ * for. A pending entry is not kept: it can still be cancelled or run.
+ */
+function finalEntriesOf(previous: ProposalInbox | undefined): Map<number, RegistryCrossCheck> {
+  const finals = new Map<number, RegistryCrossCheck>();
+  for (const { registry } of previous?.proposals ?? []) {
+    if (registry.status === "read" && registry.entry.state !== "pending") {
+      finals.set(registry.entry.proposalId, registry);
+    }
+  }
+  return finals;
+}
 
 /**
- * What a proposal whose entry was not read says about it. A native kind has none; a call to some
- * other contract has none in this registry, which is not the same as having no entry at all; and a
- * call to this executor left unread, because its round is over, still has one.
+ * What a proposal says about its entry when none was read for it. A native kind has none at all; a
+ * call to some other contract has none in this registry, which is not the same thing; and a call to
+ * this executor always is read, so reaching here for one means the relay gave no answer for it.
  */
 export function unreadRegistry(operation: ScheduledOperation, executorContractId: string): RegistryCrossCheck {
   if (operation.kind !== "registryCall") return { status: "notApplicable" };
   if (!isThisExecutor(operation.executorContractId, executorContractId)) {
     return { status: "missing", reason: `the call names ${operation.executorContractId}, not this registry` };
   }
-  return { status: "notRead" };
+  return { status: "unreachable", reason: `the registry gave no answer for entry ${operation.proposalId}` };
 }
 
 /** A known outcome from the previous read, or a fresh read for a schedule whose outcome is still open. */
@@ -188,17 +202,18 @@ export async function fetchProposalInbox({
     };
   });
 
-  const pendingIds = uncrossed
+  const known = finalEntriesOf(previous);
+  const idsToRead = uncrossed
     .map(proposal => registryIdOf(proposal, registry.executorContractId))
-    .filter((id): id is number => id !== null);
+    .filter((id): id is number => id !== null && !known.has(id));
 
-  const entries =
-    pendingIds.length > 0 ? await fetchRegistryEntries(pendingIds, registry) : new Map<number, RegistryCrossCheck>();
+  const read =
+    idsToRead.length > 0 ? await fetchRegistryEntries(idsToRead, registry) : new Map<number, RegistryCrossCheck>();
 
   return {
     proposals: uncrossed.map(proposal => {
       const proposalId = registryIdOf(proposal, registry.executorContractId);
-      const crossCheck = proposalId === null ? undefined : entries.get(proposalId);
+      const crossCheck = proposalId === null ? undefined : (known.get(proposalId) ?? read.get(proposalId));
       return { ...proposal, registry: crossCheck ?? unreadRegistry(proposal.operation, registry.executorContractId) };
     }),
     unreachableProposers: [

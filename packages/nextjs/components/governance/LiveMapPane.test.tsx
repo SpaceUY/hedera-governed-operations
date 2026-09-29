@@ -1,15 +1,16 @@
 import { LiveMapPane } from "./LiveMapPane";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MapDecoratorProvider } from "~~/components/governance/graph/MapDecoratorContext";
 import { MAP_NODE_STATES } from "~~/components/governance/graph/copy";
 import { MAP_SNAPSHOT } from "~~/components/governance/graph/mapFixtures";
 import type { MapDecorator } from "~~/components/governance/graph/mapModel";
+import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useToken } from "~~/hooks/mirror/useToken";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
-import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
 import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/liveMap/model/graph";
 
@@ -17,6 +18,7 @@ vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
+vi.mock("~~/components/governance/rail/useSelectedSchedule", () => ({ useSelectedSchedule: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({
   contracts: { 296: { SaucerSwapAdapter: { address: "0x5aF0000000000000000000000000000000000003", abi: [] } } },
@@ -65,7 +67,12 @@ beforeEach(() => {
     return { data: token && { token, decimals: token.decimals }, isError: false } as never;
   });
   connect(null);
+  selectOnRail(null);
 });
+
+function selectOnRail(scheduleId: string | null) {
+  vi.mocked(useSelectedSchedule).mockReturnValue({ selectedScheduleId: scheduleId, select: vi.fn() });
+}
 
 describe("LiveMapPane", () => {
   it("reads one snapshot of the configured governance account, with the network's USDC", () => {
@@ -83,7 +90,7 @@ describe("LiveMapPane", () => {
     expect(vi.mocked(useToken)).toHaveBeenCalledWith("0.0.5449", { network: "testnet" });
   });
 
-  it("draws the treasury figures, the status line and the map from the same world", () => {
+  it("draws the treasury figures and the map from the same world", () => {
     read(WORLD);
     render(<LiveMapPane config={CONFIG} />);
     const treasury = screen.getByRole("region", { name: "Treasury" });
@@ -92,7 +99,6 @@ describe("LiveMapPane", () => {
     expect(within(treasury).getByText("0.00")).toBeTruthy();
     expect(within(treasury).getByText("GOVD supply").nextElementSibling?.textContent).toBe("1,000,000");
     expect(within(treasury).getByText("2-of-3")).toBeTruthy();
-    expect(screen.getByText(LIVE_MAP_STATUS_NOTE)).toBeTruthy();
     expect(screen.getByRole("graphics-document")).toBeTruthy();
   });
 
@@ -119,12 +125,16 @@ describe("LiveMapPane", () => {
     expect(screen.getByRole("complementary", { name: "Legend" })).toBeTruthy();
   });
 
-  it("lets a decoration place and name the nodes", () => {
+  it("lets the host's decoration place and name the nodes", () => {
     read(WORLD);
     const decorate: MapDecorator = () => ({
       layout: { width: 500, height: 400, positions: {}, labels: { [GOVERNANCE_ACCOUNT_NODE_ID]: "The treasury" } },
     });
-    render(<LiveMapPane config={CONFIG} decorate={decorate} />);
+    render(
+      <MapDecoratorProvider decorate={decorate}>
+        <LiveMapPane config={CONFIG} />
+      </MapDecoratorProvider>,
+    );
     expect(screen.getByText("The treasury")).toBeTruthy();
     expect(screen.getByRole("graphics-document").getAttribute("viewBox")).toBe("0 0 500 400");
   });
@@ -138,6 +148,18 @@ describe("LiveMapPane", () => {
     rerender(<LiveMapPane config={CONFIG} />);
     expect(screen.getByText("You")).toBeTruthy();
     expect(screen.queryByText("0.0.4101")).toBeNull();
+  });
+
+  it("closes the inspector when a proposal is selected on the rail", () => {
+    read(WORLD);
+    const { rerender } = render(<LiveMapPane config={CONFIG} />);
+    const treasuryNode = document.querySelector(`[data-node-id="${GOVERNANCE_ACCOUNT_NODE_ID}"]`);
+    fireEvent.click(treasuryNode as Element);
+    expect(screen.getByRole("region", { name: "Inspector" })).toBeTruthy();
+
+    selectOnRail("0.0.7001");
+    rerender(<LiveMapPane config={CONFIG} />);
+    expect(screen.queryByRole("region", { name: "Inspector" })).toBeNull();
   });
 
   it("says it is reading until the first snapshot, and warns when the council cannot be read", () => {

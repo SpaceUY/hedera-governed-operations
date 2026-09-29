@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { type TokenReading, TreasuryStrip } from "~~/components/governance/TreasuryStrip";
 import { GovernanceMap } from "~~/components/governance/graph/GovernanceMap";
+import { useMapDecorator } from "~~/components/governance/graph/MapDecoratorContext";
 import { MapInspector } from "~~/components/governance/graph/MapInspector";
 import { inspectorContentOf } from "~~/components/governance/graph/inspector";
-import { type MapDecorator, composeMap } from "~~/components/governance/graph/mapModel";
+import { composeMap } from "~~/components/governance/graph/mapModel";
 import { nodeStateCaptions } from "~~/components/governance/graph/nodeStates";
 import { remoteSignatureNotice } from "~~/components/governance/graph/remoteSignatureNotice";
 import { useMapSelection } from "~~/components/governance/graph/useMapSelection";
+import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
 import { GOVERNANCE_CONTRACTS, type GovernanceConfig, findDeployment } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useToken } from "~~/hooks/mirror/useToken";
@@ -16,7 +18,6 @@ import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useProposalAnimationSync } from "~~/hooks/useProposalAnimationSync";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
-import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
 import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
 import { REST_FRAME, frameOf, nodeStatesShown, treasuryShown } from "~~/services/liveMap/motion/frame";
 import type { ApprovedEvent } from "~~/services/liveMap/remoteApprovals";
@@ -25,8 +26,6 @@ import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
 export type LiveMapPaneProps = {
   /** Resolved once by the governance layout's setup guard. */
   config: GovernanceConfig;
-  /** A hand-composed layout; without one the map places every node by role (`autoLayout`). */
-  decorate?: MapDecorator;
   /** Told what to say when a read reports a signature this session did not send; the host shows it. */
   onRemoteSignature?: (notice: string) => void;
 };
@@ -37,8 +36,8 @@ function tokenReadingOf(query: ReturnType<typeof useToken>): TokenReading {
 }
 
 /**
- * The map pane: the treasury figures, the status line and the governance map, all drawn from one
- * world. `useMapSnapshot` composes the queries the rail polls too; the pane itself only reads the
+ * The map pane: the treasury figures and the governance map, both drawn from one world, laid out by
+ * the host's `MapDecoratorProvider` (without one every node is placed by role). `useMapSnapshot` composes the queries the rail polls too; the pane itself only reads the
  * governed token and USDC for the strip's symbols and supply (`useToken`, the same query the
  * snapshot reads the token's pause state from, so one request serves both). It plays what changed
  * between two reads (`useProposalAnimationSync`), so while a sequence plays the map and the figures
@@ -46,9 +45,10 @@ function tokenReadingOf(query: ReturnType<typeof useToken>): TokenReading {
  * is named "You", and a signature this session did not send is announced through
  * `onRemoteSignature` (the layout's rail banner) as well as played. A click or Enter on a node or
  * edge opens the inspector over the map's lower left corner (`useMapSelection`), which explains it
- * from the same map.
+ * from the same map; selecting a proposal on the rail closes it.
  */
-export function LiveMapPane({ config, decorate, onRemoteSignature }: LiveMapPaneProps) {
+export function LiveMapPane({ config, onRemoteSignature }: LiveMapPaneProps) {
+  const decorate = useMapDecorator();
   const { targetNetwork } = useTargetNetwork();
   const { accountId: viewerAccountId } = useHederaSigner();
   const { governanceAccountId, network, executor, vault, demoTokenId } = config;
@@ -107,7 +107,12 @@ export function LiveMapPane({ config, decorate, onRemoteSignature }: LiveMapPane
   );
   useRemoteApprovals({ events, world: snapshot, network, onRemote: announce });
 
-  const { selected, activation, inspectorId, close, paneRef, onKeyDown } = useMapSelection();
+  const { selected, activation, inspectorId, close, dismiss, paneRef, onKeyDown } = useMapSelection();
+  // Selecting a proposal on the rail moves the reader's attention there, so the card over the map goes.
+  const { selectedScheduleId } = useSelectedSchedule();
+  useEffect(() => {
+    dismiss();
+  }, [selectedScheduleId, dismiss]);
   const inspector =
     selected && map && world
       ? inspectorContentOf(selected, {
@@ -128,10 +133,9 @@ export function LiveMapPane({ config, decorate, onRemoteSignature }: LiveMapPane
         governedToken={tokenReadingOf(governedToken)}
         usdc={tokenReadingOf(usdc)}
       />
-      <p className="m-0 px-6 py-3 text-sm text-base-content/70">{LIVE_MAP_STATUS_NOTE}</p>
       {/* Escape anywhere in the pane closes the inspector; the handler only listens, the map's items
           and the card's controls are what take focus. */}
-      <div ref={paneRef} onKeyDown={onKeyDown} className="relative flex min-h-64 flex-1 flex-col p-6 pt-0 lg:min-h-0">
+      <div ref={paneRef} onKeyDown={onKeyDown} className="relative flex min-h-64 flex-1 flex-col p-6 lg:min-h-0">
         <div className="min-h-0 flex-1">
           <GovernanceMap
             map={shownMap}

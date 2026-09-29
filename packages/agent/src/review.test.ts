@@ -11,6 +11,7 @@ const EXECUTOR_EVM = "0x0000000000000000000000000000000000001b59";
 const VAULT = "0x0000000000000000000000000000000000001234" as const;
 const IMPLEMENTATION = "0x0000000000000000000000000000000000005678" as const;
 const STRANGER = "0x00000000000000000000000000000000000000ff" as const;
+const PROPOSER = "0x0000000000000000000000000000000000009001" as const;
 
 /** Raw hex, the form `PrivateKey.publicKey.toStringRaw()` returns and `isSignedByKey` compares against. */
 const AGENT_KEY_HEX = "02a1b2c3d4e5f6071829304152637485960718293041526374859607182930415263";
@@ -59,6 +60,7 @@ const UPGRADE_ENTRY: RegistryEntry = {
   proposalId: 7,
   state: "pending",
   target: VAULT,
+  proposer: PROPOSER,
   calldata: "0x",
   operation: {
     kind: "upgrade",
@@ -277,6 +279,33 @@ describe("reviewInbox", () => {
     expect(result.failures).toEqual([{ scheduleId: "0.0.9001", error: "INVALID_SIGNATURE" }]);
     // A signature that did not land must not be remembered as one that did.
     expect(result.signed).toEqual(["0.0.9003"]);
+  });
+
+  it("reports an approval it did not sign, so the caller can hold its record back", async () => {
+    const result = await reviewInbox(inbox([proposal()]), OPTIONS, null);
+
+    expect(result.signed).toEqual([]);
+    expect(result.unsigned).toEqual(["0.0.9001"]);
+  });
+
+  it("reports an approval whose signature failed as unsigned too", async () => {
+    const sign = vi.fn().mockRejectedValueOnce(new Error("INVALID_SIGNATURE")).mockResolvedValueOnce(undefined);
+
+    const result = await reviewInbox(
+      inbox([proposal(), proposal({ schedule: schedule({ schedule_id: "0.0.9003" }) })]),
+      OPTIONS,
+      sign,
+    );
+
+    expect(result.unsigned).toEqual(["0.0.9001"]);
+  });
+
+  it("counts nothing as unsigned when every approval was signed", async () => {
+    const sign = vi.fn().mockResolvedValue(undefined);
+
+    const result = await reviewInbox(inbox([proposal()]), OPTIONS, sign);
+
+    expect(result.unsigned).toEqual([]);
   });
 
   it("passes through the proposers whose schedules could not be read", async () => {

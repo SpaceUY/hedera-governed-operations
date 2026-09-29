@@ -68,6 +68,7 @@ describe("GovernanceLayout", () => {
 
     const mapPane = screen.getByRole("region", { name: "Live map" });
     expect(mapPane.textContent).toContain("map pane of 0.0.10671146");
+    expect(mapPane.textContent).not.toContain("execute button");
     expect(screen.getByText("rail page for 0.0.10671146")).toBeTruthy();
     expect(mapPane.contains(screen.getByText(/rail page/))).toBe(false);
     expect(resolveGovernanceConfig).toHaveBeenCalledWith(296);

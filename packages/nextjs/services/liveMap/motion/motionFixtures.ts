@@ -95,24 +95,24 @@ export function proposal({
     registry:
       operation.kind !== "registryCall"
         ? { status: "notApplicable" }
-        : pending
-          ? {
-              status: "read",
-              entry: {
-                proposalId: 1,
-                state: "pending",
+        : {
+            status: "read",
+            entry: {
+              proposalId: 1,
+              // A revert leaves the entry as it was; a run that succeeded marks it executed.
+              state: pending || execution.status === "failed" ? "pending" : "executed",
+              target: VAULT_ADDRESS,
+              proposer: "0x0",
+              calldata: "0x",
+              operation: {
+                kind: "upgrade",
                 target: VAULT_ADDRESS,
-                calldata: "0x",
-                operation: {
-                  kind: "upgrade",
-                  target: VAULT_ADDRESS,
-                  implementation: "0x0000000000000000000000000000000000a2d434",
-                  initializerCalldata: "0x",
-                  initializer: { kind: "none" },
-                },
+                implementation: "0x0000000000000000000000000000000000a2d434",
+                initializerCalldata: "0x",
+                initializer: { kind: "none" },
               },
-            }
-          : { status: "notRead" },
+            },
+          },
   };
 }
 

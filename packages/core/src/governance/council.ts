@@ -149,6 +149,18 @@ function carriesKey({ public_key_prefix }: MirrorScheduleSignature, publicKeyHex
 }
 
 /**
+ * Whether a key holds one of the council's seats, which is what decides whether its signature counts
+ * for anything at all.
+ *
+ * Unlike `isSignedByKey` this is a whole key on both sides: the members come from the account's own
+ * key rather than from a signature row, so there is no prefix to allow for, and allowing one would
+ * hand a seat to any key that happens to start the same way.
+ */
+export function councilHoldsKey(council: CouncilKey, publicKeyHex: string): boolean {
+  return council.memberKeys.some(member => base64ToHex(member) === publicKeyHex);
+}
+
+/**
  * The consensus timestamp at which a council member's approval reached the schedule, or null when it
  * never did. A member can appear on several rows — its own signature and the payer row of a
  * `ScheduleSign` it paid for later — and the approval is the earliest of them.
@@ -183,8 +195,8 @@ export function countThresholdSignatures(schedule: MirrorSchedule, council: Coun
 const SINGLE_KEY_TYPES = ["ED25519", "ECDSA_SECP256K1"];
 
 /**
- * An account's key as a council seat writes it, or null when it is not one public key. Mirror writes
- * a single public key as bare hex; a seat is the same bytes in base64.
+ * The seat an account's key would be, in the form `CouncilKey.memberKeys` uses, or null when the key is
+ * not one public key. Mirror writes a single public key as bare hex; a seat is the same bytes in base64.
  */
 export function memberKeyOfAccount(key: MirrorKey | null): string | null {
   if (!key || !SINGLE_KEY_TYPES.includes(key._type)) return null;

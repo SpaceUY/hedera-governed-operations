@@ -4,6 +4,7 @@ import governanceAccount from "../mirror/__fixtures__/account.json";
 import executedSchedule from "../mirror/__fixtures__/schedule-executed.json";
 import {
   type CouncilKey,
+  councilHoldsKey,
   countThresholdSignatures,
   fetchCouncilKey,
   fetchProposerAccountIds,
@@ -164,6 +165,33 @@ describe("countThresholdSignatures", () => {
     it("answers null for a member who never signed", () => {
       expect(memberSignedAt(scheduleSignedBy(PAYER), firstMember)).toBeNull();
     });
+  });
+});
+
+describe("councilHoldsKey", () => {
+  const council: CouncilKey = { threshold: 2, memberKeys: MEMBER_KEYS };
+  /** The first member's key in the raw hex form `PublicKey.toStringRaw` returns. */
+  const FIRST_MEMBER_HEX = "0317f4a36e88217ef559aae2316440abc651a4af39726b99b1e40c649b6fa9cf16";
+
+  it("answers yes for a key the council's threshold is built on", () => {
+    expect(councilHoldsKey(council, FIRST_MEMBER_HEX)).toBe(true);
+  });
+
+  it("answers no for a key that holds no seat", () => {
+    const stranger = "02" + FIRST_MEMBER_HEX.slice(2);
+
+    expect(councilHoldsKey(council, stranger)).toBe(false);
+  });
+
+  // The seat comes from the account's key rather than from a signature row, so unlike
+  // `isSignedByKey` it is a whole key on both sides. A prefix that matched would hand a seat to
+  // anyone whose key starts the same way.
+  it("answers no for a prefix of a member's key", () => {
+    expect(councilHoldsKey(council, FIRST_MEMBER_HEX.slice(0, 8))).toBe(false);
+  });
+
+  it("answers no on a council with no members", () => {
+    expect(councilHoldsKey({ threshold: 1, memberKeys: [] }, FIRST_MEMBER_HEX)).toBe(false);
   });
 });
 

@@ -296,6 +296,7 @@ const deployedContracts = {
       ],
       inheritedFunctions: {},
       deployedOnBlock: 40855605,
+      hederaContractId: "0.0.10671161",
     },
     AcmeVaultV2: {
       address: "0xF3111f1480f088c19CB80096f698E5f1B42Cb9A6",
@@ -635,6 +636,7 @@ const deployedContracts = {
         upgradeToAndCall: "contracts/AcmeVault.sol",
       },
       deployedOnBlock: 40855609,
+      hederaContractId: "0.0.10671163",
     },
     AcmeVault_Implementation: {
       address: "0x618023e309E32A8E70F59fb1228C4ee5C2a867b4",
@@ -1706,6 +1708,7 @@ const deployedContracts = {
       ],
       inheritedFunctions: {},
       deployedOnBlock: 40855613,
+      hederaContractId: "0.0.10671165",
     },
     TokenAdmin: {
       address: "0xDFcFe039Fb4BaD9C3C66424F61B273014FF84C6B",

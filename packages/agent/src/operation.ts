@@ -55,13 +55,13 @@ export function readOperation(proposal: Proposal, executorContractId: string): R
 
   // The entry is the operation. Signing without it would be approving an id, and the inbox already
   // distinguishes an entry that says no from one that could not be asked — only the second is a
-  // transient condition, and neither is a reason to sign.
+  // transient condition, and neither is a reason to sign. The UI now lets a person sign an
+  // `unreachable` read anyway, with a warning; this agent stays stricter on purpose, since nobody is
+  // there to read the warning or decide to accept the risk on the app's behalf.
   const { registry } = proposal;
   if (registry.status === "missing") return unreadable(`the registry has no entry ${operation.proposalId}`);
   if (registry.status === "unreachable") return unreadable(`the registry could not be read: ${registry.reason}`);
-  if (registry.status === "notApplicable" || registry.status === "notRead") {
-    return unreadable("the registry entry behind this proposal was not read");
-  }
+  if (registry.status === "notApplicable") return unreadable("the registry entry behind this proposal was not read");
   if (registry.entry.state !== "pending") return unreadable(`the registry entry is already ${registry.entry.state}`);
 
   const entry = registry.entry.operation;

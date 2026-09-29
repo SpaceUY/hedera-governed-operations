@@ -1,6 +1,6 @@
 /**
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
- * node sits, the names "Council account", Alice, Bob and "Setup operator", the co-signing agent that is not a member
+ * node sits, the names "Council account", Alice and Bob, the co-signing agent that is not a member
  * yet, and the inspector's words for them. The seat of whoever is connected is named "You" by the
  * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
@@ -34,14 +34,11 @@ const MEMBER_SLOTS: Point[] = [
   { x: 90, y: 480 },
 ];
 const SUPPLIER_SLOT: Point = { x: 300, y: 590 };
-/** Proposers without a seat — the operator `yarn setup` grants the role to — along the top. */
-const PROPOSER_ROW = { x: 300, y: 50, step: 170 } as const;
 
 export const DEMO_NAMES = {
   council: "Council account",
   alice: "Alice",
   bob: "Bob",
-  operator: "Setup operator",
   supplier: "Supplier",
   token: "ACME",
   router: "SaucerSwap router",
@@ -65,6 +62,7 @@ const AGENT: GhostNode = {
   label: DEMO_NAMES.agent,
   caption: "not a member yet",
   position: { x: 90, y: 620 },
+  monogram: "AG",
 };
 
 /**
@@ -175,12 +173,12 @@ export const decorateDemoMap: MapDecorator = context => {
     Object.assign(inspector.edges, copy.edges);
   }
 
-  const unseated = context.nodes.filter(node => node.role === "proposer");
-  unseated.forEach((node, index) => {
-    positions[node.id] = { x: PROPOSER_ROW.x + PROPOSER_ROW.step * index, y: PROPOSER_ROW.y };
-  });
-  // `yarn setup` grants PROPOSER_ROLE to one account without a seat: the operator that ran it.
-  if (unseated.length === 1) labels[unseated[0].id] = DEMO_NAMES.operator;
+  // `yarn setup` grants PROPOSER_ROLE to an account without a seat — the operator that ran it, so it
+  // can open the seed proposal. It is real, but the demo's story is the council, so it is not drawn.
+  const hiddenNodes = context.nodes.filter(node => node.role === "proposer").map(node => node.id);
+  // Alice and Bob hold PROPOSER_ROLE too, but the demo tells them as co-signers: only the council
+  // account's line to the registry is drawn.
+  const hiddenEdges = coSigners.flatMap(([nodeId]) => (nodeId ? [edgeId(nodeId, EXECUTOR_NODE_ID)] : []));
 
   // The demo's only transfer pays the supplier, so the account a pending transfer names is it.
   const recipient = context.nodes.find(node => node.role === "external" && node.id !== MAP_ENTITY_IDS.router);
@@ -190,5 +188,12 @@ export const decorateDemoMap: MapDecorator = context => {
     inspector.nodes[recipient.id] = SUPPLIER_COPY;
   }
 
-  return { layout: { ...SIZE, positions, labels }, captions, ghosts: [AGENT], regions: REGIONS, inspector };
+  return {
+    layout: { ...SIZE, positions, labels },
+    captions,
+    ghosts: [AGENT],
+    regions: REGIONS,
+    inspector,
+    hidden: { nodes: hiddenNodes, edges: hiddenEdges },
+  };
 };

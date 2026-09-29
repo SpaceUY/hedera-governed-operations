@@ -36,16 +36,44 @@ export function isContractProposalKind(kind: ProposalKind): kind is ContractProp
  * `executeGas` is the limit of the scheduled `execute(id)` that runs the operation, and only the
  * contract-backed kinds have one. A scheduled call that succeeds is charged its whole limit, so
  * these are not headroom to be generous with: the governance account pays for every unit left
- * unused. Each is measured consumption on testnet plus about a third, the margin the swap and the
- * token operations were already verified at.
+ * unused.
+ *
+ * **A `Measured:` line below cites the transaction it came from; one that cannot is not a
+ * measurement.** These operations reach HTS system contracts and a DEX, and the local EVM has
+ * neither: a contract test can only measure the mocks standing in for them, and a mock's gas figure
+ * describes the mock. The kinds whose numbers came from a real run say which run, and the kind whose
+ * numbers did not says that instead.
  */
 export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; executeGas: number }> &
   Record<NativeProposalKind, { label: string; executeGas: null }> = {
-  /** Measured: 65,410 with no initializer, 99,015 with one nested in the upgrade call. */
+  /**
+   * Measured: 65,410, twice, plus one run at 60,066 — `execute` against the vault proxy at a 150,000
+   * limit (`0.0.10671156`, entries 7, 8 and 9). All three upgrade without an initializer. **An
+   * upgrade that nests an initializer has never run on testnet**; the only entry registered with one
+   * was withdrawn, so the limit covers that case by arithmetic and not by measurement.
+   */
   upgrade: { label: "Contract upgrade", executeGas: 150_000 },
-  /** Measured: 241k through the executor, the adapter and the router, on a single-hop pool. */
-  treasurySwap: { label: "Treasury swap", executeGas: 320_000 },
-  /** Measured: 65k–68k for all four operations, through the executor to the HTS system contract. */
+  /**
+   * Measured: 247,050–247,064 over three runs — the executor, the adapter, SaucerSwap's router and
+   * the USDC/HBAR pool, single hop, output settled to an already associated treasury
+   * (`0xa5ee027700a30b404b7d0255b2a39efc376f332b4d09e682fe191308b48cea36` at a 500,000 limit,
+   * `0x4c792dedb1ce8721e80a558252c69ba8351bd4c5756b7a868bebbde4ca28afe3` at 300,000, the limit here).
+   * `treasurySwap.integration.test.ts` reproduces it and asserts this number from both sides.
+   *
+   * Two things are deliberately outside this number. The output token's association is paid once by
+   * `yarn setup`, because an association charged to the call costs more than this whole limit and a
+   * successful scheduled call pays its limit every time. And neither run crossed an initialised
+   * tick: a swap large enough to cross one does more work than this, so the figure belongs to a
+   * single-hop swap of ordinary size rather than to any swap at all.
+   */
+  treasurySwap: { label: "Treasury swap", executeGas: 300_000 },
+  /**
+   * **Not measured.** `TokenAdmin` has one transaction in its history on testnet and it is its own
+   * deployment, so no pause, unpause, freeze or unfreeze has ever run through the executor against
+   * the contracts deployed now. The figure is inherited from an earlier deployment and the limit is
+   * arithmetic: four HTS calls of one slot each, through two contracts. Treat it as a guess until a
+   * run replaces this comment with a transaction.
+   */
   tokenAdmin: { label: "Token administration", executeGas: 90_000 },
   treasuryTransfer: { label: "Treasury transfer", executeGas: null },
   councilRotation: { label: "Council rotation", executeGas: null },

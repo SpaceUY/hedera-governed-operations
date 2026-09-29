@@ -1,6 +1,8 @@
 import type { DeployFunction } from "hardhat-deploy/types";
 
 import { getDeployGasPrice } from "../utils/getDeployGasPrice";
+import { isHederaChainId } from "../utils/hederaChains";
+import { recordHederaContractId } from "../utils/recordHederaContractId";
 
 const CONTRACT = "AcmeVault";
 
@@ -14,9 +16,10 @@ const CONTRACT = "AcmeVault";
 /// reaches the proxy only through an approved proposal.
 const deployAcmeVault: DeployFunction = async function (hre) {
   const { deployer } = await hre.getNamedAccounts();
+  const chainId = Number(await hre.network.provider.send("eth_chainId", []));
   const executor = await hre.deployments.get("GovernedExecutor");
 
-  await hre.deployments.deploy(CONTRACT, {
+  const deployment = await hre.deployments.deploy(CONTRACT, {
     from: deployer,
     proxy: {
       proxyContract: "UUPS",
@@ -27,6 +30,16 @@ const deployAcmeVault: DeployFunction = async function (hre) {
     gasLimit: "3000000",
     gasPrice: await getDeployGasPrice(hre),
   });
+
+  if (!isHederaChainId(chainId) || !deployment.address) {
+    return;
+  }
+
+  // The proxy's own id: an upgrade is a scheduled call, and a scheduled call targets the contract
+  // id rather than the EVM address. Without it `resolveGovernanceConfig` refuses to start and every
+  // governance route shows the setup notice instead.
+  const hederaContractId = await recordHederaContractId(hre, CONTRACT, deployment.address, chainId);
+  console.log(`Resolved Hedera contract id: ${hederaContractId}`);
 };
 
 deployAcmeVault.tags = [CONTRACT];
