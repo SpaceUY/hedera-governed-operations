@@ -21,6 +21,16 @@ type RemoteApprovalsInput = {
   onRemote: (approval: ApprovedEvent) => void;
 };
 
+/** The schedule a sign mutation was called with, when its variables are one. */
+export const signedScheduleIdOf = (variables: unknown): string | undefined =>
+  typeof variables === "string" ? variables : undefined;
+
+/** The schedule an open mutation returned, when its result names one. */
+export function openedScheduleIdOf(data: unknown): string | undefined {
+  if (typeof data !== "object" || data === null || !("scheduleId" in data)) return undefined;
+  return typeof data.scheduleId === "string" ? data.scheduleId : undefined;
+}
+
 /**
  * Calls `onRemote` for every approval a read reports that did not come from this session: a council
  * member signing from another device, the co-signing agent, anyone. What this session sent is read
@@ -35,13 +45,13 @@ export function useRemoteApprovals({ events, world, network, onRemote }: RemoteA
   const memberKey = account.data ? memberKeyOfAccount(account.data.key) : null;
   const signed = useMutationState({
     filters: { mutationKey: GOVERNANCE_MUTATION_KEYS.sign },
-    select: ({ state }) => (state.status === "error" ? null : (state.variables as string | undefined)),
+    select: ({ state }) => (state.status === "error" ? null : signedScheduleIdOf(state.variables)),
   });
   const opens = useMutationState({
     filters: { mutationKey: GOVERNANCE_MUTATION_KEYS.open },
     select: ({ state }) => ({
       status: state.status,
-      scheduleId: (state.data as { scheduleId?: string } | undefined)?.scheduleId,
+      scheduleId: openedScheduleIdOf(state.data),
     }),
   });
 

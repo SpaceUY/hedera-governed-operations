@@ -1,7 +1,7 @@
 import { type ReactNode, StrictMode } from "react";
 import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
 import { useHederaSigner } from "./useHederaSigner";
-import { useRemoteApprovals } from "./useRemoteApprovals";
+import { openedScheduleIdOf, signedScheduleIdOf, useRemoteApprovals } from "./useRemoteApprovals";
 import { QueryClient, QueryClientProvider, useMutation } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -100,5 +100,21 @@ describe("useRemoteApprovals", () => {
 
     rerender({ events: [{ kind: "proposed", scheduleId: ID, at: ago(3) }, approvedBy(ALICE)], world: WORLD });
     expect(onRemote).not.toHaveBeenCalled();
+  });
+});
+
+describe("the session's mutations", () => {
+  it("reads the schedule a sign was called with, and nothing from any other shape", () => {
+    expect(signedScheduleIdOf(ID)).toBe(ID);
+    for (const variables of [undefined, null, 9001, { scheduleId: ID }, [ID]]) {
+      expect(signedScheduleIdOf(variables)).toBeUndefined();
+    }
+  });
+
+  it("reads the schedule an open returned, and nothing from any other shape", () => {
+    expect(openedScheduleIdOf({ scheduleId: ID, transactionId: "0.0.1@1.1" })).toBe(ID);
+    for (const data of [undefined, null, ID, 9001, {}, { scheduleId: 9001 }, { scheduleId: null }, { id: ID }]) {
+      expect(openedScheduleIdOf(data)).toBeUndefined();
+    }
   });
 });
