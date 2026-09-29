@@ -120,6 +120,24 @@ describe("ScheduleSearch", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("drops its result once another card is selected, so its lookup stops polling", () => {
+    lookupFinds("0.0.777");
+    const { rerender } = render(<ScheduleSearch {...searchProps({ selectedScheduleId: null })} />);
+    search("0.0.777");
+    rerender(<ScheduleSearch {...searchProps({ selectedScheduleId: "0.0.777" })} />);
+    expect(screen.getByRole("button", { expanded: false })).toBeTruthy();
+
+    // Closing the result keeps it on screen; selecting an inbox card drops it.
+    rerender(<ScheduleSearch {...searchProps({ selectedScheduleId: null })} />);
+    expect(screen.getByRole("button", { expanded: false })).toBeTruthy();
+    rerender(<ScheduleSearch {...searchProps({ selectedScheduleId: "0.0.1" })} />);
+    expect(screen.queryByRole("button", { expanded: false })).toBeNull();
+
+    vi.mocked(useProposalLookup).mockClear();
+    rerender(<ScheduleSearch {...searchProps({ selectedScheduleId: "0.0.1" })} />);
+    expect(useProposalLookup).not.toHaveBeenCalled();
+  });
+
   it("shows a selection the inbox does not list as its result, with the field filled in and the detail under it", () => {
     lookupFinds("0.0.99");
     render(

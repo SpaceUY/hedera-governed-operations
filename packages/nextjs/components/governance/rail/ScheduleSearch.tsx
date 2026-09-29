@@ -51,6 +51,13 @@ export const ScheduleSearch = (props: ScheduleSearchProps) => {
     setFormatError(null);
   }, [unlistedSelectionId]);
 
+  // Selecting any other card drops the search result, so its lookup stops polling a proposal nobody is
+  // looking at. A functional update, because the effect above may have just committed this selection.
+  const { selectedScheduleId } = props;
+  useEffect(() => {
+    setCommittedId(current => (selectedScheduleId && selectedScheduleId !== current ? null : current));
+  }, [selectedScheduleId]);
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = term.trim();
