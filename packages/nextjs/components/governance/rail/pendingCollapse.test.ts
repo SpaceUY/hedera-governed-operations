@@ -1,25 +1,31 @@
-import { COLLAPSED_VISIBLE_COUNT, pendingSummaryLabel, resolveCollapse } from "./pendingCollapse";
+import { COLLAPSED_VISIBLE_COUNT, expandedList, foldedList, pendingSummaryLabel } from "./pendingCollapse";
 import { describe, expect, it } from "vitest";
 
-describe("resolveCollapse", () => {
-  it("shows only the first few when collapsed and nothing selected further down", () => {
-    expect(resolveCollapse(10, false, -1)).toEqual({ visibleCount: COLLAPSED_VISIBLE_COUNT, hiddenCount: 7 });
+describe("foldedList", () => {
+  it("shows only the first few when nothing selected sits further down", () => {
+    expect(foldedList(10, -1)).toEqual({ visibleCount: COLLAPSED_VISIBLE_COUNT, hiddenCount: 7, canFold: false });
   });
 
-  it("shows everything once expanded", () => {
-    expect(resolveCollapse(10, true, -1)).toEqual({ visibleCount: 10, hiddenCount: 0 });
+  it("shows nothing hidden when the total already fits the fold", () => {
+    expect(foldedList(2, -1)).toEqual({ visibleCount: 2, hiddenCount: 0, canFold: false });
   });
 
-  it("shows nothing hidden when the total already fits the collapsed count", () => {
-    expect(resolveCollapse(2, false, -1)).toEqual({ visibleCount: 2, hiddenCount: 0 });
+  it("opens in full when the selected row sits past the fold, and offers to fold it back", () => {
+    expect(foldedList(10, 5)).toEqual({ visibleCount: 10, hiddenCount: 0, canFold: true });
   });
 
-  it("forces the list open when the selected row sits past the collapsed fold", () => {
-    expect(resolveCollapse(10, false, 5)).toEqual({ visibleCount: 10, hiddenCount: 0 });
+  it("stays folded for a selection inside the fold already", () => {
+    expect(foldedList(10, 1)).toEqual({ visibleCount: COLLAPSED_VISIBLE_COUNT, hiddenCount: 7, canFold: false });
+  });
+});
+
+describe("expandedList", () => {
+  it("shows every row and offers to fold them back", () => {
+    expect(expandedList(10)).toEqual({ visibleCount: 10, hiddenCount: 0, canFold: true });
   });
 
-  it("does not force it open for a selection inside the fold already", () => {
-    expect(resolveCollapse(10, false, 1)).toEqual({ visibleCount: COLLAPSED_VISIBLE_COUNT, hiddenCount: 7 });
+  it("offers nothing to fold when everything fits anyway", () => {
+    expect(expandedList(2)).toEqual({ visibleCount: 2, hiddenCount: 0, canFold: false });
   });
 });
 

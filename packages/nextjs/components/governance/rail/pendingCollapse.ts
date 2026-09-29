@@ -9,16 +9,24 @@ export const COLLAPSED_VISIBLE_COUNT = 3;
 export type CollapseState = {
   visibleCount: number;
   hiddenCount: number;
+  /** Whether rows past the fold are showing, so the list offers to fold them back. */
+  canFold: boolean;
 };
 
+/** Every row, and the control to fold the list back once it runs past the fold. */
+export function expandedList(total: number): CollapseState {
+  return { visibleCount: total, hiddenCount: 0, canFold: total > COLLAPSED_VISIBLE_COUNT };
+}
+
 /**
+ * The folded list: the first few rows, opened in full only when the selected row sits past the fold.
  * `selectedIndex` is the position of the selected proposal in the same order the list renders, or -1
  * when nothing selected is in this list at all.
  */
-export function resolveCollapse(total: number, expanded: boolean, selectedIndex: number): CollapseState {
-  const forcedOpen = selectedIndex >= COLLAPSED_VISIBLE_COUNT;
-  const visibleCount = expanded || forcedOpen ? total : Math.min(total, COLLAPSED_VISIBLE_COUNT);
-  return { visibleCount, hiddenCount: total - visibleCount };
+export function foldedList(total: number, selectedIndex: number): CollapseState {
+  if (selectedIndex >= COLLAPSED_VISIBLE_COUNT) return expandedList(total);
+  const visibleCount = Math.min(total, COLLAPSED_VISIBLE_COUNT);
+  return { visibleCount, hiddenCount: total - visibleCount, canFold: false };
 }
 
 /** The section's summary count, e.g. for a heading that says how many are waiting without listing them. */

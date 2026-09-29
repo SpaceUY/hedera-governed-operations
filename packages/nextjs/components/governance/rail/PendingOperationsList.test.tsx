@@ -39,8 +39,22 @@ describe("PendingOperationsList", () => {
     expect(screen.getByRole("button", { name: "Show fewer" })).toBeTruthy();
   });
 
-  it("opens the list on its own when the selected row sits past the fold", () => {
+  it("opens the list on its own when the selected row sits past the fold, and lets it be folded back", () => {
     render(<PendingOperationsList proposals={proposals(5)} selectedScheduleId="0.0.5" onSelect={vi.fn()} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(COLLAPSED_VISIBLE_COUNT);
+    expect(screen.getByRole("button", { name: "Show 2 more" })).toBeTruthy();
+  });
+
+  it("opens again for a new selection past the fold after being folded over the last one", () => {
+    const { rerender } = render(
+      <PendingOperationsList proposals={proposals(5)} selectedScheduleId="0.0.5" onSelect={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+
+    rerender(<PendingOperationsList proposals={proposals(5)} selectedScheduleId="0.0.4" onSelect={vi.fn()} />);
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
   });
 
