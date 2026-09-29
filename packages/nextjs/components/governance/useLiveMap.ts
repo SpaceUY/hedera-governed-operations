@@ -32,7 +32,7 @@ function tokenReadingOf(query: ReturnType<typeof useToken>): TokenReading {
 
 /**
  * Everything the map pane draws, from one world. `useMapSnapshot` composes the queries the rail polls
- * too; this only adds the governed token and USDC for the strip's symbols and supply (`useToken`, the
+ * too; this only adds the governed token and USDC for the strip's symbols and decimals (`useToken`, the
  * same query the snapshot reads the token's pause state from, so one request serves both). It plays
  * what changed between two reads (`useProposalAnimationSync`), so while a sequence plays the map and
  * the figures show the world it started from, and catch up when it lands. A signature this session did

@@ -16,7 +16,6 @@ export type TokenReading = TokenQueryData | "unreadable" | null;
 
 const LOADING = "…";
 const UNREADABLE = "—";
-const WHOLE_UNITS = /^\d+$/;
 
 const Figure = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="min-w-0">
@@ -37,48 +36,38 @@ const HbarAmount = ({ tinybars }: { tinybars: number | bigint }) => (
   </>
 );
 
-function usdcFigure(treasury: TreasuryFigures | null, usdc: TokenReading): ReactNode {
-  if (usdc === "unreadable") return UNREADABLE;
-  if (!treasury || !usdc) return LOADING;
-  return <Amount units={treasury.usdcBalance} decimals={usdc.decimals} />;
-}
-
-function supplyFigure(token: TokenReading): ReactNode {
+/** A balance of the governance account's in a token, on the scale Mirror reports for that token. */
+function tokenFigure(units: number | undefined, token: TokenReading): ReactNode {
   if (token === "unreadable") return UNREADABLE;
-  if (!token) return LOADING;
-  if (!WHOLE_UNITS.test(token.token.total_supply)) return UNREADABLE;
-  return <Amount units={BigInt(token.token.total_supply)} decimals={token.decimals} />;
+  if (units === undefined || !token) return LOADING;
+  return <Amount units={units} decimals={token.decimals} />;
 }
 
-function supplyLabel(token: TokenReading): string {
-  return `${token && token !== "unreadable" ? token.token.symbol : "Token"} supply`;
-}
+const symbolOf = (token: TokenReading): string => (token && token !== "unreadable" ? token.token.symbol : "Token");
 
 type TreasuryStripProps = {
   /** The figures of the world the map shows, null until read; they count when they change. */
   treasury: TreasuryFigures | null;
   council: CouncilKey | null;
-  /** The token the council governs: its total supply is the figure, its symbol names it. */
+  /** The token the council governs, read for its symbol, which names the figure, and its decimals. */
   governedToken: TokenReading;
   /** The swap provider's USDC, read for its decimals. */
   usdc: TokenReading;
 };
 
 /**
- * The governance account's balances, the governed token's supply and the council's rule, in one
- * line above the map. Every token amount is written with the decimals Mirror reports for it.
+ * The governance account's balances and the council's rule, in one line above the map. Every token
+ * amount is written with the decimals Mirror reports for it.
  */
 export const TreasuryStrip = ({ treasury, council, governedToken, usdc }: TreasuryStripProps) => (
   <section aria-label="Treasury" className="border-b border-base-300 px-6 py-4">
     <dl className="m-0 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-      <Figure label="Treasury HBAR">
-        {treasury ? <HbarAmount tinybars={treasury.hbarBalanceTinybar} /> : LOADING}
-      </Figure>
-      <Figure label="USDC from swaps">{usdcFigure(treasury, usdc)}</Figure>
-      <Figure label={supplyLabel(governedToken)}>{supplyFigure(governedToken)}</Figure>
-      <Figure label="Reserve in the vault">
+      <Figure label="HBAR">{treasury ? <HbarAmount tinybars={treasury.hbarBalanceTinybar} /> : LOADING}</Figure>
+      <Figure label="Vault reserve">
         {treasury ? <HbarAmount tinybars={treasury.vaultReserveTinybar} /> : LOADING}
       </Figure>
+      <Figure label={symbolOf(governedToken)}>{tokenFigure(treasury?.demoTokenBalance, governedToken)}</Figure>
+      <Figure label="USDC">{tokenFigure(treasury?.usdcBalance, usdc)}</Figure>
       <Figure label="Council threshold">
         {council ? (
           <>

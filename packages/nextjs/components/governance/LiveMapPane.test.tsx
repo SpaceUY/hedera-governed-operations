@@ -55,9 +55,9 @@ function connect(accountId: string | null) {
   vi.mocked(useHederaSigner).mockReturnValue({ accountId } as ReturnType<typeof useHederaSigner>);
 }
 
-const TOKENS: Record<string, { symbol: string; total_supply: string; decimals: number }> = {
-  "0.0.6000": { symbol: "GOVD", total_supply: "1000000", decimals: 0 },
-  "0.0.5449": { symbol: "USDC", total_supply: "0", decimals: 6 },
+const TOKENS: Record<string, { symbol: string; decimals: number }> = {
+  "0.0.6000": { symbol: "GOVD", decimals: 0 },
+  "0.0.5449": { symbol: "USDC", decimals: 6 },
 };
 
 beforeEach(() => {
@@ -97,7 +97,7 @@ describe("LiveMapPane", () => {
     expect(within(treasury).getByText("123.45")).toBeTruthy();
     expect(within(treasury).getByText("500.00")).toBeTruthy();
     expect(within(treasury).getByText("0.00")).toBeTruthy();
-    expect(within(treasury).getByText("GOVD supply").nextElementSibling?.textContent).toBe("1,000,000");
+    expect(within(treasury).getByText("GOVD").nextElementSibling?.textContent).toBe("1,000");
     expect(within(treasury).getByText("2-of-3")).toBeTruthy();
     expect(screen.getByRole("graphics-document")).toBeTruthy();
   });

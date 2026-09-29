@@ -55,7 +55,7 @@ export function useMapSnapshot({ vaultContractId, demoTokenId, usdcTokenId, ...o
     network,
     enabled: options.enabled,
   });
-  // The same token query the treasury strip reads its symbol and supply from: one request for both.
+  // The same token query the treasury strip reads its symbol and decimals from: one request for both.
   const token = useToken(demoTokenId, { network, enabled: options.enabled });
   const vaultImplementation = useVaultImplementation(vaultContractId, { network, enabled: options.enabled });
 

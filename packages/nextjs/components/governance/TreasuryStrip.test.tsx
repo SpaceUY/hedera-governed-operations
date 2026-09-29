@@ -11,11 +11,11 @@ const TREASURY: TreasuryFigures = {
   vaultReserveTinybar: 50_000_000_000n,
 };
 
-function tokenOf(symbol: string, decimals: number, totalSupply = "0"): TokenReading {
-  return { token: { symbol, total_supply: totalSupply }, decimals } as TokenReading;
+function tokenOf(symbol: string, decimals: number): TokenReading {
+  return { token: { symbol }, decimals } as TokenReading;
 }
 
-const GOVD = tokenOf("GOVD", 0, "1000000");
+const GOVD = tokenOf("GOVD", 0);
 const USDC = tokenOf("USDC", 6);
 
 function figures(): { label: string; value: string }[] {
@@ -28,34 +28,39 @@ function figures(): { label: string; value: string }[] {
 afterEach(cleanup);
 
 describe("TreasuryStrip", () => {
-  it("writes the figures in the prototype's order, with two decimals and each token's own scale", () => {
+  it("writes the treasury's balances and the council's rule, with two decimals and each token's own scale", () => {
     render(<TreasuryStrip treasury={TREASURY} council={MAP_SNAPSHOT.council} governedToken={GOVD} usdc={USDC} />);
 
     expect(figures()).toEqual([
-      { label: "Treasury HBAR", value: "1,240.50 ℏ" },
-      { label: "USDC from swaps", value: "1.00" },
-      { label: "GOVD supply", value: "1,000,000" },
-      { label: "Reserve in the vault", value: "500.00 ℏ" },
+      { label: "HBAR", value: "1,240.50 ℏ" },
+      { label: "Vault reserve", value: "500.00 ℏ" },
+      { label: "GOVD", value: "5" },
+      { label: "USDC", value: "1.00" },
       { label: "Council threshold", value: "2-of-3 signatures" },
     ]);
   });
 
-  it("shows the governed token's total supply, not the treasury's holding of it", () => {
+  it("shows the treasury's own balance of the governed token, on the token's scale", () => {
     render(
-      <TreasuryStrip treasury={TREASURY} council={null} governedToken={tokenOf("USDX", 8, "250000000")} usdc={USDC} />,
+      <TreasuryStrip
+        treasury={{ ...TREASURY, demoTokenBalance: 250_000_000 }}
+        council={null}
+        governedToken={tokenOf("USDX", 8)}
+        usdc={USDC}
+      />,
     );
 
-    expect(screen.getByText("USDX supply").nextElementSibling?.textContent).toBe("2.50");
+    expect(screen.getByText("USDX").nextElementSibling?.textContent).toBe("2.50");
   });
 
   it("waits for each read before writing a figure", () => {
     render(<TreasuryStrip treasury={null} council={null} governedToken={null} usdc={null} />);
 
     expect(figures().map(({ label, value }) => [label, value])).toEqual([
-      ["Treasury HBAR", "…"],
-      ["USDC from swaps", "…"],
-      ["Token supply", "…"],
-      ["Reserve in the vault", "…"],
+      ["HBAR", "…"],
+      ["Vault reserve", "…"],
+      ["Token", "…"],
+      ["USDC", "…"],
       ["Council threshold", "…"],
     ]);
   });
@@ -63,13 +68,7 @@ describe("TreasuryStrip", () => {
   it("writes a dash, never a guessed scale, when a token or its decimals cannot be read", () => {
     render(<TreasuryStrip treasury={TREASURY} council={null} governedToken="unreadable" usdc="unreadable" />);
 
-    expect(screen.getByText("USDC from swaps").nextElementSibling?.textContent).toBe("—");
-    expect(screen.getByText("Token supply").nextElementSibling?.textContent).toBe("—");
-  });
-
-  it("writes a dash for a supply Mirror did not give as whole units", () => {
-    render(<TreasuryStrip treasury={TREASURY} council={null} governedToken={tokenOf("GOVD", 0, "")} usdc={USDC} />);
-
-    expect(screen.getByText("GOVD supply").nextElementSibling?.textContent).toBe("—");
+    expect(screen.getByText("USDC").nextElementSibling?.textContent).toBe("—");
+    expect(screen.getByText("Token").nextElementSibling?.textContent).toBe("—");
   });
 });

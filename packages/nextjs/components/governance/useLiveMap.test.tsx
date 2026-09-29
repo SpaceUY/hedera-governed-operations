@@ -40,7 +40,7 @@ const WORLD: GovernanceSnapshot = {
   nodeStates: { vaultImplementation: null, tokenPaused: true },
 };
 
-const GOVD = { token: { symbol: "GOVD", total_supply: "1000" }, decimals: 0 };
+const GOVD = { token: { symbol: "GOVD" }, decimals: 0 };
 
 function read(snapshot: GovernanceSnapshot | null) {
   vi.mocked(useMapSnapshot).mockReturnValue({ snapshot, previous: null, events: [], error: null } as never);
