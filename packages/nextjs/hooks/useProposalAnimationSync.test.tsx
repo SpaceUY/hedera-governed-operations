@@ -42,7 +42,7 @@ const RAN = {
       execution: SUCCEEDED,
     }),
   ]),
-  treasury: { hbarBalanceTinybar: 42, acmeBalance: 0, usdcBalance: 0, vaultReserveTinybar: 0n },
+  treasury: { hbarBalanceTinybar: 42, demoTokenBalance: 0, usdcBalance: 0, vaultReserveTinybar: 0n },
 };
 
 const BOB_SIGNED: AnimationEvent = { kind: "approved", scheduleId: ID, memberKey: BOB, at: ago(4) };
@@ -100,16 +100,18 @@ describe("useProposalAnimationSync", () => {
     rerender({ snapshot: RAN, previous: SIGNED, events: [EXECUTED] });
 
     expect(playToEnd(result)).toEqual([
+      // Recorded from 100 ms into the signature's pulse.
       ["signaturePulse", 0],
-      ["ringFill", 600],
-      ["thresholdPause", 1100],
-      ["ringSnap", 1250],
-      ["comet 0", 1510],
-      ["comet 1", 1990],
-      ["arrive", 3090],
-      ["figures", 3490],
-      ["hold", 4190],
-      ["relax", 6790],
+      ["ringFill", 500],
+      ["thresholdPause", 600],
+      ["ringSnap", 750],
+      // The run's first comet leaves 1110 ms after the signature's pulse did.
+      ["comet 0", 1010],
+      ["comet 1", 1490],
+      ["arrive", 2590],
+      // Relaxed 2600 ms after the arrival.
+      ["hold", 2990],
+      ["relax", 5190],
     ]);
     expect(result.current).toEqual({ world: RAN, playing: null });
   });
@@ -123,8 +125,8 @@ describe("useProposalAnimationSync", () => {
     // During the signature the map still shows the world before it.
     expect(result.current.world).toBe(OPEN);
     // One step per act: a step's timer is set once the render that entered the step has committed.
-    act(() => void vi.advanceTimersByTime(700));
-    act(() => void vi.advanceTimersByTime(500));
+    act(() => void vi.advanceTimersByTime(600));
+    act(() => void vi.advanceTimersByTime(100));
     // The run plays on the world the signature was read in, where the proposal is still pending.
     expect(cueOf(result)).toBe("thresholdPause");
     expect(result.current.world).toBe(SIGNED);

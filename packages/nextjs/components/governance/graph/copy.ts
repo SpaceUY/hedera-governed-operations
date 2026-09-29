@@ -32,6 +32,15 @@ export const MAP_NODE_CAPTIONS: Record<NodeRole, string> = {
   external: "outside the system",
 };
 
+/**
+ * What state the ledger has a node in, where the map reads one; it takes the place of the caption.
+ * The vault's two versions are the two contracts this template deploys for it.
+ */
+export const MAP_NODE_STATES = {
+  vault: { first: "v1 · deposits only", next: "v2 · withdrawals on" },
+  token: { paused: "Paused", active: "Active" },
+} as const;
+
 /** A council member whose account is not known here, by the start of its key. */
 export function unnamedMemberLabel(key: string): string {
   return `Member ${key.slice(0, 6)}…`;
@@ -105,6 +114,8 @@ export const MAP_INSPECTOR = {
   terms: { id: "Id", account: "Account", key: "Key", from: "From", to: "To" },
   /** Something a layout draws that the ledger does not have: there is nothing to say about it yet. */
   ghost: "Not on the ledger yet, so no line connects it.",
+  /** Added to a council seat's kicker when the account holding it also holds `PROPOSER_ROLE`. */
+  alsoProposes: "may also propose",
 } as const;
 
 /** A contract's kicker, with its deployment name when the map knows it. */
@@ -116,6 +127,9 @@ export function contractKicker(contractName: string | undefined): string {
 export function inspectorEdgeTitle(from: string, to: string): string {
   return `${from} → ${to}`;
 }
+
+/** Joins "2-of-3" so the inspector's narrow card never breaks the rule across two lines. */
+const unbreakable = (rule: string): string => rule.replaceAll("-", "\u2011");
 
 const PROPOSER_ROLE_NOTE =
   "It holds PROPOSER_ROLE, so it can register a proposal with one signature and no council; registering is not approving.";
@@ -131,7 +145,7 @@ export function inspectorNodeBody(
 ): string {
   switch (role) {
     case "governanceAccount":
-      return `Holds a ThresholdKey made of the keys of a ${facts.rule} council and pays for every approved operation. It is the only address with EXECUTOR_ROLE, so nothing it signs moves until enough of those keys have signed the schedule.`;
+      return `Holds a ThresholdKey made of the keys of a ${unbreakable(facts.rule)} council and pays for every approved operation. It is the only address with EXECUTOR_ROLE, so nothing it signs moves until enough of those keys have signed the schedule.`;
     case "executor":
       return "Stores each proposal's target and calldata. PROPOSER_ROLE may register; only the treasury account (EXECUTOR_ROLE) may execute. Its role admin is the contract itself, so changing roles is itself an approved proposal.";
     case "member": {

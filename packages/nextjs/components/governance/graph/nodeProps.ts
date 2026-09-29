@@ -20,7 +20,8 @@ export const translate = ({ x, y }: Point): string => `translate(${x} ${y})`;
 /** The ring keyboard focus draws around a node, invisible until then. */
 export const FOCUS_RING_CLASS = "fill-none stroke-primary opacity-0 group-focus-visible:opacity-100";
 
-const TONE_STROKE: Record<NodeTone, string> = {
+/** The stroke of each tone an operation gives a node or the treasury's ring. */
+export const TONE_STROKE: Record<NodeTone, string> = {
   progress: "stroke-warning",
   success: "stroke-success",
   error: "stroke-error",

@@ -166,23 +166,44 @@ textarea.textarea {
 }
 
 /*
-  The governance map's motion (components/governance/graph). Each duration here is the one
-  `MOTION_MS` in services/liveMap/motion/timings.ts gives the same moment; the comets take theirs from
-  it inline. Utilities are applied with `motion-safe:`, so reduced motion turns them off live.
+  The governance map's motion (components/governance/graph). The comets take their durations inline
+  from `MOTION_MS` (services/liveMap/motion/timings.ts); the flash, snap and shake below, and the ring
+  fill further down, are moments the stylesheet plays on its own. Utilities are applied with
+  `motion-safe:`, so reduced motion turns them off live.
 */
 @theme {
-  --animate-map-comet: map-comet 1100ms ease-out both;
+  --animate-map-comet: map-comet 1100ms cubic-bezier(0.45, 0, 0.25, 1) both;
+  --animate-map-comet-tail: map-comet-tail 1100ms cubic-bezier(0.45, 0, 0.25, 1) both;
+  --animate-map-comet-back: map-comet-back 1100ms cubic-bezier(0.45, 0, 0.25, 1) both;
   --animate-map-ring-snap: map-ring-snap 260ms ease-out;
   --animate-map-plate-flash: map-plate-flash 400ms ease-out;
   --animate-map-shake: map-shake 180ms ease-in-out 3;
 
-  /* One dash of a path 100 long, from just before its start to just past its end. */
+  /* A comet on a path 100 long: a head dash of 12 from just before the start to just past the end,
+     and a faint tail of 30 whose front keeps pace with the head's. Coming back, head and tail share
+     one set of offsets, which keeps the tail behind the head going the other way. */
   @keyframes map-comet {
     from {
-      stroke-dashoffset: 10;
+      stroke-dashoffset: 12;
     }
     to {
-      stroke-dashoffset: -102;
+      stroke-dashoffset: -118;
+    }
+  }
+  @keyframes map-comet-tail {
+    from {
+      stroke-dashoffset: 30;
+    }
+    to {
+      stroke-dashoffset: -100;
+    }
+  }
+  @keyframes map-comet-back {
+    from {
+      stroke-dashoffset: -100;
+    }
+    to {
+      stroke-dashoffset: 30;
     }
   }
   @keyframes map-ring-snap {
@@ -219,40 +240,11 @@ textarea.textarea {
 }
 
 /*
-  The map at rest and under the pointer: each node drifts 2 px on a loop of its own (8–14 s, the
-  duration and phase set per node), the glow behind the treasury breathes on a 40 s loop (both set
-  inline from `AMBIENT_MS`; the durations below are only defaults), and an
-  edge thickens from 1.6 to 2.6 in 180 ms under the pointer or keyboard focus. A countdown in its
-  final hour pulses slowly. All of it stops under reduced motion.
+  At rest the map holds still: nothing on it loops. It moves when a read reports something (the
+  sequences above) and under the pointer or keyboard focus, where an edge thickens from 1.6 to 2.6
+  in 180 ms. Reduced motion drops the transitions too. Animate `transform`, never the `translate`
+  property, on the SVG: Chrome repaints the whole drawing every frame for an animated `translate`.
 */
-@theme {
-  --animate-map-drift: map-drift 5s ease-in-out infinite alternate;
-  --animate-map-glow: map-glow 20s ease-in-out infinite alternate;
-  --animate-expiry-pulse: expiry-pulse 3s ease-in-out infinite;
-
-  @keyframes map-drift {
-    from {
-      translate: -1px -2px;
-    }
-    to {
-      translate: 1px 2px;
-    }
-  }
-  @keyframes map-glow {
-    from {
-      opacity: 0.5;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  @keyframes expiry-pulse {
-    50% {
-      opacity: 0.55;
-    }
-  }
-}
-
 .map-edge-line {
   stroke-width: 1.6;
   /* Lighting up is quick; going back to rest is the slow relax that ends every sequence. */

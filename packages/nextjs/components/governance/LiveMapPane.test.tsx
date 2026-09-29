@@ -1,10 +1,12 @@
 import { LiveMapPane } from "./LiveMapPane";
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MAP_NODE_STATES } from "~~/components/governance/graph/copy";
 import { MAP_SNAPSHOT } from "~~/components/governance/graph/mapFixtures";
 import type { MapDecorator } from "~~/components/governance/graph/mapModel";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
+import { useToken } from "~~/hooks/mirror/useToken";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
 import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
@@ -12,6 +14,7 @@ import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/liveMap/model/graph";
 
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
+vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
@@ -35,10 +38,11 @@ const WORLD: GovernanceSnapshot = {
   unreachableProposers: [],
   treasury: {
     hbarBalanceTinybar: 12_345_000_000,
-    acmeBalance: 1_000,
+    demoTokenBalance: 1_000,
     usdcBalance: 7,
     vaultReserveTinybar: 50_000_000_000n,
   },
+  nodeStates: { vaultImplementation: null, tokenPaused: null },
 };
 
 function read(snapshot: GovernanceSnapshot | null, error: unknown = null) {
@@ -49,8 +53,17 @@ function connect(accountId: string | null) {
   vi.mocked(useHederaSigner).mockReturnValue({ accountId } as ReturnType<typeof useHederaSigner>);
 }
 
+const TOKENS: Record<string, { symbol: string; total_supply: string; decimals: number }> = {
+  "0.0.6000": { symbol: "GOVD", total_supply: "1000000", decimals: 0 },
+  "0.0.5449": { symbol: "USDC", total_supply: "0", decimals: 6 },
+};
+
 beforeEach(() => {
   vi.mocked(useMapSnapshot).mockReset();
+  vi.mocked(useToken).mockImplementation(tokenId => {
+    const token = TOKENS[tokenId ?? ""];
+    return { data: token && { token, decimals: token.decimals }, isError: false } as never;
+  });
   connect(null);
 });
 
@@ -66,17 +79,33 @@ describe("LiveMapPane", () => {
       demoTokenId: "0.0.6000",
       usdcTokenId: "0.0.5449",
     });
+    expect(vi.mocked(useToken)).toHaveBeenCalledWith("0.0.6000", { network: "testnet" });
+    expect(vi.mocked(useToken)).toHaveBeenCalledWith("0.0.5449", { network: "testnet" });
   });
 
   it("draws the treasury figures, the status line and the map from the same world", () => {
     read(WORLD);
     render(<LiveMapPane config={CONFIG} />);
     const treasury = screen.getByRole("region", { name: "Treasury" });
-    expect(within(treasury).getByText("123.45 ℏ")).toBeTruthy();
-    expect(within(treasury).getByText("500 ℏ")).toBeTruthy();
+    expect(within(treasury).getByText("123.45")).toBeTruthy();
+    expect(within(treasury).getByText("500.00")).toBeTruthy();
+    expect(within(treasury).getByText("0.00")).toBeTruthy();
+    expect(within(treasury).getByText("GOVD supply").nextElementSibling?.textContent).toBe("1,000,000");
     expect(within(treasury).getByText("2-of-3")).toBeTruthy();
     expect(screen.getByText(LIVE_MAP_STATUS_NOTE)).toBeTruthy();
     expect(screen.getByRole("graphics-document")).toBeTruthy();
+  });
+
+  it("writes the token's state under it once read, and leaves the caption while it is not", () => {
+    read({ ...WORLD, nodeStates: { vaultImplementation: null, tokenPaused: true } });
+    const { unmount } = render(<LiveMapPane config={CONFIG} />);
+    expect(screen.getByText(MAP_NODE_STATES.token.paused).tagName).toBe("text");
+    unmount();
+
+    read(WORLD);
+    render(<LiveMapPane config={CONFIG} />);
+    expect(screen.queryByText(MAP_NODE_STATES.token.paused)).toBeNull();
+    expect(screen.queryByText(MAP_NODE_STATES.token.active)).toBeNull();
   });
 
   it("renders with no demo module: every node placed by role and named by role or id", () => {

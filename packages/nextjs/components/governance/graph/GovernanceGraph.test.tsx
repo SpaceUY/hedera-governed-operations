@@ -29,11 +29,24 @@ describe("GovernanceGraph", () => {
   });
 
   it("writes the council's rule on the treasury, apart from the progress around it", () => {
-    const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 1, snap: false } } });
+    const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 1, snap: false, tone: null } } });
     expect(screen.getByText("2-of-3")).toBeTruthy();
     expect(container.querySelector("[data-signed]")?.getAttribute("data-signed")).toBe("1");
     expect(container.querySelectorAll('[data-signed] [data-filled="true"]')).toHaveLength(1);
     expect(container.querySelectorAll('[data-signed] [data-filled="false"]')).toHaveLength(1);
+  });
+
+  it("fills the ring in the primary colour at rest and in the operation's colour while one plays", () => {
+    const filledClass = (tone: "progress" | "success" | "error" | null) => {
+      const { container, unmount } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 1, snap: false, tone } } });
+      const segment = container.querySelector('[data-signed] [data-filled="true"]')?.getAttribute("class");
+      unmount();
+      return segment;
+    };
+    expect(filledClass(null)).toContain("stroke-primary");
+    expect(filledClass("progress")).toContain("stroke-warning");
+    expect(filledClass("success")).toContain("stroke-success");
+    expect(filledClass("error")).toContain("stroke-error");
   });
 
   it("keeps the legend on the canvas", () => {
@@ -94,6 +107,19 @@ describe("GovernanceGraph", () => {
     expect(vault.getAttribute("aria-expanded")).toBe("false");
   });
 
+  it("shows a pointer over every node and line a click opens, and none over an inert map", () => {
+    const { container, unmount } = renderGraph({ activation: { onActivate: vi.fn(), selected: null } });
+    const items = [...container.querySelectorAll("[data-node-id], [data-edge-id]")];
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) expect(item.getAttribute("class")).toContain("cursor-pointer");
+    unmount();
+
+    const inert = renderGraph().container;
+    for (const item of inert.querySelectorAll("[data-node-id], [data-edge-id]")) {
+      expect(item.getAttribute("class")).not.toContain("cursor-pointer");
+    }
+  });
+
   it("marks the selected item as expanded and points it at the inspector, which also draws its highlight", () => {
     const vaultEdge = edgeId(EXECUTOR_NODE_ID, MAP_ENTITY_IDS.vault);
     const { container } = renderGraph({
@@ -142,8 +168,23 @@ describe("GovernanceGraph", () => {
     });
     const comets = container.querySelectorAll("[data-comet]");
     expect(comets).toHaveLength(1);
-    expect((comets[0] as SVGPathElement).style.animationDuration).toBe("1100ms");
     expect(comets[0].getAttribute("class")).toContain("motion-reduce:hidden");
+    // A faint tail behind the head, both moved by the same clock.
+    const parts = [...comets[0].querySelectorAll<SVGPathElement>("[data-comet-part]")];
+    expect(parts.map(part => part.getAttribute("data-comet-part"))).toEqual(["tail", "head"]);
+    for (const part of parts) expect(part.style.animationDuration).toBe("1100ms");
+    expect(parts[0].getAttribute("class")).toContain("animate-map-comet-tail");
+    expect(parts[1].getAttribute("class")).toContain("animate-map-comet");
+  });
+
+  it("brings a comet back with head and tail on one set of offsets", () => {
+    const { container } = renderGraph({
+      frame: { ...REST_FRAME, comets: [{ edgeId: TRANSFER_EDGE, ms: 700, delayMs: 300, direction: "back" }] },
+    });
+    for (const part of container.querySelectorAll<SVGPathElement>("[data-comet-part]")) {
+      expect(part.getAttribute("class")).toContain("animate-map-comet-back");
+      expect(part.style.animationDelay).toBe("300ms");
+    }
   });
 
   it("keeps an intent edge drawn while the frame relaxes it to rest", () => {
@@ -165,18 +206,15 @@ describe("GovernanceGraph", () => {
   });
 
   it("snaps the ring when the threshold is reached", () => {
-    const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 2, snap: true } } });
+    const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 2, snap: true, tone: "success" } } });
     expect(container.querySelector("[data-signed]")?.getAttribute("class")).toContain("animate-map-ring-snap");
   });
 
-  it("lets every node drift on a loop of its own, which reduced motion stops", () => {
+  it("holds every node still at rest: nothing on the map loops", () => {
     const { container } = renderGraph();
-    const drifts = [EXECUTOR_NODE_ID, MAP_ENTITY_IDS.vault].map(
-      id => nodeElement(container, id)?.parentElement?.parentElement,
-    );
-    for (const drift of drifts) expect(drift?.getAttribute("class")).toBe("motion-safe:animate-map-drift");
-    const [executor, vault] = drifts.map(drift => drift?.style.animationDuration);
-    expect(executor).not.toBe(vault);
+    for (const element of container.querySelectorAll("svg [class]")) {
+      expect(element.getAttribute("class")).not.toMatch(/animate-/);
+    }
   });
 
   it("thickens an edge under the pointer or focus through the stylesheet, and writes nothing over the map", () => {
@@ -186,7 +224,7 @@ describe("GovernanceGraph", () => {
     expect(container.querySelector("[data-edge-id] text")).toBeNull();
   });
 
-  it("names the regions a layout gives it, and draws the glow behind the treasury as decoration", () => {
+  it("names the regions a layout gives it, and draws a still glow behind the treasury as decoration", () => {
     const regions = [
       { label: "Council", position: { x: 20, y: 300 }, orientation: "vertical" as const },
       { label: "Contracts", position: { x: 700, y: 20 }, orientation: "horizontal" as const },
@@ -194,10 +232,8 @@ describe("GovernanceGraph", () => {
     const { container } = renderGraph({ regions });
     expect(screen.getByText("Council").getAttribute("transform")).toBe("rotate(-90 20 300)");
     expect(screen.getByText("Contracts").getAttribute("transform")).toBeNull();
-    const glow = container.querySelector<SVGGElement>(".motion-safe\\:animate-map-glow");
-    expect(glow?.getAttribute("aria-hidden")).toBe("true");
-    // A 40 s loop, out and back.
-    expect(glow?.style.animationDuration).toBe("20000ms");
+    const glow = container.querySelector<SVGGElement>("svg > g[aria-hidden]");
+    expect(glow?.getAttribute("class")).toBe("pointer-events-none");
     expect(glow?.querySelector("circle")?.getAttribute("class")).toBe("fill-primary/2 dark:fill-primary/4");
   });
 });

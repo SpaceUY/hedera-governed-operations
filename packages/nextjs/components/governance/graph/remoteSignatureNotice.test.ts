@@ -12,6 +12,7 @@ const WORLD: GovernanceSnapshot = {
   proposals: [TRANSFER],
   unreachableProposers: [],
   treasury: null,
+  nodeStates: { vaultImplementation: null, tokenPaused: null },
 };
 const APPROVAL: ApprovedEvent = {
   kind: "approved",

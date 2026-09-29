@@ -27,7 +27,7 @@ describe("inspectorNodeBody", () => {
   const facts = { rule: "2-of-3", seated: true, proposes: false, introduced: false };
 
   it.each([
-    ["governanceAccount", "a 2-of-3 council"],
+    ["governanceAccount", "a 2\u2011of\u20113 council"],
     ["executor", "only the treasury account (EXECUTOR_ROLE) may execute"],
     ["member", "one of the keys inside the treasury account's ThresholdKey"],
     ["proposer", "it cannot approve"],

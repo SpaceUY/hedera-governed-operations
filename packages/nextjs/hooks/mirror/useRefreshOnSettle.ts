@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { DEFAULT_PENDING_POLL_MS, registryEntryQueryKey } from "./mirrorQuery";
+import { DEFAULT_PENDING_POLL_MS, mirrorQueryKey, registryEntryQueryKey } from "./mirrorQuery";
 import { councilQueryKey } from "./useCouncil";
 import { treasuryFiguresQueryKey } from "./useTreasuryFigures";
+import { vaultImplementationQueryKey } from "./useVaultImplementation";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
@@ -17,8 +18,9 @@ export type SettleScope = {
 /**
  * What has to be re-read because these proposals just settled: the treasury always, the council
  * too when one of them replaced it, and the registry entry behind each registry call, which the
- * detail page read while it was still pending. Empty when nothing left `pending` since the previous
- * read.
+ * detail page read while it was still pending — with the vault's implementation and the tokens,
+ * which only a registry call (an upgrade, a pause) changes. Empty when nothing left `pending` since
+ * the previous read.
  */
 export function keysToRefreshOnSettle(
   previousStatuses: ReadonlyMap<string, ScheduleStatus>,
@@ -34,9 +36,18 @@ export function keysToRefreshOnSettle(
       ? [registryEntryQueryKey(scope.network, scope.executorContractId, operation.proposalId)]
       : [],
   );
+  const nodeStates =
+    entries.length > 0 ? [vaultImplementationQueryKey(scope.network), mirrorQueryKey(scope.network, "token")] : [];
   const treasury = treasuryFiguresQueryKey(scope.network, scope.governanceAccountId);
-  if (!settled.some(proposal => proposal.operation.kind === "councilRotation")) return [treasury, ...entries];
-  return [treasury, councilQueryKey(scope.network, scope.governanceAccountId, scope.executorContractId), ...entries];
+  if (!settled.some(proposal => proposal.operation.kind === "councilRotation")) {
+    return [treasury, ...entries, ...nodeStates];
+  }
+  return [
+    treasury,
+    councilQueryKey(scope.network, scope.governanceAccountId, scope.executorContractId),
+    ...entries,
+    ...nodeStates,
+  ];
 }
 
 /**

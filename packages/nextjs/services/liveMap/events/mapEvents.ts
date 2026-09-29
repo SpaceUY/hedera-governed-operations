@@ -35,7 +35,12 @@ export type GovernanceSnapshot = {
   unreachableProposers: string[];
   /** Null until the figures are read, or when they could not be: they never hold back the events. */
   treasury: TreasuryFigures | null;
+  /** What state the vault and the token are in, each null until read or when it could not be. */
+  nodeStates: NodeStates;
 };
+
+/** The code the vault's proxy runs, and whether the governed token is paused. */
+export type NodeStates = { vaultImplementation: string | null; tokenPaused: boolean | null };
 
 /**
  * `at` is the Mirror consensus timestamp (`seconds.nanos`) of the change itself: the schedule's

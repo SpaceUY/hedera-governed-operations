@@ -4,14 +4,14 @@
  * These are states, not movements — the movement is CSS (a comet is a dash travelling along its edge,
  * a phase change a colour transition), so reduced motion is honoured by the stylesheet alone.
  */
-import type { Cue } from "./sequences";
+import { type Cue, failedReach } from "./sequences";
 import { MOTION_MS } from "./timings";
 import { proposalIn } from "./world";
 import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { compareMirrorTimestamps } from "@sh/core/mirror";
 import type { TreasuryFigures } from "~~/services/governance/treasury";
-import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
+import type { AnimationEvent, GovernanceSnapshot, NodeStates } from "~~/services/liveMap/events/mapEvents";
 import {
   EXECUTOR_NODE_ID,
   type EdgePhase,
@@ -33,8 +33,12 @@ export type MapFrame = {
   /** Phase per edge id; an intent edge is drawn only while a frame names it. */
   phases: Partial<Record<string, EdgePhase>>;
   comets: Comet[];
-  /** The approvals the treasury's ring shows, and whether it snaps; null leaves it empty. */
-  ring: { signed: number; snap: boolean } | null;
+  /**
+   * The approvals the treasury's ring shows, whether it snaps, and the colour of its filled segments:
+   * amber while a signature arrives, mint once the threshold has run, coral when the run reverted,
+   * and the primary colour (null) otherwise. A null ring is empty.
+   */
+  ring: { signed: number; snap: boolean; tone: NodeTone | null } | null;
   highlights: Partial<Record<string, NodeTone>>;
   shaking: string[];
 };
@@ -74,10 +78,10 @@ function proposedFrame({ cue, event, world }: PlayingEvent, graph: GovernanceGra
   const creator = proposalIn(world, event.scheduleId)?.schedule.creator_account_id;
   const arc = creator ? proposerArc(graph, world, creator) : undefined;
   const arcs = arc ? [arc] : [];
-  if (cue.name === "proposerPulse") {
-    return { ...REST_FRAME, phases: phasesFor(arcs, "progress"), comets: cometsAlong(arcs, MOTION_MS.proposerPulse) };
-  }
-  return { ...REST_FRAME, phases: phasesFor(arcs, "complete"), highlights: { [EXECUTOR_NODE_ID]: "progress" } };
+  // The pulse is still landing while the registry flashes, so both cues keep it travelling.
+  const comets = cometsAlong(arcs, MOTION_MS.proposerPulse);
+  if (cue.name === "proposerPulse") return { ...REST_FRAME, phases: phasesFor(arcs, "progress"), comets };
+  return { ...REST_FRAME, phases: phasesFor(arcs, "complete"), comets, highlights: { [EXECUTOR_NODE_ID]: "progress" } };
 }
 
 /**
@@ -91,17 +95,24 @@ function approvedFrame(
 ): MapFrame {
   const proposal = proposalIn(world, event.scheduleId) ?? proposalIn(shown, event.scheduleId);
   const edges = [edgeId(memberNodeId(event.memberKey), GOVERNANCE_ACCOUNT_NODE_ID)];
+  // The ring fills while the pulse is still landing, so both cues keep it travelling.
+  const comets = cometsAlong(edges, MOTION_MS.signaturePulse);
   if (cue.name === "signaturePulse") {
     const signed = proposal ? approvalsBy(proposal, event.at, "before") : 0;
     return {
       ...REST_FRAME,
       phases: phasesFor(edges, "progress"),
-      comets: cometsAlong(edges, MOTION_MS.signaturePulse),
-      ring: { signed, snap: false },
+      comets,
+      ring: { signed, snap: false, tone: "progress" },
     };
   }
   const signed = proposal ? approvalsBy(proposal, event.at, "upTo") : 0;
-  return { ...REST_FRAME, phases: phasesFor(edges, "complete"), ring: { signed, snap: false } };
+  return {
+    ...REST_FRAME,
+    phases: phasesFor(edges, "complete"),
+    comets,
+    ring: { signed, snap: false, tone: "progress" },
+  };
 }
 
 /** The run of an approved proposal along its path, and its outcome at the far end. */
@@ -114,47 +125,51 @@ function runFrame({ cue, event, world }: PlayingEvent, { graph, shown }: Worlds)
   const lastHop = hops.at(-1) ?? [];
   const targets = graph.edges.filter(edge => lastHop.includes(edge.id)).map(edge => edge.to);
   const ended: EdgePhase = event.kind === "reverted" ? "failed" : "complete";
-  const full = { signed: shown.council.threshold, snap: false };
+  const full = { signed: shown.council.threshold, snap: false, tone: null };
+  // From the snap on, the ring says how the run ended.
+  const landed = { ...full, tone: event.kind === "reverted" ? "error" : "success" } as const;
 
   switch (cue.name) {
     case "thresholdPause":
       return { ...REST_FRAME, ring: full };
     case "ringSnap":
-      return { ...REST_FRAME, ring: { ...full, snap: true } };
+      return { ...REST_FRAME, ring: { ...landed, snap: true } };
     case "comet": {
       const travelled = hops.slice(0, cue.hop + 1).flat();
       return {
         ...REST_FRAME,
         phases: phasesFor(travelled, "progress"),
         comets: cometsAlong(travelled, MOTION_MS.comet),
-        ring: full,
+        ring: landed,
       };
     }
     case "arrive":
       return {
         ...REST_FRAME,
         phases: phasesFor(path, ended),
-        ring: full,
+        ring: landed,
         highlights: Object.fromEntries(targets.map(id => [id, "success"])),
       };
     case "fail":
-      return { ...REST_FRAME, phases: phasesFor(path, "failed"), ring: full, shaking: targets };
+      return { ...REST_FRAME, phases: phasesFor(path, "failed"), ring: landed, shaking: targets };
     case "retreat": {
-      const comets = hops.flatMap((hop, index) =>
+      // Back from where the run turned, last hop first; the target keeps shaking meanwhile.
+      const travelled = hops.slice(0, failedReach(hops.length));
+      const comets = travelled.flatMap((hop, index) =>
         hop.map(id => ({
           edgeId: id,
-          ms: MOTION_MS.comet,
-          delayMs: (hops.length - 1 - index) * MOTION_MS.cometStagger,
+          ms: MOTION_MS.retreat,
+          delayMs: (travelled.length - 1 - index) * MOTION_MS.retreatStagger,
           direction: "back" as const,
         })),
       );
-      return { ...REST_FRAME, phases: phasesFor(path, "failed"), comets, ring: full };
+      return { ...REST_FRAME, phases: phasesFor(path, "failed"), comets, ring: landed, shaking: targets };
     }
     case "relax":
       // Named at rest rather than left out, so an intent edge stays drawn while its colour fades.
       return { ...REST_FRAME, phases: phasesFor(path, "rest") };
     default:
-      return { ...REST_FRAME, phases: phasesFor(path, ended), ring: full };
+      return { ...REST_FRAME, phases: phasesFor(path, ended), ring: landed };
   }
 }
 
@@ -178,20 +193,29 @@ export function frameOf(playing: PlayingEvent | null, worlds: Worlds): MapFrame 
   }
 }
 
-const OUTCOME_CUES: ReadonlyArray<Cue["name"]> = ["figures", "hold", "relax", "fail", "retreat"];
+// A failed run's world changes once its comet is back, not at the turn.
+const OUTCOME_CUES: ReadonlyArray<Cue["name"]> = ["arrive", "hold", "relax"];
 
 /**
- * The treasury figures to show: the shown world's, except once a run has landed — after its target
- * flashed, or as it fails — when they are the latest read's, so they count to their new values as
+ * The treasury figures to show: the shown world's, except once a run has landed — as its target
+ * flashes, or once a failed run's comet is back — when they are the latest read's, so they count to their new values as
  * part of the run rather than after it has relaxed.
  */
-export function treasuryShown(
-  playing: PlayingEvent | null,
-  { shown, latest }: { shown: GovernanceSnapshot | null; latest: GovernanceSnapshot | null },
-): TreasuryFigures | null {
+export function treasuryShown(playing: PlayingEvent | null, worlds: ShownAndLatest): TreasuryFigures | null {
+  return landedWorld(playing, worlds)?.treasury ?? null;
+}
+
+/** The vault's and the token's states to show: like the figures, they change when a run lands. */
+export function nodeStatesShown(playing: PlayingEvent | null, worlds: ShownAndLatest): NodeStates | null {
+  return landedWorld(playing, worlds)?.nodeStates ?? null;
+}
+
+type ShownAndLatest = { shown: GovernanceSnapshot | null; latest: GovernanceSnapshot | null };
+
+function landedWorld(playing: PlayingEvent | null, { shown, latest }: ShownAndLatest): GovernanceSnapshot | null {
   const reachedTarget =
     playing !== null &&
     (playing.event.kind === "executed" || playing.event.kind === "reverted") &&
     OUTCOME_CUES.includes(playing.cue.name);
-  return (reachedTarget ? latest : shown)?.treasury ?? null;
+  return reachedTarget ? latest : shown;
 }

@@ -123,7 +123,8 @@ export function world(proposals: Proposal[], council: CouncilKey = COUNCIL): Gov
     proposers: PROPOSERS,
     proposals,
     unreachableProposers: [],
-    treasury: { hbarBalanceTinybar: 100, acmeBalance: 0, usdcBalance: 0, vaultReserveTinybar: 0n },
+    treasury: { hbarBalanceTinybar: 100, demoTokenBalance: 0, usdcBalance: 0, vaultReserveTinybar: 0n },
+    nodeStates: { vaultImplementation: null, tokenPaused: null },
   };
 }
 

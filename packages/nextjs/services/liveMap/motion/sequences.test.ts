@@ -1,6 +1,6 @@
 import { ALICE, INCOMING, ROTATION, TRANSFER, UPGRADE_CALL, ago, proposal } from "./motionFixtures";
 import { type Step, sequenceOf } from "./sequences";
-import { MOTION_MS, travelMs } from "./timings";
+import { MOTION_MS, retreatMs, travelMs } from "./timings";
 import { describe, expect, it } from "vitest";
 import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
 
@@ -17,7 +17,8 @@ describe("sequenceOf", () => {
   it("pulses the proposer's arc into the registry, then flashes the registry, for a registry call", () => {
     const steps = sequenceOf(event("proposed"), UPGRADE);
     expect(names(steps)).toEqual(["proposerPulse", "registryFlash"]);
-    expect(steps.map(({ ms }) => ms)).toEqual([900, 400]);
+    // The registry flashes 650 ms into the 900 ms pulse; both have settled at 1100 ms.
+    expect(steps.map(({ ms }) => ms)).toEqual([650, 450]);
   });
 
   it("moves nothing on the map when a native proposal is opened", () => {
@@ -25,27 +26,19 @@ describe("sequenceOf", () => {
     expect(sequenceOf(event("proposed"), undefined)).toEqual([]);
   });
 
-  it("sends a signature to the treasury, then fills the ring", () => {
+  it("sends a signature to the treasury and fills the ring as it lands, 700 ms in all", () => {
     const steps = sequenceOf({ kind: "approved", scheduleId: "0.0.9001", memberKey: ALICE, at: ago(1) }, UPGRADE);
     expect(names(steps)).toEqual(["signaturePulse", "ringFill"]);
-    expect(steps.map(({ ms }) => ms)).toEqual([700, 500]);
+    expect(steps.map(({ ms }) => ms)).toEqual([600, 100]);
   });
 
-  it("reaches the threshold: beat, ring snap, a comet per hop, arrival, figures, hold, relax", () => {
+  it("reaches the threshold: beat, ring snap, a comet per hop, arrival, hold, relax", () => {
     const steps = sequenceOf(event("executed"), UPGRADE);
-    expect(names(steps)).toEqual([
-      "thresholdPause",
-      "ringSnap",
-      "comet 0",
-      "comet 1",
-      "arrive",
-      "figures",
-      "hold",
-      "relax",
-    ]);
+    expect(names(steps)).toEqual(["thresholdPause", "ringSnap", "comet 0", "comet 1", "arrive", "hold", "relax"]);
     // Each comet takes 1100 ms and the next leaves 480 ms after the one before.
     expect(steps.slice(2, 4).map(({ ms }) => ms)).toEqual([MOTION_MS.cometStagger, MOTION_MS.comet]);
-    expect(total(steps)).toBe(150 + 260 + travelMs(2) + 400 + 700 + 2600 + 800);
+    // The path relaxes 2600 ms after the run arrives, the flash and the figures' count included.
+    expect(total(steps)).toBe(150 + 260 + travelMs(2) + 2600 + 800);
   });
 
   it("travels one hop for a transfer and for a rotation, however many recipients or seats", () => {
@@ -60,25 +53,18 @@ describe("sequenceOf", () => {
       "thresholdPause",
       "ringSnap",
       "arrive",
-      "figures",
       "hold",
       "relax",
     ]);
   });
 
-  it("fails at the target and retreats to the treasury, taking as long to come back as to go", () => {
+  it("stops at the hop before the target, shakes it and heads back 120 ms later", () => {
     const steps = sequenceOf(event("reverted"), UPGRADE);
-    expect(names(steps)).toEqual([
-      "thresholdPause",
-      "ringSnap",
-      "comet 0",
-      "comet 1",
-      "fail",
-      "retreat",
-      "hold",
-      "relax",
-    ]);
-    expect(steps.find(({ cue }) => cue.name === "retreat")?.ms).toBe(travelMs(2));
+    expect(names(steps)).toEqual(["thresholdPause", "ringSnap", "comet 0", "fail", "retreat", "hold", "relax"]);
+    expect(steps.find(({ cue }) => cue.name === "fail")?.ms).toBe(120);
+    expect(steps.find(({ cue }) => cue.name === "retreat")?.ms).toBe(retreatMs(1));
+    expect(retreatMs(1)).toBe(700);
+    expect(total(steps)).toBe(150 + 260 + travelMs(1) + 120 + 700 + 2600 + 800);
   });
 
   it("marks a council change on its own", () => {

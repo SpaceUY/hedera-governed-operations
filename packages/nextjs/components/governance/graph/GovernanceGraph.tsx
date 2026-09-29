@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo } from "react";
+import { useMemo } from "react";
 import { AccountNode } from "./AccountNode";
 import { Comet } from "./Comet";
 import { ContractNode } from "./ContractNode";
@@ -21,9 +21,7 @@ import {
   type GovernanceGraph as Graph,
   type GraphNode,
 } from "~~/services/liveMap/model/graph";
-import { driftOf } from "~~/services/liveMap/motion/ambient";
 import { type MapFrame, REST_FRAME } from "~~/services/liveMap/motion/frame";
-import { AMBIENT_MS } from "~~/services/liveMap/motion/timings";
 
 export type GovernanceGraphProps = {
   graph: Graph;
@@ -41,25 +39,9 @@ export type GovernanceGraphProps = {
 };
 
 /**
- * A node's slow drift, a loop of its own (`driftOf`) — CSS only, and off under reduced motion. The
- * edges stay where they are: they end under the node's opaque plate, which covers a drift of 2 px.
- */
-function Drift({ nodeId, children }: { nodeId: string; children: ReactNode }) {
-  const { periodMs, phaseMs } = driftOf(nodeId);
-  return (
-    <g
-      className="motion-safe:animate-map-drift"
-      // `alternate`: out and back is one loop, so each way takes half of it.
-      style={{ animationDuration: `${periodMs / 2}ms`, animationDelay: `-${phaseMs}ms` }}
-    >
-      {children}
-    </g>
-  );
-}
-
-/**
- * Rings of the primary colour fading outwards from the treasury, breathing on a slow loop. Lighter in
- * the light theme, where the same tint over a white page reads as hard-edged discs rather than a glow.
+ * Rings of the primary colour fading outwards from the treasury, still: the map moves only when
+ * something happens on the ledger or under the pointer. Lighter in the light theme, where the same
+ * tint over a white page reads as hard-edged discs rather than a glow.
  */
 const GLOW_RINGS = [3, 2.2, 1.5];
 
@@ -106,6 +88,7 @@ export function GovernanceGraph({
             threshold={council.threshold}
             signed={frame.ring?.signed ?? 0}
             snap={frame.ring?.snap}
+            ringTone={frame.ring?.tone}
           />
         );
       case "executor":
@@ -137,12 +120,7 @@ export function GovernanceGraph({
         className="min-h-0 w-full flex-1"
       >
         {treasury && (
-          <g
-            aria-hidden="true"
-            className="pointer-events-none motion-safe:animate-map-glow"
-            // `alternate`: brightening and fading back is one loop, so each way takes half of it.
-            style={{ animationDuration: `${AMBIENT_MS.glow / 2}ms` }}
-          >
+          <g aria-hidden="true" className="pointer-events-none">
             {GLOW_RINGS.map(scale => (
               <circle
                 key={scale}
@@ -194,18 +172,14 @@ export function GovernanceGraph({
           return route ? <Comet key={`${comet.edgeId}:${comet.direction}`} route={route} comet={comet} /> : null;
         })}
         {graph.nodes.map(node => (
-          <Drift key={node.id} nodeId={node.id}>
-            {/* A node that failed to take an operation shakes; the group keeps the shake off the
-                node's own position, which is an SVG transform. */}
-            <g className={frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : undefined}>
-              {drawNode(node)}
-            </g>
-          </Drift>
+          // A node that failed to take an operation shakes; the group keeps the shake off the node's
+          // own position, which is an SVG transform.
+          <g key={node.id} className={frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : undefined}>
+            {drawNode(node)}
+          </g>
         ))}
         {ghosts.map(ghost => (
-          <Drift key={ghost.id} nodeId={ghost.id}>
-            <AccountNode {...ghost} focus={focus} activation={activation} tone="ghost" />
-          </Drift>
+          <AccountNode key={ghost.id} {...ghost} focus={focus} activation={activation} tone="ghost" />
         ))}
       </svg>
       <Legend />

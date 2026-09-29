@@ -47,7 +47,8 @@ export function MapItem({ item, label, focus, activation, transform, children }:
       aria-expanded={onActivate ? expanded : undefined}
       aria-controls={expanded ? activation?.controls : undefined}
       tabIndex={focus.tabIndexOf(item.id)}
-      className="group cursor-default outline-none"
+      // The pointer shows what a click opens: the whole item, its wide invisible hit line included.
+      className={`group outline-none ${onActivate ? "cursor-pointer" : "cursor-default"}`}
       onFocus={() => focus.onFocus(item.id)}
       onClick={onActivate ? () => onActivate(item) : undefined}
       onKeyDown={event => {

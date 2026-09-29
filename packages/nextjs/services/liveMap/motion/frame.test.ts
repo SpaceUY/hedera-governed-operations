@@ -1,4 +1,4 @@
-import { type PlayingEvent, REST_FRAME, frameOf, treasuryShown } from "./frame";
+import { type PlayingEvent, REST_FRAME, frameOf, nodeStatesShown, treasuryShown } from "./frame";
 import {
   ALICE,
   BOB,
@@ -54,6 +54,8 @@ describe("frameOf", () => {
     const flash = frameAt(proposed, { name: "registryFlash" });
     expect(flash.phases).toEqual({ [arc]: "complete" });
     expect(flash.highlights).toEqual({ [EXECUTOR_NODE_ID]: "progress" });
+    // The same comet, still landing: its element keeps running rather than restarting.
+    expect(flash.comets).toEqual(pulse.comets);
   });
 
   it("finds the arc of a proposer that holds no seat", () => {
@@ -80,20 +82,34 @@ describe("frameOf", () => {
     const carol: AnimationEvent = { kind: "approved", scheduleId: ID, memberKey: CAROL, at: ago(5) };
 
     const bobPulse = frameAt(bob, { name: "signaturePulse" }, read, shown);
-    expect(bobPulse.ring).toEqual({ signed: 1, snap: false });
+    expect(bobPulse.ring).toEqual({ signed: 1, snap: false, tone: "progress" });
     expect(bobPulse.phases).toEqual({ [edgeId(memberNodeId(BOB), GOVERNANCE_ACCOUNT_NODE_ID)]: "progress" });
     expect(bobPulse.comets.map(({ ms }) => ms)).toEqual([700]);
-    expect(frameAt(bob, { name: "ringFill" }, read, shown).ring).toEqual({ signed: 2, snap: false });
-    expect(frameAt(carol, { name: "signaturePulse" }, read, shown).ring).toEqual({ signed: 2, snap: false });
-    expect(frameAt(carol, { name: "ringFill" }, read, shown).ring).toEqual({ signed: 3, snap: false });
+    expect(frameAt(bob, { name: "ringFill" }, read, shown).ring).toEqual({ signed: 2, snap: false, tone: "progress" });
+    expect(frameAt(carol, { name: "signaturePulse" }, read, shown).ring).toEqual({
+      signed: 2,
+      snap: false,
+      tone: "progress",
+    });
+    expect(frameAt(carol, { name: "ringFill" }, read, shown).ring).toEqual({
+      signed: 3,
+      snap: false,
+      tone: "progress",
+    });
   });
 
-  it("snaps the ring full before anything travels", () => {
+  it("snaps the ring full before anything travels, mint from the snap on", () => {
     expect(frameAt(EXECUTED, { name: "thresholdPause" })).toMatchObject({
-      ring: { signed: 2, snap: false },
+      ring: { signed: 2, snap: false, tone: null },
       comets: [],
     });
-    expect(frameAt(EXECUTED, { name: "ringSnap" }).ring).toEqual({ signed: 2, snap: true });
+    expect(frameAt(EXECUTED, { name: "ringSnap" }).ring).toEqual({ signed: 2, snap: true, tone: "success" });
+    expect(frameAt(EXECUTED, { name: "arrive" }).ring?.tone).toBe("success");
+  });
+
+  it("turns the ring coral from the snap on when the run reverts", () => {
+    expect(frameAt(REVERTED, { name: "ringSnap" }).ring).toEqual({ signed: 2, snap: true, tone: "error" });
+    expect(frameAt(REVERTED, { name: "fail" }).ring?.tone).toBe("error");
   });
 
   it("lights the path hop by hop, each comet leaving as the one before is on its way", () => {
@@ -135,16 +151,15 @@ describe("frameOf", () => {
     expect(frameAt(EXECUTED, { name: "comet", hop: 0 }, transfer, world([])).phases).toEqual({});
   });
 
-  it("turns the path coral, shakes the target and brings the comet back, last hop first", () => {
+  it("turns the path coral, shakes the target and brings the comet back from the hop before it", () => {
     const fail = frameAt(REVERTED, { name: "fail" });
     expect(fail.phases).toEqual({ [TO_REGISTRY]: "failed", [TO_VAULT]: "failed" });
     expect(fail.shaking).toEqual(["vault"]);
 
+    // It turned back where the call reverted, before the vault, and the vault keeps shaking.
     const retreat = frameAt(REVERTED, { name: "retreat" });
-    expect(retreat.comets).toEqual([
-      { edgeId: TO_REGISTRY, ms: 1100, delayMs: 480, direction: "back" },
-      { edgeId: TO_VAULT, ms: 1100, delayMs: 0, direction: "back" },
-    ]);
+    expect(retreat.comets).toEqual([{ edgeId: TO_REGISTRY, ms: 700, delayMs: 0, direction: "back" }]);
+    expect(retreat.shaking).toEqual(["vault"]);
     expect(frameAt(REVERTED, { name: "hold" }).phases[TO_VAULT]).toBe("failed");
   });
 
@@ -161,12 +176,29 @@ describe("treasuryShown", () => {
   const latest = { ...world([]), treasury: { ...shown.treasury!, hbarBalanceTinybar: 60 } };
   const playing = (cue: Cue, event: AnimationEvent = EXECUTED): PlayingEvent => ({ event, cue, world: latest });
 
-  it("holds the shown world's figures until the target has flashed, then counts them", () => {
+  it("holds the shown world's figures until the run arrives, then counts them as the target flashes", () => {
     expect(treasuryShown(null, { shown, latest })).toBe(shown.treasury);
     expect(treasuryShown(playing({ name: "comet", hop: 1 }), { shown, latest })).toBe(shown.treasury);
-    expect(treasuryShown(playing({ name: "arrive" }), { shown, latest })).toBe(shown.treasury);
-    expect(treasuryShown(playing({ name: "figures" }), { shown, latest })).toBe(latest.treasury);
+    expect(treasuryShown(playing({ name: "arrive" }), { shown, latest })).toBe(latest.treasury);
     expect(treasuryShown(playing({ name: "relax" }), { shown, latest })).toBe(latest.treasury);
+  });
+
+  it("switches the vault's and the token's states at the same moment as the figures", () => {
+    const landed = {
+      ...latest,
+      nodeStates: { vaultImplementation: "0xb87228Be9d802953d9e657f97b827786b22e7305", tokenPaused: true },
+    };
+    const worlds = { shown, latest: landed };
+    expect(nodeStatesShown(playing({ name: "comet", hop: 1 }), worlds)).toBe(shown.nodeStates);
+    expect(nodeStatesShown(playing({ name: "arrive" }), worlds)).toBe(landed.nodeStates);
+    expect(nodeStatesShown(null, { shown: null, latest: landed })).toBeNull();
+  });
+
+  it("switches a failed run's figures once its comet is back, not at the turn", () => {
+    for (const name of ["fail", "retreat"] as const) {
+      expect(treasuryShown(playing({ name }, REVERTED), { shown, latest })).toBe(shown.treasury);
+    }
+    expect(treasuryShown(playing({ name: "hold" }, REVERTED), { shown, latest })).toBe(latest.treasury);
   });
 
   it("never lets a signature move the figures", () => {

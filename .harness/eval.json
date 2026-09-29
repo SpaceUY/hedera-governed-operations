@@ -26,7 +26,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "The home route renders the live map without a wallet, without a .env file and without browser console errors.",
-      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, ACME, USDC, Council threshold) and the line \"Each proposal runs by itself the moment the council's threshold has signed it.\"; and beside it a rail headed \"Pending proposals\" with a \"New proposal\" link. No crash banner is shown and the console has no errors."
+      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (Treasury HBAR, USDC from swaps, the governed token's supply labelled with its symbol, Reserve in the vault, Council threshold) and the line \"Each proposal runs by itself the moment the council's threshold has signed it.\"; and beside it a rail headed \"Pending proposals\" with a \"New proposal\" link. No crash banner is shown and the console has no errors."
     },
     {
       "id": "E2",

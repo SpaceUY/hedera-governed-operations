@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { getDefaultMirrorNetwork } from "./mirrorQuery";
 import { type ProposalsOptions, useProposals } from "./useProposals";
+import { useToken } from "./useToken";
 import { useTreasuryFigures } from "./useTreasuryFigures";
+import { useVaultImplementation } from "./useVaultImplementation";
 import { type AnimationEvent, type GovernanceSnapshot, diffSnapshots } from "~~/services/liveMap/events/mapEvents";
 
 export type MapSnapshotOptions = ProposalsOptions & {
@@ -28,8 +30,9 @@ const NO_EVENTS: AnimationEvent[] = [];
 
 /**
  * The governance world as one comparable snapshot, and the events that led from the previous one to
- * it. It reads nothing of its own: the inbox, the council and the treasury figures are the queries
- * the rest of the screen already polls, so the map and the rail never disagree about what was read.
+ * it. The inbox, the council and the treasury figures are the queries the rest of the screen already
+ * polls, so the map and the rail never disagree about what was read; the vault's implementation and
+ * the governed token (whose query the treasury strip shares) say what state those two nodes are in.
  *
  * The first snapshot only seeds the history — nothing on the map happened while it was being
  * opened — and `events` is a new array only when a new snapshot arrives, so a consumer enqueues it
@@ -52,6 +55,9 @@ export function useMapSnapshot({ vaultContractId, demoTokenId, usdcTokenId, ...o
     network,
     enabled: options.enabled,
   });
+  // The same token query the treasury strip reads its symbol and supply from: one request for both.
+  const token = useToken(demoTokenId, { network, enabled: options.enabled });
+  const vaultImplementation = useVaultImplementation(vaultContractId, { network, enabled: options.enabled });
 
   const snapshot = useMemo<GovernanceSnapshot | null>(() => {
     if (!council.data || !inbox.data) return null;
@@ -61,8 +67,12 @@ export function useMapSnapshot({ vaultContractId, demoTokenId, usdcTokenId, ...o
       proposals: inbox.data.proposals,
       unreachableProposers: inbox.data.unreachableProposers,
       treasury: treasury.data ?? null,
+      nodeStates: {
+        vaultImplementation: vaultImplementation.data ?? null,
+        tokenPaused: token.data ? token.data.token.pause_status === "PAUSED" : null,
+      },
     };
-  }, [council.data, inbox.data, treasury.data]);
+  }, [council.data, inbox.data, treasury.data, vaultImplementation.data, token.data]);
 
   const world = `${network}:${governanceAccountId}:${executorContractId}`;
   const readAt = Math.max(council.dataUpdatedAt, inbox.dataUpdatedAt, treasury.dataUpdatedAt);
