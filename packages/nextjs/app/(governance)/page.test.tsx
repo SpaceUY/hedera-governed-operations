@@ -52,6 +52,7 @@ const proposal = (scheduleId: string, entry: number, status: ScheduleStatus) =>
 
 const showInbox = (proposals: Proposal[]) =>
   vi.mocked(useProposals).mockReturnValue({
+    council: { data: undefined },
     inbox: { data: { proposals, unreachableProposers: [] } },
   } as unknown as ReturnType<typeof useProposals>);
 
@@ -62,7 +63,7 @@ afterEach(() => {
 });
 
 describe("GovernanceHomePage", () => {
-  it("lists only open approval rounds under Pending proposals, and the rest as settled", () => {
+  it("lists only open approval rounds under Pending operations, and the rest as settled", () => {
     showInbox([
       proposal("0.0.1", 1, "pending"),
       proposal("0.0.2", 2, "executed"),
@@ -80,6 +81,28 @@ describe("GovernanceHomePage", () => {
 
     const pendingDescriptions = screen.getAllByText(/Run entry/).filter(node => !settled.contains(node));
     expect(pendingDescriptions).toHaveLength(2);
+  });
+
+  it("says under the heading that a proposal runs by itself at the council's threshold, and heads the rest Recent", () => {
+    vi.mocked(useProposals).mockReturnValue({
+      council: { data: { key: { threshold: 2, memberKeys: ["a", "b", "c"] } } },
+      inbox: {
+        data: {
+          proposals: [proposal("0.0.1", 1, "pending"), proposal("0.0.2", 2, "executed")],
+          unreachableProposers: [],
+        },
+      },
+    } as unknown as ReturnType<typeof useProposals>);
+    searchParams.value = new URLSearchParams("schedule=0.0.1");
+
+    render(<GovernanceHomePage />);
+
+    const note = screen.getByText(/runs by itself/);
+    expect(note.textContent).toBe(
+      "Each one runs by itself the moment the 2-of-3 council has signed it. There is no execute button.",
+    );
+    expect(within(note).getByText("2-of-3 council").tagName).toBe("B");
+    expect(screen.getByRole("heading", { level: 2, name: "Recent" })).toBeTruthy();
   });
 
   it("says nothing is waiting when every proposal has settled", () => {
@@ -118,6 +141,7 @@ describe("GovernanceHomePage", () => {
 
   it("keeps showing the partial-inbox warning when a proposer could not be read", () => {
     vi.mocked(useProposals).mockReturnValue({
+      council: { data: undefined },
       inbox: { data: { proposals: [proposal("0.0.1", 1, "pending")], unreachableProposers: ["0.0.999"] } },
     } as unknown as ReturnType<typeof useProposals>);
     searchParams.value = new URLSearchParams("schedule=0.0.1");
@@ -146,9 +170,10 @@ describe("GovernanceHomePage", () => {
   });
 
   it("waits for the first inbox read before deciding what to pre-select", () => {
-    vi.mocked(useProposals).mockReturnValue({ inbox: { data: undefined } } as unknown as ReturnType<
-      typeof useProposals
-    >);
+    vi.mocked(useProposals).mockReturnValue({
+      council: { data: undefined },
+      inbox: { data: undefined },
+    } as unknown as ReturnType<typeof useProposals>);
     const { rerender } = render(<GovernanceHomePage />);
 
     showInbox([proposal("0.0.1", 1, "pending")]);

@@ -13,13 +13,13 @@ import { cardPlaceOf, useRefocusMovedCard } from "~~/components/governance/rail/
 import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
-import { INBOX_COPY } from "~~/services/governance/proposalLabels";
+import { INBOX_COPY, councilRuleLabel, runsByItselfNote } from "~~/services/governance/proposalLabels";
 
 export default function GovernanceHomePage() {
   const config = useGovernanceConfig();
   const { network, governanceAccountId, executor } = config;
   const executorContractId = executor.hederaContractId;
-  const { inbox } = useProposals({ governanceAccountId, executorContractId, network });
+  const { inbox, council } = useProposals({ governanceAccountId, executorContractId, network });
   const { pending, settled } = partitionProposals(inbox.data?.proposals ?? []);
   const { selectedScheduleId, select } = useSelectedSchedule();
   useRefocusMovedCard(selectedScheduleId, cardPlaceOf(selectedScheduleId, inbox.data ? { pending, settled } : null));
@@ -47,14 +47,15 @@ export default function GovernanceHomePage() {
   // list, so the search shows it as its result, with its detail under that card.
   const unlistedSelectionId =
     inbox.data && selectedScheduleId && !knownScheduleIds.has(selectedScheduleId) ? selectedScheduleId : null;
+  const note = runsByItselfNote(council.data ? councilRuleLabel(council.data.key) : null);
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <h1 className="m-0 text-lg font-bold">{INBOX_COPY.pendingHeading}</h1>
+          <h1 className="m-0 text-base font-bold">{INBOX_COPY.pendingHeading}</h1>
           {inbox.data && (
-            <span className="badge badge-sm badge-ghost font-semibold" aria-label={pendingSummaryLabel(pending.length)}>
+            <span className="chip" aria-label={pendingSummaryLabel(pending.length)}>
               {pending.length}
             </span>
           )}
@@ -63,6 +64,11 @@ export default function GovernanceHomePage() {
           New proposal
         </Link>
       </div>
+      <p className="m-0 text-sm text-base-content/60">
+        {note.lead}
+        <b className="font-semibold text-base-content">{note.council}</b>
+        {note.rest}
+      </p>
 
       <ScheduleSearch
         governanceAccountId={governanceAccountId}
@@ -98,8 +104,8 @@ export default function GovernanceHomePage() {
       )}
 
       {settled.length > 0 && (
-        <section aria-labelledby="settled-proposals" className="flex flex-col gap-2 border-t border-base-300 pt-4">
-          <h2 id="settled-proposals" className="m-0 text-sm font-semibold text-base-content/70">
+        <section aria-labelledby="recent-proposals" className="flex flex-col gap-2 border-t border-base-300 pt-4">
+          <h2 id="recent-proposals" className="m-0 text-base font-bold">
             {INBOX_COPY.settledHeading}
           </h2>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">

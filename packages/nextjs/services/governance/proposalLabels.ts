@@ -119,15 +119,22 @@ export const UNREACHABLE_REGISTRY_SIGN_WARNING =
   "The registry couldn't be checked just now, so the app can't confirm this entry is still pending. " +
   "You can still sign — if it turns out the entry no longer accepts signatures, the network will refuse it.";
 
-/** The map's status line while nothing else claims it: how a proposal ends, since no button ends it. */
-export const LIVE_MAP_STATUS_NOTE =
-  "Each proposal runs by itself the moment the council's threshold has signed it. There is no execute button " +
-  "and no reject: a proposal nobody signs in time expires, and nothing runs.";
-
 /** The governance home's words for the inbox, split into open approval rounds and settled ones. */
 export const INBOX_COPY = {
-  pendingHeading: "Pending proposals",
-  settledHeading: "Settled",
+  pendingHeading: "Pending operations",
+  settledHeading: "Recent",
   noPending: "No proposal is waiting for signatures.",
   loading: "Loading proposals",
 } as const;
+
+/**
+ * Under the inbox's heading: how a proposal ends, since no button ends it. `rule` is the council's
+ * "m-of-n", or null before the council has been read; the screen sets `council` in bold.
+ */
+export function runsByItselfNote(rule: string | null) {
+  return {
+    lead: "Each one runs by itself the moment the ",
+    council: rule ? `${rule} council` : "council",
+    rest: " has signed it. There is no execute button.",
+  };
+}

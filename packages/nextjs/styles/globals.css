@@ -146,6 +146,16 @@
   opacity: 80%;
 }
 
+/*
+  A quiet pill for a count or a time left: the grey the Hedera smoke tint gives on either theme, with
+  muted text. An urgent state swaps it for a daisyUI badge in its own tone instead.
+*/
+@layer components {
+  .chip {
+    @apply inline-flex items-center rounded-full bg-hedera-smoke/15 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-base-content/60 tabular-nums;
+  }
+}
+
 .alert-warning code {
   @apply bg-warning/20 text-warning-content border border-warning/30 font-bold;
 }

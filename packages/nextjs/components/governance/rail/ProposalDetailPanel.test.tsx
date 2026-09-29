@@ -7,7 +7,7 @@ import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
-import { LIVE_MAP_STATUS_NOTE, UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
+import { UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
 
 vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
@@ -250,7 +250,7 @@ describe("ProposalDetailPanel", () => {
     });
     expect(screen.getByText("There is no reject button.")).toBeTruthy();
     expect(screen.getByText(/expires on its own — 3d 0h from now/)).toBeTruthy();
-    expect(screen.queryByText(LIVE_MAP_STATUS_NOTE)).toBeNull();
+    expect(screen.queryByText(/There is no execute button/)).toBeNull();
   });
 
   it("links the schedule and the transaction that created it on HashScan", () => {

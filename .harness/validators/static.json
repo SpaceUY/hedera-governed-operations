@@ -67,7 +67,7 @@
     },
     {
       "file": "packages/nextjs/services/governance/proposalLabels.ts",
-      "contains": ["Pending proposals"]
+      "contains": ["Pending operations", "Recent", "There is no execute button."]
     },
     {
       "file": "packages/nextjs/components/governance/wizard/CouncilPreviewPanel.tsx",

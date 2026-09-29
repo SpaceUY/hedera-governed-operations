@@ -3,7 +3,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
-import { LIVE_MAP_STATUS_NOTE } from "~~/services/governance/proposalLabels";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
@@ -71,7 +70,7 @@ describe("GovernanceLayout", () => {
 
     const mapPane = screen.getByRole("region", { name: "Live map" });
     expect(mapPane.textContent).toContain("treasury strip");
-    expect(mapPane.textContent).toContain(LIVE_MAP_STATUS_NOTE);
+    expect(mapPane.textContent).not.toContain("execute button");
     expect(mapPane.textContent).toContain("map of 0.0.10671146");
     expect(screen.getByText("rail page for 0.0.10671146")).toBeTruthy();
     expect(mapPane.contains(screen.getByText(/rail page/))).toBe(false);
