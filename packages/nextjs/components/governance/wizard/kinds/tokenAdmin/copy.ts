@@ -11,9 +11,10 @@ export const TOKEN_ADMIN_OPERATION_LABELS: Record<TokenAdminOperation, string> =
 
 /** What the token form says about the token and the holder, read from the Mirror Node. */
 export const TOKEN_ADMIN_COPY = {
+  // Why it has to be a contract call — a scheduled TokenPause is refused, and a schedule cannot
+  // present the treasury's key to the token service — is in AGENTS.md's verified traps.
   explainer:
-    "TokenAdmin holds this token's pause and freeze keys, so the council acts on the token through the registry: " +
-    "the network refuses a scheduled TokenPause, and a scheduled call cannot present the treasury's key to the token service.",
+    "The token’s pause and freeze keys are the Token admin contract, so this is a contract call — it needs the council like everything else.",
   pauseStatus: (symbol: string, status: TokenPauseStatus) =>
     status === "NOT_APPLICABLE" ? `${symbol} has no pause key.` : `${symbol} is ${status.toLowerCase()} right now.`,
   freezeStatus: (accountId: string, symbol: string, status: TokenFreezeStatus) =>
