@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CANCEL_COPY, WITHDRAW_COPY } from "./copy";
 import type { Proposal } from "@sh/core/governance/proposals";
@@ -11,6 +11,7 @@ import { useProposals } from "~~/hooks/mirror/useProposals";
 import { type CancelFlowStep, useCancelProposalFlow } from "~~/hooks/useCancelProposalFlow";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import {
+  type CancelPlan,
   canBeWithdrawnBy,
   canCancelRegistryEntry,
   cancelPlanOf,
@@ -50,6 +51,92 @@ const PROGRESS_OF: Partial<Record<CancelFlowStep, (withdrawFirst: boolean) => st
   confirmingWithdraw: () => CANCEL_COPY.progress.confirmingWithdraw,
   cancelling: withdrawFirst =>
     withdrawFirst ? CANCEL_COPY.progress.cancellingAfterWithdraw : CANCEL_COPY.progress.cancelling,
+};
+
+type CancelCardBodyProps = {
+  authorizing: boolean;
+  /** Another schedule of the same entry that could still reach its threshold. */
+  openSchedule: string | null;
+  authorized: boolean;
+  /** Which wallet step is under way, while one is. */
+  progress: string | undefined;
+  step: CancelFlowStep;
+  plan: CancelPlan | null;
+  busy: boolean;
+  cancelButton: RefObject<HTMLButtonElement | null>;
+  onAskToConfirm: () => void;
+  onResume: () => void;
+};
+
+/**
+ * What the Cancel card says, one state per return, first match wins: still checking who may cancel,
+ * held back by another open schedule, refused to this account, a wallet step under way, withdrawn but
+ * not yet cancelled, ready to cancel, or waiting for the round to end.
+ */
+const CancelCardBody = ({
+  authorizing,
+  openSchedule,
+  authorized,
+  progress,
+  step,
+  plan,
+  busy,
+  cancelButton,
+  onAskToConfirm,
+  onResume,
+}: CancelCardBodyProps) => {
+  if (authorizing) return <span role="status" aria-label={CANCEL_COPY.checking} className="skeleton h-8 w-40" />;
+
+  if (openSchedule) {
+    return (
+      <Note>
+        {CANCEL_COPY.blockedByOpenSchedule}{" "}
+        <Link className="link" href={GOVERNANCE_ROUTES.proposal(openSchedule)}>
+          {openSchedule}
+        </Link>
+      </Note>
+    );
+  }
+
+  if (!authorized) return <Note>{CANCEL_COPY.unauthorized}</Note>;
+
+  if (progress) {
+    return (
+      <p role="status" className="m-0 text-sm">
+        {progress}
+      </p>
+    );
+  }
+
+  if (step === "withdrawnNotCancelled") {
+    return (
+      <>
+        <Note>{CANCEL_COPY.withdrawnNotCancelled.text}</Note>
+        <button type="button" className="btn btn-error btn-outline btn-sm" onClick={onResume}>
+          {CANCEL_COPY.withdrawnNotCancelled.button}
+        </button>
+      </>
+    );
+  }
+
+  if (plan) {
+    return (
+      <>
+        <button
+          ref={cancelButton}
+          type="button"
+          className="btn btn-error btn-outline btn-sm"
+          onClick={onAskToConfirm}
+          disabled={busy}
+        >
+          {CANCEL_COPY.button}
+        </button>
+        <Note>{plan.withdrawFirst ? CANCEL_COPY.whyLive : CANCEL_COPY.whyAlone}</Note>
+      </>
+    );
+  }
+
+  return <Note>{CANCEL_COPY.afterTheRound}</Note>;
 };
 
 /**
@@ -183,44 +270,18 @@ export const WithdrawCancelActions = ({
 
         {showCancel && (
           <ActionCard tone="error">
-            {authorizing ? (
-              <span role="status" aria-label={CANCEL_COPY.checking} className="skeleton h-8 w-40" />
-            ) : openSchedule ? (
-              <Note>
-                {CANCEL_COPY.blockedByOpenSchedule}{" "}
-                <Link className="link" href={GOVERNANCE_ROUTES.proposal(openSchedule)}>
-                  {openSchedule}
-                </Link>
-              </Note>
-            ) : !authorized ? (
-              <Note>{CANCEL_COPY.unauthorized}</Note>
-            ) : progress ? (
-              <p role="status" className="m-0 text-sm">
-                {progress}
-              </p>
-            ) : flow.step === "withdrawnNotCancelled" ? (
-              <>
-                <Note>{CANCEL_COPY.withdrawnNotCancelled.text}</Note>
-                <button type="button" className="btn btn-error btn-outline btn-sm" onClick={start}>
-                  {CANCEL_COPY.withdrawnNotCancelled.button}
-                </button>
-              </>
-            ) : plan ? (
-              <>
-                <button
-                  ref={cancelButton}
-                  type="button"
-                  className="btn btn-error btn-outline btn-sm"
-                  onClick={() => setConfirming(true)}
-                  disabled={busy}
-                >
-                  {CANCEL_COPY.button}
-                </button>
-                <Note>{plan.withdrawFirst ? CANCEL_COPY.whyLive : CANCEL_COPY.whyAlone}</Note>
-              </>
-            ) : (
-              <Note>{CANCEL_COPY.afterTheRound}</Note>
-            )}
+            <CancelCardBody
+              authorizing={authorizing}
+              openSchedule={openSchedule}
+              authorized={authorized}
+              progress={progress}
+              step={flow.step}
+              plan={plan}
+              busy={busy}
+              cancelButton={cancelButton}
+              onAskToConfirm={() => setConfirming(true)}
+              onResume={start}
+            />
             <MutationError error={flow.error} />
           </ActionCard>
         )}
