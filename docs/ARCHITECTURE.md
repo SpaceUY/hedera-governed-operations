@@ -244,11 +244,11 @@ back — but a deployment that needs an escape hatch gives the token an admin ke
 contract and an operation to re-point the keys, which is one more governed operation, not a
 loophole.
 
-**Cost.** No token operation has run through the contracts deployed now, so the schedule's 90,000
-limit is arithmetic — four HTS calls of one slot each, through two contracts — until a run replaces
-it with a measurement. The limit is a price, not a ceiling (see the table above), so it belongs to
-the operation: an upgrade runs at 150,000 and consumes 65,410, a treasury swap at 300,000 and
-consumes about 247,050, both measured through the executor on testnet.
+**Cost.** Measured on testnet through the full chain: pause 65,128, unpause 65,084, freeze 67,734
+and unfreeze 67,789, which puts the schedule's gas limit at 90,000. The limit is a price, not a
+ceiling (see the table above), so it belongs to the operation: an upgrade runs at 150,000 and
+consumes 65,410, a treasury swap at 300,000 and consumes about 247,050. `PROPOSAL_TYPES` cites the
+transactions.
 
 ## The proposal inbox
 
