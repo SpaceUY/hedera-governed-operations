@@ -5,31 +5,15 @@
 import type { SetupEnv } from "./env";
 import type { MirrorLookups, SetupActions } from "./reconcile";
 import type { DemoAccount, DemoAccountName } from "./state";
-import {
-  AccountCreateTransaction,
-  Client,
-  Hbar,
-  PrivateKey,
-  TokenAssociateTransaction,
-  TopicCreateTransaction,
-} from "@hiero-ledger/sdk";
+import { AccountCreateTransaction, Client, Hbar, PrivateKey, TokenAssociateTransaction } from "@hiero-ledger/sdk";
 import { type MirrorTokenBalance, isMirrorNotFound, mirrorGet } from "@sh/core/mirror";
 import { parseOperatorKey } from "~~/services/operatorKey";
 
 /** HBAR sent from the operator to each demo account so it can pay its own fees during a demo. */
 export const DEMO_ACCOUNT_INITIAL_HBAR = 5;
 
-const TOPIC_MEMO = "scaffold-hbar receipts / decision log";
-
 export function createClient(env: SetupEnv): Client {
   return Client.forName(env.network).setOperator(env.operatorId, parseOperatorKey(env.operatorPrivateKey));
-}
-
-async function createTopic(client: Client): Promise<string> {
-  const response = await new TopicCreateTransaction().setTopicMemo(TOPIC_MEMO).execute(client);
-  const { topicId } = await response.getReceipt(client);
-  if (!topicId) throw new Error("Topic creation returned no topic id");
-  return topicId.toString();
 }
 
 async function createDemoAccount(client: Client, name: DemoAccountName): Promise<DemoAccount> {
@@ -61,7 +45,6 @@ export async function associateToken(client: Client, account: DemoAccount, token
 
 export function createActions(client: Client): SetupActions {
   return {
-    createTopic: () => createTopic(client),
     createDemoAccount: name => createDemoAccount(client, name),
     associateToken: (account, tokenId) => associateToken(client, account, tokenId),
   };
@@ -100,7 +83,6 @@ export async function accountHasToken(accountId: string, tokenId: string, networ
 
 export function createLookups(env: SetupEnv): MirrorLookups {
   return {
-    topicExists: topicId => mirrorHas(`/api/v1/topics/${topicId}`, env.network),
     accountExists: accountId => mirrorHas(`/api/v1/accounts/${accountId}`, env.network),
     accountHasToken: (accountId, tokenId) => accountHasToken(accountId, tokenId, env.network),
   };

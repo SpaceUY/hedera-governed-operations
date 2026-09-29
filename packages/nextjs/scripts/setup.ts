@@ -1,6 +1,6 @@
 /**
  * `yarn setup` — idempotent testnet bootstrap.
- * Reads the operator from packages/nextjs/.env, creates (or reuses) the HCS topic, the funded demo
+ * Reads the operator from packages/nextjs/.env, creates (or reuses) the funded demo
  * accounts and their USDC association, persists ids in setup-state.json and writes the app env
  * to .env.local. Safe to re-run: existing ids are verified on the Mirror Node before anything is created.
  */

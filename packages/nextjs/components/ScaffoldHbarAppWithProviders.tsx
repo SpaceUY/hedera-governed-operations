@@ -15,7 +15,6 @@ const ScaffoldHbarApp = ({ children }: { children: React.ReactNode }) => {
     <>
       <div className="flex flex-col min-h-screen">
         <Header />
-        {/* Each route group brings its own chrome below the header: the site pages a footer, the live map none. */}
         <main className="relative flex flex-col flex-1 min-h-0">{children}</main>
       </div>
       <Toaster />
@@ -31,6 +30,10 @@ export const queryClient = new QueryClient({
   },
 });
 
+/**
+ * No wallet goes through wagmi (HashPack signs over WalletConnect), but `@scaffold-hbar-ui` needs its
+ * provider: `HbarInput`'s price lookup calls wagmi's `usePublicClient`, which throws without one.
+ */
 export const ScaffoldHbarAppWithProviders = ({ children }: { children: React.ReactNode }) => {
   return (
     <WagmiProvider config={wagmiConfig}>

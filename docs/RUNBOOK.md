@@ -1,6 +1,6 @@
 # Runbook
 
-Step-by-step reproduction on Hedera **testnet**, from a fresh account to a proof you can verify on the Mirror Node and HashScan. Every command is copy-pasteable; replace the `0.0.xxxxx` placeholders with your own ids.
+Step-by-step reproduction on Hedera **testnet**, from a fresh account to a transaction you can verify on the Mirror Node and HashScan. Every command is copy-pasteable; replace the `0.0.xxxxx` placeholders with your own ids.
 
 ## 1. Get a testnet operator account
 
@@ -24,7 +24,7 @@ NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=...
 ```
 
 - `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` comes from [cloud.reown.com](https://cloud.reown.com) (create a project, copy its id).
-- The operator key is only read by server code (`services/hederaClient.ts`, `yarn setup`). Never prefix it with `NEXT_PUBLIC_`.
+- The operator key is only read by the scripts (`yarn setup`, `yarn release:publish`, `yarn harness:council-seat`), never by the app. Never prefix it with `NEXT_PUBLIC_`.
 - `HEDERA_COUNCIL_ACCOUNT_ID` is **your own account** — the one you will connect with HashPack in step 5. It becomes one of the three keys on the governance account and is granted `PROPOSER_ROLE`, so without it you could watch the demo but not take part in it. It can be the operator account if you have no other, but then no human signature is involved in an approval. Changing it after step 3 means a new governance account and a fresh deployment, so pick it now.
 
 ## 3. Bootstrap testnet resources
@@ -43,7 +43,7 @@ yarn install
 yarn setup
 ```
 
-This creates the Proof Wall topic, two funded demo accounts (`alice` and `bob`, associated with testnet USDC) and the **governance account**: a 2-of-3 threshold key over your own account plus those two. It associates USDC on the governance account too — the treasury swap pays its output there, and a token that arrives from inside a contract call cannot be associated on the way in. It then writes `GOVERNANCE_ACCOUNT_ADDRESS` and `INITIAL_PROPOSERS` into `packages/hardhat/.env` — the two values the deploy refuses to run without — and stops, telling you what is not deployed yet.
+This creates the agent's release and decision topics, two funded demo accounts (`alice` and `bob`, associated with testnet USDC) and the **governance account**: a 2-of-3 threshold key over your own account plus those two. It associates USDC on the governance account too — the treasury swap pays its output there, and a token that arrives from inside a contract call cannot be associated on the way in. It then writes `GOVERNANCE_ACCOUNT_ADDRESS` and `INITIAL_PROPOSERS` into `packages/hardhat/.env` — the two values the deploy refuses to run without — and stops, telling you what is not deployed yet.
 
 Nothing else can be created at this point, and the run says so:
 
@@ -88,7 +88,7 @@ A third run creates nothing. That is the check that the bootstrap is complete:
   = Seed proposal #0 (upgrade AcmeVault to AcmeVaultV2) (reused)
 ```
 
-Verify the topic exists on the Mirror Node:
+Verify the release topic (`NEXT_PUBLIC_RELEASE_TOPIC_ID` in `.env.local`) exists on the Mirror Node:
 
 ```bash
 curl -s "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.xxxxx" | jq '{topic_id, memo, created_timestamp}'
@@ -100,38 +100,20 @@ curl -s "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.xxxxx" | jq '{t
 yarn next:dev
 ```
 
-1. Open http://localhost:3000. The home page is the live map: the treasury figures and the council's threshold, with the proposals still collecting signatures in the rail beside it. The Proof Wall used in step 5 is at `/proof-wall`.
+1. Open http://localhost:3000. The live map shows the treasury figures, the council's threshold and the pending proposals (or the **Governance is not set up yet** notice until step 3 has run).
 2. Click **Connect**, choose HashPack and approve the WalletConnect pairing in the extension (the wallet must be on **testnet**).
 3. The header shows your account as `0.0.xxxxx` once the session is live.
 
-## 5. Submit a proof and verify it
+## 5. Verify a transaction on the Mirror Node
 
-1. Type a message in **Submit a proof** and send it. HashPack asks you to approve a `TopicMessageSubmit` transaction.
-2. After approval the UI polls the Mirror Node and the proof appears in **Recent proofs** within a few seconds.
-
-Verify from the command line — the newest message on the topic, decoded:
-
-```bash
-curl -s "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.xxxxx/messages?limit=1&order=desc" \
-  | jq -r '.messages[0] | {consensus_timestamp, sequence_number, payload: (.message | @base64d)}'
-```
-
-Expected shape of `payload`: `{"text":"...","author":"0.0.xxxxx","timestamp":1700000000000}`.
-
-Then open the topic on HashScan and confirm the same sequence number:
-
-```
-https://hashscan.io/testnet/topic/0.0.xxxxx
-```
-
-To inspect the transaction itself, take the transaction id shown by the app (`0.0.xxxxx@1700000000.000000000`) and query the Mirror Node with the `-` separated form:
+To inspect a transaction the app sent (opening, signing or withdrawing a proposal), take its transaction id (`0.0.xxxxx@1700000000.000000000`) and query the Mirror Node with the `-` separated form:
 
 ```bash
 curl -s "https://testnet.mirrornode.hedera.com/api/v1/transactions/0.0.xxxxx-1700000000-000000000" \
   | jq '.transactions[0] | {name, result, consensus_timestamp, entity_id}'
 ```
 
-`result` must be `SUCCESS` and `name` `CONSENSUSSUBMITMESSAGE`.
+`result` must be `SUCCESS`, and `name` the transaction's type (`SCHEDULECREATE`, `SCHEDULESIGN`, …).
 
 ## 6. Validate with Hedera Harness
 
@@ -243,16 +225,10 @@ client.close();
 '
 ```
 
-1. With `yarn next:dev` running, open http://localhost:3000/admin. The header shows **Connect Wallet** (no key stored).
+1. With `yarn next:dev` running, open http://localhost:3000. The header shows **Connect Wallet** (no key stored).
 2. Paste the printed `localStorage.setItem(...)` line in the browser console and reload.
 3. The header now shows the new account as `0.0.xxxxx` with a **test signer** badge, without any wallet modal (allow a few seconds: the id is resolved from the key's EVM alias on the Mirror Node).
-4. Click **Create topic**. HashPack is not involved; the page shows **Topic created** with the topic id. Confirm on the Mirror Node:
-
-```bash
-curl -s "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.xxxxx" | jq '{topic_id, memo, deleted}'
-```
-
-5. **Disconnect** from the header menu removes the key; reload and the app is back to HashPack.
+4. **Disconnect** from the header menu removes the key; reload and the app is back to HashPack.
 
 The test signer only activates on testnet. In a production build (`yarn next:build && yarn next:start`) it stays off unless `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` is set at build time. Delete the disposable account when you are done (an `AccountDeleteTransaction` signed with its key, transferring the balance back to the operator) or just let the few HBAR sit on testnet.
 
@@ -261,8 +237,7 @@ The test signer only activates on testnet. In a production build (`yarn next:bui
 | Symptom                                                                                    | Cause                                                                                                                                             | Fix                                                                                                                                                                                                    |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Wallet modal opens but never lists HashPack, or pairing fails with `Invalid project id`    | `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` missing or wrong                                                                                          | Create a project at [cloud.reown.com](https://cloud.reown.com), set the id in `packages/nextjs/.env`, restart `yarn next:dev` (`NEXT_PUBLIC_*` values are read at build time)                          |
-| Proof submitted, transaction succeeded, but the feed or `curl` does not show it yet        | Mirror Node lag (a few seconds, up to ~20 s under load)                                                                                           | Wait and retry; the UI polls every 3 s after a submit. Confirm on HashScan by transaction id if in doubt                                                                                               |
-| `/admin` says "Mirror Node is still indexing it" after creating a topic or token           | Same lag on the transaction lookup                                                                                                                | Wait 10–20 s and click the button again; the id resolves from the same transaction                                                                                                                     |
+| Transaction succeeded, but the rail or `curl` does not show it yet                         | Mirror Node lag (a few seconds, up to ~20 s under load)                                                                                           | Wait and retry; the rail polls the Mirror Node while a proposal is open. Confirm on HashScan by transaction id if in doubt                                                                             |
 | `Error: listen EADDRINUSE: address already in use :::3000`                                 | Another dev server on port 3000                                                                                                                   | Stop it or run `yarn workspace @sh/nextjs dev -p 3001`                                                                                                                                                 |
 | `npx hedera-harness validate` fails in ASSERT with a forbidden file `packages/nextjs/.env` | The static validator lists `.env` as forbidden and the secret scan flags operator keys                                                            | Move `.env` outside the repo while validating (see step 6); never commit it                                                                                                                            |
 | `Connect a Hedera wallet first` when submitting                                            | No live WalletConnect session (page refreshed while the provider was initialising)                                                                | Wait for the spinner to clear, then connect again; if it loops, disconnect from the header and clear site data                                                                                         |
@@ -273,7 +248,6 @@ The test signer only activates on testnet. In a production build (`yarn next:bui
 | The server log says `Could not seat the test signer on the council`                        | The seat could not be given — usually no `packages/nextjs/.env` (it holds `HEDERA_COUNCIL_ACCOUNT_ID`) or no `setup-state.json`                    | Put `.env` back before `validate-semantic` (that stage skips ASSERT, so the file is allowed) and make sure `yarn setup` has run. E9 fails without it; the other four still pass                        |
 | The map reads `Council threshold 2-of-4` after a harness run                               | Expected: the run's test signer was seated and the run does not remove it                                                                        | Harmless — the threshold is unchanged and the next run drops the stale key. To restore 2-of-3 now, re-run the `AccountUpdate` with only the three configured members (see step 6)                      |
 | `Dev server exited before reporting a Local URL` right after `Chain signer provisioned`    | The seat script died before `yarn next:dev` could start                                                                                          | Read the line above it: the script prints its reason and, as of this version, no longer exits non-zero. An older checkout will need the fix in `scripts/harnessCouncilSeat.ts`                         |
-| `Badge checks require HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY` (503)            | Operator not configured on the server                                                                                                             | Set both in `packages/nextjs/.env` and restart; proofs still work without it, only badges are skipped                                                                                                  |
 | `yarn setup` stops at `Not deployed yet: GovernedExecutor, …`                               | Expected on a first run: the contracts are deployed against the governance account this run just created                                          | Deploy them (`yarn hardhat:deploy --network hederaTestnet`) and run `yarn setup` again (step 3)                                                    |
 | Deploy fails with `Set GOVERNANCE_ACCOUNT_ADDRESS to the EVM address…`                      | The deploy ran before `yarn setup` created the governance account, so `packages/hardhat/.env` has neither value                                    | Run `yarn setup` first; it writes both into that file                                                                                              |
 | `HEDERA_COUNCIL_ACCOUNT_ID is required in packages/nextjs/.env`                             | The governance account needs an account of yours as one of its three keys and cannot guess which                                                   | Set it to the account you will connect with (step 2)                                                                                               |
