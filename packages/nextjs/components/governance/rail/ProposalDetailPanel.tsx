@@ -11,6 +11,7 @@ import {
   DETAIL_COPY,
   FAMILY_COPY,
   ROTATION_NOTE,
+  ROTATION_ONE_SIGNATURE,
   SIGN_LABELS,
   endNote,
   executedResult,
@@ -129,6 +130,16 @@ export const ProposalDetailPanel = ({
   const creatorName = (creatorKey && memberNames?.[creatorKey]?.name) || schedule.creator_account_id;
   const ending = endNote(proposal);
   const noReject = noRejectNote(state.expiresAt);
+  // A member of both councils signs once, and that signature counts toward both thresholds, so the
+  // button goes on the current council's row only and the incoming row says so.
+  const viewerKey = proposers.find(proposer => proposer.accountId === accountId)?.key ?? null;
+  const viewerSitsNow = viewerKey !== null && (council.data?.key.memberKeys.includes(viewerKey) ?? false);
+  const incomingSignAction =
+    signButton && viewerSitsNow ? (
+      <span className="shrink-0 text-xs text-base-content/60">{ROTATION_ONE_SIGNATURE}</span>
+    ) : (
+      signButton
+    );
   const listProps = {
     signedAt: signedAtOf(proposal),
     network,
@@ -227,6 +238,7 @@ export const ProposalDetailPanel = ({
                 council={operation.council}
                 progress={proposal.incomingProgress}
                 {...listProps}
+                signAction={incomingSignAction}
               />
             </>
           ) : (

@@ -239,6 +239,22 @@ describe("ProposalDetailPanel", () => {
     expect(screen.getByText(/Replacing the council needs signatures from both sides/)).toBeTruthy();
   });
 
+  it("offers Sign once to a member of both councils, and says on the incoming row that it counts there too", () => {
+    const incomingCouncil = { threshold: 2, memberKeys: [KEY_B, KEY_X] };
+    renderPanel({
+      accountId: MEMBER_B,
+      proposal: baseProposal({
+        operation: { kind: "councilRotation", accountId: GOVERNANCE_ACCOUNT_ID, council: incomingCouncil },
+        incomingProgress: { signed: 0, threshold: 2, signedBy: [] },
+      }),
+    });
+
+    expect(screen.getAllByRole("button", { name: "Sign with HashPack" })).toHaveLength(1);
+    const incoming = screen.getByRole("region", { name: /Incoming council/ });
+    expect(within(incoming).getByText("Signing above counts here too")).toBeTruthy();
+    expect(within(incoming).queryByRole("button", { name: "Sign with HashPack" })).toBeNull();
+  });
+
   it("says once that there is no reject and when it expires, without repeating the map's status note", () => {
     renderPanel({
       proposal: baseProposal({

@@ -155,6 +155,9 @@ export const ROTATION_NOTE =
   "Replacing the council needs signatures from both sides: the current council's threshold and the " +
   "incoming council's own.";
 
+/** On the viewer's incoming-council row when it also sits in the current one: one signature counts for both. */
+export const ROTATION_ONE_SIGNATURE = "Signing above counts here too";
+
 export const COUNCIL_HEADINGS = {
   single: "Council",
   current: "Current council",
