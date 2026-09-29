@@ -105,7 +105,7 @@ packages/nextjs/
     (site)/               layout.tsx adds the footer; proof-wall, my-proofs, admin, explorer
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: reads, motion, TreasuryStrip with AnimatedNumber figures, map), RemoteSignatureBanner, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
+    governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: TreasuryStrip with AnimatedNumber figures, map) over useLiveMap (its reads, motion, node states, remote signatures, inspector), RemoteSignatureBanner, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend), MapInspector + inspector.ts (the card for a selected node or edge), MapDecoratorProvider + useComposedMap (the host's layout, shared with the rail); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
