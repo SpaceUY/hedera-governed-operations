@@ -8,12 +8,14 @@ import { useLatestComposedMap } from "~~/components/governance/graph/useComposed
 import type { SeatNaming } from "~~/components/governance/rail/councilSeats";
 import { ContractRolesCard } from "~~/components/governance/settings/ContractRolesCard";
 import { CouncilCard } from "~~/components/governance/settings/CouncilCard";
+import { CouncilChangeComposer } from "~~/components/governance/settings/CouncilChangeComposer";
 import { SETTINGS_COPY } from "~~/components/governance/settings/copy";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useRegistryRoles } from "~~/hooks/mirror/useRegistryRoles";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
+import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 
 /**
  * Settings in the rail, beside the same map: who approves (the treasury account's threshold key), a
@@ -47,6 +49,14 @@ export default function SettingsPage() {
       </div>
       <div className="flex flex-col gap-4 px-6 py-5 wrap-anywhere">
         <CouncilCard council={council.data} unreadable={council.isError} naming={naming} />
+        {council.data && (
+          <CouncilChangeComposer
+            key={`${councilRuleLabel(council.data.key)}:${council.data.key.memberKeys.join(",")}`}
+            council={council.data}
+            naming={naming}
+            config={config}
+          />
+        )}
         <ContractRolesCard
           roles={roles.data}
           rolesUnreadable={roles.isError}

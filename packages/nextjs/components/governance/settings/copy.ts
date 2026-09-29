@@ -18,6 +18,35 @@ export const SETTINGS_COPY = {
     loading: "Reading the council from the Mirror Node…",
     unreadable: "Could not read the council from the Mirror Node right now. It is read again on the next visit.",
   },
+  composer: {
+    heading: "Propose a council change · native",
+    intro: (rule: string) =>
+      `Choose who holds a key and how many must sign. This is a native scheduled update of the treasury’s own key, ` +
+      `approved by the current ${rule} council and by the council it proposes.`,
+    membersLegend: "Council members",
+    tags: { joins: "joins", leaves: "leaves" },
+    thresholdLabel: "Signatures required",
+    fewer: "One fewer signature",
+    more: "One more signature",
+    risks: {
+      anyOneKey: (seats: number) => `A 1-of-${seats} council lets any single key move the treasury alone.`,
+      oneLostKeyFreezes: (seats: number) =>
+        `In a ${seats}-of-${seats} council, one lost key would freeze the treasury.`,
+      viewerLeaves: (keepsProposerRole: boolean) =>
+        `Your wallet would no longer be a council key.${keepsProposerRole ? " You would keep PROPOSER_ROLE." : ""}`,
+    },
+    agentAlone: (seats: number, threshold: number) =>
+      `With the agent as one of ${seats} keys and ${threshold} required, neither the agent nor any one person can act alone.`,
+    bothCouncils: (currentRule: string, proposedRule: string) =>
+      `Changing the council takes two thresholds: the current ${currentRule} council's, and the proposed ` +
+      `${proposedRule} council's own. The schedule waits until both are met; it does not fail while it waits.`,
+    agentNeverSigns:
+      "A co-signing agent never signs a council rotation, whatever its policy says: if one holds a seat, both " +
+      "thresholds have to be reached by the council's human members.",
+    note: "One transaction. The map shows the council this would create in dashed violet.",
+    /** Until the map previews a draft on this screen, the note says only what is true. */
+    noteWithoutPreview: "One transaction — a native schedule. No registry entry is created.",
+  },
   roles: {
     heading: "Contract roles · EVM · proposal registry",
     proposer: "PROPOSER_ROLE",
