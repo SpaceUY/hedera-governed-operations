@@ -9,15 +9,19 @@ import { GOVERNANCE_THRESHOLD, type GovernanceActions, type GovernanceLookups } 
 import { accountHasToken, accountTokens, associateToken, mirrorHas } from "./hedera";
 import { SEED_PROPOSAL_GAS, type SeedProposalActions, type SeedProposalLookups } from "./seedProposal";
 import type { DemoAccount } from "./state";
+import type { TreasuryAssociationActions } from "./treasuryAssociation";
 import {
   AccountCreateTransaction,
+  AccountId,
   type Client,
   ContractExecuteTransaction,
   ContractFunctionParameters,
   ContractId,
   Hbar,
   KeyList,
+  PrivateKey,
   PublicKey,
+  TokenAssociateTransaction,
   TokenCreateTransaction,
   TokenId,
   TokenInfoQuery,
@@ -81,6 +85,12 @@ async function accountIdentity(accountId: string, network: string) {
  * automatic token associations. An account created through the SDK gets none by default, and a
  * treasury that cannot receive a token cannot be the output of a swap; adding them afterwards
  * would itself need the council's signatures.
+ *
+ * The slots are necessary and **not sufficient**. They let a plain `CryptoTransfer` deliver a token
+ * the account has never held, but a token arriving from inside a contract call is a different
+ * matter: there the automatic association is charged to the call as gas, and it costs more than a
+ * governed operation's gas limit, so `reconcileTreasuryAssociation` is what actually makes a swap's
+ * output reachable.
  */
 async function createGovernanceAccount(client: Client, memberPublicKeys: string[]) {
   const members = memberPublicKeys.map(key => PublicKey.fromString(key));
@@ -117,6 +127,28 @@ async function createDemoToken(client: Client, env: SetupEnv, tokenAdminContract
   const { tokenId } = await response.getReceipt(client);
   if (!tokenId) throw new Error("Demo token creation returned no token id");
   return tokenId.toString();
+}
+
+/**
+ * Signed by council members rather than by the operator that pays for it: the account's key is the
+ * threshold key, so associating a token on it is an act of the council, the same as approving a
+ * proposal. In the demo the signers are the two demo seats, which is exactly the threshold.
+ */
+async function associateGovernanceToken(
+  client: Client,
+  governanceAccountId: string,
+  tokenId: string,
+  signers: DemoAccount[],
+): Promise<void> {
+  const transaction = new TokenAssociateTransaction()
+    .setAccountId(AccountId.fromString(governanceAccountId))
+    .setTokenIds([TokenId.fromString(tokenId)])
+    .freezeWith(client);
+
+  for (const signer of signers) await transaction.sign(PrivateKey.fromStringDer(signer.privateKey));
+
+  const response = await transaction.execute(client);
+  await response.getReceipt(client);
 }
 
 async function fundHolder(client: Client, env: SetupEnv, account: DemoAccount, tokenId: string, amount: number) {
@@ -177,7 +209,11 @@ export type SignedTopicActions = {
   createDecisionTopic(agentPublicKey: string): Promise<string>;
 };
 
-export type GovernanceSetupActions = GovernanceActions & DemoTokenActions & SeedProposalActions & SignedTopicActions;
+export type GovernanceSetupActions = GovernanceActions &
+  DemoTokenActions &
+  SeedProposalActions &
+  SignedTopicActions &
+  TreasuryAssociationActions;
 
 const RELEASE_TOPIC_MEMO = "governed-operations release manifests";
 
@@ -292,6 +328,8 @@ export function createGovernanceActions(env: SetupEnv, client: Client): Governan
     createGovernanceAccount: members => createGovernanceAccount(client, members),
     createDemoToken: tokenAdminContractId => createDemoToken(client, env, tokenAdminContractId),
     associateToken: (account, tokenId) => associateToken(client, account, tokenId),
+    associateGovernanceToken: (governanceAccountId, tokenId, signers) =>
+      associateGovernanceToken(client, governanceAccountId, tokenId, signers),
     fundHolder: (account, tokenId, amount) => fundHolder(client, env, account, tokenId, amount),
     createProposal: (executorContractId, targetEvm, calldata) =>
       createProposal(client, executorContractId, targetEvm, calldata),

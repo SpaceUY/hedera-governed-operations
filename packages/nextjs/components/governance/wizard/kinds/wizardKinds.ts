@@ -6,6 +6,7 @@ import type { ProposalKind } from "@sh/core/governance/proposalTypes";
  */
 export const WIZARD_KINDS = [
   "upgrade",
+  "treasurySwap",
   "tokenAdmin",
   "treasuryTransfer",
   "councilRotation",

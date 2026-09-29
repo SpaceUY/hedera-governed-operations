@@ -6,6 +6,11 @@ import { ISwapRouter } from "../interfaces/ISwapRouter.sol";
 /// @notice Stands in for SaucerSwap's router in the adapter tests: records the params it was
 /// called with, keeps the HBAR it was paid, and returns or reverts on demand. Not part of the
 /// template's runtime.
+/// @dev It models the router's interface and none of its behaviour. There is no WHBAR to wrap into,
+/// no pool, and above all no HTS: the real swap settles its output through the system contract at
+/// `0x167`, which charges an automatic token association as gas and is where this path actually
+/// broke. Do not read a passing test against this contract, or any gas figure from one, as a
+/// statement about SaucerSwap.
 contract MockSwapRouter is ISwapRouter {
     ExactInputSingleParams public lastParams;
     uint256 public lastValue;

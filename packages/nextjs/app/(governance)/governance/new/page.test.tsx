@@ -1,5 +1,5 @@
 import NewProposalPage from "./page";
-import { encodeUpgrade } from "@sh/core/governance/encode";
+import { encodeTreasurySwap, encodeUpgrade } from "@sh/core/governance/encode";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
@@ -10,14 +10,19 @@ import {
   scheduleRegisteredEntryCopy,
 } from "~~/components/governance/wizard/copy";
 import { TOKEN_ADMIN_COPY } from "~~/components/governance/wizard/kinds/tokenAdmin/copy";
+import { TREASURY_SWAP_COPY } from "~~/components/governance/wizard/kinds/treasurySwap/copy";
 import { VAULT_UPGRADE_COPY } from "~~/components/governance/wizard/kinds/vaultUpgrade/copy";
-import { type GovernanceConfig, findDeployedContract } from "~~/config/governanceConfig";
+import { type GovernanceConfig, findDeployedContract, findDeployment } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { type ProposalDraft, draftTreasuryTransfer } from "~~/services/governance/drafts";
 import type { UnscheduledEntry } from "~~/services/governance/unscheduledEntry";
 
-const drafts = vi.hoisted(() => ({ upgrade: null as ProposalDraft | null, transfer: null as ProposalDraft | null }));
+const drafts = vi.hoisted(() => ({
+  upgrade: null as ProposalDraft | null,
+  swap: null as ProposalDraft | null,
+  transfer: null as ProposalDraft | null,
+}));
 const push = vi.hoisted(() => vi.fn());
 // The wallet and Mirror are out of the picture: the submit resolves at once with a schedule id.
 const reset = vi.hoisted(() => vi.fn());
@@ -67,10 +72,28 @@ vi.mock("~~/components/governance/wizard/kinds/tokenAdmin/TokenAdminForm", () =>
 vi.mock("~~/components/governance/wizard/kinds/coSigningAgent/AddAgentForm", () => ({
   AddAgentForm: () => <div>agent form</div>,
 }));
+vi.mock("~~/components/governance/wizard/kinds/treasurySwap/SwapForm", async () => {
+  const { useEffect } = await import("react");
+  return {
+    SwapForm: ({
+      targets,
+      onDraftChange,
+    }: {
+      targets: { adapterLabel: string };
+      onDraftChange: (result: unknown) => void;
+    }) => {
+      useEffect(() => {
+        if (drafts.swap) onDraftChange({ status: "ready", draft: drafts.swap });
+      }, [onDraftChange]);
+      return <div>swap form · {targets.adapterLabel}</div>;
+    },
+  };
+});
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
   findDeployedContract: vi.fn(),
+  findDeployment: vi.fn(),
 }));
 
 const DEPLOYED = {
@@ -98,6 +121,20 @@ const UNREADABLE_DRAFT: ProposalDraft = {
   proposal: { target: PROXY, calldata: "0x", registerGas: 1, executeGas: 1, payableTinybars: 0n },
 };
 
+const SWAP_DRAFT: ProposalDraft = {
+  path: "registry",
+  kind: "treasurySwap",
+  target: "Swap adapter · 0.0.4242",
+  proposal: encodeTreasurySwap({
+    adapter: DEPLOYED.address,
+    tokenOut: "0x0000000000000000000000000000000000001549",
+    fee: 3000,
+    recipient: "0x0000000000000000000000000000000000000003",
+    amountInTinybars: 5_000_000_000n,
+    amountOutMinimum: 6_250_000n,
+  }),
+};
+
 const CONFIG: GovernanceConfig = {
   governanceAccountId: TREASURY,
   demoTokenId: "0.0.9000",
@@ -117,6 +154,7 @@ const renderPage = () =>
 
 const setup = ({ accountId, proposers }: { accountId: string | null; proposers: string[] }) => {
   vi.mocked(findDeployedContract).mockReturnValue(DEPLOYED);
+  vi.mocked(findDeployment).mockReturnValue(DEPLOYED);
   vi.mocked(useHederaSigner).mockReturnValue({ accountId, isConnected: accountId !== null } as never);
   vi.mocked(useCouncil).mockReturnValue({
     data: {
@@ -128,11 +166,12 @@ const setup = ({ accountId, proposers }: { accountId: string | null; proposers: 
   } as never);
 };
 
-const cta = (kind: "upgrade" | "tokenAdmin" | "treasuryTransfer") =>
+const cta = (kind: "upgrade" | "treasurySwap" | "tokenAdmin" | "treasuryTransfer") =>
   screen.getByRole("button", { name: openProposalCopy(kind).cta }) as HTMLButtonElement;
 
 beforeEach(() => {
   drafts.upgrade = null;
+  drafts.swap = null;
   drafts.transfer = null;
   submission.unscheduledEntry = null;
 });
@@ -142,10 +181,49 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const pickSwap = () =>
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.treasurySwap.title) }));
+
 const pickTransfer = () =>
   fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.treasuryTransfer.title) }));
 
 describe("NewProposalPage", () => {
+  it("offers the swap form once the adapter is deployed, and lets the proposer register it", () => {
+    drafts.swap = SWAP_DRAFT;
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    renderPage();
+
+    pickSwap();
+
+    expect(screen.getByText("swap form · 0.0.4242")).toBeTruthy();
+    expect(cta("treasurySwap").disabled).toBe(false);
+  });
+
+  it("offers the swap on an adapter the deploy recorded without a native id, named by its address", () => {
+    drafts.swap = SWAP_DRAFT;
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    vi.mocked(findDeployment).mockReturnValue({ address: DEPLOYED.address, abi: [] });
+    renderPage();
+
+    pickSwap();
+
+    expect(screen.getByText(`swap form · ${DEPLOYED.address}`)).toBeTruthy();
+    expect(cta("treasurySwap").disabled).toBe(false);
+  });
+
+  it("offers no swap form while the adapter is not deployed", () => {
+    drafts.swap = SWAP_DRAFT;
+    setup({ accountId: PROPOSER, proposers: [PROPOSER] });
+    vi.mocked(findDeployment).mockReturnValue(null);
+    renderPage();
+
+    pickSwap();
+
+    expect(screen.queryByText(/swap form/)).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(TREASURY_SWAP_COPY.adapterMissing);
+    expect(cta("treasurySwap").disabled).toBe(true);
+  });
+
   it("offers no upgrade form while the vault's next implementation is not deployed, and still pays a supplier", () => {
     drafts.transfer = draftTreasuryTransfer(TREASURY, { recipientAccountId: "0.0.500", amount: "1" });
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
