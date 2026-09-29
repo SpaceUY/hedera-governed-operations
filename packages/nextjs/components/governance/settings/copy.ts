@@ -44,6 +44,18 @@ export const SETTINGS_COPY = {
       "A co-signing agent never signs a council rotation, whatever its policy says: if one holds a seat, both " +
       "thresholds have to be reached by the council's human members.",
     note: "One transaction. The map shows the council this would create in dashed violet.",
+    /** The rows that seat an account holding no seat yet; its own key becomes the seat. */
+    members: {
+      legend: "Accounts to add",
+      memberLabel: (position: number) => `Member ${position}`,
+      removeMember: (position: number) => `Remove member ${position}`,
+      addMember: "Add a member",
+      emptyMember: (position: number) => `Member ${position} is empty: fill it in or remove it.`,
+      notSingleKey: (accountId: string, keyType: string) =>
+        `${accountId} holds a ${keyType} key. A seat on the council is one account's single key, so it cannot be a member.`,
+      alreadyOffered: (accountId: string) =>
+        `${accountId} already holds a seat listed above, so this row adds nothing: tick or untick that seat instead.`,
+    },
     /** Until the map previews a draft on this screen, the note says only what is true. */
     noteWithoutPreview: "One transaction — a native schedule. No registry entry is created.",
   },

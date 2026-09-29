@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { SETTINGS_COPY } from "./copy";
 import {
   type CouncilChange,
@@ -8,10 +8,14 @@ import {
   changeFrom,
   councilRiskOf,
   draftCouncilChange,
+  reoffer,
   seatTagOf,
   stepThreshold,
   toggleSeat,
 } from "./councilChange";
+import { type MemberSeat, memberKeysOf } from "./memberAccounts";
+import { HederaAddressInput } from "@scaffold-hbar-ui/components";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ConnectWallet } from "~~/components/ConnectWallet";
 import { monogramOf } from "~~/components/governance/graph/geometry";
 import { SeatAvatar } from "~~/components/governance/rail/SeatAvatar";
@@ -20,11 +24,13 @@ import { type SeatNaming, councilSeatOf, unseatedAgentSeatOf } from "~~/componen
 import { CouncilPreviewPanel } from "~~/components/governance/wizard/CouncilPreviewPanel";
 import { ProposalSubmitFooter } from "~~/components/governance/wizard/ProposalSubmitFooter";
 import { useProposalWizard } from "~~/components/governance/wizard/ProposalWizardProvider";
-import { OPEN_PROPOSAL_NOTICES, openProposalCopy } from "~~/components/governance/wizard/copy";
+import { ACCOUNT_LOOKUP_LABELS, OPEN_PROPOSAL_NOTICES, openProposalCopy } from "~~/components/governance/wizard/copy";
 import { agentSeatOf } from "~~/components/governance/wizard/kinds/coSigningAgent/agentSeat";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useAccount } from "~~/hooks/mirror/useAccount";
+import { type AccountListRead, useAccounts } from "~~/hooks/mirror/useAccounts";
 import type { CouncilQueryData } from "~~/hooks/mirror/useCouncil";
+import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { type DraftResult, isPreviewRecognized } from "~~/services/governance/drafts";
 import { canOpenProposal } from "~~/services/governance/proposalActions";
@@ -48,6 +54,20 @@ function useOfferedSeats({ council, naming, config }: CouncilChangeComposerProps
   }, [agentSeat, agentAccountId, agentAccount.data, agentAccount.error, council.key]);
 }
 
+/** An account row keeps its id while the rows around it are added and removed. */
+type MemberRow = { id: number; input: string };
+
+const sameSeats = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((key, index) => key === b[index]);
+
+/** What a row says under itself: still looking, empty, or why it adds no seat. */
+function rowStatusText(position: number, input: string, row: MemberSeat, read: AccountListRead | undefined) {
+  if (input === "") return SETTINGS_COPY.composer.members.emptyMember(position);
+  if (read?.isLoading) return ACCOUNT_LOOKUP_LABELS.loading(input);
+  if (row.status === "invalid" || row.status === "offered") return row.message;
+  return null;
+}
+
 function riskText(risk: CouncilRisk, facts: { seats: number; keepsProposerRole: boolean }): string {
   if (risk === "anyOneKey") return SETTINGS_COPY.composer.risks.anyOneKey(facts.seats);
   if (risk === "oneLostKeyFreezes") return SETTINGS_COPY.composer.risks.oneLostKeyFreezes(facts.seats);
@@ -65,13 +85,32 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
   const headingId = useId();
   const thresholdId = useId();
   const [change, setChange] = useState<CouncilChange>(() => changeFrom(council.key));
-  const offered = useOfferedSeats(props);
+  const councilOffered = useOfferedSeats(props);
+  const { targetNetwork } = useTargetNetwork();
+
+  const nextRowId = useRef(0);
+  const [rows, setRows] = useState<MemberRow[]>([]);
+  const memberInputs = useMemo(() => rows.map(row => row.input.trim()), [rows]);
+  const reads = useAccounts(memberInputs, { network: config.network });
+  const members = useMemo(
+    () => memberKeysOf(memberInputs, reads, councilOffered),
+    [memberInputs, reads, councilOffered],
+  );
+  const offered = useMemo(() => [...councilOffered, ...members.memberKeys], [councilOffered, members.memberKeys]);
+  // A seat an added row resolves to comes in ticked; one whose row is removed or edited goes.
+  const [added, setAdded] = useState<string[]>([]);
+  if (!sameSeats(added, members.memberKeys)) {
+    const joining = members.memberKeys.filter(key => !added.includes(key));
+    setAdded(members.memberKeys);
+    setChange(current => reoffer(current, offered, joining));
+  }
   const { accountId, isConnected } = useHederaSigner();
   const { setDraft, preview, submitStatus } = useProposalWizard();
 
+  // Until every row is an account with a seat, or says it adds nothing, the change is held back.
   const result = useMemo(
-    () => draftCouncilChange(config.governanceAccountId, change, council.key),
-    [config.governanceAccountId, change, council.key],
+    () => (members.settled ? draftCouncilChange(config.governanceAccountId, change, council.key) : NO_DRAFT),
+    [members.settled, config.governanceAccountId, change, council.key],
   );
   useEffect(() => {
     setDraft(result);
@@ -99,6 +138,19 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
   const agentSeat = naming.agent?.seat ?? null;
   const agentTicked = agentSeat !== null && change.memberKeys.includes(agentSeat);
   const seats = change.memberKeys.length;
+  const addedNames = Object.fromEntries(
+    members.rows.flatMap(row => (row.status === "found" ? [[row.seat, { name: row.accountId }]] : [])),
+  );
+  const seatNaming: SeatNaming = { ...naming, memberNames: { ...naming.memberNames, ...addedNames } };
+
+  const updateRow = (id: number, input: string) =>
+    setRows(current => current.map(row => (row.id === id ? { ...row, input } : row)));
+  const removeRow = (id: number) => setRows(current => current.filter(row => row.id !== id));
+  const addRow = () => {
+    const id = nextRowId.current;
+    nextRowId.current += 1;
+    setRows(current => [...current, { id, input: "" }]);
+  };
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3 rounded-box border border-base-300 p-4">
@@ -118,7 +170,7 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
         <legend className="sr-only">{SETTINGS_COPY.composer.membersLegend}</legend>
         <ul className="m-0 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-2">
           {offered.map(seatKey => {
-            const seat = councilSeatOf(seatKey, naming);
+            const seat = councilSeatOf(seatKey, seatNaming);
             const tag = seatTagOf(seatKey, change, council.key);
             const seated = council.key.memberKeys.includes(seatKey);
             return (
@@ -141,6 +193,47 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
             );
           })}
         </ul>
+
+        {rows.length > 0 && (
+          <ol aria-label={SETTINGS_COPY.composer.members.legend} className="m-0 flex list-none flex-col gap-2 p-0">
+            {rows.map((row, index) => {
+              const status = rowStatusText(index + 1, memberInputs[index], members.rows[index], reads[index]);
+              return (
+                <li key={row.id} className="flex flex-col gap-1">
+                  <div className="flex items-end gap-2">
+                    <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <span className="text-sm font-semibold">
+                        {SETTINGS_COPY.composer.members.memberLabel(index + 1)}
+                      </span>
+                      <HederaAddressInput
+                        value={row.input}
+                        onChange={input => updateRow(row.id, input)}
+                        placeholder="0.0.x or 0x…"
+                        chainId={targetNetwork.id}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-square"
+                      aria-label={SETTINGS_COPY.composer.members.removeMember(index + 1)}
+                      onClick={() => removeRow(row.id)}
+                    >
+                      <XMarkIcon className="size-4" />
+                    </button>
+                  </div>
+                  {status && (
+                    <span role="status" className="text-sm text-base-content/60">
+                      {status}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        <button type="button" className="btn btn-outline btn-sm self-start" onClick={addRow}>
+          {SETTINGS_COPY.composer.members.addMember}
+        </button>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span id={thresholdId} className="text-sm font-semibold">

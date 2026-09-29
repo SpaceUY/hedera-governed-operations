@@ -61,6 +61,18 @@ const signer = vi.hoisted(() => ({ accountId: "0.0.101" as string | null, isConn
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: () => signer }));
 const agentAccount = vi.hoisted(() => ({ data: undefined as unknown, error: null }));
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: () => agentAccount }));
+// What the Mirror Node answers for each typed account; anything else reads as not known yet.
+const mirrorAccounts = vi.hoisted(() => ({ byInput: {} as Record<string, unknown> }));
+vi.mock("~~/hooks/mirror/useAccounts", () => ({
+  useAccounts: (inputs: string[]) =>
+    inputs.map(input => ({ account: mirrorAccounts.byInput[input.trim()], error: null, isLoading: false })),
+}));
+vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
+vi.mock("@scaffold-hbar-ui/components", () => ({
+  HederaAddressInput: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    <input value={value} onChange={event => onChange(event.target.value)} />
+  ),
+}));
 
 beforeEach(() => {
   wizard.setDraft.mockImplementation((result: DraftResult) => {
@@ -71,6 +83,7 @@ beforeEach(() => {
   });
   Object.assign(signer, { accountId: "0.0.101", isConnected: true });
   agentAccount.data = undefined;
+  mirrorAccounts.byInput = {};
 });
 afterEach(() => {
   cleanup();
@@ -185,7 +198,85 @@ describe("CouncilChangeComposer", () => {
     };
     wizard.setDraft.mockImplementation(() => undefined);
     renderComposer();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bob/ }));
+    expect(screen.getByText(SETTINGS_COPY.composer.tags.leaves)).toBeTruthy();
     expect(screen.queryByText("What the council will see")).toBeNull();
+  });
+
+  it("seats an account that holds no seat yet: its row adds a ticked seat that joins, 2-of-3 becoming 2-of-4", () => {
+    const newcomer = ecdsa();
+    mirrorAccounts.byInput["0.0.700"] = { account: "0.0.700", key: newcomer };
+    renderComposer();
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.members.addMember }));
+    fireEvent.change(screen.getByRole("textbox", { name: SETTINGS_COPY.composer.members.memberLabel(1) }), {
+      target: { value: "0.0.700" },
+    });
+
+    const joining = screen.getByRole("checkbox", { name: /0\.0\.700/ }) as HTMLInputElement;
+    expect(joining.checked).toBe(true);
+    expect(screen.getByText(SETTINGS_COPY.composer.tags.joins)).toBeTruthy();
+    expect(screen.getByText("2-of-4")).toBeTruthy();
+    if (wizard.draft.status !== "ready") throw new Error("expected a draft");
+    const preview = previewDraft(wizard.draft.draft);
+    if (preview.path !== "native" || preview.scheduled.kind !== "councilRotation") {
+      throw new Error("expected a native rotation");
+    }
+    expect(preview.scheduled.council).toEqual({
+      threshold: 2,
+      memberKeys: [seat(you), seat(alice), seat(bob), seat(newcomer)],
+    });
+
+    fireEvent.click(joining);
+    expect(screen.getByText("2-of-3")).toBeTruthy();
+    expect(wizard.draft).toEqual({ status: "empty" });
+  });
+
+  it("drops the seat of a row that is removed", () => {
+    mirrorAccounts.byInput["0.0.700"] = { account: "0.0.700", key: ecdsa() };
+    renderComposer();
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.members.addMember }));
+    fireEvent.change(screen.getByRole("textbox", { name: SETTINGS_COPY.composer.members.memberLabel(1) }), {
+      target: { value: "0.0.700" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.members.removeMember(1) }));
+    expect(screen.queryByRole("checkbox", { name: /0\.0\.700/ })).toBeNull();
+    expect(screen.getByText("2-of-3")).toBeTruthy();
+    expect(wizard.draft).toEqual({ status: "empty" });
+  });
+
+  it("says a row's account already holds a seat listed above, and adds nothing", () => {
+    mirrorAccounts.byInput["0.0.102"] = { account: "0.0.102", key: alice };
+    renderComposer();
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.members.addMember }));
+    fireEvent.change(screen.getByRole("textbox", { name: SETTINGS_COPY.composer.members.memberLabel(1) }), {
+      target: { value: "0.0.102" },
+    });
+    expect(screen.getByText(SETTINGS_COPY.composer.members.alreadyOffered("0.0.102"))).toBeTruthy();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    expect(screen.getByText("2-of-3")).toBeTruthy();
+  });
+
+  it("refuses an account whose key is not a single key", () => {
+    mirrorAccounts.byInput["0.0.800"] = { account: "0.0.800", key: { _type: "ProtobufEncoded", key: "0a05" } };
+    renderComposer();
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.members.addMember }));
+    fireEvent.change(screen.getByRole("textbox", { name: SETTINGS_COPY.composer.members.memberLabel(1) }), {
+      target: { value: "0.0.800" },
+    });
+    expect(screen.getByText(SETTINGS_COPY.composer.members.notSingleKey("0.0.800", "ProtobufEncoded"))).toBeTruthy();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+  });
+
+  it("holds the change back while a row is empty, and says to fill it in or remove it", () => {
+    renderComposer();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bob/ }));
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.members.addMember }));
+    expect(screen.getByText(SETTINGS_COPY.composer.members.emptyMember(1))).toBeTruthy();
+    expect(wizard.draft).toEqual({ status: "empty" });
+    expect(scheduleButton().disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.members.removeMember(1) }));
+    expect(wizard.draft).toMatchObject({ status: "ready" });
   });
 
   it("empties the layout's draft when it unmounts, so the wizard never opens on it", () => {

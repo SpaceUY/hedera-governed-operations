@@ -27,6 +27,15 @@ export function toggleSeat(change: CouncilChange, seat: string, offered: readonl
   return { memberKeys, threshold: clamp(change.threshold, memberKeys.length) };
 }
 
+/**
+ * The change once the offered seats move, as accounts are added or removed: the seats `joining` come in
+ * ticked, a seat no longer offered drops out, and the threshold stays within the seats.
+ */
+export function reoffer(change: CouncilChange, offered: readonly string[], joining: readonly string[]): CouncilChange {
+  const memberKeys = offered.filter(key => change.memberKeys.includes(key) || joining.includes(key));
+  return { memberKeys, threshold: clamp(change.threshold, memberKeys.length) };
+}
+
 export function stepThreshold(change: CouncilChange, step: 1 | -1): CouncilChange {
   return { ...change, threshold: clamp(change.threshold + step, change.memberKeys.length) };
 }

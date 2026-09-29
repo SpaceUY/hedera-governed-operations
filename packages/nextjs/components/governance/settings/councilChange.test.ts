@@ -4,6 +4,7 @@ import {
   councilRiskOf,
   draftCouncilChange,
   isChanged,
+  reoffer,
   seatTagOf,
   stepThreshold,
   toggleSeat,
@@ -52,6 +53,16 @@ describe("composing a council change", () => {
     expect(seatTagOf(AGENT, change, COUNCIL)).toBe("joins");
     expect(seatTagOf(BOB, change, COUNCIL)).toBe("leaves");
     expect(seatTagOf(YOU, change, COUNCIL)).toBeNull();
+  });
+
+  it("ticks a seat as it is first offered, and drops one no longer offered, keeping the threshold within the seats", () => {
+    const NEWCOMER = seatOf();
+    const joined = reoffer(changeFrom(COUNCIL), [...OFFERED, NEWCOMER], [NEWCOMER]);
+    expect(joined).toEqual({ threshold: 2, memberKeys: [YOU, ALICE, BOB, NEWCOMER] });
+    expect(toggleSeat(joined, NEWCOMER, [...OFFERED, NEWCOMER]).memberKeys).toEqual([YOU, ALICE, BOB]);
+
+    const narrowed = reoffer({ threshold: 3, memberKeys: [YOU, NEWCOMER, BOB] }, [YOU, ALICE], []);
+    expect(narrowed).toEqual({ threshold: 1, memberKeys: [YOU] });
   });
 });
 

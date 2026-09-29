@@ -30,6 +30,8 @@ vi.mock("~~/components/governance/graph/useComposedMap", () => ({ useLatestCompo
 vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: () => null }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: () => ({ accountId: null, isConnected: false }) }));
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: () => ({ data: undefined, error: null }) }));
+vi.mock("~~/hooks/mirror/useAccounts", () => ({ useAccounts: () => [] }));
+vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 vi.mock("~~/components/governance/wizard/ProposalWizardProvider", () => ({
   useProposalWizard: () => ({
