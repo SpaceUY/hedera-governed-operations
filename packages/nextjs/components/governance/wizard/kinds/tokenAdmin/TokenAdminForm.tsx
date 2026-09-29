@@ -29,6 +29,7 @@ export const TokenAdminForm = ({
   const token = useToken(tokenId, { network });
   const account = useAccount(accountInput, { network });
   const accountId = account.data?.account;
+  const holderAddress = account.data?.evm_address ?? null;
   const relationship = useTokenRelationship(accountId, tokenId, { network, enabled: needsAccount });
   const symbol = token.data?.token.symbol ?? tokenId;
 
@@ -40,7 +41,7 @@ export const TokenAdminForm = ({
   // `TokenAdmin` can only revert, and the governance account would pay for it.
   useEffect(() => {
     const draft = (holder: string | null) =>
-      tryDraft(() => draftTokenAdmin({ tokenAdmin, tokenAdminContractId, tokenId }, { operation, accountId: holder }));
+      tryDraft(() => draftTokenAdmin({ tokenAdmin, tokenAdminContractId, tokenId }, { operation, holder }));
     if (!needsAccount) {
       if (token.isError) {
         onDraftChange({ status: "invalid", message: tokenUnreadableLabel(tokenId) });
@@ -79,12 +80,13 @@ export const TokenAdminForm = ({
       onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.noFreezeKey(lookup.accountId, symbol) });
       return;
     }
-    onDraftChange(draft(lookup.accountId));
+    onDraftChange(draft(holderAddress));
   }, [
     operation,
     needsAccount,
     accountInput,
     accountId,
+    holderAddress,
     account.error,
     relationship.data,
     relationship.error,

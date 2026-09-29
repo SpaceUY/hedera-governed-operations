@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useToken } from "~~/hooks/mirror/useToken";
 import { useTokenRelationship } from "~~/hooks/mirror/useTokenRelationship";
-import type { DraftResult } from "~~/services/governance/drafts";
+import { type DraftResult, previewDraft } from "~~/services/governance/drafts";
 
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
@@ -58,7 +58,11 @@ const lastResult = (onDraftChange: ReturnType<typeof renderForm>) => onDraftChan
 const pick = (operation: keyof typeof TOKEN_ADMIN_OPERATION_LABELS) =>
   fireEvent.click(screen.getByRole("radio", { name: TOKEN_ADMIN_OPERATION_LABELS[operation] }));
 
-const holderFound = () => vi.mocked(useAccount).mockReturnValue({ data: { account: HOLDER }, error: null } as never);
+/** An ECDSA account: the Mirror Node reports its alias, which is what the token system contract accepts. */
+const HOLDER_ALIAS = "0x5b38da6a701c568545dcfcb03fcb875f56beddc4";
+
+const holderFound = () =>
+  vi.mocked(useAccount).mockReturnValue({ data: { account: HOLDER, evm_address: HOLDER_ALIAS }, error: null } as never);
 
 describe("TokenAdminForm", () => {
   it("drafts a pause of the token as soon as it opens, and says whether it is paused now", () => {
@@ -116,7 +120,11 @@ describe("TokenAdminForm", () => {
     });
     expect(screen.getByText(TOKEN_ADMIN_COPY.freezeStatus(HOLDER, "ACME", "UNFROZEN"))).toBeTruthy();
     const result = lastResult(onDraftChange);
-    expect(result?.status).toBe("ready");
+    if (result?.status !== "ready") throw new Error("expected a ready draft");
+    const preview = previewDraft(result.draft);
+    expect(preview.path === "registry" && preview.operation).toMatchObject({
+      account: "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4",
+    });
   });
 
   it("refuses to freeze an account that never associated the token, saying why", () => {
