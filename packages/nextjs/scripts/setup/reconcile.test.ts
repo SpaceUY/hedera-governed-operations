@@ -1,5 +1,5 @@
 import { type MirrorLookups, type SetupActions, USDC_TESTNET_TOKEN_ID, reconcile } from "./reconcile";
-import { type DemoAccount, emptyState } from "./state";
+import { type DemoAccount, type SetupState, emptyState } from "./state";
 import { describe, expect, it, vi } from "vitest";
 
 const account = (suffix: string): DemoAccount => ({
@@ -10,34 +10,25 @@ const account = (suffix: string): DemoAccount => ({
 });
 
 const lookupsWhere = (overrides: Partial<MirrorLookups>): MirrorLookups => ({
-  topicExists: vi.fn(async () => true),
   accountExists: vi.fn(async () => true),
   accountHasToken: vi.fn(async () => true),
   ...overrides,
 });
 
 const recordingActions = (): SetupActions => ({
-  createTopic: vi.fn(async () => "0.0.100"),
   createDemoAccount: vi.fn(async (name: string) => account(name)),
   associateToken: vi.fn(async () => undefined),
 });
 
 const completeState = () => ({
   ...emptyState("testnet"),
-  topicId: "0.0.1",
   demoAccounts: { alice: account("alice"), bob: account("bob") },
 });
 
 const callCounts = (actions: SetupActions) =>
-  [actions.createTopic, actions.createDemoAccount, actions.associateToken].map(fn => vi.mocked(fn).mock.calls.length);
+  [actions.createDemoAccount, actions.associateToken].map(fn => vi.mocked(fn).mock.calls.length);
 
 describe("reconcile", () => {
-  it("creates the topic from an empty state", async () => {
-    const actions = recordingActions();
-    await reconcile(emptyState("testnet"), { lookups: lookupsWhere({}), actions });
-    expect(actions.createTopic).toHaveBeenCalledTimes(1);
-  });
-
   it("creates one demo account per name from an empty state", async () => {
     const actions = recordingActions();
     await reconcile(emptyState("testnet"), { lookups: lookupsWhere({}), actions });
@@ -63,7 +54,6 @@ describe("reconcile", () => {
     });
     expect(state).toEqual({
       ...emptyState("testnet"),
-      topicId: "0.0.100",
       demoAccounts: { alice: account("alice"), bob: account("bob") },
     });
   });
@@ -71,13 +61,14 @@ describe("reconcile", () => {
   it("runs no action when the state is complete and verified on the mirror", async () => {
     const actions = recordingActions();
     await reconcile(completeState(), { lookups: lookupsWhere({}), actions });
-    expect(callCounts(actions)).toEqual([0, 0, 0]);
+    expect(callCounts(actions)).toEqual([0, 0]);
   });
 
-  it("recreates the topic when the mirror does not know it", async () => {
-    const lookups = lookupsWhere({ topicExists: vi.fn(async () => false) });
-    const { state } = await reconcile(completeState(), { lookups, actions: recordingActions() });
-    expect(state.topicId).toBe("0.0.100");
+  it("keeps a state file written when setup still created a topic, without looking the topic up", async () => {
+    const olderState = { ...completeState(), topicId: "0.0.1" } as SetupState;
+    const { state, steps } = await reconcile(olderState, { lookups: lookupsWhere({}), actions: recordingActions() });
+    expect(state).toEqual(olderState);
+    expect(steps.map(step => step.label)).not.toContain("Topic 0.0.1");
   });
 
   it("recreates only the demo account the mirror does not know", async () => {
@@ -91,13 +82,7 @@ describe("reconcile", () => {
     const actions = recordingActions();
     const lookups = lookupsWhere({ accountHasToken: vi.fn(async (id: string) => id !== "0.0.alice") });
     await reconcile(completeState(), { lookups, actions });
-    expect(callCounts(actions)).toEqual([0, 0, 1]);
-  });
-
-  it("persists the topic before touching the demo accounts", async () => {
-    const persist = vi.fn();
-    await reconcile(emptyState("testnet"), { lookups: lookupsWhere({}), actions: recordingActions(), persist });
-    expect(persist.mock.calls[0]).toEqual([{ ...emptyState("testnet"), topicId: "0.0.100" }]);
+    expect(callCounts(actions)).toEqual([0, 1]);
   });
 
   it("persists a created account before its association so a failure never orphans it", async () => {
@@ -111,7 +96,6 @@ describe("reconcile", () => {
     );
     expect(persist).toHaveBeenLastCalledWith({
       ...emptyState("testnet"),
-      topicId: "0.0.100",
       demoAccounts: { alice: account("alice") },
     });
   });
@@ -120,7 +104,6 @@ describe("reconcile", () => {
     const lookups = lookupsWhere({ accountExists: vi.fn(async (id: string) => id !== "0.0.bob") });
     const { steps } = await reconcile(completeState(), { lookups, actions: recordingActions() });
     expect(steps).toEqual([
-      { label: "Topic 0.0.1", outcome: "reused" },
       { label: "Demo account alice 0.0.alice", outcome: "reused" },
       { label: "USDC association for alice", outcome: "reused" },
       { label: "Demo account bob 0.0.bob", outcome: "created" },

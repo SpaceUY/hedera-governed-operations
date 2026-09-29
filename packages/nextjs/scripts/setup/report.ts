@@ -43,12 +43,10 @@ export function formatSummary(
   env: SetupEnv,
   paths: { stateFile: string; envFile: string },
 ): string[] {
-  const topic = state.topicId ?? "(missing)";
   return [
     "",
     `Network:  ${env.network}`,
     `Operator: ${env.operatorId}  ${hashScanUrl("account", env.operatorId, env.network)}`,
-    `Topic:    ${topic}  ${hashScanUrl("topic", topic, env.network)}`,
     `USDC:     ${USDC_TESTNET_TOKEN_ID}  ${hashScanUrl("token", USDC_TESTNET_TOKEN_ID, env.network)}`,
     "Demo accounts (USDC associated):",
     ...accountLines(state, env.network),
