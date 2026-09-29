@@ -2,6 +2,7 @@
 
 import { type ReactNode, useState } from "react";
 import { OperationCard } from "./OperationCard";
+import { PENDING_LIST_COPY } from "./copy";
 import { expandedList, foldedList } from "./pendingCollapse";
 import type { Proposal } from "@sh/core/governance/proposals";
 
@@ -57,12 +58,12 @@ export const PendingOperationsList = ({
       </ul>
       {hiddenCount > 0 && (
         <button type="button" className="btn btn-ghost btn-xs self-start" onClick={() => setExpanded(true)}>
-          Show {hiddenCount} more
+          {PENDING_LIST_COPY.showMore(hiddenCount)}
         </button>
       )}
       {canFold && (
         <button type="button" className="btn btn-ghost btn-xs self-start" onClick={fold}>
-          Show fewer
+          {PENDING_LIST_COPY.showFewer}
         </button>
       )}
     </div>

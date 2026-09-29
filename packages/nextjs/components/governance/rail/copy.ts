@@ -4,12 +4,43 @@
  * or approvals are called — the same on every screen — lives in `services/governance/proposalLabels`;
  * a kind's title in `components/governance/wizard/copy`; the map's words in `components/governance/graph/copy`.
  */
-import { formatDuration } from "./expiryCountdown";
 import { type ProposalStage, remainingSignatures } from "./proposalProgress";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { proposalStatusLabel } from "~~/services/governance/proposalLabels";
 
 export type ProposalFamily = "contract" | "native";
+
+/** A span of time the way the rail writes it: "6d 21h", "3h 5m", "12m". */
+export function formatDuration(ms: number): string {
+  const totalMinutes = Math.max(0, Math.round(ms / 60_000));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+/** A pending proposal's time left, on its card and in its detail. */
+export const EXPIRY_COPY = {
+  expiringNow: "Expiring now",
+  left: (duration: string) => `${duration} left`,
+} as const;
+
+/** The pending list's fold. */
+export const PENDING_LIST_COPY = {
+  showMore: (hidden: number) => `Show ${hidden} more`,
+  showFewer: "Show fewer",
+} as const;
+
+/** The search that finds any proposal by its schedule id, listed or not. */
+export const SEARCH_COPY = {
+  label: "Find a proposal by schedule id",
+  button: "Find",
+  notAScheduleId: (term: string) => `"${term}" doesn't look like a schedule id (expected 0.0.x).`,
+  lookingUp: (scheduleId: string) => `Looking up ${scheduleId}`,
+  notFound: (scheduleId: string) => `No proposal found for ${scheduleId}.`,
+} as const;
 
 type StageFacts = Pick<Proposal, "state" | "execution" | "progress" | "incomingProgress">;
 

@@ -76,6 +76,10 @@
     {
       "file": "packages/nextjs/components/governance/graph/copy.ts",
       "contains": ["who may act", "would happen", "where the money is", "switches off"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["Find a proposal by schedule id", "Show fewer", "Expiring now"]
     }
   ]
 }

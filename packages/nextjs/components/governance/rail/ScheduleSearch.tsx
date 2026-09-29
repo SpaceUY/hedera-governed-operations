@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { OperationCard } from "./OperationCard";
+import { SEARCH_COPY } from "./copy";
 import { isValidEntityId } from "@sh/core/mirror";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
@@ -72,7 +73,7 @@ export const ScheduleSearch = ({
     const trimmed = term.trim();
     if (!isValidEntityId(trimmed)) {
       setCommittedId(null);
-      setFormatError(`"${trimmed}" doesn't look like a schedule id (expected 0.0.x).`);
+      setFormatError(SEARCH_COPY.notAScheduleId(trimmed));
       return;
     }
     setFormatError(null);
@@ -84,7 +85,7 @@ export const ScheduleSearch = ({
     <div role="search" className="flex flex-col gap-2 border-b border-base-300 pb-4">
       <form onSubmit={submit} className="flex flex-col gap-2">
         <label htmlFor={inputId} className="m-0 text-xs font-semibold text-base-content/60">
-          Find a proposal by schedule id
+          {SEARCH_COPY.label}
         </label>
         <div className="flex gap-2">
           <input
@@ -95,7 +96,7 @@ export const ScheduleSearch = ({
             className="input input-bordered input-sm flex-1"
           />
           <button type="submit" className="btn btn-sm">
-            Find
+            {SEARCH_COPY.button}
           </button>
         </div>
         {formatError && (
@@ -138,7 +139,7 @@ const ScheduleSearchResult = ({ scheduleId, selected, onToggle, detail, ...optio
   const { proposal, isLoading, error } = useProposalLookup({ ...options, scheduleId });
 
   if (isLoading) {
-    return <span className="loading loading-spinner loading-sm" aria-label={`Looking up ${scheduleId}`} />;
+    return <span className="loading loading-spinner loading-sm" aria-label={SEARCH_COPY.lookingUp(scheduleId)} />;
   }
   if (error) {
     return (
@@ -148,7 +149,7 @@ const ScheduleSearchResult = ({ scheduleId, selected, onToggle, detail, ...optio
     );
   }
   if (!proposal) {
-    return <p className="m-0 text-sm text-base-content/60">No proposal found for {scheduleId}.</p>;
+    return <p className="m-0 text-sm text-base-content/60">{SEARCH_COPY.notFound(scheduleId)}</p>;
   }
   return (
     <ul className="m-0 flex list-none flex-col gap-2 p-0">
