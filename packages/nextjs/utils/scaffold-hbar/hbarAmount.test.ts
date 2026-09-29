@@ -1,4 +1,4 @@
-import { HBAR_DECIMALS, formatTinybars, parseAmount } from "./hbarAmount";
+import { HBAR_DECIMALS, formatAmountFigure, formatTinybars, parseAmount } from "./hbarAmount";
 import { describe, expect, it } from "vitest";
 
 describe("parseAmount", () => {
@@ -38,5 +38,18 @@ describe("formatTinybars", () => {
   it("reads back to the same tinybars", () => {
     const tinybars = 987_654_321n;
     expect(parseAmount(formatTinybars(tinybars).replace(" ℏ", ""), HBAR_DECIMALS)).toBe(tinybars);
+  });
+});
+
+describe("formatAmountFigure", () => {
+  it.each([
+    [124_050_000_000n, HBAR_DECIMALS, "1,240.50"],
+    [1_983_650_000, HBAR_DECIMALS, "19.84"],
+    [0n, HBAR_DECIMALS, "0.00"],
+    [1_000_000, 6, "1.00"],
+    [1_000_000n, 0, "1,000,000"],
+    [123_456_789_012_345_678_901n, 2, "1,234,567,890,123,456,789.01"],
+  ])("writes %s units of a %s-decimal asset as %j", (units, decimals, expected) => {
+    expect(formatAmountFigure(units, decimals)).toBe(expected);
   });
 });

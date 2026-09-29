@@ -1,0 +1,144 @@
+/**
+ * The order the map plays what changed on the ledger in: one event at a time, oldest first, each
+ * played once however often a read reports it. Pure, so the ordering rules are tested without React
+ * or timers; `useProposalAnimationSync` owns the clock that walks it.
+ *
+ * While anything plays, the map shows a held world — the one before the events being played — and
+ * lets the ledger's newer reads wait until the sequence has landed: the money shot is never cut
+ * short by a poll. A new read only adds to the queue. If the queue grows past `MAX_QUEUED`, the map
+ * has fallen too far behind to replay it, so it drops what is waiting and shows where things are now.
+ */
+import type { CouncilKey } from "@sh/core/governance/council";
+import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/liveMap/events/mapEvents";
+
+/** How many events may wait behind the one playing before the map gives up replaying them. */
+export const MAX_QUEUED = 6;
+
+/**
+ * How many reads a council change waits for its rotation's outcome before it plays anyway. An
+ * outcome Mirror never confirms would otherwise keep the old council on the map for good.
+ */
+export const MAX_PARKED_READS = 6;
+
+export type QueuedEvent = {
+  key: string;
+  event: AnimationEvent;
+  /** The snapshot the event was read in. */
+  world: GovernanceSnapshot;
+  /** Which read it came from: the held world only moves on between reads, never within one. */
+  read: number;
+  /**
+   * For a council change that had to wait for its rotation's run: the council before it, which the
+   * map keeps showing until the change plays, so the new seats never appear ahead of the run.
+   */
+  councilBefore?: CouncilKey;
+};
+
+export type AnimationQueue = {
+  /** The first is the one playing. */
+  queue: QueuedEvent[];
+  /** Council changes waiting for the run of the rotation that installed them. */
+  parked: QueuedEvent[];
+  /** Every event ever queued, parked or dropped, so a read that repeats one does not replay it. */
+  seen: string[];
+  /** The world shown while the queue plays; null while it is empty. */
+  held: GovernanceSnapshot | null;
+  /** The step of the playing event's sequence. */
+  step: number;
+  reads: number;
+};
+
+export const EMPTY_QUEUE: AnimationQueue = { queue: [], parked: [], seen: [], held: null, step: 0, reads: 0 };
+
+export type QueueAction =
+  | {
+      type: "read";
+      events: readonly AnimationEvent[];
+      /** The snapshot the events lead from, which is what the map shows while they play. */
+      previous: GovernanceSnapshot | null;
+      world: GovernanceSnapshot;
+    }
+  | { type: "nextStep"; key: string; step: number }
+  | { type: "finish"; key: string };
+
+/**
+ * A rotation's council change can be read one poll before the rotation's own outcome, since a
+ * settled proposal re-reads the council at once. It waits until the outcome is known — and so its
+ * `executed` event queued ahead of it, or dropped as too old — or the rotation left the inbox.
+ */
+function waitsForItsRun({ event }: QueuedEvent, world: GovernanceSnapshot): boolean {
+  if (event.kind !== "councilChanged" || event.scheduleId === null) return false;
+  const rotation = world.proposals.find(({ schedule }) => schedule.schedule_id === event.scheduleId);
+  return rotation?.execution.status === "unconfirmed";
+}
+
+function onRead(state: AnimationQueue, action: Extract<QueueAction, { type: "read" }>): AnimationQueue {
+  const { events, previous, world } = action;
+  const read = state.reads + 1;
+  const stillWaits = (entry: QueuedEvent) => waitsForItsRun(entry, world) && read - entry.read < MAX_PARKED_READS;
+  const arrived = events
+    .map(event => ({ key: animationEventKey(event), event, world, read }))
+    .filter(({ key }) => !state.seen.includes(key))
+    .map(entry => (stillWaits(entry) ? { ...entry, councilBefore: previous?.council } : entry));
+  const released = state.parked.filter(entry => !stillWaits(entry)).map(entry => ({ ...entry, world, read }));
+  if (arrived.length === 0 && released.length === 0) {
+    // Only a council change that waits counts the reads that bring nothing, to know when to stop.
+    return state.parked.length > 0 ? { ...state, reads: read } : state;
+  }
+
+  const seen = [...state.seen, ...arrived.map(({ key }) => key)];
+  const parked = [...state.parked.filter(stillWaits), ...arrived.filter(stillWaits)];
+  // Released changes go last: the run they wait for was queued by this read or an earlier one.
+  const waiting = [...state.queue.slice(1), ...arrived.filter(entry => !stillWaits(entry)), ...released];
+  if (waiting.length > MAX_QUEUED) {
+    const playing = state.queue.slice(0, 1);
+    return { ...state, queue: playing, parked: [], seen, held: playing.length ? state.held : null, reads: read };
+  }
+
+  const queue = [...state.queue.slice(0, 1), ...waiting];
+  const held = state.queue.length > 0 ? state.held : (previous ?? world);
+  return { ...state, queue, parked, seen, held: queue.length > 0 ? held : null, reads: read };
+}
+
+/**
+ * The held world once a run has landed: its figures and node states are the read's it arrived in, as
+ * they were while it landed, so the next event of the same read does not count them back. The rest
+ * stays as it was, since that event is drawn on the world before the read.
+ */
+function landedIn(held: GovernanceSnapshot | null, { event, world }: QueuedEvent): GovernanceSnapshot | null {
+  if (!held || (event.kind !== "executed" && event.kind !== "reverted")) return held;
+  return { ...held, treasury: world.treasury, nodeStates: world.nodeStates };
+}
+
+function onFinish(state: AnimationQueue, key: string): AnimationQueue {
+  const [finished, next, ...rest] = state.queue;
+  if (finished?.key !== key) return state;
+  if (!next) return { ...state, queue: [], held: null, step: 0 };
+  // Between reads the held world moves on to the one the finished event was read in.
+  const held = next.read === finished.read ? landedIn(state.held, finished) : finished.world;
+  return { ...state, queue: [next, ...rest], held, step: 0 };
+}
+
+/**
+ * The council the map shows, when it is not the shown world's own: while a council change waits,
+ * parked or queued behind other events, the council before it; while the change itself plays, the
+ * council it installs, so the treasury flashes with the new seats. Undefined otherwise.
+ */
+export function councilShown({ queue, parked }: AnimationQueue): CouncilKey | undefined {
+  const [current, ...waiting] = queue;
+  if (current?.event.kind === "councilChanged") return current.event.council;
+  return [...waiting, ...parked].find(entry => entry.councilBefore)?.councilBefore;
+}
+
+export function animationQueueReducer(state: AnimationQueue, action: QueueAction): AnimationQueue {
+  switch (action.type) {
+    case "read":
+      return onRead(state, action);
+    case "nextStep":
+      return state.queue[0]?.key === action.key && state.step === action.step
+        ? { ...state, step: state.step + 1 }
+        : state;
+    case "finish":
+      return onFinish(state, action.key);
+  }
+}

@@ -303,6 +303,7 @@ describe("scopeOf", () => {
     expect(scopeOf(graphWith(UPGRADE), UPGRADE)).toEqual({
       nodeIds: [GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID, "vault"],
       edgeIds: [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID), edgeId(EXECUTOR_NODE_ID, "vault")],
+      hops: [[edgeId(GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID)], [edgeId(EXECUTOR_NODE_ID, "vault")]],
     });
   });
 
@@ -314,6 +315,12 @@ describe("scopeOf", () => {
         edgeId(EXECUTOR_NODE_ID, "swapAdapter"),
         edgeId("swapAdapter", "router"),
         edgeId("router", GOVERNANCE_ACCOUNT_NODE_ID),
+      ],
+      hops: [
+        [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID)],
+        [edgeId(EXECUTOR_NODE_ID, "swapAdapter")],
+        [edgeId("swapAdapter", "router")],
+        [edgeId("router", GOVERNANCE_ACCOUNT_NODE_ID)],
       ],
     });
   });
@@ -363,6 +370,7 @@ describe("scopeOf", () => {
     expect(scopeOf(graph, transfer)).toEqual({
       nodeIds: [GOVERNANCE_ACCOUNT_NODE_ID, "supplier"],
       edgeIds: [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, "supplier")],
+      hops: [[edgeId(GOVERNANCE_ACCOUNT_NODE_ID, "supplier")]],
     });
   });
 
@@ -372,6 +380,8 @@ describe("scopeOf", () => {
       [ALICE, BOB, CAROL, DAVE].map(key => edgeId(memberNodeId(key), GOVERNANCE_ACCOUNT_NODE_ID)),
     );
     expect(scope?.nodeIds).not.toContain(EXECUTOR_NODE_ID);
+    // One step of the route: every seat is travelled at once.
+    expect(scope?.hops).toEqual([scope?.edgeIds]);
   });
 
   it("has no scope for a rotation of some other account", () => {

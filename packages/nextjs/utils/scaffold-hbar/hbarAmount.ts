@@ -1,10 +1,13 @@
 import { Hbar, HbarUnit } from "@hiero-ledger/sdk";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 
 /** HBAR is fixed-point with this many places: one HBAR is 10^8 tinybars. */
 export const HBAR_DECIMALS = 8;
 
 const DECIMAL_AMOUNT = /^\d+(\.\d+)?$/;
+
+/** A figure read at a glance carries cents, not every place the asset has. */
+const FIGURE_FRACTION_DIGITS = 2;
 
 /**
  * What a person typed, in the smallest unit of an asset with `decimals` places. Stricter than
@@ -31,4 +34,15 @@ export function parseAmount(text: string, decimals: number): bigint {
  */
 export function formatTinybars(tinybars: bigint | number | string): string {
   return `${Hbar.fromTinybars(tinybars.toString()).to(HbarUnit.Hbar).toFixed()} ℏ`;
+}
+
+/**
+ * An amount in the smallest unit of an asset with `decimals` places, written as a figure: grouped
+ * thousands and two decimals ("1,240.50"), or none for an asset without any. Rounded for reading
+ * only; the digits come from `formatUnits` as text, so a supply beyond 2^53 units is not.
+ */
+export function formatAmountFigure(units: bigint | number, decimals: number): string {
+  const places = Math.min(decimals, FIGURE_FRACTION_DIGITS);
+  const text = formatUnits(BigInt(units), decimals) as `${number}`;
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: places, maximumFractionDigits: places }).format(text);
 }

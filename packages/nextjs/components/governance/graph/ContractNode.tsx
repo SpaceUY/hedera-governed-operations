@@ -2,7 +2,7 @@
 
 import { MapItem } from "./MapItem";
 import { CONTRACT_SIZE, FOCUS_GAP } from "./geometry";
-import { FOCUS_RING_CLASS, type NodeProps, translate } from "./nodeProps";
+import { FOCUS_RING_CLASS, type NodeProps, plateStrokeClass, translate } from "./nodeProps";
 
 /** `external`: a contract outside the governed system, which it calls but does not control. */
 export type ContractTone = "contract" | "external";
@@ -16,7 +16,7 @@ export function ContractNode({ tone = "contract", ...node }: NodeProps & { tone?
       item={{ kind: "node", id: node.id }}
       label={`${node.label}, ${node.caption}`}
       focus={node.focus}
-      onActivate={node.onActivate}
+      activation={node.activation}
       transform={translate(node.position)}
     >
       <rect
@@ -34,11 +34,7 @@ export function ContractNode({ tone = "contract", ...node }: NodeProps & { tone?
         width={width}
         height={height}
         rx={14}
-        className={
-          tone === "external"
-            ? "fill-base-100 stroke-base-content/40 [stroke-dasharray:4_4]"
-            : "fill-base-100 stroke-base-content/40"
-        }
+        className={`${plateStrokeClass(node.highlight)} ${tone === "external" ? "[stroke-dasharray:4_4]" : ""}`}
         strokeWidth={1.5}
       />
       <text y={-4} textAnchor="middle" className="fill-base-content text-map-label font-semibold">

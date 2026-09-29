@@ -15,8 +15,8 @@ import {
   autoLayout,
   deriveGraphState,
   memberNodeId,
-} from "~~/services/governance/graph";
-import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+} from "~~/services/liveMap/model/graph";
+import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 
 describe("genericLabels", () => {
   const { nodes } = deriveGraphState(MAP_SNAPSHOT);
@@ -37,7 +37,7 @@ describe("genericLabels", () => {
 
 describe("composeMap", () => {
   it("places every node by role and names it generically when there is no decoration", () => {
-    const { graph, captions, ghosts } = composeMap(MAP_SNAPSHOT);
+    const { graph, captions, ghosts, regions, inspector } = composeMap(MAP_SNAPSHOT);
     const fallback = autoLayout(graph.nodes, AUTO_MAP_SIZE);
 
     for (const node of graph.nodes) expect(node.position).toEqual(fallback[node.id]);
@@ -45,6 +45,8 @@ describe("composeMap", () => {
     expect(graph.nodes.find(node => node.id === MAP_ENTITY_IDS.token)?.label).toBe("0.0.6000");
     expect(captions).toEqual({});
     expect(ghosts).toEqual([]);
+    expect(regions).toEqual([]);
+    expect(inspector).toEqual({ nodes: {}, edges: {} });
   });
 
   it("hands the decorator the nodes as the ledger produced them, and lets its names win", () => {

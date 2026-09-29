@@ -1,7 +1,9 @@
 import { type ReactNode, StrictMode } from "react";
 import { type MapSnapshotOptions, useMapSnapshot } from "./useMapSnapshot";
 import { useProposals } from "./useProposals";
+import { useToken } from "./useToken";
 import { useTreasuryFigures } from "./useTreasuryFigures";
+import { useVaultImplementation } from "./useVaultImplementation";
 import { type CouncilKey, countThresholdSignatures } from "@sh/core/governance/council";
 import type { Proposal, ProposalInbox } from "@sh/core/governance/proposals";
 import { type MirrorSchedule, deriveScheduleState } from "@sh/core/mirror";
@@ -14,6 +16,8 @@ import type { TreasuryFigures } from "~~/services/governance/treasury";
 // so the queries are stood in for by their results.
 vi.mock("./useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("./useTreasuryFigures", () => ({ useTreasuryFigures: vi.fn() }));
+vi.mock("./useToken", () => ({ useToken: vi.fn() }));
+vi.mock("./useVaultImplementation", () => ({ useVaultImplementation: vi.fn() }));
 
 const [ALICE, BOB, CAROL] = ["YWxpY2U=", "Ym9i", "Y2Fyb2w="];
 const COUNCIL: CouncilKey = { threshold: 2, memberKeys: [ALICE, BOB, CAROL] };
@@ -60,10 +64,24 @@ const FIGURES: TreasuryFigures = {
   vaultReserveTinybar: 4n,
 };
 
-type Reads = { inbox?: ProposalInbox; treasury?: TreasuryFigures; readAt?: number };
+const V2 = "0xb87228Be9d802953d9e657f97b827786b22e7305";
+
+type Reads = {
+  inbox?: ProposalInbox;
+  treasury?: TreasuryFigures;
+  readAt?: number;
+  vaultImplementation?: string;
+  paused?: boolean;
+};
 
 /** What the stood-in queries answer on the next render. */
-function answer({ inbox, treasury, readAt = READ_AT }: Reads) {
+function answer({ inbox, treasury, readAt = READ_AT, vaultImplementation, paused }: Reads) {
+  vi.mocked(useVaultImplementation).mockReturnValue({ data: vaultImplementation } as ReturnType<
+    typeof useVaultImplementation
+  >);
+  vi.mocked(useToken).mockReturnValue({
+    data: paused === undefined ? undefined : { token: { pause_status: paused ? "PAUSED" : "UNPAUSED" }, decimals: 0 },
+  } as unknown as ReturnType<typeof useToken>);
   vi.mocked(useProposals).mockReturnValue({
     inbox: { data: inbox, dataUpdatedAt: inbox ? readAt : 0 },
     council: { data: COUNCIL_DATA, dataUpdatedAt: READ_AT - 60_000 },
@@ -109,6 +127,26 @@ describe("useMapSnapshot", () => {
 
     expect(result.current.snapshot).toMatchObject({ council: COUNCIL, treasury: null });
     expect(result.current.snapshot?.proposals).toHaveLength(1);
+  });
+
+  it("carries the vault's implementation and the token's pause state, each null until read", () => {
+    answer({ inbox: inboxOf() });
+    const { result, rerender } = render();
+    expect(result.current.snapshot?.nodeStates).toEqual({ vaultImplementation: null, tokenPaused: null });
+
+    // One failing read leaves the other and the figures standing.
+    answer({ inbox: inboxOf(), treasury: FIGURES, paused: true });
+    rerender({ options: OPTIONS });
+    expect(result.current.snapshot).toMatchObject({
+      treasury: FIGURES,
+      nodeStates: { vaultImplementation: null, tokenPaused: true },
+    });
+
+    answer({ inbox: inboxOf(), treasury: FIGURES, vaultImplementation: V2, paused: false });
+    rerender({ options: OPTIONS });
+    expect(result.current.snapshot?.nodeStates).toEqual({ vaultImplementation: V2, tokenPaused: false });
+    expect(useToken).toHaveBeenCalledWith("0.0.6000", expect.objectContaining({ network: "testnet" }));
+    expect(useVaultImplementation).toHaveBeenCalledWith("0.0.5001", expect.objectContaining({ network: "testnet" }));
   });
 
   it("only seeds on the first snapshot, however much it already holds", () => {

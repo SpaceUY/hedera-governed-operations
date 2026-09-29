@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
 import { proposalInboxQueryKey } from "./mirror/useProposals";
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useHederaSigner } from "./useHederaSigner";
@@ -84,6 +85,7 @@ export function useCreateProposal() {
   };
 
   const mutation = useMutation({
+    mutationKey: GOVERNANCE_MUTATION_KEYS.openRegistry,
     mutationFn: async ({ executorContractId, proposal, memo }: CreateProposalInput) => {
       const proposerId = requireAccountId();
 

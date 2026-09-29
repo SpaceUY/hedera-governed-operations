@@ -90,6 +90,8 @@ export const GOVERNANCE_CONTRACTS = {
    * Only the wizard's upgrade form needs it, so it is not part of `resolveGovernanceConfig`.
    */
   vaultNextImplementation: "AcmeVaultV2",
+  /** The code the vault's proxy was deployed with, under the name hardhat-deploy records it by. */
+  vaultFirstImplementation: "AcmeVault_Implementation",
   /**
    * Holds the token's pause and freeze keys. Only the map and the wizard's token form need it, so it
    * is not part of the guard.

@@ -96,11 +96,15 @@ packages/nextjs/
   app/                    App Router pages
     (governance)/         layout.tsx: the live map — setup guard, GovernanceProvider, map pane + rail; page.tsx (/), governance/[scheduleId], governance/new
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ConnectWallet, SetupNotice, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
-    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend); copy.ts holds its words
+    governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: TreasuryStrip with AnimatedNumber figures, map) over useLiveMap (its reads, motion, node states, remote signatures, inspector), RemoteSignatureBanner, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
+    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend), MapInspector + inspector.ts (the card for a selected node or edge), MapDecoratorProvider + useComposedMap (the host's layout, shared with the rail); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
+    useProposalAnimationSync.ts  The map's queue: plays each read's events one at a time on a held world
+    usePrefersReducedMotion.ts   The reduced-motion setting, followed live
+    useRemoteApprovals.ts  Approvals a read reports that this session did not send (the rail's banner)
+    governanceMutationKeys.ts  Mutation keys of the governance writes, read back with useMutationState
     mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
@@ -110,8 +114,9 @@ packages/nextjs/
       useReleaseCheck.ts    Whether a published release vouches for an upgrade's implementation (the agent's check)
       useTreasuryFigures.ts Treasury balances plus the vault's reserve
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
-      useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation, the entry after a registry call) when a proposal settles
-      useMapSnapshot.ts     Inbox, council and treasury as one snapshot, plus the events since the previous read
+      useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation; the entry, the vault's code and the tokens after a registry call) when a proposal settles
+      useMapSnapshot.ts     Inbox, council, treasury and the vault's and token's states as one snapshot, plus the events since the previous read
+      useVaultImplementation.ts  The code the vault's proxy runs; re-read when a registry call settles
       useTransaction.ts     Mirror rows for a tx id; polls until indexed
       useAccount.ts         Account by 0.0.x id or EVM address
       useToken.ts           Token metadata and pause state, with decimals already a number
@@ -127,15 +132,17 @@ packages/nextjs/
       burnerSigner.ts       Port adapter over the harness test key (localStorage["burnerWallet.pk"])
       burnerSignerPolicy.ts Where the test signer is allowed (testnet; opt-in in production)
       BurnerSignerProvider.tsx  Reads the key on load, resolves the account, exposes useBurnerSigner
-    governance/           What governance needs from the app: the screens' rules and words, the graph, the wizard's drafts, the integration tests
-      proposalRoutes.ts     The path each kind takes, in roles (governance account, executor, subject, …)
-      graph.ts              The governance graph: nodes, edges, a proposal's scope, the fallback layout
-      graphEntities.ts      The configured contracts, token and DEX router the governance graph starts from
-      mapEvents.ts          Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
+    governance/           What governance needs from the app: the screens' rules and words, the wizard's drafts, the integration tests
       treasury.ts           Treasury balances plus the vault's reserve
+      vaultImplementation.ts  The vault proxy's implementation address, from its ERC-1967 slot
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       drafts/               Form values to an encoded draft, one module per kind; draft.ts reads the preview back through decode.ts
+    liveMap/              The live map, pure; depends on governance/, never the reverse
+      model/                proposalRoutes.ts (the path each kind takes, in roles), graph.ts (nodes, edges, a proposal's scope, the fallback layout), graphEntities.ts (the configured contracts, token and DEX router the graph starts from)
+      events/mapEvents.ts   Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
+      motion/               How the map moves: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world)
+      remoteApprovals.ts    Which approvals of a read this session did not send
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     operatorKey.ts        Parses HEDERA_OPERATOR_PRIVATE_KEY for yarn setup and the scripts (never the app)
   utils/scaffold-hbar/    Hedera tx helpers, identity, networks, waitForMirrorIndexing

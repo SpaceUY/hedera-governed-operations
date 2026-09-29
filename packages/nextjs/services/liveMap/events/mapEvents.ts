@@ -10,10 +10,10 @@
  * read that lagged, shows where things are now rather than replaying what happened while nobody
  * watched.
  */
-import type { TreasuryFigures } from "./treasury";
 import { type CouncilKey, type Proposer, memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { compareMirrorTimestamps, mirrorTimestampToDate } from "@sh/core/mirror";
+import type { TreasuryFigures } from "~~/services/governance/treasury";
 
 /**
  * How old an event may be and still play. A change reaches the screen after Mirror has indexed it
@@ -35,7 +35,12 @@ export type GovernanceSnapshot = {
   unreachableProposers: string[];
   /** Null until the figures are read, or when they could not be: they never hold back the events. */
   treasury: TreasuryFigures | null;
+  /** What state the vault and the token are in, each null until read or when it could not be. */
+  nodeStates: NodeStates;
 };
+
+/** The code the vault's proxy runs, and whether the governed token is paused. */
+export type NodeStates = { vaultImplementation: string | null; tokenPaused: boolean | null };
 
 /**
  * `at` is the Mirror consensus timestamp (`seconds.nanos`) of the change itself: the schedule's

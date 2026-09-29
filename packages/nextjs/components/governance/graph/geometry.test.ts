@@ -12,7 +12,7 @@ import { MAP_SNAPSHOT_WITH_OPERATOR } from "./mapFixtures";
 import { composeMap } from "./mapModel";
 import { nextFocusIndex } from "./useRovingFocus";
 import { describe, expect, it } from "vitest";
-import { EXECUTOR_NODE_ID, GOVERNANCE_ACCOUNT_NODE_ID, memberNodeId } from "~~/services/governance/graph";
+import { EXECUTOR_NODE_ID, GOVERNANCE_ACCOUNT_NODE_ID, memberNodeId } from "~~/services/liveMap/model/graph";
 
 const TREASURY = { x: 300, y: 300 };
 const KEEP_OUT = { center: TREASURY, radius: TREASURY_KEEP_OUT };

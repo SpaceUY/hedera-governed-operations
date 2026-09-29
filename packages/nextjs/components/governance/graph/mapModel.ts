@@ -6,6 +6,7 @@
  * its role or its ledger id; a demo passes its own decorator, and deleting the demo leaves this.
  */
 import { MAP_LABELS } from "./copy";
+import { memberLabel } from "~~/services/governance/proposalLabels";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -15,11 +16,11 @@ import {
   type GraphSnapshot,
   type Point,
   deriveGraphState,
+  externalNodeId,
   scopeOf,
-} from "~~/services/governance/graph";
-import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
-import { memberLabel } from "~~/services/governance/proposalLabels";
-import type { DecodedOperation } from "~~/services/governance/proposalRoutes";
+} from "~~/services/liveMap/model/graph";
+import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
+import type { DecodedOperation } from "~~/services/liveMap/model/proposalRoutes";
 
 /**
  * Something the map shows that the ledger does not have yet, such as an account a demo is about to
@@ -35,13 +36,24 @@ export type GhostNode = {
   monogram?: string;
 };
 
+/** A name for an area of a hand-composed layout, such as the column the council sits in. */
+export type MapRegion = { label: string; position: Point; orientation: "horizontal" | "vertical" };
+
 export type MapContext = { nodes: readonly GraphNode[]; proposers: GraphSnapshot["proposers"] };
+
+/**
+ * What the inspector says about one layout's nodes and edges, by id, in place of what their role
+ * says in general: a demo knows that its vault takes upgrades and that its token is called ACME.
+ */
+export type InspectorCopy = { nodes: Partial<Record<string, string>>; edges: Partial<Record<string, string>> };
 
 export type MapDecoration = {
   layout: GraphLayout;
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
+  regions?: MapRegion[];
+  inspector?: InspectorCopy;
   /**
    * What the layout leaves out: nodes, with every edge that touches them, and single edges by id —
    * real entities and permissions the ledger has but a hand-composed story has no place for. Only
@@ -59,6 +71,8 @@ export type ComposedMap = {
   graph: GovernanceGraph;
   captions: Partial<Record<string, string>>;
   ghosts: GhostNode[];
+  regions: MapRegion[];
+  inspector: InspectorCopy;
 };
 
 export const AUTO_MAP_SIZE = { width: 1000, height: 600 } as const;
@@ -117,7 +131,17 @@ export function composeMap(
     graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
     ghosts: decoration?.ghosts ?? [],
+    regions: decoration?.regions ?? [],
+    inspector: decoration?.inspector ?? { nodes: {}, edges: {} },
   };
+}
+
+/**
+ * An `external` node is either a contract the configuration names, which the system calls, or an
+ * account a pending proposal introduced — a transfer's recipient — whose id is built from its ref.
+ */
+export function isIntroducedAccount(node: Pick<GraphNode, "id" | "ref">): boolean {
+  return node.id === externalNodeId(node.ref);
 }
 
 function withoutHidden(graph: GovernanceGraph, { nodes = [], edges = [] }: HiddenParts): GovernanceGraph {
