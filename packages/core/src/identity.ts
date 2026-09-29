@@ -11,16 +11,6 @@ export function isHederaAccountId(value: string | null | undefined): value is st
   return Boolean(value && HEDERA_ACCOUNT_ID_REGEX.test(value));
 }
 
-export function normalizeIdentity(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase();
-}
-
-export function truncateIdentity(value: string, evmPrefix = 6, tail = 4): string {
-  if (!value || value.length <= evmPrefix + tail) return value;
-  if (isEvmAddress(value)) return `${value.slice(0, evmPrefix + 2)}…${value.slice(-tail)}`;
-  return `${value.slice(0, 8)}…${value.slice(-6)}`;
-}
-
 /**
  * The EVM address an entity answers to by its number alone — the "long-zero" form, as the SDK's
  * `toEvmAddress` writes it — for an account, a token or a contract alike. The EVM and the token system

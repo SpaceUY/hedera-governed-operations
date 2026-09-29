@@ -96,11 +96,11 @@ yarn setup                                   # demo token and the first proposal
 yarn next:dev                                # http://localhost:3000
 ```
 
-`yarn setup` creates an HCS topic, two funded ECDSA demo accounts (`alice`, `bob`) associated with testnet USDC (`0.0.5449`), and the governance account: a 2-of-3 threshold key over your own account (`HEDERA_COUNCIL_ACCOUNT_ID`) and those two. Every id lands in `packages/nextjs/.env.local`.
+`yarn setup` creates the agent's release and decision HCS topics, two funded ECDSA demo accounts (`alice`, `bob`) associated with testnet USDC (`0.0.5449`), and the governance account: a 2-of-3 threshold key over your own account (`HEDERA_COUNCIL_ACCOUNT_ID`) and those two. Every id lands in `packages/nextjs/.env.local`.
 
 It runs on either side of the deploy because the dependency is circular: the contracts are deployed against the governance account, so it has to exist first, and the demo token's pause and freeze keys are `TokenAdmin`'s contract id, which a token created without an admin key can never change — so the contract has to exist before the token. The first run hands the deploy the two values it needs through `packages/hardhat/.env`; the second creates the token and leaves one proposal pending for the council to approve. [The runbook](docs/RUNBOOK.md) walks all three steps.
 
-It is idempotent: ids are kept in `packages/nextjs/setup-state.json` (gitignored, holds the demo keys), verified against the network on every run, and only missing pieces are created — a third run creates nothing. It refuses `HEDERA_NETWORK=mainnet`. Product-specific fixtures plug into the hooks in `packages/nextjs/scripts/setup/extensions.ts`. If you prefer to create the resources by hand, open `/admin`, connect HashPack and copy the ids it prints into `packages/nextjs/.env`.
+It is idempotent: ids are kept in `packages/nextjs/setup-state.json` (gitignored, holds the demo keys), verified against the network on every run, and only missing pieces are created — a third run creates nothing. It refuses `HEDERA_NETWORK=mainnet`. Product-specific fixtures plug into the hooks in `packages/nextjs/scripts/setup/extensions.ts`.
 
 ### Contracts
 
@@ -139,22 +139,19 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 
 ### Routes
 
-| Route           | Purpose                                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| `/`             | Proof Wall — submit a proof (HCS message) and browse the live feed for the configured topic |
-| `/my-proofs`    | Proofs filtered by the connected account; badge display                                     |
-| `/admin`        | Create an HCS topic and an HTS badge token with wallet-signed transactions                  |
-| `/explorer`     | Read-only Mirror Node view: decoded topic messages and schedule state, no wallet needed     |
-| `/api/hedera/*` | Server routes: Mirror Node proxies, operator status, badge airdrop                          |
+| Route                      | Purpose                                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `/`                        | Live map — treasury figures and the council's threshold beside a rail of pending and recent proposals     |
+| `/governance/[scheduleId]` | One proposal: the decoded operation, its approvals, and Sign / Withdraw / Cancel (wallet-signed)          |
+| `/governance/new`          | Open a proposal: pick an operation, preview what the council will see, submit it (wallet-signed)          |
 
 ### Modules
 
 | Module             | Path (under `packages/nextjs/`)                             | What it gives you                                                                                           |
 | ------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Wallet signer      | `services/web3/hederaSigner.ts`, `hooks/useHederaSigner.ts` | HashPack session via WalletConnect, sign-and-execute, sign-only and HIP-551 batch inner-transaction helpers |
-| Mirror Node client | `services/mirrorNode.ts`, `hooks/mirror/*`                  | Typed REST client and React Query hooks for topics, accounts, tokens and transactions                       |
+| Mirror Node client | `hooks/mirror/*` (client: `@sh/core/mirror`)                | Typed REST client and React Query hooks for topics, accounts, tokens and transactions                       |
 | Swap provider      | `services/swap/*`                                           | `SwapProvider` interface with a SaucerSwap V2 implementation and on-chain quoting                           |
-| Operator client    | `services/hederaClient.ts`                                  | Server-side Hiero SDK client for operator-signed routes                                                     |
 | Setup script       | `yarn setup`                                                | Idempotent testnet bootstrap that writes `.env.local`                                                       |
 | Harness recipe     | `.harness/`                                                 | Static, command, smoke and semantic checks for the template                                                 |
 | Contracts          | `packages/hardhat/`                                         | Hardhat on the Hedera JSON-RPC relay, deploys that regenerate `contracts/deployedContracts.ts`, Sourcify verification |
@@ -177,27 +174,6 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | `yarn hardhat:account:generate`| Create an encrypted deployer key in `packages/hardhat/.env`                          |
 | `yarn hardhat:deploy`          | Deploy and regenerate `packages/nextjs/contracts/deployedContracts.ts`               |
 | `yarn hardhat:verify:testnet`  | Verify the testnet deployments on Sourcify and print their HashScan links            |
-
-## Make it yours
-
-The template separates the **demo** from the **reusable patterns** so you can delete the former and keep the latter.
-
-| Demo (safe to remove)                                                                                           | Reusable pattern (keep)                                          |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `app/(site)/proof-wall/`, `app/(site)/my-proofs/`, `app/(site)/admin/`                                          | `services/web3/hederaSigner.ts`, `hooks/useHederaSigner.ts`      |
-| `components/ProofWall.tsx`, `ProofCard.tsx`, `SubmitProofForm.tsx`, `TopicSelector.tsx`, `BadgeDisplay.tsx`     | `services/mirrorNode.ts`, `hooks/mirror/*`                       |
-| `hooks/useSubmitProof.ts`, `useTopicMessages.ts`, `useCreateTopic.ts`, `useCreateToken.ts`, `useBadgeTokens.ts` | `services/swap/*`                                                |
-| `services/badgeService.ts`, `app/api/hedera/check-badge`, `airdrop`                                             | `services/hederaClient.ts` and the operator-signed route pattern |
-| `config/proofWallConfig.ts`                                                                                     | `yarn setup` and `.harness/`                                     |
-
-To remove the demo:
-
-1. Delete the files in the left column and the `NEXT_PUBLIC_PROOF_WALL_*` lines from `packages/nextjs/.env.example`.
-2. Replace `app/(governance)/page.tsx` (the live map's rail) with your own page; keep `app/layout.tsx` and `components/ScaffoldHbarAppWithProviders.tsx` (they wire the wallet and React Query).
-3. Update `.harness/eval.json` and `.harness/validators/playwright-smoke.yaml` so the harness grades your routes instead of the Proof Wall.
-4. Run `yarn next:check-types` to find any leftover imports.
-
-<!-- TODO(product): once the feature set is decided, list which demo pages ship and which become examples in docs/. -->
 
 ## Validate with Hedera Harness
 

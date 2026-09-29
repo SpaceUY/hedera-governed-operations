@@ -4050,7 +4050,6 @@ __metadata:
     "@walletconnect/modal": ^2.7.0
     abitype: 1.0.6
     assert: ^2.1.0
-    blo: ^1.2.0
     buffer: ^6.0.3
     crypto-browserify: ^3.12.1
     daisyui: ^5.0.9

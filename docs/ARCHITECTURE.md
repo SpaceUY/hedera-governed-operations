@@ -4,14 +4,14 @@
 
 This template is a Next.js (App Router) app over a framework-free domain workspace, talking to Hedera through native services only:
 
-- **Hedera Consensus Service (HCS)** — topics and messages (the Proof Wall feed).
-- **Hedera Token Service (HTS)** — fungible badge tokens and airdrops.
+- **Hedera Consensus Service (HCS)** — topics and messages (the release topic and the co-signing agent's decision topic).
+- **Hedera Token Service (HTS)** — the demo token the council governs (pause and freeze through `TokenAdmin`).
 - **Mirror Node REST API** — every read: topic messages, accounts, tokens, transactions, schedules.
 - **HashPack via WalletConnect** (Reown AppKit + `@hashgraph/hedera-wallet-connect`) — every user-signed write.
 - **Test signer** — a disposable ECDSA key injected by Hedera Harness (`localStorage["burnerWallet.pk"]`) that signs in place of HashPack during automated validation; same port, see [Signing port](#signing-port-hashpack-or-test-signer).
 - **Hiero SDK** (`@hiero-ledger/sdk`) — builds transactions on the client and on the server.
 
-The governance domain and the Mirror Node client live in `packages/core` (`@sh/core`), which imports no React and no `scaffold.config.ts`: the app is one consumer of it and the co-signing agent in `packages/agent` is another — see [The co-signing agent](#the-co-signing-agent). The dependency runs one way — the app imports the domain, never the reverse. Contracts live in `packages/hardhat` and reach the network through the Hedera JSON-RPC relay, not the Hiero SDK. Server-side signing happens in Next.js route handlers with an operator key read from the environment, and at deploy time with the encrypted deployer key in `packages/hardhat/.env`.
+The governance domain and the Mirror Node client live in `packages/core` (`@sh/core`), which imports no React and no `scaffold.config.ts`: the app is one consumer of it and the co-signing agent in `packages/agent` is another — see [The co-signing agent](#the-co-signing-agent). The dependency runs one way — the app imports the domain, never the reverse. Contracts live in `packages/hardhat` and reach the network through the Hedera JSON-RPC relay, not the Hiero SDK. No page or route signs server-side: the operator key read from the environment signs only in `yarn setup` and the release script, the agent signs with its own key, and the deployer signs at deploy time with the encrypted deployer key in `packages/hardhat/.env`.
 
 <!-- TODO(product): add the product-specific flow (governed operations or merchant rails) once the feature set is decided. -->
 
@@ -20,13 +20,14 @@ _Product-specific flows: coming with the first release._
 ```mermaid
 flowchart LR
   Browser["Browser (React, HashPack)"]
-  App["Next.js app<br/>pages + route handlers"]
+  App["Next.js app<br/>pages"]
+  Scripts["yarn setup<br/>release script"]
   Hedera["Hedera network<br/>HCS · HTS · Batch"]
   Mirror["Mirror Node REST"]
 
   Browser -- "wallet-signed tx" --> Hedera
   Browser -- "hooks/mirror (React Query)" --> App
-  App -- "operator-signed tx" --> Hedera
+  Scripts -- "operator-signed tx" --> Hedera
   App -- "@sh/core/mirror" --> Mirror
   Hedera -. "indexed after a few seconds" .-> Mirror
 ```
@@ -84,26 +85,6 @@ flowchart LR
 - **UI**: the header shows the burner's `0.0.x` with a "test signer" badge; "Disconnect" forgets the key. Consumers read the payer with `requireAccountId()` and never touch the wallet provider directly, so they do not care which signer is active.
 - **Extension point**: `BurnerSigner.publicKey` lets a demo mode put the ephemeral account on-chain beyond paying (for example as a member of a threshold key); a payer-only demo needs nothing beyond the HBAR the harness funds (`chainValidation.fundingHbar`).
 
-### Operator → server route → Hedera
-
-Actions the application pays for run in a route handler with the operator credentials. The client only calls the route; it never sees the key.
-
-```mermaid
-sequenceDiagram
-  participant A as Next.js client
-  participant R as Route handler (app/api/hedera/*)
-  participant H as Hedera network
-
-  A->>R: POST (validated body)
-  R->>R: hasOperatorKey()? else 503
-  R->>R: Build tx, sign with operator Client
-  R->>H: execute + getReceipt
-  H-->>R: status
-  R-->>A: JSON result (no internal errors)
-```
-
-Code: `services/hederaClient.ts`, `app/api/hedera/check-badge/route.ts`, `services/badgeService.ts`.
-
 ### Batch of inner transactions with a batch key (HIP-551)
 
 Several transactions execute atomically: either all inner transactions succeed or none do. The service holds the batch key; the user signs only their own inner transaction.
@@ -145,10 +126,8 @@ Rules that make this work (verified on testnet):
 | Proposal registry | `@sh/core/governance/registry`                                                                                                                           | `GovernedExecutor`: the entry behind a proposal, retiring one, and the id a registration returned |
 | Co-signing agent | `packages/agent/*`                                                                                                                                           | One seat on the council, signing under a written policy — see [The co-signing agent](#the-co-signing-agent) |
 | Swap provider    | `services/swap/*`                                                                                                                                            | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
-| Operator client  | `services/hederaClient.ts`                                                                                                                                   | Server-side `Client` with the operator key; used only by route handlers                                  |
 | Setup script     | root `yarn setup`                                                                                                                                            | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
 | Harness          | `.harness/`                                                                                                                                                  | ASSERT (`validators/static.json`, `yarn.json`), SMOKE (`playwright-smoke.yaml`), EVALUATE (`eval.json`)  |
-| Demo             | `app/*`, `components/*`, `hooks/use*.ts`, `services/badgeService.ts`, `config/proofWallConfig.ts`                                                            | Proof Wall pages built on the modules above                                                              |
 
 ## Verified network constraints and decisions
 
@@ -165,7 +144,7 @@ Rules that make this work (verified on testnet):
 | **On-chain quoting for swaps**         | SaucerSwap API reserves do not reflect concentrated-liquidity prices; `amountOutMinimum` must come from `QuoterV2` or the pool's `sqrtRatioX96`                            |
 | **Test signer is testnet-only**        | The burner signs with a key stored in the browser; `burnerSignerPolicy.ts` ignores it on mainnet and, in production builds, unless `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` |
 | **Setup targets testnet only**         | `yarn setup` spends operator HBAR and creates entities; it refuses other networks so a misconfigured `.env` cannot touch mainnet                                           |
-| **Operator key stays server-side**     | Only route handlers read `HEDERA_OPERATOR_*`; the client learns whether an operator exists through `/api/hedera/operator-status`                                           |
+| **Operator key stays out of the app**  | Only `yarn setup`, `yarn release:publish` and `yarn harness:council-seat` read `HEDERA_OPERATOR_*`, in Node; no page or route handler touches it                         |
 | **`.env.example` is the env contract** | `template.json` carries no `envVars` (the CLI would write a root `.env.example` Next.js does not read); every variable is documented in `packages/nextjs/.env.example`     |
 
 ## Governing an HTS token: the contract as the token's key

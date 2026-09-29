@@ -1,6 +1,6 @@
 /**
  * Extension points for product-specific setup. The core script (`yarn setup`) creates what any
- * direction needs: an HCS topic, funded ECDSA demo accounts and their USDC association. Hooks
+ * direction needs: funded ECDSA demo accounts and their USDC association. Hooks
  * below run after the core reconcile, in order, with the final state. Implement one when the
  * product direction needs extra on-chain fixtures, keep it idempotent (check before creating, like
  * `reconcile`) and persist any new ids through `ctx.saveState`.
@@ -27,7 +27,7 @@ export type SetupContext = {
   client: Client;
   /** Mirror Node reads, for verifying ids before re-creating anything. */
   lookups: MirrorLookups;
-  /** State after the core reconcile (topic, demo accounts with keys). */
+  /** State after the core reconcile (demo accounts with keys). */
   state: SetupState;
   /** Persist a new state; the entry point writes the app env from whatever the hooks leave here. */
   saveState(next: SetupState): void;
