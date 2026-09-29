@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { TREASURY_TRANSFER_COPY } from "./copy";
 import { HbarInput, HederaAddressInput } from "@scaffold-hbar-ui/components";
+import { isMirrorEntityRef } from "@sh/core/mirror";
 import { ACCOUNT_LOOKUP_LABELS, tokenUnreadableLabel } from "~~/components/governance/wizard/copy";
 import { accountLookup } from "~~/components/governance/wizard/kinds/accountLookup";
 import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
@@ -59,6 +60,12 @@ export const TransferForm = ({
       );
     if (!tokenId) {
       onDraftChange(draft({ kind: "hbar" }));
+      return;
+    }
+    // `useToken` and `useTokenRelationship` stay disabled for an id Mirror cannot take, and a disabled
+    // query reports neither data nor an error, so the id is checked here rather than waited on.
+    if (!isMirrorEntityRef(tokenId)) {
+      onDraftChange({ status: "invalid", message: TREASURY_TRANSFER_COPY.tokenIdMalformed(tokenId) });
       return;
     }
     if (token.error) {

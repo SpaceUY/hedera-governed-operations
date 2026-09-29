@@ -238,6 +238,32 @@ describe("TransferForm", () => {
     expect(screen.getByText(TREASURY_TRANSFER_COPY.associatesOnReceipt("0.0.500", "USDC"))).toBeTruthy();
   });
 
+  it("says a configured token id is malformed, instead of waiting for ever on a read that never runs", () => {
+    const MALFORMED = "ACME";
+    accountFound("0.0.500");
+    // What a disabled query reports: no data and no error.
+    vi.mocked(useToken).mockReturnValue({ data: undefined, error: null } as never);
+    const onDraftChange = vi.fn();
+    render(
+      <TransferForm
+        targets={{ governanceAccountId: TREASURY, tokenIds: [MALFORMED] }}
+        network="mainnet"
+        chain={CHAIN}
+        council={undefined}
+        onDraftChange={onDraftChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "0.0.500" } });
+    fireEvent.change(screen.getByLabelText("Asset"), { target: { value: MALFORMED } });
+    fireEvent.change(screen.getByLabelText(TREASURY_TRANSFER_COPY.amountLabel(MALFORMED)), { target: { value: "1" } });
+
+    expect(lastResult(onDraftChange)).toEqual({
+      status: "invalid",
+      message: TREASURY_TRANSFER_COPY.tokenIdMalformed(MALFORMED),
+    });
+  });
+
   it("refuses a token amount finer than the token's decimals", () => {
     accountFound("0.0.500");
     vi.mocked(useTokenRelationship).mockReturnValue({ data: { freeze_status: "UNFROZEN" }, error: null } as never);
