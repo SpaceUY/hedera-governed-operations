@@ -31,6 +31,42 @@ A decision has four outcomes. `approved` and `refused` are the policy's answer; 
 proposal that needs nothing, already settled or already carrying this agent's signature; `pending` is
 one the policy allows and a person has not released yet.
 
+## Nothing is signed without a seat
+
+The council grants and revokes the seat by rotation, so whether it still holds this agent's key is
+read from the ledger on **every pass** rather than once at boot. The agent starts signing when a
+rotation adds it and stops when one takes it away, and nobody restarts the service for either.
+
+Without a seat it still reads the inbox, decides and logs — an approval comes out as
+`approved-not-signed` — and one `seat-missing` line says why, on the pass the state changes rather
+than on every poll. The approval is held back from the decision topic: "approved" next to a schedule
+this agent never signed is a record that reads as a lie. A refusal goes to the topic either way,
+because the policy's answer does not depend on a seat.
+
+This is a check rather than a comment because of what a seatless signature actually does. Measured on
+testnet: `ScheduleSign` from a key the council does not hold answers `NO_NEW_VALID_SIGNATURES`, is
+**charged the same fee as a signature that counted, and leaves no row on the schedule**. No row means
+nothing remembers the attempt — `isSignedByKey` reads false again — so the next pass repeats it,
+every poll, for as long as the proposal stays open. Not a wasted fee: a drain.
+
+It is not silent either, and that is worse than it sounds. Every attempt logs `signature-failed` with
+`NO_NEW_VALID_SIGNATURES`, which is the symptom and not the cause — it reads like the Mirror-lag race
+the agent already guards against — under a decision line that still says `approved` for a schedule
+nothing signed.
+
+### Seeing it
+
+Pointing `AGENT_ACCOUNT_ID` at an account with no seat is not enough to try this: the decision topic
+is checked first, at boot, and it refuses a topic whose submit key is not this agent's own. So a
+seatless run takes **two** throwaway pieces — an account the council does not hold, and a topic
+created with that account's key as its submit key — pointed at the governance account and executor
+you already have. The inbox, the policy and every decision are then the real ones; only the signing
+is missing.
+
+The other way round is the demo: leave the agent where it is and rotate the council to drop its key.
+The running process says `seat-missing` on its next pass, and `seat-held` again when a rotation puts
+it back.
+
 ## The policy
 
 A JSON file, mounted rather than baked in, because it is a document somebody reviews rather than

@@ -490,12 +490,25 @@ Four design decisions are load-bearing, and all of them are about what the agent
   only one of the four the policy turns on rather than off, because the agent exists to sign inside
   written limits and a policy demanding a code for everything would have no agent in it.
 
-One trap is worth recording because it only appears against a live network. Mirror lags consensus by
+Two traps are worth recording because they only appear against a live network. The first: Mirror lags consensus by
 a few seconds and the agent polls faster than that, so a signature it has just sent is still absent
 from the schedule on the next pass and the proposal reads as pending and unsigned. Measured on
 testnet: without a memory of what this process has already signed, the agent signs the same proposal
 again and the receipt comes back `SCHEDULE_ALREADY_EXECUTED` — one wasted fee per pass until Mirror
 catches up, and a duplicate `ScheduleSign` on any proposal still short of its threshold.
+
+The second is what a signature from a key with **no seat** costs. The council grants and revokes the
+seat by rotation, so an agent can legitimately be running before it holds one — and a misconfigured
+`AGENT_ACCOUNT_ID` looks identical. Measured on testnet: such a `ScheduleSign` answers
+`NO_NEW_VALID_SIGNATURES`, is charged the same fee as a signature that counted, and **leaves no row
+on the schedule**. The missing row is what makes it a drain rather than one wasted fee: nothing
+remembers the attempt, `isSignedByKey` reads false on the next pass, and the agent tries again every
+poll for as long as the proposal stays open. It is not silent — each attempt logs `signature-failed`
+with `NO_NEW_VALID_SIGNATURES` — but nothing there names the cause: that status reads like the
+Mirror-lag race above, under a decision line that still says `approved`. So the seat is read from
+the ledger on every pass — `councilHoldsKey`, against the council the inbox was already fetched with
+— and a pass without one decides, logs and publishes its refusals, but signs nothing and holds its
+approvals back from the decision topic.
 
 ### Release manifests
 
