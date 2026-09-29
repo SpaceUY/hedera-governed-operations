@@ -2,10 +2,6 @@
 
 Step-by-step reproduction on Hedera **testnet**, from a fresh account to a proof you can verify on the Mirror Node and HashScan. Every command is copy-pasteable; replace the `0.0.xxxxx` placeholders with your own ids.
 
-<!-- TODO(product): add the product-specific journey (e.g. governed operation or merchant payment) once the feature set is decided. -->
-
-_Product-specific journeys: coming with the first release._
-
 ## 1. Get a testnet operator account
 
 1. Sign in at [portal.hedera.com](https://portal.hedera.com) and create a **testnet** account. Choose an **ECDSA** key when offered; it also gives the account an EVM alias, which some tooling (including the harness chain validation) expects.
@@ -104,7 +100,7 @@ curl -s "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.xxxxx" | jq '{t
 yarn next:dev
 ```
 
-1. Open http://localhost:3000. The home page shows the topic id from `.env.local` under **Topic**.
+1. Open http://localhost:3000. The home page is the live map: the treasury figures and the council's threshold, with the proposals still collecting signatures in the rail beside it. The Proof Wall used in step 5 is at `/proof-wall`.
 2. Click **Connect**, choose HashPack and approve the WalletConnect pairing in the extension (the wallet must be on **testnet**).
 3. The header shows your account as `0.0.xxxxx` once the session is live.
 
