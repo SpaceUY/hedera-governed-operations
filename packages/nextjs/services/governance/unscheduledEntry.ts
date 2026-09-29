@@ -3,6 +3,11 @@
  * proposal is two transactions, and the second can fail — rejected in the wallet, refused by the
  * network — after the first succeeded. Registering the same call again would leave two entries for
  * one decision, so a retry reuses this one and only schedules it.
+ *
+ * The guarantee lasts as long as this session does. The entry is held in memory by the provider the
+ * governance layout mounts, so it survives moving between `/`, `/governance/new` and a proposal's
+ * page, but not a reload: after one, a retry registers again, and the first entry stays pending,
+ * unscheduled, until its proposer cancels it.
  */
 import type { RegistryProposal } from "@sh/core/governance/encode";
 

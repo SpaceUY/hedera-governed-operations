@@ -28,7 +28,8 @@ export type CreateProposalInput = { executorContractId: string; proposal: Regist
  *
  * When the second fails after the first succeeded, the entry is kept as `unscheduledEntry`, and
  * submitting the same call again only schedules it: registering it twice would leave two entries
- * for one decision.
+ * for one decision. It is kept in this hook's state, so the guarantee holds for the session and not
+ * across a reload (see `unscheduledEntry.ts`).
  */
 export function useCreateProposal() {
   const { requireAccountId } = useHederaSigner();
