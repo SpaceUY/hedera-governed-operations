@@ -54,6 +54,19 @@ It is not silent either, and that is worse than it sounds. Every attempt logs `s
 the agent already guards against — under a decision line that still says `approved` for a schedule
 nothing signed.
 
+### Seeing it
+
+Pointing `AGENT_ACCOUNT_ID` at an account with no seat is not enough to try this: the decision topic
+is checked first, at boot, and it refuses a topic whose submit key is not this agent's own. So a
+seatless run takes **two** throwaway pieces — an account the council does not hold, and a topic
+created with that account's key as its submit key — pointed at the governance account and executor
+you already have. The inbox, the policy and every decision are then the real ones; only the signing
+is missing.
+
+The other way round is the demo: leave the agent where it is and rotate the council to drop its key.
+The running process says `seat-missing` on its next pass, and `seat-held` again when a rotation puts
+it back.
+
 ## The policy
 
 A JSON file, mounted rather than baked in, because it is a document somebody reviews rather than
