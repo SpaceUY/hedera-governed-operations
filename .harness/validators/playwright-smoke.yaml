@@ -21,6 +21,9 @@ routes:
   - name: new-proposal
     # SMOKE runs without a .env, so the page renders the setup notice; what it checks is that the route boots.
     path: /governance/new
+  - name: settings
+    # SMOKE runs without a .env, so the page renders the setup notice; what it checks is that the route boots.
+    path: /settings
 forbidden:
   visibleText:
     - Internal Server Error

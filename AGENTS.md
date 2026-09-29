@@ -4,7 +4,7 @@ Briefing for coding agents in this app (Cursor, Claude Code, Codex). Claude Code
 
 This is a **Hedera template with four workspaces**: `packages/core` (the governance domain and the Mirror Node client — no React, no Next.js, so the app and any service can share one copy), `packages/agent` (a co-signing service that holds one seat on the council and signs what its policy allows), `packages/nextjs` (the governance UI, HashPack signing through WalletConnect, a SaucerSwap-backed swap provider, and `yarn setup`) and `packages/hardhat` (Solidity contracts deployed through the Hedera JSON-RPC relay). Native writes are Hiero SDK transactions signed by the user's wallet in the app, by the agent's own key, or by the operator in `yarn setup` and the release script; contract deploys go through Hardhat and regenerate `packages/nextjs/contracts/deployedContracts.ts`. The product is governed operations: proposals a council approves m-of-n through the governance account's threshold key and the Schedule Service, which the network executes once the threshold is met.
 
-The governance UI owns `/` as the **live map**: `app/(governance)/layout.tsx` hosts `/`, `/governance/[scheduleId]` and `/governance/new` as one fold below the header — a map pane (treasury figures and the council's threshold, the map) that never scrolls, and a right rail that renders the route's page (the pending proposals, a proposal's detail with Sign, Withdraw and Cancel, or the wizard). The layout runs the setup guard once and provides the config (`useGovernanceConfig()`) and the wizard's draft (`ProposalWizardProvider`) to both panes. The screens are backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`, and `useCancelProposalFlow`, which deletes a live schedule before cancelling its entry). The header links only Live map. `/governance/new` opens a proposal: a vault upgrade, a token pause or freeze, a supplier payment in HBAR or a token, or seating the co-signing agent on the council (a rotation that keeps every member and the threshold) — previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
+The governance UI owns `/` as the **live map**: `app/(governance)/layout.tsx` hosts `/`, `/governance/[scheduleId]`, `/governance/new` and `/settings` as one fold below the header — a map pane (treasury figures and the council's threshold, the map) that never scrolls, and a right rail that renders the route's page (the pending proposals, a proposal's detail with Sign, Withdraw and Cancel, or the wizard). The layout runs the setup guard once and provides the config (`useGovernanceConfig()`) and the wizard's draft (`ProposalWizardProvider`) to both panes. The screens are backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`, and `useCancelProposalFlow`, which deletes a live schedule before cancelling its entry). The header links Live map and Settings. `/settings` shows the council read from the treasury account's key, a composer that proposes a change to it (native, wallet-signed) and the registry's roles (read over the relay, read-only). `/governance/new` opens a proposal: a vault upgrade, a token pause or freeze, a supplier payment in HBAR or a token, or seating the co-signing agent on the council (a rotation that keeps every member and the threshold) — previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
 
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
@@ -49,6 +49,7 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 | `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below under "Recent"; the selected one (`?schedule=`) opens its detail under its card; a setup notice until `yarn setup` and the deploy have run |
 | `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)                                                |
 | `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                                                                  |
+| `/settings`                | Settings — council (threshold key, Mirror), council-change composer (wallet-signed, native), registry roles (relay, read-only)                                                   |
 
 Config: `packages/nextjs/config/governanceConfig.ts` (the ids `yarn setup` writes, deployed contract lookup).
 
@@ -68,6 +69,7 @@ packages/core/            @sh/core — the domain, with no framework in it
     governance/           Proposals as scheduled transactions
       schedules.ts          ScheduleCreate with the governance account as payer, ScheduleSign, ScheduleDelete
       council.ts            Threshold key (who approves) and PROPOSER_ROLE (who proposes), read from the ledger
+      roles.ts              Role reads over the relay: EXECUTOR_ROLE holders, the roles' admins
       proposals.ts          The inbox: schedules by proposer, narrowed to the governance account's, with m-of-n
       proposalTypes.ts      The five kinds, their measured execute gas, and the shapes a decoded proposal takes
       encode.ts             Form values to transactions: the five encoders, the registration gas, createProposal
@@ -99,6 +101,7 @@ packages/nextjs/
     governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: TreasuryStrip with AnimatedNumber figures, map) over useLiveMap (its reads, motion, node states, remote signatures, inspector), RemoteSignatureBanner, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend), MapInspector + inspector.ts (the card for a selected node or edge), MapDecoratorProvider + useComposedMap (the host's layout, shared with the rail); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
+    governance/settings/  Settings: CouncilCard, CouncilChangeComposer (+ councilChange.ts, the composer's rules), ContractRolesCard (+ registryRoles.ts), copy.ts
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
     useProposalAnimationSync.ts  The map's queue: plays each read's events one at a time on a held world
@@ -108,6 +111,7 @@ packages/nextjs/
     mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
+      useRegistryRoles.ts   EXECUTOR_ROLE holders and role admins; cached
       useProposalLookup.ts  One proposal by schedule id, listed or not; the detail page and the rail's search
       sentCancels.ts        Cancels just sent, kept reading "cancelled" until the relay catches up
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
