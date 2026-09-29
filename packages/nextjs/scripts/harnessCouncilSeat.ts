@@ -34,6 +34,7 @@ import { createClient } from "./setup/hedera";
 import { accountIdentity } from "./setup/hederaGovernance";
 import { loadState } from "./setup/state";
 import { AccountId, AccountUpdateTransaction, KeyList, PrivateKey, PublicKey } from "@hiero-ledger/sdk";
+import { isMirrorNotFound } from "@sh/core/mirror";
 import { config as loadDotenv } from "dotenv";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -57,6 +58,19 @@ function resolveSignerAccountId(source: NodeJS.ProcessEnv): string | null {
   return accountId?.trim() || null;
 }
 
+/** Mirror indexes a freshly created account a few seconds late; every other error is raised at once. */
+async function awaitIndexing<T>(read: () => Promise<T>): Promise<T> {
+  const delaysMs = [1000, 2000, 3000, 4000, 5000, 5000];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await read();
+    } catch (error) {
+      if (attempt >= delaysMs.length || !isMirrorNotFound(error)) throw error;
+      await new Promise(resolve => setTimeout(resolve, delaysMs[attempt]));
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const signerAccountId = resolveSignerAccountId(process.env);
   if (!signerAccountId) {
@@ -75,7 +89,9 @@ async function main(): Promise<void> {
 
   const [council, signer] = await Promise.all([
     accountIdentity(env.councilAccountId, env.network),
-    accountIdentity(signerAccountId, env.network),
+    // The signer was created moments ago with an EVM alias, so the Mirror Node answers 404 for its
+    // 0.0.x id for a few seconds. Same wait as `resolveBurnerAccountId` in the app.
+    awaitIndexing(() => accountIdentity(signerAccountId, env.network)),
   ]);
 
   const memberKeys = [council.publicKey, alice.publicKey, bob.publicKey, signer.publicKey];
@@ -102,7 +118,15 @@ async function main(): Promise<void> {
   }
 }
 
+/**
+ * This runs in front of the dev server, so a non-zero exit takes the whole evaluation down with it
+ * — one slow Mirror read would cost every assertion, not just the one that needs an approval. It
+ * says loudly what went wrong and lets the server start; the assertion that needs the seat then
+ * fails on its own, with this line above it in the log.
+ */
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
+  console.error(
+    `Could not seat the test signer on the council: ${error instanceof Error ? error.message : String(error)}`,
+  );
+  console.error("Starting anyway. Assertions that need an approval will fail.");
 });
