@@ -2,7 +2,10 @@ import { UpgradeVaultForm } from "./UpgradeVaultForm";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { type Chain, parseAbi } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useReleaseCheck } from "~~/hooks/mirror/useReleaseCheck";
 import { type DraftResult, previewDraft } from "~~/services/governance/drafts";
+
+vi.mock("~~/hooks/mirror/useReleaseCheck", () => ({ useReleaseCheck: vi.fn() }));
 
 vi.mock("@scaffold-hbar-ui/components", () => ({
   HbarInput: ({
@@ -31,11 +34,25 @@ const CHAIN = { id: 296, name: "Hedera Testnet" } as Chain;
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
+
+const NOT_NAMED = {
+  status: "read",
+  check: { matched: false, reason: "", failure: "notNamed", searched: "topic" },
+} as const;
 
 const renderForm = () => {
   const onDraftChange = vi.fn<(result: DraftResult) => void>();
-  render(<UpgradeVaultForm targets={TARGETS} chain={CHAIN} onDraftChange={onDraftChange} />);
+  render(
+    <UpgradeVaultForm
+      targets={TARGETS}
+      network="testnet"
+      chain={CHAIN}
+      council={undefined}
+      onDraftChange={onDraftChange}
+    />,
+  );
   return onDraftChange;
 };
 
@@ -79,5 +96,25 @@ describe("UpgradeVaultForm", () => {
       status: "invalid",
       message: "A withdrawal limit of zero would refuse every withdrawal",
     });
+  });
+
+  it("has no release line when no release topic is configured", () => {
+    vi.stubEnv("NEXT_PUBLIC_RELEASE_TOPIC_ID", "");
+    vi.mocked(useReleaseCheck).mockReturnValue({ data: undefined, isError: false } as never);
+    renderForm();
+
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("says what the release topic says of the implementation, and still drafts when no release names it", () => {
+    vi.stubEnv("NEXT_PUBLIC_RELEASE_TOPIC_ID", "0.0.4242");
+    vi.mocked(useReleaseCheck).mockReturnValue({ data: NOT_NAMED, isError: false } as never);
+    const onDraftChange = renderForm();
+
+    typeLimit("25");
+
+    expect(screen.getByRole("status").textContent).toContain("No release on topic 0.0.4242 names this implementation.");
+    expect(useReleaseCheck).toHaveBeenCalledWith(TARGETS.implementation, "0.0.4242", { network: "testnet" });
+    expect(onDraftChange.mock.lastCall?.[0].status).toBe("ready");
   });
 });

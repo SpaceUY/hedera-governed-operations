@@ -78,6 +78,14 @@
       "contains": ["who may act", "would happen", "where the money is", "switches off", "Nobody on this screen pressed anything", "Ids and links", "Close inspector"]
     },
     {
+      "file": "packages/nextjs/components/governance/wizard/copy.ts",
+      "contains": ["Approve it in HashPack"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/MutationError.tsx",
+      "contains": ["The approval took too long and the transaction expired", "The request expired before it was approved"]
+    },
+    {
       "file": "packages/nextjs/components/governance/rail/copy.ts",
       "contains": ["Find a proposal by schedule id", "Show fewer", "Expiring now"]
     }

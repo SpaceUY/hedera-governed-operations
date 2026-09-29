@@ -16,7 +16,7 @@
  * decoder never reads back, so the default lives with the screen, next to `PROPOSAL_TYPES[kind].label`.
  */
 import type { HederaNetworkName } from "../network";
-import { PROPOSAL_TYPES, type TokenAdminOperation } from "./proposalTypes";
+import { PROPOSAL_TYPES, type TokenAdminOperation, tokenAdminNeedsAccount } from "./proposalTypes";
 import { REGISTRY_ABI } from "./registry";
 import { PROPOSAL_EXPIRY_SECONDS, fetchAccountPublicKey } from "./schedules";
 import {
@@ -204,7 +204,7 @@ export function encodeTokenAdmin({
 }
 
 function encodeTokenAdminCall(operation: TokenAdminOperation, token: Address, account?: Address): Hex {
-  if (operation === "pause" || operation === "unpause") {
+  if (!tokenAdminNeedsAccount(operation)) {
     return encodeFunctionData({ abi: TOKEN_ADMIN_ABI, functionName: operation, args: [token] });
   }
 

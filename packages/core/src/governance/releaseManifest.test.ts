@@ -2,6 +2,7 @@ import { fetchContract, fetchDecodedTopicMessagePages } from "../mirror";
 import {
   RELEASE_MANIFEST_SCHEMA,
   type ReleaseManifest,
+  ReleaseReadError,
   assertReleaseTopicIsSigned,
   buildReleaseManifestMessage,
   checkImplementationAgainstManifest,
@@ -137,13 +138,21 @@ describe("assertReleaseTopicIsSigned", () => {
   it("refuses a topic anyone can publish to, which is what makes its manifests unsigned claims", async () => {
     mockTopicKeys(null);
 
-    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toThrow(/has no submit key/);
+    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toMatchObject({
+      name: "UnsignedTopicError",
+      reason: "noSubmitKey",
+      message: expect.stringMatching(/has no submit key/),
+    });
   });
 
   it("refuses a deleted topic", async () => {
     mockTopicKeys({ _type: "ED25519", key: "302a300506032b6570032100aa" }, true);
 
-    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toThrow(/is deleted/);
+    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toMatchObject({
+      name: "UnsignedTopicError",
+      reason: "deleted",
+      message: expect.stringMatching(/is deleted/),
+    });
   });
 });
 
@@ -179,6 +188,7 @@ describe("checkImplementationAgainstManifest", () => {
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
     expect(check).toMatchObject({ matched: false });
+    expect(check).toMatchObject({ failure: "notNamed", searched: "topic" });
     if (!check.matched) expect(check.reason).toContain("no release on topic");
   });
 
@@ -189,6 +199,7 @@ describe("checkImplementationAgainstManifest", () => {
     mockTopic([JSON.parse(buildReleaseManifestMessage(manifest({ implementation: "0x01" })))], true);
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
+    expect(check).toMatchObject({ matched: false, failure: "notNamed", searched: "recentReleases" });
     if (!check.matched) expect(check.reason).toContain("most recent releases on topic");
   });
 
@@ -198,7 +209,7 @@ describe("checkImplementationAgainstManifest", () => {
     mockTopic([JSON.parse(buildReleaseManifestMessage(manifest()))]);
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
-    expect(check).toMatchObject({ matched: false });
+    expect(check).toMatchObject({ matched: false, failure: "codeChanged", versions: ["v2.0.0"] });
     if (!check.matched) {
       expect(check.reason).toContain("does not match the release published for v2.0.0");
     }
@@ -209,7 +220,27 @@ describe("checkImplementationAgainstManifest", () => {
     mockTopic([JSON.parse(buildReleaseManifestMessage(manifest()))]);
 
     const check = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC);
+    expect(check).toMatchObject({ matched: false, failure: "noCode" });
     if (!check.matched) expect(check.reason).toContain("no deployed code");
+  });
+
+  it("says which read failed, keeping that read's own message, when the implementation cannot be read", async () => {
+    vi.mocked(fetchContract).mockRejectedValue(new Error("Mirror node error 404: not indexed yet"));
+    mockTopic([JSON.parse(buildReleaseManifestMessage(manifest()))]);
+
+    const error = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ReleaseReadError);
+    expect(error).toMatchObject({ subject: "implementation", message: "Mirror node error 404: not indexed yet" });
+  });
+
+  it("says the topic is what failed when its releases cannot be read", async () => {
+    mockContract(RUNTIME);
+    vi.mocked(fetchDecodedTopicMessagePages).mockRejectedValue(new Error("Mirror node error 500: boom"));
+
+    const error = await checkImplementationAgainstManifest(IMPLEMENTATION, TOPIC).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ subject: "topic", message: "Mirror node error 500: boom" });
   });
 
   it("matches the right release when the same address was published twice", async () => {

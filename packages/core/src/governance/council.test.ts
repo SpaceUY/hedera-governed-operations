@@ -9,8 +9,11 @@ import {
   fetchCouncilKey,
   fetchProposerAccountIds,
   isSignedByKey,
+  memberKeyOfAccount,
+  memberPublicKey,
   memberSignedAt,
 } from "./council";
+import { PrivateKey } from "@hiero-ledger/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** The three members of the fixture's 2-of-3 key, as Mirror writes them on a schedule's signatures. */
@@ -69,6 +72,29 @@ describe("fetchCouncilKey", () => {
     stubAccountKey({ _type: "ProtobufEncoded", key: NESTED_MEMBER });
 
     await expect(fetchCouncilKey("0.0.10590498", "testnet")).rejects.toThrow("not a single public key");
+  });
+});
+
+describe("memberKeyOfAccount and memberPublicKey", () => {
+  it("round-trip an ECDSA and an ED25519 key through the seat form", () => {
+    const ecdsa = PrivateKey.generateECDSA().publicKey;
+    const ed25519 = PrivateKey.generateED25519().publicKey;
+    const ecdsaSeat = memberKeyOfAccount({ _type: "ECDSA_SECP256K1", key: ecdsa.toStringRaw() });
+    const ed25519Seat = memberKeyOfAccount({ _type: "ED25519", key: ed25519.toStringRaw() });
+
+    expect(memberPublicKey(ecdsaSeat ?? "").toStringDer()).toBe(ecdsa.toStringDer());
+    expect(memberPublicKey(ed25519Seat ?? "").toStringDer()).toBe(ed25519.toStringDer());
+  });
+
+  it("reads a seat of the fixture's council as the key Mirror would write for its account", () => {
+    const [seat] = MEMBER_KEYS;
+    const key = { _type: "ECDSA_SECP256K1", key: memberPublicKey(seat).toStringRaw() };
+    expect(memberKeyOfAccount(key)).toBe(seat);
+  });
+
+  it("has no seat for a key that is not one public key", () => {
+    expect(memberKeyOfAccount({ _type: "ProtobufEncoded", key: KEY_LIST_WITHOUT_THRESHOLD })).toBeNull();
+    expect(memberKeyOfAccount(null)).toBeNull();
   });
 });
 

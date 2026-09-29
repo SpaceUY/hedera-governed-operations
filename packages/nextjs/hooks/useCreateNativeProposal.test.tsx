@@ -58,6 +58,32 @@ describe("useCreateNativeProposal", () => {
     expect(fetchTransaction).toHaveBeenCalledTimes(2);
   });
 
+  it("says the wallet holds its one request until it answers", async () => {
+    const answer = Promise.withResolvers<{ transactionId: string }>();
+    const executeTransaction = vi.fn().mockReturnValueOnce(answer.promise);
+    vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
+    const { fetchAccount } = await import("@sh/core/mirror");
+    vi.mocked(fetchAccount).mockResolvedValue({
+      key: { _type: "ECDSA_SECP256K1", key: PrivateKey.generateECDSA().publicKey.toStringRaw() },
+    } as never);
+    vi.mocked(fetchTransaction).mockResolvedValue([
+      { transaction_id: `${PROPOSER_ID}-1-0`, name: "SCHEDULECREATE", entity_id: "0.0.777" } as never,
+    ]);
+    const innerTransaction = new TransferTransaction()
+      .addHbarTransfer(AccountId.fromString("0.0.10671146"), Hbar.fromTinybars(-1))
+      .addHbarTransfer(AccountId.fromString("0.0.500"), Hbar.fromTinybars(1));
+
+    const { result } = renderHook(() => useCreateNativeProposal(), { wrapper: createQueryWrapper() });
+    result.current.mutate({ innerTransaction, memo: "pay supplier" });
+
+    await waitFor(() =>
+      expect(result.current.walletRequest).toEqual({ action: "schedule", step: 1, steps: 1, validForSeconds: 120 }),
+    );
+    answer.resolve({ transactionId: `${PROPOSER_ID}@1.0` });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.walletRequest).toBeNull();
+  });
+
   it("gives up after polling with an error naming the transaction", async () => {
     const executeTransaction = vi.fn().mockResolvedValue({ transactionId: `${PROPOSER_ID}@1.0` });
     vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction, requireAccountId: () => PROPOSER_ID } as never);
