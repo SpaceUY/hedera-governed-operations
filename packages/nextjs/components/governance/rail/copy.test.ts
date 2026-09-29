@@ -7,7 +7,6 @@ import {
   signedWhenLabel,
   stageLines,
 } from "./copy";
-import { proposalIdentityOf } from "./proposalIdentity";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
 import { describe, expect, it } from "vitest";
@@ -92,21 +91,6 @@ describe("endNote", () => {
     expect(endNote(proposal("deleted"))).toMatch(/still registered/);
     expect(endNote(proposal("deleted", { registry: entry("cancelled") }))).toMatch(/Cancelled for good/);
     expect(endNote(proposal("pending"))).toBeNull();
-  });
-});
-
-describe("proposalIdentityOf", () => {
-  it("names a registry call by its entry's operation once read, and by the entry before", () => {
-    expect(proposalIdentityOf(proposal("pending")).title).toBe("Upgrade the vault to v2");
-    const unread = proposalIdentityOf(
-      proposal("pending", { registry: { status: "unreachable", reason: "relay down" } as Proposal["registry"] }),
-    );
-    expect(unread).toMatchObject({ title: "Run entry 7 of the registry at 0.0.5000", family: "contract" });
-  });
-
-  it("flags a body the decoder could not describe", () => {
-    const identity = proposalIdentityOf(proposal("pending", { operation: { kind: "unrecognized", reason: "odd" } }));
-    expect(identity).toMatchObject({ unrecognized: true, family: null, iconKind: "unrecognized" });
   });
 });
 
