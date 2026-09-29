@@ -11,11 +11,15 @@
 import { startApprovalServer } from "./approvalServer";
 import { type ApprovalStore, createApprovalStore } from "./approvals";
 import { type AgentConfig, loadConfig } from "./config";
-import { type PublishDecision, decisionSignature, publishDecisions } from "./publish";
+import { type PublishDecision, decisionSignature, publishDecisions, publishedFromHistory } from "./publish";
 import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } from "./review";
 import { Client, TopicMessageSubmitTransaction } from "@hiero-ledger/sdk";
 import { councilHoldsKey, fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
-import { assertDecisionTopicAcceptsKey, buildDecisionMessage } from "@sh/core/governance/decisionLog";
+import {
+  assertDecisionTopicAcceptsKey,
+  buildDecisionMessage,
+  fetchLatestDecisions,
+} from "@sh/core/governance/decisionLog";
 import { type ProposalInbox, fetchProposalInbox } from "@sh/core/governance/proposals";
 import { assertReleaseTopicIsSigned, checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
@@ -246,6 +250,24 @@ function logDecision(decision: Decision, dryRun: boolean, reported: Reported): v
   });
 }
 
+/**
+ * The verdicts already on the decision topic, so a restart publishes only what changed. A topic the
+ * Mirror Node cannot read at boot is not a reason to leave the seat empty: the agent starts with
+ * nothing recalled and, at worst, pays once more for verdicts that are already there.
+ */
+async function recallPublished(config: AgentConfig): Promise<Map<string, string>> {
+  try {
+    const { latest, truncated } = await fetchLatestDecisions(config.decisionTopicId, config.agentAccountId, {
+      network: config.network,
+    });
+    log("decisions-recalled", { topic: config.decisionTopicId, proposals: latest.size, truncated });
+    return publishedFromHistory(latest);
+  } catch (error) {
+    log("decisions-not-recalled", { topic: config.decisionTopicId, error: (error as Error).message });
+    return new Map();
+  }
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const client = config.dryRun ? null : createClient(config);
@@ -282,7 +304,7 @@ async function main(): Promise<void> {
       signedThisRun: new Set<string>(),
       reported: new Map(),
       approvals: createApprovalStore(config.confirmationSecret),
-      published: new Map(),
+      published: client === null ? new Map() : await recallPublished(config),
       publish: client === null ? null : createPublisher(client, config.decisionTopicId),
     };
 

@@ -1,4 +1,4 @@
-import { publishDecisions, recordOf } from "./publish";
+import { publishDecisions, publishedFromHistory, recordOf } from "./publish";
 import type { Decision } from "./review";
 import type { AgentDecision } from "@sh/core/governance/decisionLog";
 import { describe, expect, it, vi } from "vitest";
@@ -53,6 +53,36 @@ describe("publishing a pass", () => {
 
     await publishDecisions([decision()], publish, shared);
     await publishDecisions([decision()], publish, shared);
+
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not write again what an earlier run already put on the topic", async () => {
+    const onTopic = recordOf(decision(), AGENT, DECIDED_AT)!;
+    const publish = vi.fn().mockResolvedValue(undefined);
+
+    await publishDecisions(
+      [decision()],
+      publish,
+      options({ published: publishedFromHistory(new Map([[UPGRADE, onTopic]])) }),
+    );
+
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it("writes a verdict that changed since the earlier run, even though the proposal was already on the topic", async () => {
+    const onTopic = recordOf(
+      decision({ outcome: "pending", reason: "waiting for a confirmation code" }),
+      AGENT,
+      DECIDED_AT,
+    )!;
+    const publish = vi.fn().mockResolvedValue(undefined);
+
+    await publishDecisions(
+      [decision()],
+      publish,
+      options({ published: publishedFromHistory(new Map([[UPGRADE, onTopic]])) }),
+    );
 
     expect(publish).toHaveBeenCalledTimes(1);
   });

@@ -13,7 +13,7 @@
  * says only that somebody wrote those words. It is the same property the release topic needs and the
  * opposite of the Proof Wall's, where anyone posting is the point: see `assertTopicIsSigned`.
  */
-import { assertTopicIsSigned } from "../mirror";
+import { assertTopicIsSigned, fetchDecodedTopicMessagePages } from "../mirror";
 import type { MirrorRequestOptions, MirrorTopic } from "../mirror";
 import type { ProposalKind } from "./proposalTypes";
 import { PublicKey } from "@hiero-ledger/sdk";
@@ -27,6 +27,15 @@ export const AGENT_DECISION_SCHEMA = "governed-operations/agent-decision/1";
  * it is not one of them and the type is what says so.
  */
 export type PublishedOutcome = "approved" | "refused" | "pending";
+
+const PUBLISHED_OUTCOMES: readonly PublishedOutcome[] = ["approved", "refused", "pending"];
+
+/**
+ * How far back the agent reads its own log at boot, in pages of 100. One message per changed verdict
+ * keeps a topic small, but a bound has to exist; past it, a verdict older than the window is published
+ * once more rather than never.
+ */
+export const DECISION_LOG_MAX_PAGES = 10;
 
 export type AgentDecision = {
   /** The proposal, by the id the council knows it as. */
@@ -49,15 +58,79 @@ export type AgentDecision = {
   decidedAt: string;
 };
 
-/**
- * The message a decision publishes.
- *
- * There is deliberately no reader here yet. The topic is public and a reader is a parse away, but
- * nothing in this template reads its own decision log, and a parser with no consumer is a contract
- * nobody is holding to — it belongs in the change that first shows a decision on a screen.
- */
+/** The message a decision publishes. `parseDecisionMessage` reads it back. */
 export function buildDecisionMessage(decision: AgentDecision): string {
   return JSON.stringify({ schema: AGENT_DECISION_SCHEMA, ...decision });
+}
+
+const STRING_FIELDS = ["scheduleId", "reason", "agentAccountId", "decidedAt"] as const;
+
+const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+
+/**
+ * A decision as the topic carries it, or null for anything else on the topic. The agent is the first
+ * reader: at boot it reads its own log so a restart does not pay to publish again what is already
+ * there.
+ */
+export function parseDecisionMessage(payload: unknown): AgentDecision | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const record = payload as Record<string, unknown>;
+  if (record.schema !== AGENT_DECISION_SCHEMA) return null;
+  if (!STRING_FIELDS.every(field => isNonEmptyString(record[field]))) return null;
+  if (!PUBLISHED_OUTCOMES.includes(record.outcome as PublishedOutcome)) return null;
+  if (typeof record.confirmed !== "boolean" || typeof record.proposal !== "string") return null;
+  if (record.kind !== null && typeof record.kind !== "string") return null;
+
+  return {
+    scheduleId: record.scheduleId as string,
+    outcome: record.outcome as PublishedOutcome,
+    reason: record.reason as string,
+    kind: record.kind as ProposalKind | null,
+    proposal: record.proposal,
+    confirmed: record.confirmed,
+    agentAccountId: record.agentAccountId as string,
+    decidedAt: record.decidedAt as string,
+  };
+}
+
+/**
+ * What makes two records the same verdict: the fields a reader of the topic can see. It is computed
+ * from the record rather than from the agent's in-memory decision so that a verdict read back off the
+ * topic and one about to be published compare equal when they say the same thing.
+ */
+export function decisionRecordSignature(record: Pick<AgentDecision, "outcome" | "confirmed" | "reason">): string {
+  return `${record.outcome}:${record.confirmed}:${record.reason}`;
+}
+
+export type DecisionHistory = {
+  /** The newest decision per proposal. */
+  latest: Map<string, AgentDecision>;
+  /** True when the page bound ran out before the topic did, so older verdicts were not read. */
+  truncated: boolean;
+};
+
+/**
+ * The standing verdict per proposal of one seat: its newest message for each schedule. A topic held
+ * by a key list can carry more than one agent, so another seat's records are left out.
+ */
+export async function fetchLatestDecisions(
+  topicId: string,
+  agentAccountId: string,
+  options: MirrorRequestOptions = {},
+): Promise<DecisionHistory> {
+  const { messages, truncated } = await fetchDecodedTopicMessagePages(topicId, {
+    ...options,
+    order: "desc",
+    maxPages: DECISION_LOG_MAX_PAGES,
+  });
+
+  const latest = new Map<string, AgentDecision>();
+  for (const message of messages) {
+    const decision = parseDecisionMessage(message.json);
+    if (!decision || decision.agentAccountId !== agentAccountId || latest.has(decision.scheduleId)) continue;
+    latest.set(decision.scheduleId, decision);
+  }
+  return { latest, truncated };
 }
 
 /**
