@@ -279,6 +279,33 @@ describe("reviewInbox", () => {
     expect(result.signed).toEqual(["0.0.9003"]);
   });
 
+  it("reports an approval it did not sign, so the caller can hold its record back", async () => {
+    const result = await reviewInbox(inbox([proposal()]), OPTIONS, null);
+
+    expect(result.signed).toEqual([]);
+    expect(result.unsigned).toEqual(["0.0.9001"]);
+  });
+
+  it("reports an approval whose signature failed as unsigned too", async () => {
+    const sign = vi.fn().mockRejectedValueOnce(new Error("INVALID_SIGNATURE")).mockResolvedValueOnce(undefined);
+
+    const result = await reviewInbox(
+      inbox([proposal(), proposal({ schedule: schedule({ schedule_id: "0.0.9003" }) })]),
+      OPTIONS,
+      sign,
+    );
+
+    expect(result.unsigned).toEqual(["0.0.9001"]);
+  });
+
+  it("counts nothing as unsigned when every approval was signed", async () => {
+    const sign = vi.fn().mockResolvedValue(undefined);
+
+    const result = await reviewInbox(inbox([proposal()]), OPTIONS, sign);
+
+    expect(result.unsigned).toEqual([]);
+  });
+
   it("passes through the proposers whose schedules could not be read", async () => {
     const partial: ProposalInbox = { proposals: [], unreachableProposers: ["0.0.5005"] };
     const result = await reviewInbox(partial, OPTIONS, null);

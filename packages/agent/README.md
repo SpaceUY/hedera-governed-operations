@@ -31,6 +31,25 @@ A decision has four outcomes. `approved` and `refused` are the policy's answer; 
 proposal that needs nothing, already settled or already carrying this agent's signature; `pending` is
 one the policy allows and a person has not released yet.
 
+## Nothing is signed without a seat
+
+The council grants and revokes the seat by rotation, so whether it still holds this agent's key is
+read from the ledger on **every pass** rather than once at boot. The agent starts signing when a
+rotation adds it and stops when one takes it away, and nobody restarts the service for either.
+
+Without a seat it still reads the inbox, decides and logs — an approval comes out as
+`approved-not-signed` — and one `seat-missing` line says why, on the pass the state changes rather
+than on every poll. The approval is held back from the decision topic: "approved" next to a schedule
+this agent never signed is a record that reads as a lie. A refusal goes to the topic either way,
+because the policy's answer does not depend on a seat.
+
+This is a check rather than a comment because of what a seatless signature actually does. Measured on
+testnet: `ScheduleSign` from a key the council does not hold answers `NO_NEW_VALID_SIGNATURES`, is
+**charged the same fee as a signature that counted, and leaves no row on the schedule**. No row means
+nothing remembers the attempt — `isSignedByKey` reads false again — so the next pass repeats it,
+every poll, for as long as the proposal stays open. It is not a wasted fee, it is a drain, and it
+looks like a healthy service in the log.
+
 ## The policy
 
 A JSON file, mounted rather than baked in, because it is a document somebody reviews rather than
