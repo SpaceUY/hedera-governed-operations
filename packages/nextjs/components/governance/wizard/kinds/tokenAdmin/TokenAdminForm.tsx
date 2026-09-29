@@ -32,11 +32,28 @@ export const TokenAdminForm = ({
   const relationship = useTokenRelationship(accountId, tokenId, { network, enabled: needsAccount });
   const symbol = token.data?.token.symbol ?? tokenId;
 
-  // Depends on the fields, not on `targets` or the queries: those are rebuilt on every render.
+  const pauseStatus = token.data?.token.pause_status;
+  const freezeStatus = relationship.data?.freeze_status;
+
+  // Depends on the fields, not on `targets` or the queries: those are rebuilt on every render. A key the
+  // token does not have is refused like an unassociated holder: the council would approve a call that
+  // `TokenAdmin` can only revert, and the governance account would pay for it.
   useEffect(() => {
     const draft = (holder: string | null) =>
       tryDraft(() => draftTokenAdmin({ tokenAdmin, tokenAdminContractId, tokenId }, { operation, accountId: holder }));
     if (!needsAccount) {
+      if (token.isError) {
+        onDraftChange({ status: "invalid", message: tokenUnreadableLabel(tokenId) });
+        return;
+      }
+      if (pauseStatus === undefined) {
+        onDraftChange({ status: "empty" });
+        return;
+      }
+      if (pauseStatus === "NOT_APPLICABLE") {
+        onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.noPauseKey(symbol) });
+        return;
+      }
       onDraftChange(draft(null));
       return;
     }
@@ -58,6 +75,10 @@ export const TokenAdminForm = ({
       onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.notAssociated(lookup.accountId, symbol) });
       return;
     }
+    if (freezeStatus === "NOT_APPLICABLE") {
+      onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.noFreezeKey(lookup.accountId, symbol) });
+      return;
+    }
     onDraftChange(draft(lookup.accountId));
   }, [
     operation,
@@ -67,6 +88,9 @@ export const TokenAdminForm = ({
     account.error,
     relationship.data,
     relationship.error,
+    freezeStatus,
+    pauseStatus,
+    token.isError,
     symbol,
     tokenAdmin,
     tokenAdminContractId,

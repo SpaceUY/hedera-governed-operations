@@ -70,6 +70,29 @@ describe("TokenAdminForm", () => {
     expect(screen.queryByLabelText("Account")).toBeNull();
   });
 
+  it("refuses to pause a token that has no pause key, since the call could only revert", () => {
+    vi.mocked(useToken).mockReturnValue({
+      data: { token: { symbol: "ACME", pause_status: "NOT_APPLICABLE" }, decimals: 0 },
+      isError: false,
+    } as never);
+    const onDraftChange = renderForm();
+
+    expect(lastResult(onDraftChange)).toEqual({ status: "invalid", message: TOKEN_ADMIN_COPY.noPauseKey("ACME") });
+    pick("unpause");
+    expect(lastResult(onDraftChange)).toEqual({ status: "invalid", message: TOKEN_ADMIN_COPY.noPauseKey("ACME") });
+  });
+
+  it("drafts no pause until the token is read, and refuses one it could not read", () => {
+    vi.mocked(useToken).mockReturnValue({ data: undefined, isError: false } as never);
+    const loading = renderForm();
+    expect(lastResult(loading)).toEqual({ status: "empty" });
+    cleanup();
+
+    vi.mocked(useToken).mockReturnValue({ data: undefined, isError: true } as never);
+    const unreadable = renderForm();
+    expect(lastResult(unreadable)?.status).toBe("invalid");
+  });
+
   it("asks for the holder on a freeze and drafts nothing until it has one", () => {
     const onDraftChange = renderForm();
 
@@ -107,6 +130,23 @@ describe("TokenAdminForm", () => {
     expect(lastResult(onDraftChange)).toEqual({
       status: "invalid",
       message: TOKEN_ADMIN_COPY.notAssociated(HOLDER, "ACME"),
+    });
+  });
+
+  it("refuses to freeze or unfreeze a holder of a token that has no freeze key", () => {
+    holderFound();
+    vi.mocked(useTokenRelationship).mockReturnValue({
+      data: { freeze_status: "NOT_APPLICABLE" },
+      error: null,
+    } as never);
+    const onDraftChange = renderForm();
+
+    pick("freeze");
+    fireEvent.change(screen.getByLabelText("Account"), { target: { value: HOLDER } });
+
+    expect(lastResult(onDraftChange)).toEqual({
+      status: "invalid",
+      message: TOKEN_ADMIN_COPY.noFreezeKey(HOLDER, "ACME"),
     });
   });
 
