@@ -60,6 +60,8 @@ export type ProposalDetailPanelProps = {
   accountId: string | null;
   /** Which signer the Sign button asks, so it can say where to approve. */
   signerKind: HederaSignerKind;
+  /** The connected WalletConnect wallet's name, for what Withdraw and Cancel say it can sign. */
+  walletName: string | null;
   governanceAccountId: string;
   executorContractId: string;
   network: HederaNetworkName;
@@ -86,6 +88,7 @@ export const ProposalDetailPanel = ({
   proposal,
   accountId,
   signerKind,
+  walletName,
   governanceAccountId,
   executorContractId,
   network,
@@ -289,6 +292,7 @@ export const ProposalDetailPanel = ({
       <WithdrawCancelActions
         proposal={proposal}
         accountId={accountId}
+        walletName={walletName}
         executorContractId={executorContractId}
         governanceAccountId={governanceAccountId}
         network={network}

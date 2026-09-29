@@ -80,6 +80,10 @@
     {
       "file": "packages/nextjs/components/governance/rail/copy.ts",
       "contains": ["Find a proposal by schedule id", "Show fewer", "Expiring now"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["HashPack cannot sign this step", "HashPack cannot sign a schedule delete yet", "such as Kabila", "Use another wallet"]
     }
   ]
 }

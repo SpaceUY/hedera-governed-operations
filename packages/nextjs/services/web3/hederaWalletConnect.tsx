@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearWalletStorage, getHederaProvider, initAppKit, resetAppKitSession } from "./appKitHedera";
+import { walletNameOf } from "./walletCapabilities";
 import type { HederaProvider } from "@hashgraph/hedera-wallet-connect";
 import { hederaNamespace } from "@hashgraph/hedera-wallet-connect";
 import { useAppKitAccount, useDisconnect } from "@reown/appkit/react";
@@ -9,6 +10,8 @@ import { useAppKitAccount, useDisconnect } from "@reown/appkit/react";
 type HederaWalletConnectContextValue = {
   provider: HederaProvider | null;
   accountId: string | null;
+  /** The name the connected wallet reports in its session (e.g. "HashPack"), or null while disconnected. */
+  walletName: string | null;
   isConnected: boolean;
   isInitializing: boolean;
   isBusy: boolean;
@@ -149,6 +152,7 @@ export const HederaWalletConnectProvider = ({ children }: { children: React.Reac
     sessionTick >= 0 && provider && (provider as unknown as { session?: unknown }).session,
   );
   const accountId = !forceDisconnected && isConnected && address && providerHasSession ? address : null;
+  const walletName = accountId && provider ? walletNameOf(provider.session) : null;
 
   useEffect(() => {
     if (isConnected && address) {
@@ -170,13 +174,14 @@ export const HederaWalletConnectProvider = ({ children }: { children: React.Reac
     () => ({
       provider,
       accountId,
+      walletName,
       isConnected: Boolean(accountId),
       isInitializing,
       isBusy,
       connectWallet,
       disconnectWallet,
     }),
-    [provider, accountId, isInitializing, isBusy, connectWallet, disconnectWallet],
+    [provider, accountId, walletName, isInitializing, isBusy, connectWallet, disconnectWallet],
   );
 
   // Don't render children until AppKit + HederaProvider are ready.
