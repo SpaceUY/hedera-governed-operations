@@ -65,7 +65,7 @@ function publicKeyFromMirror(accountId: string, key: MirrorAccount["key"]): Publ
   );
 }
 
-async function accountIdentity(accountId: string, network: string) {
+export async function accountIdentity(accountId: string, network: string) {
   const account = await fetchAccount(accountId, { network });
   if (!account.evm_address) {
     throw new Error(

@@ -1,5 +1,5 @@
 {
-  "name": "template-baseline-static",
+  "name": "governed-operations-static",
   "description": "Files and text a fresh scaffold of this template must ship with. template.json is not asserted: create-scaffold-hbar removes it when scaffolding.",
   "jsonAssertions": [
     {
@@ -35,7 +35,7 @@
     },
     {
       "file": "packages/nextjs/components/Header.tsx",
-      "contains": ["Governed Operations", "Live map", "Proof wall", "MirrorPollStatus"]
+      "contains": ["Governed Operations", "Live map", "MirrorPollStatus"]
     },
     {
       "file": "packages/nextjs/components/MirrorPollStatus.tsx",

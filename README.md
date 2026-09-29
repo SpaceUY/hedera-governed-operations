@@ -108,6 +108,7 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | `yarn test`                    | Unit tests (Vitest)                                                                  |
 | `yarn format`                  | Prettier                                                                             |
 | `yarn harness:run`             | Full Hedera Harness loop (generate, validate, repair)                                |
+| `yarn harness:council-seat`    | Seats the harness test signer on the council; run by the harness, not by hand        |
 | `yarn hardhat:compile`         | Compile the contracts under `packages/hardhat/contracts/`                            |
 | `yarn hardhat:test`            | Contract tests                                                                       |
 | `yarn hardhat:account:generate`| Create an encrypted deployer key in `packages/hardhat/.env`                          |
@@ -137,27 +138,33 @@ To remove the demo:
 
 ## Validate with Hedera Harness
 
-The template ships a [Hedera Harness](https://github.com/hedera-dev/hedera-harness) recipe under `.harness/` (`hedera-harness` is pinned to `2.0.0-rc.4`, schema v3). It checks that a fresh scaffold installs, lints, builds and boots, and grades the running app against `.harness/eval.json`. The recipe assumes Yarn; if you scaffolded with npm, adjust the commands in `.harness/validators/yarn.json` and `.harness/spec.yaml`.
+The template ships a [Hedera Harness](https://github.com/hedera-dev/hedera-harness) recipe under `.harness/` (`hedera-harness` is pinned to `2.0.0-rc.4`, schema v3). It checks that a fresh scaffold installs, lints, builds and boots, and then grades the running app against `.harness/eval.json` — five assertions, four of which read the app without a wallet and one of which **approves a real proposal on testnet**. The recipe assumes Yarn; if you scaffolded with npm, adjust the commands in `.harness/validators/yarn.json` and `.harness/spec.yaml`.
 
 ```bash
 npx hedera-harness doctor             # preflight: node, git, recipe, agent CLI, browser
-npx hedera-harness validate           # ASSERT + SMOKE: static checks, yarn install/lint/test/build, home route boots
-npx hedera-harness validate-semantic  # EVALUATE: a Claude Code session browses the app and grades eval.json
+npx hedera-harness validate           # ASSERT + SMOKE: static checks, yarn install/lint/test/build, routes boot
+npx hedera-harness validate-semantic  # EVALUATE + CHAIN: a Claude Code session browses the app and grades eval.json
 yarn harness:run                      # full loop: generate from .harness/prd.md, then validate and repair
 ```
 
-`validate` needs no credentials. `validate-semantic` and `harness:run` need the `claude` CLI authenticated and Chrome (or Playwright Chromium) available. CI runs `doctor --recipe-only` and `validate` on every pull request.
+**What each stage needs is very different**, and getting that wrong is the usual reason a run fails for reasons unrelated to the app:
 
-The recipe also enables the CHAIN stage: `validate-semantic` and `harness:run` create a funded, disposable testnet account and hand its key to the app as `localStorage["burnerWallet.pk"]`, so wallet-gated assertions run end to end and are verified on the Mirror Node (the account is swept back afterwards). Export the operator in the shell first — the harness does not read `.env`:
+| Stage | Credentials | Other |
+| ----- | ----------- | ----- |
+| `validate` | none | No `.env` inside the tree — the static validator forbids it. CI runs this on every pull request |
+| `validate-semantic` | `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_PRIVATE_KEY` **exported in the shell** (the harness never reads `.env`) | The `claude` CLI authenticated, Chrome or Playwright Chromium, and a workspace where `yarn setup` and the deploy have already run |
 
 ```bash
 export HEDERA_OPERATOR_ID=0.0.xxxxx
-export HEDERA_OPERATOR_PRIVATE_KEY=<ECDSA private key>
-npx hedera-harness doctor             # now also checks the two variables
+export HEDERA_OPERATOR_PRIVATE_KEY=<ECDSA private key>   # bare value: an inline comment makes the harness reject and echo it
 npx hedera-harness validate-semantic
 ```
 
-The app treats that key as a **test signer** (`packages/nextjs/services/web3/burnerSigner.ts`): testnet only, active in dev builds, opt-in for production with `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true`. Without the key, HashPack is used as usual.
+The CHAIN stage provisions a funded, disposable testnet account and hands its key to the app as `localStorage["burnerWallet.pk"]`, so wallet-gated assertions run end to end. The app treats that key as a **test signer** (`packages/nextjs/services/web3/burnerSigner.ts`): testnet only, active in dev builds, opt-in for production with `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true`. Without the key, HashPack is used as usual.
+
+Paying for a transaction is not the same as approving one, though. A `ScheduleSign` only counts towards the threshold if the key sits in the governance account's threshold key, so `yarn harness:council-seat` runs in front of the dev server and gives that run's signer a seat — rebuilding the key from the three configured members plus the signer, so seats never accumulate. That is what lets the last assertion grade an approval reaching the ledger instead of a button being enabled. It needs the demo members' keys from the gitignored `setup-state.json`, which is why that stage expects a workspace that has already been set up.
+
+[The runbook](docs/RUNBOOK.md#6-validate-with-hedera-harness) has the rest: why the seat lives in the server command rather than in `chainValidation.deploy`, what a run leaves behind on testnet and how to undo it, and a troubleshooting table.
 
 ## Evidence on testnet
 

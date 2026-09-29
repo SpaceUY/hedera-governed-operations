@@ -139,20 +139,98 @@ curl -s "https://testnet.mirrornode.hedera.com/api/v1/transactions/0.0.xxxxx-170
 
 ## 6. Validate with Hedera Harness
 
-The harness forbids a `.env` file inside the tree (it treats it as a leaked secret) and does not read it either, so export the operator in the shell and move the file aside first.
+### What each stage needs
+
+The stages differ sharply in what they require, and running the wrong one first is the usual reason a
+run fails for reasons that have nothing to do with the app.
+
+| Command | Stages | Needs |
+| --- | --- | --- |
+| `npx hedera-harness doctor --recipe-only` | — | Nothing. Parses `.harness/spec.yaml` against the schema |
+| `npx hedera-harness doctor` | — | The two operator variables exported, or it reports them missing |
+| `npx hedera-harness validate` | ASSERT + SMOKE | **No credentials.** But no `.env` file may sit inside the tree: the static validator lists it as forbidden |
+| `npx hedera-harness validate-semantic` | EVALUATE + CHAIN | The operator exported, the `claude` CLI authenticated, Chrome (or Playwright Chromium), **and a workspace that has already run `yarn setup` and the deploy** (steps 3.1–3.3) |
+| `yarn harness:run` | GENERATE + everything above | The same as `validate-semantic` |
+
+The harness never reads `.env` — it only reads the shell — and it refuses to run with one in the
+tree, so export the values and move the file aside:
 
 ```bash
 # bare values only: an inline comment copied from .env makes the harness reject (and echo) the key
 export HEDERA_OPERATOR_ID=0.0.xxxxx
 export HEDERA_OPERATOR_PRIVATE_KEY=<ECDSA private key, DER or raw hex>
 mv packages/nextjs/.env /tmp/scaffold-hbar.env      # keep it outside the repo
-npx hedera-harness doctor                          # recipe schema, node, git, browser, operator variables
-npx hedera-harness validate                        # ASSERT + SMOKE: static needles, yarn install/lint/test/build, home route boots
-npx hedera-harness validate-semantic               # EVALUATE + CHAIN: Claude browses / and /admin with a funded test signer and grades .harness/eval.json
+npx hedera-harness doctor
+npx hedera-harness validate
 mv /tmp/scaffold-hbar.env packages/nextjs/.env
 ```
 
-`validate` needs no credentials. `validate-semantic` needs the `claude` CLI authenticated, Chrome (or Playwright Chromium) and the two operator variables: CHAIN creates a disposable testnet account funded with `chainValidation.fundingHbar` (5 HBAR) and injects its key as `localStorage["burnerWallet.pk"]` so the app signs without HashPack (assertion E3 creates a topic and checks it on the Mirror Node). `harness:run` sweeps the balance back at the end; `validate-semantic` does not — it leaves the account and its key in `chain-signer.json` at the repo root (gitignored) for reuse. Results land under `.harness/runs/` and `.harness-semantic/` (gitignored).
+`validate-semantic` does not run ASSERT, so it leaves `.env` alone — and the council seat below
+needs it. Run that one with the file in place:
+
+```bash
+export HEDERA_OPERATOR_ID=0.0.xxxxx
+export HEDERA_OPERATOR_PRIVATE_KEY=<ECDSA private key>
+npx hedera-harness validate-semantic
+```
+
+### What it grades
+
+`.harness/eval.json` holds five assertions. Four are read-only and pass without a wallet; the fifth
+is the one this template exists for.
+
+| Id | Journey | Needs a signer |
+| --- | --- | --- |
+| `E1` | The live map renders with no wallet and no `.env` | no |
+| `E6` | One fold, no page scroll, only unsettled proposals in the rail | no |
+| `E5` | `/governance/new` offers the kinds and explains the wallet is needed | no |
+| `E8` | A proposal's decoded operation, approvals and expiry, read from Mirror | no |
+| `E9` | The test signer approves a pending proposal, and the signature lands on the Mirror Node | **yes** |
+
+### The council seat, and why it is where it is
+
+CHAIN provisions a fresh funded ECDSA account per run and hands its key to the app as
+`localStorage["burnerWallet.pk"]`. That is enough to **pay** for a transaction and not enough to
+**approve** one: a `ScheduleSign` only counts towards the threshold if the key sits in the
+governance account's threshold key, and the network answers `INVALID_SIGNATURE` otherwise. So E9
+would fail on a template whose whole subject is the approval.
+
+`yarn harness:council-seat` closes that gap. It rebuilds the governance account's key as the three
+configured members plus this run's signer, signed by the two demo members — they meet the old key's
+threshold and, being members of the new one too, its threshold as well, so the incoming signer never
+has to sign its own way in. Rebuilding rather than appending is what keeps seats from accumulating:
+a previous run's key is dropped rather than kept.
+
+**It runs from the dev server command in `.harness/validators/playwright-smoke.yaml`, not from
+`chainValidation.deploy.commands`.** The latter is the obvious home and the wrong one: those
+commands are reached from `runValidationStages`, which `validate-semantic` never calls — that path
+goes straight from provisioning the signer to booting the server. A seat declared there happens
+under `harness:run` and nowhere else. The server command is the only hook both entry points share.
+
+The script finds the signer from `HARNESS_SIGNER_ACCOUNT_ID` when a deploy command exports it, and
+otherwise from the `chain-signer.json` the harness writes to the workspace root before the server
+starts. With neither it prints a line and returns before reading any credentials, which is what
+keeps `validate` credential-free. A seat it cannot give is loud rather than fatal: it runs in front
+of the server, so exiting non-zero would cost every assertion instead of the one that needs an
+approval.
+
+It reads the demo members' keys from `packages/nextjs/setup-state.json`, which is gitignored — hence
+the "a workspace that has already run `yarn setup`" requirement above.
+
+### What a run leaves behind
+
+Two things, both on testnet, neither cleaned up by `validate-semantic` (only `harness:run` sweeps):
+
+1. **The council is left at 2-of-4**, with the run's now-deleted signer still among its keys. The
+   threshold is unchanged, so the demo keeps working, and the next run drops that key. To put it
+   back to 2-of-3 by hand, run the same `AccountUpdate` with only the three configured members,
+   signed by the two demo seats.
+2. **The ephemeral account and its key** stay in `chain-signer.json` at the repo root (gitignored)
+   for reuse. Delete the account with an `AccountDeleteTransaction` signed with that key, balance
+   back to the operator, and **remove the file only after the receipt confirms** — losing the key
+   first strands the balance.
+
+Results land under `.harness/runs/` and `.harness-semantic/` (both gitignored).
 
 ## 7. Try the test signer by hand
 
@@ -195,6 +273,10 @@ The test signer only activates on testnet. In a production build (`yarn next:bui
 | Key stored in `burnerWallet.pk` but the header still says **Connect Wallet**               | The test signer is off on mainnet and in production builds without the opt-in flag, or the key is not a valid ECDSA hex                           | Target testnet; in a production build set `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` before building; check the console for `Ignoring the test signer key` or `BurnerKeyError`                            |
 | `validate-semantic` fails with `failed to provision ephemeral signer: … BUSY`              | Testnet nodes throttle the `AccountBalanceQuery` the harness uses to reuse the signer saved in `chain-signer.json`, while transactions still pass | Delete that account (`AccountDeleteTransaction` signed with the key in `chain-signer.json`, balance back to the operator), remove `chain-signer.json` and rerun: a fresh signer needs no balance query |
 | Test signer account `0x…` not found on testnet                                             | The account was never created with that key, or the Mirror Node has not indexed it yet                                                            | Create it with `setECDSAKeyWithAlias` (step 7) and reload after ~20 s; the app retries the alias lookup for about 20 s                                                                                 |
+| `validate-semantic` passes E1/E5/E6/E8 but fails E9 with "no Sign control"                 | The app is behind the setup guard: `yarn setup` or the deploy has not run in this workspace                                                       | Run steps 3.1–3.3, then rerun. The log line above the failure names the contract whose Hedera id is missing                                                                                            |
+| The server log says `Could not seat the test signer on the council`                        | The seat could not be given — usually no `packages/nextjs/.env` (it holds `HEDERA_COUNCIL_ACCOUNT_ID`) or no `setup-state.json`                    | Put `.env` back before `validate-semantic` (that stage skips ASSERT, so the file is allowed) and make sure `yarn setup` has run. E9 fails without it; the other four still pass                        |
+| The map reads `Council threshold 2-of-4` after a harness run                               | Expected: the run's test signer was seated and the run does not remove it                                                                        | Harmless — the threshold is unchanged and the next run drops the stale key. To restore 2-of-3 now, re-run the `AccountUpdate` with only the three configured members (see step 6)                      |
+| `Dev server exited before reporting a Local URL` right after `Chain signer provisioned`    | The seat script died before `yarn next:dev` could start                                                                                          | Read the line above it: the script prints its reason and, as of this version, no longer exits non-zero. An older checkout will need the fix in `scripts/harnessCouncilSeat.ts`                         |
 | `Badge checks require HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY` (503)            | Operator not configured on the server                                                                                                             | Set both in `packages/nextjs/.env` and restart; proofs still work without it, only badges are skipped                                                                                                  |
 | `yarn setup` stops at `Not deployed yet: GovernedExecutor, …`                               | Expected on a first run: the contracts are deployed against the governance account this run just created                                          | Deploy them (`yarn hardhat:deploy --network hederaTestnet`) and run `yarn setup` again (step 3)                                                    |
 | Deploy fails with `Set GOVERNANCE_ACCOUNT_ADDRESS to the EVM address…`                      | The deploy ran before `yarn setup` created the governance account, so `packages/hardhat/.env` has neither value                                    | Run `yarn setup` first; it writes both into that file                                                                                              |
