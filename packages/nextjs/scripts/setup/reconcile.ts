@@ -8,13 +8,11 @@ import { DEMO_ACCOUNT_NAMES, type DemoAccount, type DemoAccountName, type SetupS
 export const USDC_TESTNET_TOKEN_ID = "0.0.5449";
 
 export type MirrorLookups = {
-  topicExists(topicId: string): Promise<boolean>;
   accountExists(accountId: string): Promise<boolean>;
   accountHasToken(accountId: string, tokenId: string): Promise<boolean>;
 };
 
 export type SetupActions = {
-  createTopic(): Promise<string>;
   createDemoAccount(name: DemoAccountName): Promise<DemoAccount>;
   associateToken(account: DemoAccount, tokenId: string): Promise<void>;
 };
@@ -45,15 +43,6 @@ async function reuseOrCreate<T>(
 ): Promise<{ value: T; outcome: StepOutcome }> {
   if (existing !== undefined && (await verify(existing))) return { value: existing, outcome: "reused" };
   return { value: await create(), outcome: "created" };
-}
-
-async function reconcileTopic(state: SetupState, services: SetupServices): Promise<ReconcileResult> {
-  const { value: topicId, outcome } = await reuseOrCreate(
-    state.topicId,
-    services.lookups.topicExists,
-    services.actions.createTopic,
-  );
-  return { state: { ...state, topicId }, steps: [{ label: `Topic ${topicId}`, outcome }] };
 }
 
 async function reconcileAssociation(
@@ -101,8 +90,7 @@ async function associateFresh(
 }
 
 export async function reconcile(initial: SetupState, services: SetupServices): Promise<ReconcileResult> {
-  let result = await reconcileTopic(initial, services);
-  services.persist?.(result.state);
+  let result: ReconcileResult = { state: initial, steps: [] };
   for (const name of DEMO_ACCOUNT_NAMES) {
     const next = await reconcileDemoAccount(result.state, name, services);
     result = { state: next.state, steps: [...result.steps, ...next.steps] };

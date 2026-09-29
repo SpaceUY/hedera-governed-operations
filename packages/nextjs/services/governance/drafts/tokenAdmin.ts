@@ -12,10 +12,17 @@ export type TokenAdminTargets = {
   tokenId: string;
 };
 
-/** `accountId` is the holder a freeze or unfreeze acts on, as the Mirror Node resolved it; null for pause and unpause. */
-export type TokenAdminValues = { operation: TokenAdminOperation; accountId: string | null };
+/**
+ * `holder` is the account a freeze or unfreeze acts on, as the address the Mirror Node reports for it
+ * (`evm_address`); null for pause and unpause.
+ */
+export type TokenAdminValues = { operation: TokenAdminOperation; holder: string | null };
 
-/** The token and the holder are named by their long-zero addresses, the form the token system contract takes. */
+/**
+ * The token is named by its long-zero address. The holder is named by the address the network knows it
+ * by — its alias when it has one — because the token system contract refuses the long-zero address of
+ * an aliased account as `INVALID_ACCOUNT_ID` (15), measured on testnet.
+ */
 export function draftTokenAdmin(targets: TokenAdminTargets, values: TokenAdminValues): ProposalDraft {
   return {
     path: "registry",
@@ -25,7 +32,7 @@ export function draftTokenAdmin(targets: TokenAdminTargets, values: TokenAdminVa
       tokenAdmin: targets.tokenAdmin,
       operation: values.operation,
       token: longZeroAddress(targets.tokenId),
-      account: values.accountId ? longZeroAddress(values.accountId) : undefined,
+      account: values.holder ? (values.holder as Address) : undefined,
     }),
   };
 }

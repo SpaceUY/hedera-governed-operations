@@ -10,8 +10,8 @@
  *
  * **The submit key belongs to the agent, and that is what makes the log evidence.** A topic created
  * without one accepts a message from any account, so "the agent approved X" read off an open topic
- * says only that somebody wrote those words. It is the same property the release topic needs and the
- * opposite of the Proof Wall's, where anyone posting is the point: see `assertTopicIsSigned`.
+ * says only that somebody wrote those words. It is the same property the release topic needs: see
+ * `assertTopicIsSigned`.
  */
 import { assertTopicIsSigned } from "../mirror";
 import type { MirrorRequestOptions, MirrorTopic } from "../mirror";

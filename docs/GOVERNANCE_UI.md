@@ -9,9 +9,8 @@ How the Governed Operations screens are put together: the routes, the layers und
 | `/`                        | The live map: in the rail, the proposals still collecting signatures under "Pending operations" and the settled ones under "Recent", each with its status and approvals; the selected one (`?schedule=`) opens its detail under its card |
 | `/governance/[scheduleId]` | One proposal: what it does, the schedule's status, the registry entry behind it, the gas and HBAR the treasury pays, approvals, and Sign / Withdraw / Cancel when they apply |
 | `/governance/new`          | Opening a proposal: the operation picker, its form, what the council will see, and the wallet transactions that register and/or schedule it                                  |
-| `/proof-wall`              | The Proof Wall demo, moved off the root; it links My Proofs, Admin and Explorer, which the header no longer lists                                                            |
 
-The three governance routes share one layout, described under "The live map" below; the treasury figures and the council's threshold sit in its map pane, above every one of them. The header's navigation is Live map (`/`, lit on every `/governance/…` route too) and Proof wall. A Settings item joins it when there is a settings page to open.
+The three governance routes share one layout, described under "The live map" below; the treasury figures and the council's threshold sit in its map pane, above every one of them. The header's navigation is Live map alone (`/`, lit on every `/governance/…` route too). A Settings item joins it when there is a settings page to open.
 
 The detail route is keyed by **schedule id**, since a proposal is a schedule the governance account pays for. A registry entry that was registered but never scheduled has no schedule id, and so no page.
 
@@ -25,9 +24,6 @@ packages/nextjs/
       page.tsx                      # / — the rail's pending and recent proposals, search, the selected one's detail
       governance/[scheduleId]/page.tsx  # proposal detail, in the rail
       governance/new/page.tsx       # opening a proposal, in the rail
-    (site)/                         # route group: the pages with a footer
-      layout.tsx
-      proof-wall/page.tsx           # links my-proofs, admin, explorer
   components/
     SetupNotice.tsx                 # rendered in place of the live map until setup and the deploy have run
     MirrorPollStatus.tsx            # the header's "Mirror Node · polled Xs ago"
@@ -49,7 +45,7 @@ packages/nextjs/
     useInboxUpdatedAt.ts            # when any inbox on the network was last read, from the query cache
     useVaultImplementation.ts       # the code the vault's proxy runs (its ERC-1967 slot)
     useMapSnapshot.ts               # the reads as one snapshot, and the events since the previous one
-  hooks/                            # writes (useMutation), flat like useSubmitProof.ts
+  hooks/                            # writes (useMutation), flat like useSignProposal.ts
     useCreateProposal.ts            # contract-backed kinds: createProposal, then ScheduleCreate(execute)
     useCreateNativeProposal.ts      # native kinds: ScheduleCreate(transfer / AccountUpdate)
     useSignProposal.ts              # ScheduleSign
