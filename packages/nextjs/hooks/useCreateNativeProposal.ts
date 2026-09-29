@@ -3,6 +3,7 @@
 import { proposalInboxQueryKey } from "./mirror/useProposals";
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useHederaSigner } from "./useHederaSigner";
+import { useWalletRequest } from "./useWalletRequest";
 import type { Transaction } from "@hiero-ledger/sdk";
 import { buildProposalSchedule, fetchAccountPublicKey, scheduleIdFromTransaction } from "@sh/core/governance/schedules";
 import { fetchTransaction } from "@sh/core/mirror";
@@ -16,23 +17,25 @@ export type CreateNativeProposalInput = { innerTransaction: Transaction; memo: s
 /** Native operation types (transfer, council rotation): one schedule, no registry entry — fed by
  * `buildTreasuryTransfer`/`buildCouncilRotation` from `services/governance/encode.ts`. */
 export function useCreateNativeProposal() {
-  const { executeTransaction, requireAccountId } = useHederaSigner();
+  const { requireAccountId } = useHederaSigner();
+  const { walletRequest, lateSubmission, executeStep } = useWalletRequest();
   const { targetNetwork } = useTargetNetwork();
   const network = getHederaNetworkNameFromChainId(targetNetwork.id);
   const queryClient = useQueryClient();
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async ({ innerTransaction, memo }: CreateNativeProposalInput) => {
       const proposerId = requireAccountId();
       const adminKey = await fetchAccountPublicKey(proposerId, network);
 
-      const result = await executeTransaction(
+      const result = await executeStep(
         buildProposalSchedule({
           innerTransaction,
           governanceAccountId: getGovernanceEntityIds().governanceAccountId,
           adminKey,
           memo,
         }),
+        { action: "schedule", step: 1, steps: 1 },
       );
       const scheduleId = await waitForMirrorIndexing(
         async () => scheduleIdFromTransaction(await fetchTransaction(result.transactionId, { network })),
@@ -50,4 +53,6 @@ export function useCreateNativeProposal() {
     // submitted has unmounted, instead of waiting out the slow poll of a settled inbox.
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: proposalInboxQueryKey(network) }),
   });
+
+  return { ...mutation, walletRequest, lateSubmission };
 }

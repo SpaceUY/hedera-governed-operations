@@ -4,6 +4,7 @@ import { useState } from "react";
 import { proposalInboxQueryKey } from "./mirror/useProposals";
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useHederaSigner } from "./useHederaSigner";
+import { useWalletRequest } from "./useWalletRequest";
 import { type RegistryProposal, buildCreateProposalCall } from "@sh/core/governance/encode";
 import { proposalIdFromContractResult } from "@sh/core/governance/registry";
 import {
@@ -30,21 +31,29 @@ export type CreateProposalInput = { executorContractId: string; proposal: Regist
  * for one decision.
  */
 export function useCreateProposal() {
-  const { executeTransaction, requireAccountId } = useHederaSigner();
+  const { requireAccountId } = useHederaSigner();
+  const { walletRequest, lateSubmission, executeStep } = useWalletRequest();
   const { targetNetwork } = useTargetNetwork();
   const network = getHederaNetworkNameFromChainId(targetNetwork.id);
   const queryClient = useQueryClient();
   const [unscheduledEntry, setUnscheduledEntry] = useState<UnscheduledEntry | null>(null);
 
   const register = async (executorContractId: string, proposal: RegistryProposal): Promise<UnscheduledEntry> => {
-    const { transactionId } = await executeTransaction(buildCreateProposalCall(executorContractId, proposal));
-    const entry = {
+    const entryOf = (registrationTransactionId: string): UnscheduledEntry => ({
       executorContractId,
       target: proposal.target,
       calldata: proposal.calldata,
-      registrationTransactionId: transactionId,
+      registrationTransactionId,
       registryProposalId: null,
-    };
+    });
+    // A registration that went through after the deadline is kept too, so a retry only schedules it.
+    const { transactionId } = await executeStep(
+      buildCreateProposalCall(executorContractId, proposal),
+      { action: "register", step: 1, steps: 2 },
+      // Never over an entry already kept: that one is what a retry has gone on to schedule.
+      late => setUnscheduledEntry(kept => kept ?? entryOf(late.transactionId)),
+    );
+    const entry = entryOf(transactionId);
     setUnscheduledEntry(entry);
     return entry;
   };
@@ -77,13 +86,12 @@ export function useCreateProposal() {
     mutationFn: async ({ executorContractId, proposal, memo }: CreateProposalInput) => {
       const proposerId = requireAccountId();
 
-      const entry = isEntryFor(unscheduledEntry, executorContractId, proposal)
-        ? unscheduledEntry
-        : await register(executorContractId, proposal);
+      const resumed = isEntryFor(unscheduledEntry, executorContractId, proposal);
+      const entry = resumed ? unscheduledEntry : await register(executorContractId, proposal);
       const registryProposalId = await readEntryId(entry);
 
       const adminKey = await fetchAccountPublicKey(proposerId, network);
-      const scheduleResult = await executeTransaction(
+      const scheduleResult = await executeStep(
         buildProposalSchedule({
           innerTransaction: buildExecuteProposalCall({
             executorContractId,
@@ -95,6 +103,9 @@ export function useCreateProposal() {
           adminKey,
           memo,
         }),
+        resumed ? { action: "schedule", step: 1, steps: 1 } : { action: "schedule", step: 2, steps: 2 },
+        // Scheduled after the deadline after all: a second schedule on the entry would only revert.
+        () => setUnscheduledEntry(null),
       );
       // Scheduled: a second schedule on the same entry would revert and bill the treasury once the first ran.
       setUnscheduledEntry(null);
@@ -117,5 +128,5 @@ export function useCreateProposal() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: proposalInboxQueryKey(network) }),
   });
 
-  return { ...mutation, unscheduledEntry };
+  return { ...mutation, unscheduledEntry, walletRequest, lateSubmission };
 }

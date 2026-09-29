@@ -4,6 +4,7 @@ import { type ReactNode, createContext, useCallback, useContext, useMemo, useSta
 import { WIZARD_KINDS, type WizardKind } from "./kinds/wizardKinds";
 import type { MutationStatus } from "@tanstack/react-query";
 import { useSubmitProposalDraft } from "~~/hooks/useSubmitProposalDraft";
+import type { LateSubmission, WalletRequest } from "~~/hooks/useWalletRequest";
 import { type DraftPreview, type DraftResult, previewDraft } from "~~/services/governance/drafts";
 import { type UnscheduledEntry, isEntryFor } from "~~/services/governance/unscheduledEntry";
 
@@ -17,6 +18,10 @@ export type ProposalWizardState = {
   /** "pending" while the wallet signs and Mirror indexes the schedule, "success" once it has. */
   submitStatus: MutationStatus;
   submitError: Error | null;
+  /** The transaction the wallet is being asked to approve during a submit; null while nothing waits on it. */
+  walletRequest: WalletRequest | null;
+  /** A step the wizard stopped waiting for at its deadline and the network accepted after all. */
+  lateSubmission: LateSubmission | null;
   submit: () => void;
   /**
    * The registry entry an earlier submit of this same call registered but did not schedule; submitting
@@ -43,9 +48,13 @@ type ProposalWizardProviderProps = {
  * `submit`, so no consumer can start one that skips `onSubmitted`.
  */
 export const ProposalWizardProvider = ({ executorContractId, onSubmitted, children }: ProposalWizardProviderProps) => {
-  const { mutate, reset, status, error, unscheduledEntry } = useSubmitProposalDraft(executorContractId);
+  const { mutate, reset, status, error, unscheduledEntry, walletRequest, lateSubmission } =
+    useSubmitProposalDraft(executorContractId);
   const [kind, setKind] = useState<WizardKind>(WIZARD_KINDS[0]);
   const [draft, setDraft] = useState<DraftResult>(EMPTY_DRAFT);
+  // A late submission belongs to the kind it was sent for; choosing another kind dismisses it.
+  const [dismissedLate, setDismissedLate] = useState<LateSubmission | null>(null);
+  const visibleLate = lateSubmission !== dismissedLate ? lateSubmission : null;
 
   const preview = useMemo(() => (draft.status === "ready" ? previewDraft(draft.draft) : null), [draft]);
   const resumableEntry =
@@ -59,9 +68,10 @@ export const ProposalWizardProvider = ({ executorContractId, onSubmitted, childr
     (next: WizardKind) => {
       setKind(next);
       setDraft(EMPTY_DRAFT);
+      setDismissedLate(lateSubmission);
       reset();
     },
-    [reset],
+    [reset, lateSubmission],
   );
 
   const submit = useCallback(() => {
@@ -87,10 +97,12 @@ export const ProposalWizardProvider = ({ executorContractId, onSubmitted, childr
       preview,
       submitStatus: status,
       submitError: error,
+      walletRequest,
+      lateSubmission: visibleLate,
       submit,
       resumableEntry,
     }),
-    [kind, chooseKind, draft, preview, status, error, submit, resumableEntry],
+    [kind, chooseKind, draft, preview, status, error, walletRequest, visibleLate, submit, resumableEntry],
   );
 
   return <ProposalWizardContext.Provider value={value}>{children}</ProposalWizardContext.Provider>;

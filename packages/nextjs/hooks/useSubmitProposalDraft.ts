@@ -8,7 +8,8 @@ import type { ProposalDraft } from "~~/services/governance/drafts";
 
 /**
  * One submit for the wizard, whichever path the draft takes. Resolves to the new schedule id, and
- * passes on the registry entry a failed submit left unscheduled, which the same draft reuses.
+ * passes on the registry entry a failed submit left unscheduled, which the same draft reuses, and
+ * the request the wallet holds while it holds one, and a step the network accepted after its deadline.
  */
 export function useSubmitProposalDraft(executorContractId: string) {
   const createRegistryProposal = useCreateProposal();
@@ -35,5 +36,10 @@ export function useSubmitProposalDraft(executorContractId: string) {
     },
   });
 
-  return { ...mutation, unscheduledEntry: createRegistryProposal.unscheduledEntry };
+  return {
+    ...mutation,
+    unscheduledEntry: createRegistryProposal.unscheduledEntry,
+    walletRequest: createRegistryProposal.walletRequest ?? createNativeProposal.walletRequest,
+    lateSubmission: createRegistryProposal.lateSubmission ?? createNativeProposal.lateSubmission,
+  };
 }

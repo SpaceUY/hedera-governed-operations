@@ -86,4 +86,18 @@ describe("useSubmitProposalDraft", () => {
 
     expect(result.current.unscheduledEntry).toBe(entry);
   });
+
+  it("passes on the request the wallet holds, from whichever path is submitting", () => {
+    const request = { action: "schedule", step: 1, steps: 1, validForSeconds: 120 } as const;
+    vi.mocked(useCreateProposal).mockReturnValue({
+      mutateAsync: vi.fn(),
+      unscheduledEntry: null,
+      walletRequest: null,
+    } as never);
+    vi.mocked(useCreateNativeProposal).mockReturnValue({ mutateAsync: vi.fn(), walletRequest: request } as never);
+
+    const { result } = renderHook(() => useSubmitProposalDraft(EXECUTOR), { wrapper: createQueryWrapper() });
+
+    expect(result.current.walletRequest).toBe(request);
+  });
 });

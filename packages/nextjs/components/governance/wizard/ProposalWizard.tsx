@@ -3,7 +3,14 @@
 import { CouncilPreviewPanel, type HeadingLevel } from "./CouncilPreviewPanel";
 import { OperationTypePicker } from "./OperationTypePicker";
 import { useProposalWizard } from "./ProposalWizardProvider";
-import { OPEN_PROPOSAL_NOTICES, missingProposerRoleLabel, openProposalCopy, scheduleRegisteredEntryCopy } from "./copy";
+import {
+  OPEN_PROPOSAL_NOTICES,
+  lateSubmissionLabel,
+  missingProposerRoleLabel,
+  openProposalCopy,
+  scheduleRegisteredEntryCopy,
+  walletRequestLabel,
+} from "./copy";
 import { WIZARD_KIND_ENTRIES } from "./kinds/registry";
 import type { WizardKind } from "./kinds/wizardKinds";
 import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
@@ -46,10 +53,21 @@ function proposerNotice(
  */
 export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardProps) => {
   const { network, governanceAccountId } = config;
-  const { accountId, isConnected } = useHederaSigner();
+  const { accountId, isConnected, signerKind } = useHederaSigner();
   const council = useCouncil({ governanceAccountId, executorContractId: config.executor.hederaContractId, network });
-  const { kind, chooseKind, draft, setDraft, preview, submitStatus, submitError, submit, resumableEntry } =
-    useProposalWizard();
+  const {
+    kind,
+    chooseKind,
+    draft,
+    setDraft,
+    preview,
+    submitStatus,
+    submitError,
+    walletRequest,
+    lateSubmission,
+    submit,
+    resumableEntry,
+  } = useProposalWizard();
   const submitting = submitStatus === "pending";
 
   // A kind that cannot be proposed here says why in place of its form, before anything about roles.
@@ -101,8 +119,19 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
             copy.cta
           )}
         </button>
-        <p className="m-0 text-sm text-base-content/60 leading-normal">{copy.note}</p>
+        {walletRequest ? (
+          <p role="status" className="m-0 text-sm text-info leading-normal">
+            {walletRequestLabel(walletRequest, signerKind)}
+          </p>
+        ) : (
+          <p className="m-0 text-sm text-base-content/60 leading-normal">{copy.note}</p>
+        )}
         <MutationError error={submitError} />
+        {lateSubmission && (
+          <p role="status" className="m-0 text-sm text-info leading-normal">
+            {lateSubmissionLabel(lateSubmission)}
+          </p>
+        )}
       </div>
     </div>
   );

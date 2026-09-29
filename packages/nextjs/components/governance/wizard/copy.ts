@@ -6,8 +6,11 @@
  */
 import type { CouncilKey } from "@sh/core/governance/council";
 import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
+import type { LateSubmission, WalletRequest } from "~~/hooks/useWalletRequest";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 import type { UnscheduledEntry } from "~~/services/governance/unscheduledEntry";
+import { validityWindowLabel } from "~~/services/web3/hederaSigner";
+import type { HederaSignerKind } from "~~/services/web3/hederaSignerPort";
 
 /** The title a proposal of each kind goes by, and the short hint beside it in the picker. */
 export const PROPOSAL_KIND_COPY: Record<ProposalKind, { title: string; hint: string }> = {
@@ -86,6 +89,32 @@ export function scheduleRegisteredEntryCopy(entry: UnscheduledEntry): { cta: str
       `This call is already registered (transaction ${entry.registrationTransactionId}); the last attempt stopped ` +
       `before its schedule. One transaction: it schedules ${name} and does not register the call again.`,
   };
+}
+
+const WALLET_REQUEST_ACTIONS: Record<WalletRequest["action"], string> = {
+  register: "register the call in the registry",
+  schedule: "schedule the call for the council",
+};
+
+/**
+ * Where to act while the submit waits on a signature. The test signer signs on its own, so only
+ * HashPack is named, with the window after which the network would refuse the transaction.
+ */
+export function walletRequestLabel(request: WalletRequest, signerKind: HederaSignerKind): string {
+  const step = `Step ${request.step} of ${request.steps}: ${WALLET_REQUEST_ACTIONS[request.action]}.`;
+  if (signerKind === "burner") return `${step} Signing with the test signer…`;
+  return `${step} Approve it in HashPack — the request is valid for ${validityWindowLabel(request.validForSeconds)}.`;
+}
+
+/**
+ * A step the wizard stopped waiting for and the network accepted anyway — possible only when this
+ * computer's clock runs ahead of the network's. Said rather than dropped, since it created something.
+ */
+export function lateSubmissionLabel(late: LateSubmission): string {
+  return (
+    `HashPack sent step ${late.step} of ${late.steps} after the wizard stopped waiting, and the network accepted it ` +
+    `(transaction ${late.transactionId}). The proposals are refreshed; check them before trying again.`
+  );
 }
 
 /** What the wizard says about who may open a proposal, around the form rather than inside it. */
