@@ -51,6 +51,15 @@ describe("VAULT_UPGRADE_COPY.release", () => {
     expect(read({ status: "unreadable" })).toBe("Couldn't read the release topic 0.0.4242.");
   });
 
+  it("says a topic anyone can publish to, or a deleted one, vouches for nothing", () => {
+    expect(read({ status: "unsigned", reason: "noSubmitKey" })).toBe(
+      "Topic 0.0.4242 has no submit key, so anyone can publish a release on it — its releases prove nothing, and the co-signing agent will not use it.",
+    );
+    expect(read({ status: "unsigned", reason: "deleted" })).toBe(
+      "Topic 0.0.4242 is deleted, so no release on it can vouch for this implementation, and the co-signing agent will not use it.",
+    );
+  });
+
   it("says it is checking while the read is in flight", () => {
     expect(read({ status: "loading" })).toBe("Checking the releases on topic 0.0.4242…");
   });

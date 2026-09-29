@@ -1,8 +1,7 @@
 "use client";
 
 import { type ReleaseCheckState, VAULT_UPGRADE_COPY } from "./copy";
-import type { ManifestCheck } from "@sh/core/governance/releaseManifest";
-import { useReleaseCheck } from "~~/hooks/mirror/useReleaseCheck";
+import { type ReleaseTopicAnswer, useReleaseCheck } from "~~/hooks/mirror/useReleaseCheck";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 type ReleaseLineProps = {
@@ -24,8 +23,8 @@ const toneOf = (state: ReleaseCheckState): string => {
   return TONE.notVouched;
 };
 
-const stateOf = ({ data, isError }: { data: ManifestCheck | undefined; isError: boolean }): ReleaseCheckState => {
-  if (data) return { status: "read", check: data };
+const stateOf = ({ data, isError }: { data: ReleaseTopicAnswer | undefined; isError: boolean }): ReleaseCheckState => {
+  if (data) return data;
   if (isError) return { status: "unreadable" };
   return { status: "loading" };
 };

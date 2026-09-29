@@ -1,10 +1,17 @@
 import type { ManifestCheck } from "@sh/core/governance/releaseManifest";
+import type { UnsignedTopicReason } from "@sh/core/mirror";
+import type { ReleaseTopicAnswer } from "~~/hooks/mirror/useReleaseCheck";
 
 /** What the upgrade form knows about the release topic's answer at a given moment. */
-export type ReleaseCheckState =
-  | { status: "loading" }
-  | { status: "unreadable" }
-  | { status: "read"; check: ManifestCheck };
+export type ReleaseCheckState = { status: "loading" } | { status: "unreadable" } | ReleaseTopicAnswer;
+
+/** The co-signing agent refuses to start on such a topic, so the line says why nothing on it counts. */
+const UNSIGNED_TOPIC: Record<UnsignedTopicReason, (topicId: string) => string> = {
+  noSubmitKey: topicId =>
+    `Topic ${topicId} has no submit key, so anyone can publish a release on it — its releases prove nothing, and the co-signing agent will not use it.`,
+  deleted: topicId =>
+    `Topic ${topicId} is deleted, so no release on it can vouch for this implementation, and the co-signing agent will not use it.`,
+};
 
 const releaseAnswer = (check: ManifestCheck, topicId: string): string => {
   if (check.matched) {
@@ -31,6 +38,7 @@ export const VAULT_UPGRADE_COPY = {
   release: (state: ReleaseCheckState, topicId: string): string => {
     if (state.status === "loading") return `Checking the releases on topic ${topicId}…`;
     if (state.status === "unreadable") return `Couldn't read the release topic ${topicId}.`;
+    if (state.status === "unsigned") return UNSIGNED_TOPIC[state.reason](topicId);
     return releaseAnswer(state.check, topicId);
   },
   releaseTopicLink: "View the topic on HashScan",

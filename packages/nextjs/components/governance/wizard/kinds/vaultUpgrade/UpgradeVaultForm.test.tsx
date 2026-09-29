@@ -37,7 +37,10 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const NOT_NAMED = { matched: false, reason: "", failure: "notNamed", searched: "topic" } as const;
+const NOT_NAMED = {
+  status: "read",
+  check: { matched: false, reason: "", failure: "notNamed", searched: "topic" },
+} as const;
 
 const renderForm = () => {
   const onDraftChange = vi.fn<(result: DraftResult) => void>();

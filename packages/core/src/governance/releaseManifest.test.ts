@@ -137,13 +137,21 @@ describe("assertReleaseTopicIsSigned", () => {
   it("refuses a topic anyone can publish to, which is what makes its manifests unsigned claims", async () => {
     mockTopicKeys(null);
 
-    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toThrow(/has no submit key/);
+    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toMatchObject({
+      name: "UnsignedTopicError",
+      reason: "noSubmitKey",
+      message: expect.stringMatching(/has no submit key/),
+    });
   });
 
   it("refuses a deleted topic", async () => {
     mockTopicKeys({ _type: "ED25519", key: "302a300506032b6570032100aa" }, true);
 
-    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toThrow(/is deleted/);
+    await expect(assertReleaseTopicIsSigned(TOPIC)).rejects.toMatchObject({
+      name: "UnsignedTopicError",
+      reason: "deleted",
+      message: expect.stringMatching(/is deleted/),
+    });
   });
 });
 
