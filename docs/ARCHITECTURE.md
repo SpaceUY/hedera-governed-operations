@@ -595,6 +595,9 @@ never written. A skip says nothing about the policy. An approval whose `Schedule
 back until the signature lands, because "approved" on the topic next to a schedule the agent never
 signed is a record that reads as a lie. Each message costs a fee, so a verdict is published once and
 again only when it changes — otherwise an unchanged inbox would pay four times a minute for ever.
+What was already published is read back off the topic at boot, the agent's newest message per
+proposal, so a restart does not pay again for it; the topic is the memory, not a file beside the
+process.
 
 Custody in the demo is a private key in the environment, which is right for a testnet fixture and
 wrong for anything else. Signing is a single injected function (`SignSchedule`), so a real seat
