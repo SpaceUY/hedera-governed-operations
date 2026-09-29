@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SeatAvatar } from "./SeatAvatar";
 import { MEMBER_COPY, signedWhenAriaLabel, signedWhenLabel } from "./copy";
 import { monogramOf } from "~~/components/governance/graph/geometry";
 
@@ -14,7 +15,8 @@ export type CouncilMemberRowProps = {
   /** The account holding the seat, shown under the name when the name is not already it. */
   accountId?: string;
   isViewer: boolean;
-  state: SeatState;
+  /** Whether it has signed; absent where the list is about who sits, not about a proposal. */
+  state?: SeatState;
   /** In place of the state: the viewer's own Sign button, on the viewer's own row only. */
   action?: ReactNode;
   /** When the seat's signature landed, and that transaction on HashScan; a signed seat without one reads "Signed". */
@@ -41,14 +43,10 @@ export const CouncilMemberRow = ({
   signature,
 }: CouncilMemberRowProps) => (
   <li className="flex items-center gap-3 border-t border-base-300 py-2 first:border-t-0">
-    <span
-      aria-hidden="true"
-      className={`flex size-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${
-        state === "signed" ? "border-success" : "border-base-content/30"
-      }`}
-    >
-      {isViewer ? MEMBER_COPY.you : (monogram ?? monogramOf(name))}
-    </span>
+    <SeatAvatar
+      label={isViewer ? MEMBER_COPY.you : (monogram ?? monogramOf(name))}
+      tone={state === "signed" ? "signed" : "plain"}
+    />
     <span className="flex min-w-0 flex-1 flex-col">
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
         {name}
@@ -57,14 +55,14 @@ export const CouncilMemberRow = ({
       </span>
       {accountId && accountId !== name && <span className="text-xs text-base-content/60">{accountId}</span>}
     </span>
-    {action ??
-      (state === "signed" && signature ? (
-        <SignedWhen name={name} signature={signature} />
-      ) : (
-        <span className={`shrink-0 ${STATE_CLASSES[state]}`}>{MEMBER_COPY[state]}</span>
-      ))}
+    {action ?? (state && <SeatStatus name={name} state={state} signature={signature} />)}
   </li>
 );
+
+const SeatStatus = ({ name, state, signature }: { name: string; state: SeatState; signature?: MemberSignature }) => {
+  if (state === "signed" && signature) return <SignedWhen name={name} signature={signature} />;
+  return <span className={`shrink-0 ${STATE_CLASSES[state]}`}>{MEMBER_COPY[state]}</span>;
+};
 
 const SignedWhen = ({ name, signature }: { name: string; signature: MemberSignature }) => {
   const when = signedWhenLabel(signature.at);
