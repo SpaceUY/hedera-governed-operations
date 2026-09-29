@@ -1,4 +1,5 @@
 import { GovernanceMap } from "./GovernanceMap";
+import { MapDecoratorProvider } from "./MapDecoratorContext";
 import { MAP_SNAPSHOT } from "./mapFixtures";
 import type { MapDecorator } from "./mapModel";
 import { render, screen } from "@testing-library/react";
@@ -70,12 +71,16 @@ describe("GovernanceMap", () => {
     expect(screen.getByRole("complementary", { name: "Legend" })).toBeTruthy();
   });
 
-  it("lets a decoration place and name the nodes", () => {
+  it("lets the host's decoration place and name the nodes", () => {
     mockReads(COUNCIL_READ);
     const decorate: MapDecorator = () => ({
       layout: { width: 500, height: 400, positions: {}, labels: { [GOVERNANCE_ACCOUNT_NODE_ID]: "The treasury" } },
     });
-    render(<GovernanceMap config={CONFIG} decorate={decorate} />);
+    render(
+      <MapDecoratorProvider decorate={decorate}>
+        <GovernanceMap config={CONFIG} />
+      </MapDecoratorProvider>,
+    );
     expect(screen.getByText("The treasury")).toBeTruthy();
     expect(screen.getByRole("graphics-document").getAttribute("viewBox")).toBe("0 0 500 400");
   });

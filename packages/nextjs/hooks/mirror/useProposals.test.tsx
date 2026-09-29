@@ -1,10 +1,16 @@
+import { getDefaultMirrorNetwork } from "./mirrorQuery";
+import { recordSentCancel, sentCancelsQueryKey } from "./sentCancels";
 import { createQueryWrapper, jsonResponse } from "./testUtils";
-import { useProposals } from "./useProposals";
+import { proposalInboxQueryKey, useProposals } from "./useProposals";
+import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
 import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
+import type { ProposalInbox } from "@sh/core/governance/proposals";
+import { type RegistryCrossCheck, fetchRegistryEntries } from "@sh/core/governance/registry";
 import type { MirrorSchedule } from "@sh/core/mirror";
 import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import rowsAtExecution from "@sh/core/mirror/__fixtures__/transactions-at-executed.json";
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The proposers come from the JSON-RPC relay, which viem cannot reach under jsdom; the rest of the
@@ -13,6 +19,12 @@ vi.mock("@sh/core/governance/council", async () => ({
   ...(await vi.importActual<typeof import("@sh/core/governance/council")>("@sh/core/governance/council")),
   fetchCouncilKey: vi.fn(),
   fetchProposerAccountIds: vi.fn(),
+}));
+
+// The registry is read through the relay as well; no test here reaches it unless it says so.
+vi.mock("@sh/core/governance/registry", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/governance/registry")>()),
+  fetchRegistryEntries: vi.fn().mockResolvedValue(new Map()),
 }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.10590498";
@@ -127,5 +139,42 @@ describe("useProposals", () => {
     const { result } = renderHook(() => useProposals(options), { wrapper: createQueryWrapper() });
 
     await waitFor(() => expect(result.current.council.data?.key).toEqual(council));
+  });
+
+  it("reads an entry whose cancel was just sent as cancelled, without writing that into the cache", async () => {
+    const pendingEntry = {
+      status: "read",
+      entry: { proposalId: 7, state: "pending", target: "0x0", proposer: "0x0", calldata: "0x", operation: {} },
+    } as unknown as RegistryCrossCheck;
+    vi.mocked(fetchRegistryEntries).mockResolvedValue(new Map([[7, pendingEntry]]));
+    stubMirrorWith(
+      proposalPage({
+        executed_timestamp: null,
+        expiration_time: null,
+        transaction_body: recorded.registryCall.transactionBody,
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useProposals(options), { wrapper: createQueryWrapper(queryClient) });
+    const entryState = () => {
+      const registry = result.current.inbox.data?.proposals[0]?.registry;
+      return registry?.status === "read" ? registry.entry.state : undefined;
+    };
+    await waitFor(() => expect(entryState()).toBe("pending"));
+
+    const network = getDefaultMirrorNetwork();
+    act(() =>
+      recordSentCancel(queryClient, sentCancelsQueryKey(network, options.executorContractId), {
+        proposalId: 7,
+        sentAt: Date.now(),
+      }),
+    );
+
+    await waitFor(() => expect(entryState()).toBe("cancelled"));
+    const cached = queryClient
+      .getQueriesData<ProposalInbox>({ queryKey: proposalInboxQueryKey(network) })
+      .map(([, data]) => data)
+      .find(data => data?.proposals);
+    expect(cached?.proposals[0].registry).toMatchObject({ entry: { state: "pending" } });
   });
 });

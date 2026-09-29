@@ -6,7 +6,7 @@ This is a **Hedera template with four workspaces**: `packages/core` (the governa
 
 <!-- TODO(product): update the product sentence above once the shipped feature set is decided. -->
 
-The governance UI owns `/` as the **live map**: `app/(governance)/layout.tsx` hosts `/`, `/governance/[scheduleId]` and `/governance/new` as one fold below the header — a map pane (treasury figures and the council's threshold, a status line, the map) that never scrolls, and a right rail that renders the route's page (the pending proposals, a proposal's detail with Sign, Withdraw and Cancel, or the wizard). The layout runs the setup guard once and provides the config (`useGovernanceConfig()`) and the wizard's draft (`ProposalWizardProvider`) to both panes. The screens are backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`). Proof Wall moved to `/proof-wall`; its pages live in `app/(site)/`, whose layout adds the footer, and the header links only Live map and Proof wall (My Proofs, Admin and Explorer are linked from the Proof Wall page). `/governance/new` opens a proposal: a vault upgrade or a supplier payment so far, previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
+The governance UI owns `/` as the **live map**: `app/(governance)/layout.tsx` hosts `/`, `/governance/[scheduleId]` and `/governance/new` as one fold below the header — a map pane (treasury figures and the council's threshold, the map) that never scrolls, and a right rail that renders the route's page (the pending proposals, a proposal's detail with Sign, Withdraw and Cancel, or the wizard). The layout runs the setup guard once and provides the config (`useGovernanceConfig()`) and the wizard's draft (`ProposalWizardProvider`) to both panes. The screens are backed by `useProposals`, `useProposalLookup`, `useTreasuryFigures` and the mutation hooks (`useCreateProposal`, `useCreateNativeProposal`, `useSignProposal`, `useWithdrawProposal`, `useCancelProposal`, and `useCancelProposalFlow`, which deletes a live schedule before cancelling its entry). Proof Wall moved to `/proof-wall`; its pages live in `app/(site)/`, whose layout adds the footer, and the header links only Live map and Proof wall (My Proofs, Admin and Explorer are linked from the Proof Wall page). `/governance/new` opens a proposal: a vault upgrade or a supplier payment so far, previewed through the same decoders the detail page uses. See `docs/GOVERNANCE_UI.md` for how the screens are built (layout, setup guard, which actions a proposal offers and to whom, the copy for its state) before working in this area.
 
 Use Yarn (`packageManager` in the root `package.json`). Never switch the workspace to npm or pnpm.
 
@@ -48,7 +48,7 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 | Route                      | Purpose                                                                                                                                                                          |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below; a setup notice until `yarn setup` and the deploy have run |
+| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below under "Recent"; the selected one (`?schedule=`) opens its detail under its card; a setup notice until `yarn setup` and the deploy have run |
 | `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)                                                |
 | `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                                                                  |
 | `/proof-wall`              | Proof Wall — submit proofs, browse HCS feed for the active topic                                                                                                                 |
@@ -105,7 +105,7 @@ packages/nextjs/
     (site)/               layout.tsx adds the footer; proof-wall, my-proofs, admin, explorer
     api/hedera/           Mirror Node proxies, operator helpers, airdrop, badge check
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ProofWall, SubmitProofForm, TopicSelector, BadgeDisplay, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError and the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview)
+    governance/           GovernanceProvider (config + wizard draft for the live map), TreasuryStrip, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, forms, preview) and rail/ (pending list, operation cards, search, proposal detail)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, ring, legend); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
   hooks/
@@ -118,7 +118,10 @@ packages/nextjs/
     mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
+      useProposalLookup.ts  One proposal by schedule id, listed or not; the detail page and the rail's search
+      sentCancels.ts        Cancels just sent, kept reading "cancelled" until the relay catches up
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
+      useTreasuryFigures.ts Treasury balances plus the vault's reserve
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
       useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation, the entry after a registry call) when a proposal settles
       useMapSnapshot.ts     Inbox, council and treasury as one snapshot, plus the events since the previous read

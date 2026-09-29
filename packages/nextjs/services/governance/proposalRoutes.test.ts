@@ -18,9 +18,11 @@ const UPGRADE = {
   initializer: { kind: "none" },
 } as const;
 
+const PROPOSER = "0x0000000000000000000000000000000000009001";
+
 const READ_ENTRY: RegistryCrossCheck = {
   status: "read",
-  entry: { proposalId: 7, state: "pending", target: VAULT, calldata: "0x", operation: UPGRADE },
+  entry: { proposalId: 7, state: "pending", target: VAULT, proposer: PROPOSER, calldata: "0x", operation: UPGRADE },
 };
 
 const REGISTRY_CALL = {

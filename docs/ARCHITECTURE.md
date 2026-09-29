@@ -310,7 +310,8 @@ read `proposal(id)` from `GovernedExecutor` through the relay and decode the cal
 
 That second read is also the cross-check. `proposal(id)` returns the target, the stored calldata and
 the state in one answer, so asking what a proposal does and asking whether it is still alive are the
-same relay call, made once per pending proposal.
+same relay call, made once per entry whose answer can still change: every registry call, whatever its
+schedule's state, and not again once an entry has read cancelled or executed.
 
 **Nothing throws on a body it does not understand.** Anyone can open a schedule the governance
 account pays for, so the inbox will meet bodies that are none of the five kinds. Every failure comes
