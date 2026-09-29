@@ -248,6 +248,7 @@ export const CANCEL_COPY = {
   keep: "Keep it",
   progress: {
     withdrawing: "Step 1 of 2 — approve deleting the schedule in your wallet.",
+    confirmingWithdraw: "Step 1 of 2 — confirming the delete on the network before asking for the cancel…",
     cancellingAfterWithdraw: "Step 2 of 2 — approve the cancel in your wallet.",
     cancelling: "Approve the cancel in your wallet.",
   },

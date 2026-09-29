@@ -1,4 +1,6 @@
 import { useCancelProposalFlow } from "./useCancelProposalFlow";
+import { ScheduleDeleteRefusedError } from "./useWithdrawProposal";
+import { type MirrorTransaction, fetchTransaction } from "@sh/core/mirror";
 import { QueryClient } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +8,18 @@ import { createQueryWrapper } from "~~/hooks/mirror/testUtils";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
+  fetchTransaction: vi.fn(),
+}));
+// Poll without waiting, so the not-yet-indexed path runs at test speed.
+vi.mock("~~/utils/scaffold-hbar/waitForMirrorIndexing", async importOriginal => ({
+  ...(await importOriginal<typeof import("~~/utils/scaffold-hbar/waitForMirrorIndexing")>()),
+  MIRROR_INDEXING_RETRY_DELAYS_MS: [0, 0],
+}));
+
+/** The Mirror row a ScheduleDelete leaves, with the result consensus gave it. */
+const deleteRow = (result: string) => [{ name: "SCHEDULEDELETE", result }] as unknown as MirrorTransaction[];
 
 const SCHEDULE_ID = "0.0.10765804";
 const EXECUTOR_CONTRACT_ID = "0.0.10746059";
@@ -25,6 +39,7 @@ beforeEach(() => {
   executeTransaction = vi.fn().mockResolvedValue({ transactionId: "0.0.1@1.0" });
   vi.mocked(useHederaSigner).mockReturnValue({ executeTransaction } as never);
   callbacks = { onWithdrawn: vi.fn(), onCancelled: vi.fn() };
+  vi.mocked(fetchTransaction).mockReset().mockResolvedValue(deleteRow("SUCCESS"));
 });
 
 function renderFlow(withdrawFirst: boolean, queryClient = new QueryClient()) {
@@ -92,6 +107,38 @@ describe("useCancelProposalFlow", () => {
 
     await act(() => result.current.start());
     expect(sent(executeTransaction)).toEqual(["delete", "cancel", "cancel"]);
+    await waitFor(() => expect(result.current.step).toBe("cancelled"));
+  });
+
+  it("sends no cancel after a delete the network refused, and leaves the schedule to withdraw again", async () => {
+    vi.mocked(fetchTransaction).mockResolvedValue(deleteRow("INVALID_SIGNATURE"));
+    const { result } = renderFlow(true);
+    await act(() => result.current.start());
+
+    expect(sent(executeTransaction)).toEqual(["delete"]);
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(ScheduleDeleteRefusedError));
+    expect(result.current.step).toBe("idle");
+    expect(callbacks.onWithdrawn).not.toHaveBeenCalled();
+    expect(callbacks.onCancelled).not.toHaveBeenCalled();
+  });
+
+  it("waits for the delete to be confirmed before asking for the cancel", async () => {
+    let answer: (rows: MirrorTransaction[]) => void = () => undefined;
+    vi.mocked(fetchTransaction).mockReturnValue(new Promise(resolve => (answer = resolve)));
+    const { result } = renderFlow(true);
+    let started: Promise<void> = Promise.resolve();
+    act(() => {
+      started = result.current.start();
+    });
+
+    await waitFor(() => expect(result.current.step).toBe("confirmingWithdraw"));
+    expect(sent(executeTransaction)).toEqual(["delete"]);
+
+    await act(async () => {
+      answer(deleteRow("SUCCESS"));
+      await started;
+    });
+    expect(sent(executeTransaction)).toEqual(["delete", "cancel"]);
     await waitFor(() => expect(result.current.step).toBe("cancelled"));
   });
 

@@ -21,16 +21,26 @@ export type CancelFlowCallbacks = {
 /**
  * - `idle`: nothing sent yet, or the last attempt was refused before anything changed.
  * - `withdrawing` / `cancelling`: the wallet is asked for step 1 or step 2.
+ * - `confirmingWithdraw`: step 1 was sent, and the flow waits for the network to accept the delete
+ *   before it asks for step 2.
  * - `withdrawnNotCancelled`: the schedule is gone but the entry is still pending — step 2 failed, was
  *   rejected, or has not been asked for yet. Starting again sends the cancel alone.
  * - `cancelled`: both done.
  */
-export type CancelFlowStep = "idle" | "withdrawing" | "cancelling" | "withdrawnNotCancelled" | "cancelled";
+export type CancelFlowStep =
+  | "idle"
+  | "withdrawing"
+  | "confirmingWithdraw"
+  | "cancelling"
+  | "withdrawnNotCancelled"
+  | "cancelled";
 
 /**
  * Cancel as one guided action: delete the live schedule, then `cancel(id)` — two wallet approvals,
  * in that order, since a schedule left alive on a cancelled entry can still reach its threshold,
- * revert and bill the governance account. With nothing live to delete it is the cancel alone.
+ * revert and bill the governance account. With nothing live to delete it is the cancel alone. The
+ * cancel is only asked for once the delete is confirmed on Mirror (`useWithdrawProposal`): a delete
+ * refused at consensus stops the flow with the schedule still live, and nothing is cancelled.
  *
  * Whether the schedule is already gone is read from the mutation cache, not from this hook's state:
  * Mirror reports a deleted schedule as live for a few seconds, and the card holding this panel moves
@@ -75,7 +85,12 @@ export function useCancelProposalFlow(target: CancelFlowTarget, { onWithdrawn, o
 
 type MutationFacts = { isPending: boolean; isSuccess: boolean };
 
-function stepOf(withdraw: MutationFacts, cancel: MutationFacts, withdrawnHere: boolean): CancelFlowStep {
+function stepOf(
+  withdraw: MutationFacts & { isConfirming: boolean },
+  cancel: MutationFacts,
+  withdrawnHere: boolean,
+): CancelFlowStep {
+  if (withdraw.isConfirming) return "confirmingWithdraw";
   if (withdraw.isPending) return "withdrawing";
   if (cancel.isPending) return "cancelling";
   if (cancel.isSuccess) return "cancelled";

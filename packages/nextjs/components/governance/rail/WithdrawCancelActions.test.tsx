@@ -195,6 +195,14 @@ describe("WithdrawCancelActions", () => {
     expect(screen.queryByRole("button", { name: "Withdraw my approval round" })).toBeNull();
   });
 
+  it("says the delete is being confirmed before the cancel is asked for", () => {
+    mockFlow("confirmingWithdraw");
+    renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }));
+    expect(screen.getByRole("status").textContent).toBe(
+      "Step 1 of 2 — confirming the delete on the network before asking for the cancel…",
+    );
+  });
+
   it("says the schedule is withdrawn but the entry is not cancelled after step 2 failed, and offers the cancel alone", () => {
     mockFlow("withdrawnNotCancelled", Object.assign(new Error("User rejected"), { code: 5000 }));
     renderActions(baseProposal({ registry: cancellableEntry(PROPOSER_EVM) }));

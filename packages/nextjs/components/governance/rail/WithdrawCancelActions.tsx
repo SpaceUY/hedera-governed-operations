@@ -47,6 +47,7 @@ const Note = ({ children }: { children: ReactNode }) => <p className="m-0 text-x
 
 const PROGRESS_OF: Partial<Record<CancelFlowStep, (withdrawFirst: boolean) => string>> = {
   withdrawing: () => CANCEL_COPY.progress.withdrawing,
+  confirmingWithdraw: () => CANCEL_COPY.progress.confirmingWithdraw,
   cancelling: withdrawFirst =>
     withdrawFirst ? CANCEL_COPY.progress.cancellingAfterWithdraw : CANCEL_COPY.progress.cancelling,
 };
@@ -108,7 +109,11 @@ export const WithdrawCancelActions = ({
   const showCancel =
     entryId != null && (authorizing || authorized || scheduleGoneHere || proposal.state.status !== "pending");
   const showWithdraw = canBeWithdrawnBy(proposal, accountId) && !scheduleGoneHere;
-  const busy = withdraw.isPending || flow.step === "withdrawing" || flow.step === "cancelling";
+  const busy =
+    withdraw.isPending ||
+    flow.step === "withdrawing" ||
+    flow.step === "confirmingWithdraw" ||
+    flow.step === "cancelling";
 
   // The control that opened or closed the confirmation is gone once it did: focus follows to its replacement.
   const wasConfirming = useRef(confirming);
