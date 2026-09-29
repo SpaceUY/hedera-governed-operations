@@ -6,10 +6,12 @@ import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider
 import { memberNamesOf } from "~~/components/governance/graph/mapModel";
 import { useLatestComposedMap } from "~~/components/governance/graph/useComposedMap";
 import type { SeatNaming } from "~~/components/governance/rail/councilSeats";
+import { ContractRolesCard } from "~~/components/governance/settings/ContractRolesCard";
 import { CouncilCard } from "~~/components/governance/settings/CouncilCard";
 import { SETTINGS_COPY } from "~~/components/governance/settings/copy";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
+import { useRegistryRoles } from "~~/hooks/mirror/useRegistryRoles";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 
@@ -23,6 +25,7 @@ export default function SettingsPage() {
   const config = useGovernanceConfig();
   const { network, governanceAccountId, executor } = config;
   const council = useCouncil({ governanceAccountId, executorContractId: executor.hederaContractId, network });
+  const roles = useRegistryRoles({ executorContractId: executor.hederaContractId, network });
   const { composed } = useLatestComposedMap(config);
   const agent = useCoSigningAgent(network);
   const { accountId } = useHederaSigner();
@@ -44,6 +47,13 @@ export default function SettingsPage() {
       </div>
       <div className="flex flex-col gap-4 px-6 py-5 wrap-anywhere">
         <CouncilCard council={council.data} unreadable={council.isError} naming={naming} />
+        <ContractRolesCard
+          roles={roles.data}
+          rolesUnreadable={roles.isError}
+          council={council.data}
+          config={config}
+          naming={naming}
+        />
       </div>
     </div>
   );

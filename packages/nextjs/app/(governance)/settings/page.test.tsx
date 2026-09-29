@@ -7,7 +7,7 @@ vi.mock("~~/components/governance/GovernanceProvider", () => ({
   useGovernanceConfig: () => ({
     network: "testnet",
     governanceAccountId: "0.0.500",
-    executor: { hederaContractId: "0.0.600" },
+    executor: { hederaContractId: "0.0.600", address: "0x5aF0000000000000000000000000000000000Abc" },
   }),
 }));
 vi.mock("~~/hooks/mirror/useCouncil", () => ({
@@ -18,6 +18,12 @@ vi.mock("~~/hooks/mirror/useCouncil", () => ({
       proposers: [],
       unresolvableProposers: [],
     },
+    isError: false,
+  }),
+}));
+vi.mock("~~/hooks/mirror/useRegistryRoles", () => ({
+  useRegistryRoles: () => ({
+    data: { executors: [], proposerAdmins: [], executorAdmins: [] },
     isError: false,
   }),
 }));
@@ -38,5 +44,11 @@ describe("SettingsPage", () => {
     render(<SettingsPage />);
     expect(screen.getByRole("heading", { level: 2, name: SETTINGS_COPY.council.heading })).toBeTruthy();
     expect(screen.getByText("2-of-3")).toBeTruthy();
+  });
+
+  it("shows the registry's roles without reading its proposal count", () => {
+    render(<SettingsPage />);
+    expect(screen.getByRole("heading", { level: 2, name: SETTINGS_COPY.roles.heading })).toBeTruthy();
+    expect(screen.queryByText(/proposalCount|entries registered/i)).toBeNull();
   });
 });

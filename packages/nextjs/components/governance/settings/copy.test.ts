@@ -20,3 +20,14 @@ describe("SETTINGS_COPY.council", () => {
     );
   });
 });
+
+describe("SETTINGS_COPY.roles", () => {
+  it("describes the registry's roles and why changing them is a proposal", () => {
+    expect(SETTINGS_COPY.roles.heading).toBe("Contract roles · EVM · proposal registry");
+    expect(SETTINGS_COPY.roles.onlyTreasury("0.0.7")).toBe("Treasury account 0.0.7 — the only holder");
+    expect(SETTINGS_COPY.roles.registryItself).toBe("The registry itself");
+    expect(SETTINGS_COPY.roles.note).toBe(
+      "Because the registry administers its own roles, changing who may propose is itself a proposal the council approves.",
+    );
+  });
+});
