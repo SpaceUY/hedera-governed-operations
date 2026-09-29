@@ -13,9 +13,11 @@ export function isHederaAccountId(value: string | null | undefined): value is st
 
 /**
  * The EVM address an entity answers to by its number alone — the "long-zero" form, as the SDK's
- * `toEvmAddress` writes it — for an account, a token or a contract alike. The EVM and the token system
- * contract resolve it to the same entity as any alias the entity may also have, so it is the form to
- * write into calldata when all that is known is a `0.0.x` id.
+ * `toEvmAddress` writes it — for an account, a token or a contract alike. It is not interchangeable
+ * with an alias: the token system contract refuses the long-zero address of an account that has an
+ * EVM alias (`INVALID_ACCOUNT_ID`, measured on testnet on a freeze), so an account goes into calldata
+ * as the address the Mirror Node reports for it (`evm_address`), and this form is for tokens,
+ * contracts and accounts known to have no alias.
  */
 export function longZeroAddress(entityId: string): `0x${string}` {
   if (!isHederaAccountId(entityId)) throw new Error(`${entityId} is not an entity id of the form shard.realm.num`);
