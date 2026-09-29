@@ -26,7 +26,14 @@ import type { DecodedOperation } from "~~/services/governance/proposalRoutes";
  * propose as a member. It is drawn faded, is never connected, and never enters the graph a diff or a
  * preview reads.
  */
-export type GhostNode = { id: string; label: string; caption: string; position: Point };
+export type GhostNode = {
+  id: string;
+  label: string;
+  caption: string;
+  position: Point;
+  /** In the circle, in place of the label's first letter. */
+  monogram?: string;
+};
 
 export type MapContext = { nodes: readonly GraphNode[]; proposers: GraphSnapshot["proposers"] };
 
@@ -35,7 +42,15 @@ export type MapDecoration = {
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
+  /**
+   * What the layout leaves out: nodes, with every edge that touches them, and single edges by id —
+   * real entities and permissions the ledger has but a hand-composed story has no place for. Only
+   * what is drawn changes; nothing is read differently.
+   */
+  hidden?: HiddenParts;
 };
+
+export type HiddenParts = { nodes?: readonly string[]; edges?: readonly string[] };
 
 /** Places and names the nodes of one graph; called with the nodes as the ledger produced them. */
 export type MapDecorator = (context: MapContext) => MapDecoration;
@@ -97,10 +112,22 @@ export function composeMap(
   const viewerSeat = viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
   const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
 
+  const graph = deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } });
   return {
-    graph: deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } }),
+    graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
     ghosts: decoration?.ghosts ?? [],
+  };
+}
+
+function withoutHidden(graph: GovernanceGraph, { nodes = [], edges = [] }: HiddenParts): GovernanceGraph {
+  if (nodes.length === 0 && edges.length === 0) return graph;
+  return {
+    ...graph,
+    nodes: graph.nodes.filter(node => !nodes.includes(node.id)),
+    edges: graph.edges.filter(
+      edge => !edges.includes(edge.id) && !nodes.includes(edge.from) && !nodes.includes(edge.to),
+    ),
   };
 }
 
