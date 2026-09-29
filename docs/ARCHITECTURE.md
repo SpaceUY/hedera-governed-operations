@@ -4,18 +4,19 @@
 
 This template is a Next.js (App Router) app over a framework-free domain workspace, talking to Hedera through native services only:
 
-- **Hedera Consensus Service (HCS)** — topics and messages (the release topic and the co-signing agent's decision topic).
-- **Hedera Token Service (HTS)** — the demo token the council governs (pause and freeze through `TokenAdmin`).
+- **Account threshold keys** — the governance account's key is m of n over the council: who approves is account state, not a contract.
+- **Schedule Service** — a proposal is a scheduled transaction the governance account pays for; each member's `ScheduleSign` adds a signature, and the network executes it once the threshold is met.
+- **Smart Contract Service** — `GovernedExecutor` holds the registry of contract-backed proposals and who may open them; the vault, `TokenAdmin` and `SaucerSwapAdapter` are what the council governs.
+- **Hedera Token Service (HTS)** — the governed token, whose pause and freeze keys are `TokenAdmin`'s contract id.
+- **Hedera Consensus Service (HCS)** — the release manifests and the co-signing agent's decision log, each on a topic with a submit key.
 - **Mirror Node REST API** — every read: topic messages, accounts, tokens, transactions, schedules.
-- **HashPack via WalletConnect** (Reown AppKit + `@hashgraph/hedera-wallet-connect`) — every user-signed write.
+- **A WalletConnect wallet** (Reown AppKit + `@hashgraph/hedera-wallet-connect`) — every user-signed write. HashPack and Kabila both sign proposals; only Kabila signs the `ScheduleDelete` a withdrawal needs.
 - **Test signer** — a disposable ECDSA key injected by Hedera Harness (`localStorage["burnerWallet.pk"]`) that signs in place of HashPack during automated validation; same port, see [Signing port](#signing-port-hashpack-or-test-signer).
 - **Hiero SDK** (`@hiero-ledger/sdk`) — builds transactions on the client and on the server.
 
 The governance domain and the Mirror Node client live in `packages/core` (`@sh/core`), which imports no React and no `scaffold.config.ts`: the app is one consumer of it and the co-signing agent in `packages/agent` is another — see [The co-signing agent](#the-co-signing-agent). The dependency runs one way — the app imports the domain, never the reverse. Contracts live in `packages/hardhat` and reach the network through the Hedera JSON-RPC relay, not the Hiero SDK. No page or route signs server-side: the operator key read from the environment signs only in `yarn setup` and the release script, the agent signs with its own key, and the deployer signs at deploy time with the encrypted deployer key in `packages/hardhat/.env`.
 
-<!-- TODO(product): add the product-specific flow (governed operations or merchant rails) once the feature set is decided. -->
-
-_Product-specific flows: coming with the first release._
+How a proposal is listed, counted, read, withdrawn and signed by the agent is in the sections from [Governing an HTS token](#governing-an-hts-token-the-contract-as-the-tokens-key) on; the diagram below is the app's general shape.
 
 ```mermaid
 flowchart LR
@@ -222,10 +223,11 @@ back — but a deployment that needs an escape hatch gives the token an admin ke
 contract and an operation to re-point the keys, which is one more governed operation, not a
 loophole.
 
-**Cost.** Measured on testnet through the full chain, each operation consumes 65k–68k gas, refusals
-included, which puts the schedule's gas limit at 90,000. The limit is a price, not a ceiling (see
-the table above), so it belongs to the operation: a token-admin proposal is not an upgrade (99k) and
-not a swap (241k).
+**Cost.** Measured on testnet through the full chain: pause 65,128, unpause 65,084, freeze 67,734
+and unfreeze 67,789, which puts the schedule's gas limit at 90,000. The limit is a price, not a
+ceiling (see the table above), so it belongs to the operation: an upgrade runs at 150,000 and
+consumes 65,410, a treasury swap at 300,000 and consumes about 247,050. `PROPOSAL_TYPES` cites the
+transactions.
 
 ## The proposal inbox
 
