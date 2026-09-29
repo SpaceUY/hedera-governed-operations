@@ -138,6 +138,30 @@ export const MEMBER_COPY = {
   didNotSign: "Didn't sign",
 } as const;
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const SIGNED_DATE_FORMAT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+
+/** "3h ago", in the largest whole unit: seconds, minutes, hours, then days. */
+function agoLabel(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`;
+  const days = Math.floor(seconds / 86_400);
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
+}
+
+/** When a member's signature landed: how long ago within a week, the short date after that. */
+export function signedWhenLabel(signedAt: Date, now: Date = new Date()): string {
+  const elapsed = now.getTime() - signedAt.getTime();
+  if (elapsed >= WEEK_MS) return `Signed ${signedAt.toLocaleDateString(undefined, SIGNED_DATE_FORMAT)}`;
+  return `Signed ${agoLabel(elapsed)}`;
+}
+
+/** The signature link's accessible name, which says where it goes. */
+export const signedWhenAriaLabel = (name: string, when: string) =>
+  `${name}: ${when.charAt(0).toLowerCase()}${when.slice(1)} — open the signature on HashScan`;
+
 /** The Sign button names the signer that will be asked, so a council member knows where to look. */
 export const SIGN_LABELS = {
   hashpack: "Sign with HashPack",

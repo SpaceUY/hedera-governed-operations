@@ -1,4 +1,12 @@
-import { cardStatusLabel, endNote, noRejectNote, signatureHeadline, stageLines } from "./copy";
+import {
+  cardStatusLabel,
+  endNote,
+  noRejectNote,
+  signatureHeadline,
+  signedWhenAriaLabel,
+  signedWhenLabel,
+  stageLines,
+} from "./copy";
 import { proposalIdentityOf } from "./proposalIdentity";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
@@ -99,5 +107,29 @@ describe("proposalIdentityOf", () => {
   it("flags a body the decoder could not describe", () => {
     const identity = proposalIdentityOf(proposal("pending", { operation: { kind: "unrecognized", reason: "odd" } }));
     expect(identity).toMatchObject({ unrecognized: true, family: null, iconKind: "unrecognized" });
+  });
+});
+
+describe("signedWhenLabel", () => {
+  const now = new Date("2026-09-28T12:00:00Z");
+  const ago = (ms: number) => new Date(now.getTime() - ms);
+
+  it("says how long ago, in the largest whole unit, within a week", () => {
+    expect(signedWhenLabel(ago(42_000), now)).toBe("Signed 42s ago");
+    expect(signedWhenLabel(ago(5 * 60_000), now)).toBe("Signed 5m ago");
+    expect(signedWhenLabel(ago(3 * 3_600_000 + 59 * 60_000), now)).toBe("Signed 3h ago");
+    expect(signedWhenLabel(ago(86_400_000), now)).toBe("Signed 1 day ago");
+    expect(signedWhenLabel(ago(6 * 86_400_000), now)).toBe("Signed 6 days ago");
+  });
+
+  it("gives the short date from a week on", () => {
+    const label = signedWhenLabel(ago(10 * 86_400_000), now);
+    expect(label).toBe(
+      `Signed ${ago(10 * 86_400_000).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+    );
+  });
+
+  it("names the member and where the link goes", () => {
+    expect(signedWhenAriaLabel("Bob", "Signed 3h ago")).toBe("Bob: signed 3h ago — open the signature on HashScan");
   });
 });

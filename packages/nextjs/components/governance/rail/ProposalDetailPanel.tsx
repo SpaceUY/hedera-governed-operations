@@ -19,6 +19,7 @@ import {
 } from "./copy";
 import { expiryCountdown } from "./expiryCountdown";
 import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
+import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
 import type { MemberName } from "~~/components/governance/graph/mapModel";
@@ -125,6 +126,8 @@ export const ProposalDetailPanel = ({
   const ending = endNote(proposal);
   const noReject = noRejectNote(state.expiresAt);
   const listProps = {
+    signedAt: signedAtOf(proposal),
+    network,
     proposers,
     viewerAccountId: accountId,
     memberNames,
@@ -276,6 +279,19 @@ export const ProposalDetailPanel = ({
     </div>
   );
 };
+
+/**
+ * When each counted seat's signature landed, from the signature rows the schedule already carries —
+ * both councils' seats for a rotation, since either list may show them.
+ */
+function signedAtOf({ schedule, progress, incomingProgress }: Proposal): Record<string, string> {
+  const signedAt: Record<string, string> = {};
+  for (const key of [...progress.signedBy, ...(incomingProgress?.signedBy ?? [])]) {
+    const at = memberSignedAt(schedule, key);
+    if (at) signedAt[key] = at;
+  }
+  return signedAt;
+}
 
 const SucceededResult = ({ executedAt, result }: { executedAt: Date | null; result: string }) => {
   const copy = executedResult(executedAt, result);

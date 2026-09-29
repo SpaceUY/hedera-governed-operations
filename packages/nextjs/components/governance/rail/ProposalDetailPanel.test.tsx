@@ -23,10 +23,16 @@ const EXECUTOR_CONTRACT_ID = "0.0.5000";
 const MEMBER_A = "0.0.4101";
 const MEMBER_B = "0.0.4102";
 
-const COUNCIL_KEY = { threshold: 2, memberKeys: ["key-a", "key-b"] };
+/** Seats in base64, the form Mirror writes a signature's key in, so signature rows can match them. */
+const KEY_A = btoa("key-a");
+const KEY_B = btoa("key-b");
+const KEY_X = btoa("key-x");
+const KEY_Y = btoa("key-y");
+
+const COUNCIL_KEY = { threshold: 2, memberKeys: [KEY_A, KEY_B] };
 const PROPOSERS = [
-  { accountId: MEMBER_A, key: "key-a" },
-  { accountId: MEMBER_B, key: "key-b" },
+  { accountId: MEMBER_A, key: KEY_A },
+  { accountId: MEMBER_B, key: KEY_B },
 ];
 
 const schedule = (overrides: Partial<Proposal["schedule"]> = {}) =>
@@ -51,7 +57,7 @@ const baseProposal = (overrides: Partial<Proposal> = {}): Proposal =>
     schedule: schedule(),
     state: { status: "pending", signatureCount: 1, executedAt: null, expiresAt: null, isSettled: false },
     execution: { status: "notRun" },
-    progress: { signed: 1, threshold: 2, signedBy: ["key-a"] },
+    progress: { signed: 1, threshold: 2, signedBy: [KEY_A] },
     incomingProgress: null,
     operation: { kind: "treasuryTransfer", hbar: [], tokens: [] },
     registry: { status: "notApplicable" },
@@ -195,7 +201,7 @@ describe("ProposalDetailPanel", () => {
   it("names the seats and the route as the map does", () => {
     renderPanel({
       proposal: baseProposal({ operation: REGISTRY_CALL, registry: PENDING_UPGRADE_ENTRY }),
-      memberNames: { "key-a": { name: "You" }, "key-b": { name: "Bob", caption: "demo co-signer" } },
+      memberNames: { [KEY_A]: { name: "You" }, [KEY_B]: { name: "Bob", caption: "demo co-signer" } },
       route: ["Treasury", "Proposal registry", "Vault"],
     });
     expect(screen.getByRole("heading", { level: 1, name: "Upgrade the vault to v2" })).toBeTruthy();
@@ -211,7 +217,7 @@ describe("ProposalDetailPanel", () => {
   });
 
   it("renders both councils for a rotation, each against its own threshold", () => {
-    const incomingCouncil = { threshold: 2, memberKeys: ["key-x", "key-y"] };
+    const incomingCouncil = { threshold: 2, memberKeys: [KEY_X, KEY_Y] };
     renderPanel({
       accountId: null,
       proposal: baseProposal({
@@ -258,6 +264,24 @@ describe("ProposalDetailPanel", () => {
     expect(links[1].textContent).toContain(`Scheduled by ${MEMBER_A}`);
   });
 
+  it("says when each member signed, linking that signature's transaction on HashScan", () => {
+    const signedAt = Date.now() / 1000 - 3 * 3600;
+    const signatureRow = {
+      consensus_timestamp: `${Math.floor(signedAt)}.000000001`,
+      public_key_prefix: KEY_A,
+      signature: "",
+      type: "ED25519",
+    };
+    renderPanel({ accountId: null, proposal: baseProposal({ schedule: schedule({ signatures: [signatureRow] }) }) });
+
+    const link = screen.getByRole("link", { name: `${MEMBER_A}: signed 3h ago — open the signature on HashScan` });
+    expect(link.textContent).toBe("Signed 3h ago");
+    expect(link.getAttribute("href")).toBe(
+      `https://hashscan.io/testnet/transaction/${signatureRow.consensus_timestamp}`,
+    );
+    expect(within(screen.getByText(MEMBER_B).closest("li")!).getByText("Not yet")).toBeTruthy();
+  });
+
   it("folds the raw ids, function and gas away under one disclosure", () => {
     renderPanel({ proposal: baseProposal({ operation: REGISTRY_CALL, registry: PENDING_UPGRADE_ENTRY }) });
     const raw = screen.getByText("Raw ids, function and calldata").closest("details")!;
@@ -271,7 +295,7 @@ describe("ProposalDetailPanel", () => {
       proposal: baseProposal({
         state: { status: "executed", signatureCount: 2, executedAt: new Date(), expiresAt: null, isSettled: true },
         execution: { status: "succeeded", transaction: { result: "SUCCESS", consensus_timestamp: "1.2" } } as never,
-        progress: { signed: 2, threshold: 2, signedBy: ["key-a", "key-b"] },
+        progress: { signed: 2, threshold: 2, signedBy: [KEY_A, KEY_B] },
       }),
     });
     expect(screen.getByText(/Status SUCCESS, fee paid by the treasury/)).toBeTruthy();
