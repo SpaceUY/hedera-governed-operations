@@ -34,10 +34,14 @@ validator:
 #
 # Paying for a transaction is not the same as approving one: a `ScheduleSign`
 # only counts towards the threshold if the key sits in the governance account's
-# threshold key. The deploy command below seats the run's signer there before
-# the app starts, which is what lets E5 grade an approval rather than a button.
-# It reads the demo members' keys from the gitignored setup-state.json, so this
-# stage expects a workspace that has already run `yarn setup`.
+# threshold key. `yarn harness:council-seat` puts the run's signer there, which
+# is what lets E9 grade an approval rather than a button. It is wired into the
+# dev server command in validators/playwright-smoke.yaml rather than into
+# `deploy.commands` below: those are reached from runValidationStages, which
+# `validate-semantic` never calls, so a seat declared there would only ever
+# happen under `harness:run`. The script reads the demo members' keys from the
+# gitignored setup-state.json, so this stage expects a workspace that has
+# already run `yarn setup`.
 chainValidation:
   enabled: true
   network: testnet
@@ -48,11 +52,6 @@ chainValidation:
   sweepBack: true
   expose:
     browserLocalStorageKey: burnerWallet.pk
-  deploy:
-    commands:
-      - name: council-seat
-        command: yarn harness:council-seat
-        timeoutMs: 120000
 
 templateMetadata:
   name: governed-operations

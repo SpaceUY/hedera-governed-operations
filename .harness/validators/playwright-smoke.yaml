@@ -1,6 +1,9 @@
 name: governed-operations-smoke
 server:
-  command: yarn next:dev
+  # The seat runs in front of the server because this command is the only hook both harness entry
+  # points share: `validate-semantic` never reaches `chainValidation.deploy`. Without a chain signer
+  # — a plain `validate`, or a hand-run — it prints a line and stops, so this stays credential-free.
+  command: yarn harness:council-seat && yarn next:dev
   url: http://localhost:3000
   timeoutMs: 120000
 defaults:

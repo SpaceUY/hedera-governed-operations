@@ -7,8 +7,17 @@
  * INVALID_SIGNATURE otherwise. This script closes that gap so the CHAIN assertion can grade the
  * real journey instead of an affordance.
  *
- * `.harness/spec.yaml` declares it under `chainValidation.deploy.commands`, which runs before the
- * dev server starts with `HARNESS_SIGNER_ACCOUNT_ID` in the environment.
+ * `.harness/validators/playwright-smoke.yaml` runs it in front of the dev server, because that
+ * command is the only hook both harness entry points share. `chainValidation.deploy.commands` would
+ * be the obvious home and is the wrong one: it is reached from `runValidationStages`, which
+ * `validate-semantic` never calls — that path goes straight from provisioning the signer to booting
+ * the server — so a seat declared there happens under `harness:run` and nowhere else.
+ *
+ * So the signer is found two ways: `HARNESS_SIGNER_ACCOUNT_ID` when a deploy command exports it,
+ * and otherwise `chain-signer.json`, which the harness writes to the workspace root before the
+ * server starts. With neither, there is no chain stage in play — a plain `validate`, or someone
+ * running the command by hand — and the script says so and stops, leaving `validate` as
+ * credential-free as it claims to be.
  *
  * Two things make it safe to re-run. The key is rebuilt from the three configured members every
  * time, so seats never accumulate and a previous run's signer is dropped rather than kept. And the
@@ -26,30 +35,37 @@ import { accountIdentity } from "./setup/hederaGovernance";
 import { loadState } from "./setup/state";
 import { AccountId, AccountUpdateTransaction, KeyList, PrivateKey, PublicKey } from "@hiero-ledger/sdk";
 import { config as loadDotenv } from "dotenv";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PACKAGE_DIR = resolve(__dirname, "..");
 const PATHS = {
   operatorEnv: resolve(PACKAGE_DIR, ".env"),
   stateFile: resolve(PACKAGE_DIR, "setup-state.json"),
+  chainSigner: resolve(PACKAGE_DIR, "../..", "chain-signer.json"),
 };
 
-/** The account id the harness exports for the ephemeral signer it provisioned for this run. */
-function readSignerAccountId(source: NodeJS.ProcessEnv): string {
-  const value = source.HARNESS_SIGNER_ACCOUNT_ID?.trim();
-  if (!value) {
-    throw new Error(
-      "HARNESS_SIGNER_ACCOUNT_ID is not set. The Hedera Harness exports it to the commands under " +
-        "chainValidation.deploy; run this through `npx hedera-harness validate-semantic` rather than on its own.",
-    );
-  }
-  return value;
+/**
+ * The ephemeral account this run will sign from, or null when the chain stage is not in play.
+ * `chain-signer.json` is the harness's own record of it and is written before the server boots.
+ */
+function resolveSignerAccountId(source: NodeJS.ProcessEnv): string | null {
+  const exported = source.HARNESS_SIGNER_ACCOUNT_ID?.trim();
+  if (exported) return exported;
+  if (!existsSync(PATHS.chainSigner)) return null;
+  const { accountId } = JSON.parse(readFileSync(PATHS.chainSigner, "utf8")) as { accountId?: string };
+  return accountId?.trim() || null;
 }
 
 async function main(): Promise<void> {
+  const signerAccountId = resolveSignerAccountId(process.env);
+  if (!signerAccountId) {
+    console.log("No harness chain signer for this run, so there is no seat to give. Continuing.");
+    return;
+  }
+
   loadDotenv({ path: PATHS.operatorEnv, quiet: true });
   const env = readSetupEnv(process.env);
-  const signerAccountId = readSignerAccountId(process.env);
 
   const state = loadState(PATHS.stateFile, env.network);
   if (!state.governance) {
