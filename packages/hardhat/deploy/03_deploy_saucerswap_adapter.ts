@@ -2,6 +2,7 @@ import type { DeployFunction } from "hardhat-deploy/types";
 
 import { getDeployGasPrice } from "../utils/getDeployGasPrice";
 import { HEDERA_MAINNET_CHAIN_ID, HEDERA_TESTNET_CHAIN_ID } from "../utils/hederaChains";
+import { recordHederaContractId } from "../utils/recordHederaContractId";
 
 const CONTRACT = "SaucerSwapAdapter";
 
@@ -38,7 +39,7 @@ const deploySaucerSwapAdapter: DeployFunction = async function (hre) {
 
   const executor = await hre.deployments.get("GovernedExecutor");
 
-  await hre.deployments.deploy(CONTRACT, {
+  const deployment = await hre.deployments.deploy(CONTRACT, {
     from: deployer,
     args: [executor.address, toEvmAddress(saucerSwap.swapRouter), toEvmAddress(saucerSwap.whbarToken)],
     log: true,
@@ -46,6 +47,14 @@ const deploySaucerSwapAdapter: DeployFunction = async function (hre) {
     gasLimit: "3000000",
     gasPrice: await getDeployGasPrice(hre),
   });
+
+  if (!deployment.address) {
+    return;
+  }
+
+  // Past the SaucerSwap lookup above this is always Hedera, so no chain check is needed here.
+  const hederaContractId = await recordHederaContractId(hre, CONTRACT, deployment.address, chainId);
+  console.log(`Resolved Hedera contract id: ${hederaContractId}`);
 };
 
 deploySaucerSwapAdapter.tags = [CONTRACT];
