@@ -1,9 +1,10 @@
 import {
-  approvalsLabel,
   councilRuleLabel,
   executionFailureLabel,
+  memberLabel,
   proposalStatusLabel,
   registryLabel,
+  requiredSignaturesLabel,
 } from "./proposalLabels";
 import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { RegistryCrossCheck } from "@sh/core/governance/registry";
@@ -24,10 +25,6 @@ describe("registryLabel", () => {
     expect(registryLabel({ status: "notApplicable" })).toBe("None: the network runs this operation directly");
   });
 
-  it("says a settled registry call's entry was not read, rather than that it has none", () => {
-    expect(registryLabel({ status: "notRead" })).toBe("Not read: the proposal is no longer collecting signatures");
-  });
-
   it("warns against signing when the registry holds no usable entry", () => {
     expect(registryLabel({ status: "missing", reason: "no entry 7" })).toBe("No usable entry: do not sign");
   });
@@ -43,15 +40,28 @@ describe("councilRuleLabel", () => {
   });
 });
 
-describe("approvalsLabel", () => {
+describe("requiredSignaturesLabel", () => {
   it("counts signatures against the threshold and says so, not against the council's size", () => {
-    expect(approvalsLabel(progress(1, 2), null)).toBe("1 of 2 required signatures");
+    expect(requiredSignaturesLabel(progress(1, 2))).toBe("1 of 2 required signatures");
+  });
+});
+
+describe("memberLabel", () => {
+  const proposers = [
+    { accountId: "0.0.101", key: "key-a" },
+    { accountId: "0.0.102", key: "key-b" },
+  ];
+
+  it("names a seat by the proposer account that holds it", () => {
+    expect(memberLabel("key-a", proposers, null)).toBe("0.0.101");
   });
 
-  it("counts both councils for a rotation, which needs each one's threshold", () => {
-    expect(approvalsLabel(progress(2, 2), progress(0, 2))).toBe(
-      "Current council: 2 of 2 required signatures · Incoming council: 0 of 2 required signatures",
-    );
+  it("names the connected account's own seat You, over its account id", () => {
+    expect(memberLabel("key-b", proposers, "0.0.102")).toBe("You");
+  });
+
+  it("names a seat nobody proposes by the start of its key", () => {
+    expect(memberLabel("0011223344", proposers, null)).toBe("Member 001122…");
   });
 });
 

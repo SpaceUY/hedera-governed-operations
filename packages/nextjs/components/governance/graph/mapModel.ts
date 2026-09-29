@@ -5,7 +5,7 @@
  * The decoration is optional by design. Without one every node is placed by `autoLayout` and named by
  * its role or its ledger id; a demo passes its own decorator, and deleting the demo leaves this.
  */
-import { MAP_LABELS, unnamedMemberLabel } from "./copy";
+import { MAP_LABELS } from "./copy";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -15,15 +15,25 @@ import {
   type GraphSnapshot,
   type Point,
   deriveGraphState,
+  scopeOf,
 } from "~~/services/governance/graph";
 import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+import { memberLabel } from "~~/services/governance/proposalLabels";
+import type { DecodedOperation } from "~~/services/governance/proposalRoutes";
 
 /**
  * Something the map shows that the ledger does not have yet, such as an account a demo is about to
  * propose as a member. It is drawn faded, is never connected, and never enters the graph a diff or a
  * preview reads.
  */
-export type GhostNode = { id: string; label: string; caption: string; position: Point };
+export type GhostNode = {
+  id: string;
+  label: string;
+  caption: string;
+  position: Point;
+  /** In the circle, in place of the label's first letter. */
+  monogram?: string;
+};
 
 export type MapContext = { nodes: readonly GraphNode[]; proposers: GraphSnapshot["proposers"] };
 
@@ -32,7 +42,15 @@ export type MapDecoration = {
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
+  /**
+   * What the layout leaves out: nodes, with every edge that touches them, and single edges by id —
+   * real entities and permissions the ledger has but a hand-composed story has no place for. Only
+   * what is drawn changes; nothing is read differently.
+   */
+  hidden?: HiddenParts;
 };
+
+export type HiddenParts = { nodes?: readonly string[]; edges?: readonly string[] };
 
 /** Places and names the nodes of one graph; called with the nodes as the ledger produced them. */
 export type MapDecorator = (context: MapContext) => MapDecoration;
@@ -62,7 +80,7 @@ export function genericLabels({ nodes, proposers }: MapContext): Record<string, 
   const labels: Record<string, string> = { ...FIXED_LABELS };
   for (const node of nodes) {
     if (node.role !== "member") continue;
-    labels[node.id] = proposers.find(({ key }) => key === node.ref)?.accountId ?? unnamedMemberLabel(node.ref);
+    labels[node.id] = memberLabel(node.ref, proposers, null);
   }
   return labels;
 }
@@ -94,10 +112,22 @@ export function composeMap(
   const viewerSeat = viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
   const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
 
+  const graph = deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } });
   return {
-    graph: deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } }),
+    graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
     ghosts: decoration?.ghosts ?? [],
+  };
+}
+
+function withoutHidden(graph: GovernanceGraph, { nodes = [], edges = [] }: HiddenParts): GovernanceGraph {
+  if (nodes.length === 0 && edges.length === 0) return graph;
+  return {
+    ...graph,
+    nodes: graph.nodes.filter(node => !nodes.includes(node.id)),
+    edges: graph.edges.filter(
+      edge => !edges.includes(edge.id) && !nodes.includes(edge.from) && !nodes.includes(edge.to),
+    ),
   };
 }
 
@@ -106,4 +136,30 @@ export function readingOrder<T extends { id: string; position: Point }>(items: r
   return [...items]
     .sort((first, second) => first.position.x - second.position.x || first.position.y - second.position.y)
     .map(item => item.id);
+}
+
+/** A council seat as the map names it: its label, and the caption under it when a layout gave one. */
+export type MemberName = { name: string; caption?: string };
+
+/** Every seat on the map, by member key, named exactly as the map names its node. */
+export function memberNamesOf({
+  graph,
+  captions,
+}: Pick<ComposedMap, "graph" | "captions">): Record<string, MemberName> {
+  const names: Record<string, MemberName> = {};
+  for (const node of graph.nodes) {
+    if (node.role === "member") names[node.ref] = { name: node.label, caption: captions[node.id] };
+  }
+  return names;
+}
+
+/**
+ * The nodes an operation would travel, in order and by their names on the map — "Treasury → Proposal
+ * registry → Vault" — or null when the map cannot draw that route (see `scopeOf`).
+ */
+export function routeNamesOf(graph: GovernanceGraph, operation: DecodedOperation): string[] | null {
+  const scope = scopeOf(graph, operation);
+  if (!scope) return null;
+  const labels = new Map(graph.nodes.map(node => [node.id, node.label]));
+  return scope.nodeIds.map(id => labels.get(id) ?? id);
 }
