@@ -5,7 +5,11 @@ import { WITHDRAW_PROPOSAL_MUTATION_KEY, useWithdrawProposal } from "./useWithdr
 import { useMutationState } from "@tanstack/react-query";
 import type { CancelPlan } from "~~/services/governance/proposalActions";
 
-export type CancelFlowTarget = CancelPlan & { scheduleId: string; executorContractId: string };
+/**
+ * The schedule on screen, and what cancelling it would send: null when there is no registry entry the
+ * viewer could cancel, in which case `start` sends nothing.
+ */
+export type CancelFlowTarget = { scheduleId: string; executorContractId: string; plan: CancelPlan | null };
 
 export type CancelFlowCallbacks = {
   /** After the schedule was deleted, whether or not the cancel then went through: re-read it. */
@@ -47,15 +51,17 @@ export function useCancelProposalFlow(target: CancelFlowTarget, { onWithdrawn, o
     }).length > 0;
 
   const start = async () => {
+    const { plan } = target;
+    if (!plan) return;
     let deleted = false;
     try {
-      if (target.withdrawFirst && !withdrawnHere) {
+      if (plan.withdrawFirst && !withdrawnHere) {
         await withdraw.mutateAsync(target.scheduleId);
         deleted = true;
       }
       await cancel.mutateAsync({
         executorContractId: target.executorContractId,
-        registryProposalId: target.registryProposalId,
+        registryProposalId: plan.registryProposalId,
       });
       onCancelled();
     } catch {

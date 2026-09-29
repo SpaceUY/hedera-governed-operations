@@ -82,13 +82,11 @@ export const WithdrawCancelActions = ({
   const isContract = proposal.operation.kind === "registryCall";
   const entryId = openEntryIdOf(proposal);
   const plan = cancelPlanOf(proposal, accountId);
+  // Once this schedule is gone but Mirror still shows it live, `cancelPlanOf` has no plan: resuming
+  // at step 2 cancels the open entry alone.
+  const cancelTarget = plan ?? (entryId === null ? null : { registryProposalId: entryId, withdrawFirst: false });
   const flow = useCancelProposalFlow(
-    {
-      scheduleId,
-      executorContractId,
-      registryProposalId: plan?.registryProposalId ?? entryId ?? 0,
-      withdrawFirst: plan?.withdrawFirst ?? false,
-    },
+    { scheduleId, executorContractId, plan: cancelTarget },
     { onWithdrawn, onCancelled },
   );
 

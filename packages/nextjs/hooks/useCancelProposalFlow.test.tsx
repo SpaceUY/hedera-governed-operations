@@ -9,7 +9,8 @@ vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 
 const SCHEDULE_ID = "0.0.10765804";
 const EXECUTOR_CONTRACT_ID = "0.0.10746059";
-const LIVE = { scheduleId: SCHEDULE_ID, executorContractId: EXECUTOR_CONTRACT_ID, registryProposalId: 3 };
+const LIVE = { scheduleId: SCHEDULE_ID, executorContractId: EXECUTOR_CONTRACT_ID };
+const ENTRY_ID = 3;
 
 /** What each wallet call was: a ScheduleDelete names a schedule, the cancel a contract. */
 const sent = (executeTransaction: ReturnType<typeof vi.fn>) =>
@@ -27,9 +28,12 @@ beforeEach(() => {
 });
 
 function renderFlow(withdrawFirst: boolean, queryClient = new QueryClient()) {
-  return renderHook(() => useCancelProposalFlow({ ...LIVE, withdrawFirst }, callbacks), {
-    wrapper: createQueryWrapper(queryClient),
-  });
+  return renderHook(
+    () => useCancelProposalFlow({ ...LIVE, plan: { registryProposalId: ENTRY_ID, withdrawFirst } }, callbacks),
+    {
+      wrapper: createQueryWrapper(queryClient),
+    },
+  );
 }
 
 describe("useCancelProposalFlow", () => {
@@ -52,6 +56,16 @@ describe("useCancelProposalFlow", () => {
     expect(sent(executeTransaction)).toEqual(["cancel"]);
     expect(callbacks.onCancelled).toHaveBeenCalledOnce();
     expect(callbacks.onWithdrawn).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing when there is no registry entry to cancel", async () => {
+    const { result } = renderHook(() => useCancelProposalFlow({ ...LIVE, plan: null }, callbacks), {
+      wrapper: createQueryWrapper(new QueryClient()),
+    });
+    await act(() => result.current.start());
+
+    expect(executeTransaction).not.toHaveBeenCalled();
+    expect(result.current.step).toBe("idle");
   });
 
   it("stops after a rejected delete, having changed nothing", async () => {

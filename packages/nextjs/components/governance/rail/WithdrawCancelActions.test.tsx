@@ -149,7 +149,7 @@ describe("WithdrawCancelActions", () => {
     const cancel = screen.getByRole("button", { name: "Cancel this proposal" });
     expect(cancel.className).toContain("btn-error");
     expect(screen.getByText(/The live schedule is deleted first/)).toBeTruthy();
-    expect(flowTarget()).toMatchObject({ scheduleId: "0.0.777", registryProposalId: 7, withdrawFirst: true });
+    expect(flowTarget()).toMatchObject({ scheduleId: "0.0.777", plan: { registryProposalId: 7, withdrawFirst: true } });
   });
 
   it("spells out the two transactions before deleting the live schedule and cancelling", () => {
@@ -177,7 +177,7 @@ describe("WithdrawCancelActions", () => {
     renderActions(baseProposal({ state: WITHDRAWN, registry: cancellableEntry(PROPOSER_EVM) }));
     expect(screen.queryByRole("button", { name: "Withdraw my approval round" })).toBeNull();
     expect(screen.getByText(/No schedule to delete, no signatures needed/)).toBeTruthy();
-    expect(flowTarget()).toMatchObject({ withdrawFirst: false });
+    expect(flowTarget()).toMatchObject({ plan: { withdrawFirst: false } });
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel this proposal" }));
     expect(screen.getByText("Cancel this proposal for good?")).toBeTruthy();
