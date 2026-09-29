@@ -22,12 +22,12 @@ afterEach(() => vi.unstubAllEnvs());
 const labelOf = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id)?.label;
 
 describe("decorateDemoMap", () => {
-  it("names Alice and Bob by the seats their demo accounts hold; the council account keeps its id", () => {
+  it("names Alice and Bob by the seats their demo accounts hold, and the remaining seat the council account", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap);
     expect(labelOf(map, memberNodeId(KEY_B))).toBe(DEMO_NAMES.alice);
     expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
-    expect(labelOf(map, memberNodeId(KEY_A))).toBe("0.0.4101");
-    expect(map.captions[memberNodeId(KEY_A)]).toBe("council account · proposer");
+    expect(labelOf(map, memberNodeId(KEY_A))).toBe(DEMO_NAMES.council);
+    expect(map.captions[memberNodeId(KEY_A)]).toBe("proposer");
   });
 
   it("names the connected account's seat You, over a demo name too", () => {

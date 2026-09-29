@@ -102,17 +102,21 @@ function nodeRows(node: GraphNode, context: InspectorContext): InspectorRow[] {
 
 function nodeContent(node: GraphNode, context: InspectorContext): InspectorContent {
   const { graph, council, proposers, copy } = context;
+  const seated = graph.edges.some(
+    edge => edge.kind === "authority" && edge.from === node.id && edge.to === GOVERNANCE_ACCOUNT_NODE_ID,
+  );
+  const proposes = accountOfSeat(node, proposers) !== undefined;
   const body =
     copy.nodes[node.id] ??
     inspectorNodeBody(node.role, {
       rule: councilRuleLabel(council),
-      seated: graph.edges.some(
-        edge => edge.kind === "authority" && edge.from === node.id && edge.to === GOVERNANCE_ACCOUNT_NODE_ID,
-      ),
-      proposes: accountOfSeat(node, proposers) !== undefined,
+      seated,
+      proposes,
       introduced: isIntroducedAccount(node),
     });
-  return { kicker: kickerOf(node), title: node.label, body, rows: nodeRows(node, context) };
+  // Read from the ledger's proposer list, so a layout's own words for a seat never hide it.
+  const kicker = seated && proposes ? `${kickerOf(node)} · ${MAP_INSPECTOR.alsoProposes}` : kickerOf(node);
+  return { kicker, title: node.label, body, rows: nodeRows(node, context) };
 }
 
 function ghostContent(ghost: GhostNode, copy: InspectorCopy): InspectorContent {

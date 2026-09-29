@@ -41,11 +41,12 @@ describe("inspectorContentOf — nodes", () => {
     const content = node(GOVERNANCE_ACCOUNT_NODE_ID);
     expect(content?.kicker).toBe("Account");
     expect(content?.title).toBe("Treasury");
-    expect(content?.body).toContain("the keys of a 2-of-3 council");
+    // Non-breaking hyphens: the rule never wraps inside the card.
+    expect(content?.body).toContain("the keys of a 2\u2011of\u20113 council");
     expect(content?.rows).toEqual([{ term: "Id", value: "0.0.4000", href: `${EXPLORER}/account/0.0.4000` }]);
 
     const rotated = contextOf({ ...MAP_SNAPSHOT, council: { ...MAP_SNAPSHOT.council, threshold: 3 } });
-    expect(node(GOVERNANCE_ACCOUNT_NODE_ID, rotated)?.body).toContain("a 3-of-3 council");
+    expect(node(GOVERNANCE_ACCOUNT_NODE_ID, rotated)?.body).toContain("a 3\u2011of\u20113 council");
   });
 
   it.each([
@@ -72,7 +73,7 @@ describe("inspectorContentOf — nodes", () => {
 
   it("shows a seat by the account that holds its key, with the key itself unlinked", () => {
     const content = node(memberNodeId(KEY_A));
-    expect(content?.kicker).toBe("Account");
+    expect(content?.kicker).toBe("Account · may also propose");
     expect(content?.body).toContain("inside the treasury account's ThresholdKey");
     expect(content?.body).toContain("PROPOSER_ROLE");
     expect(content?.rows).toEqual([
@@ -84,6 +85,7 @@ describe("inspectorContentOf — nodes", () => {
   it("shows a seat no proposer holds by its key alone, and says nothing about proposing", () => {
     const context = contextOf({ ...MAP_SNAPSHOT, proposers: MAP_SNAPSHOT.proposers.slice(1) });
     const content = node(memberNodeId(KEY_A), context);
+    expect(content?.kicker).toBe("Account");
     expect(content?.body).not.toContain("PROPOSER_ROLE");
     expect(content?.rows).toEqual([{ term: "Key", value: KEY_A }]);
   });
@@ -105,6 +107,13 @@ describe("inspectorContentOf — nodes", () => {
   it("prefers the layout's own words for a node over its role's", () => {
     const copy = { nodes: { [MAP_ENTITY_IDS.vault]: "The demo's vault." }, edges: {} };
     expect(node(MAP_ENTITY_IDS.vault, contextOf(MAP_SNAPSHOT, { copy }))?.body).toBe("The demo's vault.");
+  });
+
+  it("still says a seat may also propose when a layout words the seat itself, from the ledger's proposers", () => {
+    const copy = { nodes: { [memberNodeId(KEY_A)]: "A demo co-signer." }, edges: {} };
+    const content = node(memberNodeId(KEY_A), contextOf(MAP_SNAPSHOT, { copy }));
+    expect(content?.body).toBe("A demo co-signer.");
+    expect(content?.kicker).toBe("Account · may also propose");
   });
 
   it("gives a ghost its name and the neutral line, and no ids", () => {

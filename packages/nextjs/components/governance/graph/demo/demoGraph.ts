@@ -1,6 +1,6 @@
 /**
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
- * node sits, the names Alice, Bob and "Setup operator", the co-signing agent that is not a member
+ * node sits, the names "Council account", Alice, Bob and "Setup operator", the co-signing agent that is not a member
  * yet, and the inspector's words for them. The seat of whoever is connected is named "You" by the
  * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
@@ -38,6 +38,7 @@ const SUPPLIER_SLOT: Point = { x: 300, y: 590 };
 const PROPOSER_ROW = { x: 300, y: 50, step: 170 } as const;
 
 export const DEMO_NAMES = {
+  council: "Council account",
   alice: "Alice",
   bob: "Bob",
   operator: "Setup operator",
@@ -128,7 +129,7 @@ function demoAccountIds(): { alice?: string; bob?: string } {
 /**
  * The seats in the order the council column shows them. Alice and Bob are proposers too, so their
  * keys come with the proposer list; the one remaining seat is the council account `yarn setup` was
- * given (`HEDERA_COUNCIL_ACCOUNT_ID`), which keeps its account id as its name.
+ * given (`HEDERA_COUNCIL_ACCOUNT_ID`), named "Council account" — "You" once it is the one connected.
  */
 function demoSeats({ nodes, proposers }: MapContext): { council?: string; alice?: string; bob?: string } {
   const ids = demoAccountIds();
@@ -156,7 +157,10 @@ export const decorateDemoMap: MapDecorator = context => {
   [...known, ...others.map(node => node.id)].forEach((nodeId, slot) => {
     if (MEMBER_SLOTS[slot]) positions[nodeId] = MEMBER_SLOTS[slot];
   });
-  if (seats.council) captions[seats.council] = "council account · proposer";
+  if (seats.council) {
+    labels[seats.council] = DEMO_NAMES.council;
+    captions[seats.council] = "proposer";
+  }
   const inspector: InspectorCopy = { nodes: { ...INSPECTOR_NODES }, edges: { ...INSPECTOR_EDGES } };
   const coSigners = [
     [seats.alice, ALICE],

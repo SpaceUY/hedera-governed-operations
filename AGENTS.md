@@ -124,8 +124,9 @@ packages/nextjs/
       useProposals.ts       The council's proposals; polls fast while any is open, slowly once all settled
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
-      useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation, the entry after a registry call) when a proposal settles
-      useMapSnapshot.ts     Inbox, council and treasury as one snapshot, plus the events since the previous read
+      useRefreshOnSettle.ts Re-reads treasury figures (the council after a rotation; the entry, the vault's code and the tokens after a registry call) when a proposal settles
+      useMapSnapshot.ts     Inbox, council, treasury and the vault's and token's states as one snapshot, plus the events since the previous read
+      useVaultImplementation.ts  The code the vault's proxy runs; re-read when a registry call settles
       useTransaction.ts     Mirror rows for a tx id; polls until indexed
       useAccount.ts         Account by 0.0.x id or EVM address
       useToken.ts           Token metadata and pause state, with decimals already a number
@@ -144,13 +145,14 @@ packages/nextjs/
     mirrorNode.ts         Re-export of @sh/core/mirror (kept for existing imports)
     governance/           What governance needs from the app: the screens' rules and words, the wizard's drafts, the integration tests
       treasury.ts           Treasury balances plus the vault's reserve
+      vaultImplementation.ts  The vault proxy's implementation address, from its ERC-1967 slot
       proposalActions.ts    Which actions a proposal offers (Sign, Withdraw, Cancel), and to whom
       proposalLabels.ts     The words a screen uses for a proposal's status, registry entry and approvals
       drafts.ts             Form values to an encoded draft, and its preview read back through decode.ts
     liveMap/              The live map, pure; depends on governance/, never the reverse
       model/                proposalRoutes.ts (the path each kind takes, in roles), graph.ts (nodes, edges, a proposal's scope, the fallback layout), graphEntities.ts (the configured contracts, token and DEX router the graph starts from)
       events/mapEvents.ts   Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
-      motion/               How the map moves: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world), ambient (drift)
+      motion/               How the map moves: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world)
       remoteApprovals.ts    Which approvals of a read this session did not send
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     hederaClient.ts       Server-side Hiero SDK client with the operator key
