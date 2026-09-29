@@ -4,11 +4,12 @@ import { type FormEvent, type ReactNode, useEffect, useId, useState } from "reac
 import { OperationCard } from "./OperationCard";
 import { isValidEntityId } from "@sh/core/mirror";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
+import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
-type ScheduleSearchProps = {
+export type ScheduleSearchProps = {
   governanceAccountId: string;
   executorContractId: string;
-  network: string;
+  network: HederaNetworkName;
   selectedScheduleId: string | null;
   /** A search found this id: select it. */
   onSelect: (scheduleId: string) => void;
@@ -37,12 +38,21 @@ type ScheduleSearchProps = {
  * The result sits in the search landmark but outside the form: the detail it opens holds buttons of
  * its own (Sign, Withdraw, Cancel), which inside a form would submit the search.
  */
-export const ScheduleSearch = (props: ScheduleSearchProps) => {
+export const ScheduleSearch = ({
+  governanceAccountId,
+  executorContractId,
+  network,
+  selectedScheduleId,
+  onSelect,
+  onToggle,
+  unlistedSelectionId,
+  selectedDetail,
+  knownScheduleIds,
+}: ScheduleSearchProps) => {
   const inputId = useId();
   const [term, setTerm] = useState("");
   const [committedId, setCommittedId] = useState<string | null>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
-  const { unlistedSelectionId } = props;
 
   useEffect(() => {
     if (!unlistedSelectionId) return;
@@ -53,7 +63,6 @@ export const ScheduleSearch = (props: ScheduleSearchProps) => {
 
   // Selecting any other card drops the search result, so its lookup stops polling a proposal nobody is
   // looking at. A functional update, because the effect above may have just committed this selection.
-  const { selectedScheduleId } = props;
   useEffect(() => {
     setCommittedId(current => (selectedScheduleId && selectedScheduleId !== current ? null : current));
   }, [selectedScheduleId]);
@@ -68,7 +77,7 @@ export const ScheduleSearch = (props: ScheduleSearchProps) => {
     }
     setFormatError(null);
     setCommittedId(trimmed);
-    props.onSelect(trimmed);
+    onSelect(trimmed);
   };
 
   return (
@@ -95,15 +104,15 @@ export const ScheduleSearch = (props: ScheduleSearchProps) => {
           </p>
         )}
       </form>
-      {committedId && !props.knownScheduleIds.has(committedId) && (
+      {committedId && !knownScheduleIds.has(committedId) && (
         <ScheduleSearchResult
           scheduleId={committedId}
-          governanceAccountId={props.governanceAccountId}
-          executorContractId={props.executorContractId}
-          network={props.network}
-          selected={props.selectedScheduleId === committedId}
-          onToggle={() => props.onToggle(committedId)}
-          detail={props.selectedDetail}
+          governanceAccountId={governanceAccountId}
+          executorContractId={executorContractId}
+          network={network}
+          selected={selectedScheduleId === committedId}
+          onToggle={() => onToggle(committedId)}
+          detail={selectedDetail}
         />
       )}
     </div>
@@ -114,7 +123,7 @@ type ScheduleSearchResultProps = {
   scheduleId: string;
   governanceAccountId: string;
   executorContractId: string;
-  network: string;
+  network: HederaNetworkName;
   selected: boolean;
   onToggle: () => void;
   detail: ReactNode;

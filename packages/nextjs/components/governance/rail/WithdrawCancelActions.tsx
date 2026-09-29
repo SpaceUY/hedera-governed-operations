@@ -17,13 +17,14 @@ import {
   cancelPlanOf,
   otherOpenScheduleOf,
 } from "~~/services/governance/proposalActions";
+import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 export type WithdrawCancelActionsProps = {
   proposal: Proposal;
   accountId: string | null;
   executorContractId: string;
   governanceAccountId: string;
-  network: string;
+  network: HederaNetworkName;
   onWithdrawn: () => void;
   onCancelled: () => void;
 };
