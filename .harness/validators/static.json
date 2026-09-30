@@ -54,6 +54,10 @@
       "contains": ["Governance is not set up yet"]
     },
     {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["You are viewing the demo instance on testnet", "yarn setup"]
+    },
+    {
       "file": "packages/hardhat/hardhat.config.ts",
       "contains": ["hederaTestnet", "hederaMainnet", "sourcify"]
     },
