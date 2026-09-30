@@ -189,9 +189,12 @@ type ResolvedRoute = Array<{ from: Endpoint[]; to: Endpoint[] }>;
 
 type Resolution = { steps: ResolvedRoute; roles: Partial<Record<RouteRole, Endpoint[]>> };
 
-/** Who a payment reaches: the accounts it names, or the stand-in for one while it names nobody. */
-function recipientsFor(refs: string[] | undefined, context: Readonly<GraphParts>): Endpoint[] {
-  if (refs?.length) return endpointsFor(refs, "external", context);
+/**
+ * Who a payment reaches: the accounts it names, or — for a sketch, whose form has named nobody yet —
+ * the stand-in for one. A decoded payment that credits nobody reaches nobody.
+ */
+function recipientsFor(operation: RoutableOperation, refs: string[] | undefined, context: Readonly<GraphParts>) {
+  if (operation.kind !== "sketch" || refs?.length) return endpointsFor(refs ?? [], "external", context);
   const standIn = context.nodes.some(node => node.id === RECIPIENT_STAND_IN_NODE_ID);
   return standIn ? [{ nodeId: RECIPIENT_STAND_IN_NODE_ID }] : [];
 }
@@ -217,7 +220,7 @@ function resolveRoute(operation: RoutableOperation, context: Readonly<GraphParts
     subject,
     token: endpointsFor(route.refs.token ?? [], "token", context),
     router: calleeOf(subject, context),
-    recipient: recipientsFor(route.refs.recipient, context),
+    recipient: recipientsFor(operation, route.refs.recipient, context),
     member: dedupeEndpoints([
       ...currentMembers.map(node => ({ nodeId: node.id })),
       ...endpointsFor(route.refs.member ?? [], "member", context),

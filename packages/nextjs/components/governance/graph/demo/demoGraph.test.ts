@@ -308,6 +308,33 @@ describe("decorateDemoMap's supplier", () => {
     expect(frame.scope?.nodeIds).not.toContain(RECIPIENT_STAND_IN_NODE_ID);
   });
 
+  it("never stands for the co-signing agent's account, which the map knows: that payment is named for the agent", () => {
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "0.0.4999");
+    const { map } = shown(draftTo("0.0.4999"));
+    const agent = externalNodeId("0.0.4999");
+    expect(nodeAt(map, agent)?.label).toBe(DEMO_NAMES.agent);
+    expect(atSlot(map).map(node => node.id)).toEqual([RECIPIENT_STAND_IN_NODE_ID]);
+    expect(map.inspector.nodes[agent]).toBeUndefined();
+  });
+
+  it("never stands for an account named by an alias, which may be someone the map already has", () => {
+    const alias = "0x14c9aa0000000000000000000000000000094a9";
+    const { map } = shown(draftTo(alias));
+    expect(nodeAt(map, externalNodeId(alias))?.label).not.toBe(DEMO_NAMES.supplier);
+    expect(atSlot(map).map(node => node.id)).toEqual([RECIPIENT_STAND_IN_NODE_ID]);
+  });
+
+  it("draws nothing for a picked payment while a pending one to an outside account holds the Supplier's place", () => {
+    const sketch = sketchPreviewOf(
+      "treasuryTransfer",
+      { governanceAccountId: MAP_SNAPSHOT.governanceAccountId, entities: MAP_SNAPSHOT.entities, agentSeat: null },
+      null,
+    );
+    const { map, frame } = shown(sketch, { ...MAP_SNAPSHOT, proposals: [payment("0.0.7000")] });
+    expect(nodeAt(map, externalNodeId("0.0.7000"))?.label).toBe(DEMO_NAMES.supplier);
+    expect(frame.scope).toBeNull();
+  });
+
   it("stays unlit for a selected pending payment to someone on the map", () => {
     const pending = payment(ALICE_ACCOUNT);
     const selected = selectedPreviewOf(pending, 2) as MapPreview;

@@ -81,6 +81,15 @@ describe("useMapPreview", () => {
     expect(result.current.bareCaption).toEqual({ kind: "picked", title: "Upgrade the vault to v2" });
   });
 
+  it("draws no preview for a draft the decoders cannot describe, and only asks for the form", () => {
+    route.pathname = "/governance/new";
+    wizard.kind = "treasuryTransfer";
+    wizard.preview = { kind: "treasuryTransfer", path: "native", scheduled: { kind: "unrecognized", reason: "test" } };
+    const { result } = renderHook(() => useMapPreview(CONFIG));
+    expect(result.current.preview).toBeNull();
+    expect(result.current.caption).toEqual({ kind: "picked", title: "Pay a supplier" });
+  });
+
   it("shows nothing for a selection it could not read", () => {
     route.selected = "0.0.404";
     const { result } = renderHook(() => useMapPreview(CONFIG));

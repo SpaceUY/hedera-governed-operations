@@ -487,6 +487,52 @@ describe("a sketched kind", () => {
     });
   });
 
+  it("never sends a decoded payment that credits nobody to the stand-in", () => {
+    const creditsNobody: DecodedOperation = {
+      kind: "treasuryTransfer",
+      hbar: [{ accountId: GOVERNANCE, tinybars: -1n }],
+      tokens: [],
+    };
+    expect(scopeOf(deriveGraphState({ ...withStandIn, previewed: creditsNobody }), creditsNobody)).toBeNull();
+  });
+
+  it("sketches a swap through the configured adapter and the router back to the treasury", () => {
+    const swap: OperationSketch = {
+      kind: "sketch",
+      of: "treasurySwap",
+      refs: { subject: [ADAPTER_ADDRESS], recipient: [GOVERNANCE] },
+    };
+    expect(scopeOf(deriveGraphState({ ...SNAPSHOT, previewed: swap }), swap)?.nodeIds).toEqual([
+      GOVERNANCE_ACCOUNT_NODE_ID,
+      EXECUTOR_NODE_ID,
+      "swapAdapter",
+      "router",
+    ]);
+  });
+
+  it("sketches a token-admin action through the Token admin to the token", () => {
+    const act: OperationSketch = { kind: "sketch", of: "tokenAdmin", refs: { subject: ["0.0.5002"], token: [TOKEN] } };
+    expect(scopeOf(deriveGraphState({ ...SNAPSHOT, previewed: act }), act)?.nodeIds).toEqual([
+      GOVERNANCE_ACCOUNT_NODE_ID,
+      EXECUTOR_NODE_ID,
+      "tokenAdmin",
+      "token",
+    ]);
+  });
+
+  it("sketches a rotation seating the agent's key beside the seats the council keeps", () => {
+    const rotation: OperationSketch = {
+      kind: "sketch",
+      of: "councilRotation",
+      refs: { governanceAccount: [GOVERNANCE], member: [DAVE] },
+    };
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: rotation });
+    expect(edgeOf(graph, memberNodeId(DAVE), GOVERNANCE_ACCOUNT_NODE_ID)?.kind).toBe("intent");
+    expect(scopeOf(graph, rotation)?.edgeIds).toEqual(
+      [ALICE, BOB, CAROL, DAVE].map(key => edgeId(memberNodeId(key), GOVERNANCE_ACCOUNT_NODE_ID)),
+    );
+  });
+
   it("never sends a named recipient to the stand-in", () => {
     const transfer = transferTo("0.0.9999");
     const graph = deriveGraphState({ ...withStandIn, previewed: transfer });
