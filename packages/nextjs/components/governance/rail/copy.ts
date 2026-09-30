@@ -341,3 +341,10 @@ export const DETAIL_COPY = {
   executeCall: (proposalId: number) => `execute(${proposalId}) on the registry`,
   nativeCall: "None — a native transaction, no contract call",
 } as const;
+
+/** Said at the top of the rail while the app reads the published testnet instance instead of its own. */
+export const DEMO_INSTANCE_COPY = {
+  title: "You are viewing the demo instance on testnet",
+  body: "Every figure and proposal here is live, read from the Mirror Node. To deploy your own, run",
+  command: "yarn setup",
+} as const;
