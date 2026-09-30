@@ -1,12 +1,12 @@
 import { type ReactNode, StrictMode } from "react";
 import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
 import { useHederaSigner } from "./useHederaSigner";
-import { openedScheduleIdOf, signedScheduleIdOf, useRemoteApprovals } from "./useRemoteApprovals";
+import { openedScheduleIdOf, signedAsOf, signedScheduleIdOf, useRemoteApprovals } from "./useRemoteApprovals";
 import { QueryClient, QueryClientProvider, useMutation } from "@tanstack/react-query";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnimationEvent, GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
-import { ALICE, BOB, TRANSFER, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
+import { ALICE, BOB, CAROL, TRANSFER, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
 
 vi.mock("./useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 // The connected account's key: Alice's ("alice" in bytes, as Mirror writes it in hex).
@@ -40,6 +40,17 @@ function renderWithSession(onRemote: (approval: AnimationEvent) => void) {
           mutationKey: GOVERNANCE_MUTATION_KEYS.sign,
           mutationFn: async () => {
             throw new Error("rejected in the wallet");
+          },
+        }),
+        signAs: useMutation<string, Error, { scheduleId: string; member: string; memberKey: string }>({
+          mutationKey: GOVERNANCE_MUTATION_KEYS.signAs,
+          // Never settles: the approval is read while the server is still waiting for its receipt.
+          mutationFn: () => new Promise<string>(() => undefined),
+        }),
+        failedSignAs: useMutation<string, Error, { scheduleId: string; member: string; memberKey: string }>({
+          mutationKey: GOVERNANCE_MUTATION_KEYS.signAs,
+          mutationFn: async () => {
+            throw new Error("refused");
           },
         }),
         open: useMutation({
@@ -86,6 +97,26 @@ describe("useRemoteApprovals", () => {
     expect(onRemote.mock.calls.map(([approval]) => approval.memberKey)).toEqual([ALICE]);
   });
 
+  it("stays quiet about a demo signature still being sent, and announces the other member's", async () => {
+    const onRemote = vi.fn();
+    const { result, rerender } = renderWithSession(onRemote);
+    act(() => result.current.signAs.mutate({ scheduleId: ID, member: "bob", memberKey: BOB }));
+    await waitFor(() => expect(result.current.signAs.isPending).toBe(true));
+
+    rerender({ events: [approvedBy(BOB), approvedBy(CAROL)], world: WORLD });
+    expect(onRemote.mock.calls.map(([approval]) => approval.memberKey)).toEqual([CAROL]);
+  });
+
+  it("announces a demo signature whose request failed here: the ledger has it from somewhere else", async () => {
+    const onRemote = vi.fn();
+    const { result, rerender } = renderWithSession(onRemote);
+    await act(() =>
+      result.current.failedSignAs.mutateAsync({ scheduleId: ID, member: "bob", memberKey: BOB }).catch(() => undefined),
+    );
+    rerender({ events: [approvedBy(BOB)], world: WORLD });
+    expect(onRemote.mock.calls.map(([approval]) => approval.memberKey)).toEqual([BOB]);
+  });
+
   it("does nothing until there is a read", () => {
     const onRemote = vi.fn();
     const { rerender } = renderWithSession(onRemote);
@@ -108,6 +139,20 @@ describe("the session's mutations", () => {
     expect(signedScheduleIdOf(ID)).toBe(ID);
     for (const variables of [undefined, null, 9001, { scheduleId: ID }, [ID]]) {
       expect(signedScheduleIdOf(variables)).toBeUndefined();
+    }
+  });
+
+  it("reads the schedule and seat a sign-as was called with, and nothing from any other shape", () => {
+    expect(signedAsOf({ scheduleId: ID, member: "bob", memberKey: BOB })).toEqual({ scheduleId: ID, memberKey: BOB });
+    for (const variables of [
+      undefined,
+      null,
+      ID,
+      { scheduleId: ID },
+      { memberKey: BOB },
+      { scheduleId: 1, memberKey: BOB },
+    ]) {
+      expect(signedAsOf(variables)).toBeUndefined();
     }
   });
 
