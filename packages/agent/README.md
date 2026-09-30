@@ -237,21 +237,21 @@ quarter of an hour ago should not still be authorising a transaction.
 ## The decision log
 
 Every decision — the checks it ran, the outcome, and whether a person released it — goes to an HCS
-topic as one JSON message. This one is from the decision topic of an earlier deployment of the same
-contracts ([topic 0.0.10762625](https://hashscan.io/testnet/topic/0.0.10762625)), where the agent
-still ran on a demo council member's key:
+topic as one JSON message. This one is message 1 on the demo instance's decision topic
+([topic 0.0.10794625](https://hashscan.io/testnet/topic/0.0.10794625)), posted by the agent's own
+account:
 
 ```json
 {
   "schema": "governed-operations/agent-decision/1",
-  "scheduleId": "0.0.10762676",
+  "scheduleId": "0.0.10797084",
   "outcome": "approved",
-  "reason": "within policy, release v2.0.0",
-  "kind": "upgrade",
-  "proposal": "Run entry 0 of the registry at 0.0.10671156 — Upgrade 0x3f806946439c3521eeD7d740c3f84E09888C0419 to the implementation at 0xF3111f1480f088c19CB80096f698E5f1B42Cb9A6",
-  "confirmed": true,
-  "agentAccountId": "0.0.10671144",
-  "decidedAt": "2026-09-28T15:59:27.662Z"
+  "reason": "within policy",
+  "kind": "treasuryTransfer",
+  "proposal": "Transfer 0.5 ℏ to 0.0.10794946 out of 0.0.10794626",
+  "confirmed": false,
+  "agentAccountId": "0.0.10794623",
+  "decidedAt": "2026-09-30T19:59:46.782Z"
 }
 ```
 
