@@ -16,7 +16,7 @@ vi.mock("~~/hooks/mirror/useCouncil", () => ({ useCouncil: vi.fn() }));
 vi.mock("~~/hooks/mirror/useCouncilBefore", () => ({ useCouncilBefore: vi.fn() }));
 vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
-vi.mock("~~/hooks/useSignProposal", () => ({ useSignProposal: vi.fn() }));
+vi.mock("~~/hooks/useSignProposal", () => ({ useSignProposal: vi.fn(), useSignatureInFlight: () => false }));
 vi.mock("~~/hooks/useCancelProposalFlow", () => ({
   useCancelProposalFlow: () => ({ step: "idle", start: vi.fn(), error: null }),
 }));

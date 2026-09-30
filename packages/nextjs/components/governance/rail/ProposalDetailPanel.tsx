@@ -33,7 +33,7 @@ import { gasLimitLabel } from "~~/components/governance/wizard/copy";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useRotationResultTitle } from "~~/hooks/useRotationResultTitle";
-import { useSignProposal } from "~~/hooks/useSignProposal";
+import { useSignProposal, useSignatureInFlight } from "~~/hooks/useSignProposal";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import {
   UNREACHABLE_REGISTRY_SIGN_WARNING,
@@ -118,6 +118,8 @@ export const ProposalDetailPanel = ({
   const executionFailure = executionFailureLabel(proposal);
   const registryUnreachable = operation.kind === "registryCall" && registry.status === "unreachable";
   const sign = useSignProposal();
+  // Read from the mutation cache: a Sign pressed before the panel was closed and opened again is still on its way.
+  const signing = useSignatureInFlight(schedule.schedule_id);
   const council = useCouncil({ governanceAccountId, executorContractId, network });
   const agent = useCoSigningAgent(network);
   // The council rows follow the map: a rotation's new seats appear when its run has played.
@@ -146,7 +148,7 @@ export const ProposalDetailPanel = ({
       className="btn btn-primary btn-sm shrink-0"
       onClick={() => sign.mutate(schedule.schedule_id, { onSuccess: refresh })}
       // While the map plays a signature the panel shows the proposal as it was before it, seat unsigned.
-      disabled={sign.isPending || confirming}
+      disabled={sign.isPending || signing || confirming}
     >
       {SIGN_LABELS[signerKind]}
     </button>
