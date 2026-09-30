@@ -141,7 +141,7 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
       <ProposalSubmitFooter
         canSubmit={canSubmit}
         cta={openProposalCopy("councilRotation").cta}
-        note={SETTINGS_COPY.composer.noteWithoutPreview}
+        note={SETTINGS_COPY.composer.note}
       />
     </section>
   );

@@ -44,9 +44,16 @@ describe("previewTargetOf", () => {
     });
   });
 
+  it("previews the council change composed on Settings, whatever proposal ?schedule= names", () => {
+    expect(previewTargetOf({ pathname: "/settings", routeScheduleId: null, selectedScheduleId: "0.0.8" })).toEqual({
+      kind: "councilSettings",
+    });
+  });
+
   it("keys a target so a new one resets what depends on it", () => {
     expect(previewTargetKey({ kind: "schedule", scheduleId: "0.0.8" })).toBe("schedule:0.0.8");
     expect(previewTargetKey({ kind: "draft" })).toBe("draft");
+    expect(previewTargetKey({ kind: "councilSettings" })).toBe("councilSettings");
   });
 });
 

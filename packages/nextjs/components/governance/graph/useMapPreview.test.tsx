@@ -1,8 +1,9 @@
 import { captionFactsOf, useMapPreview } from "./useMapPreview";
+import { PrivateKey } from "@hiero-ledger/sdk";
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
-import { draftTreasuryTransfer, previewDraft } from "~~/services/governance/drafts";
+import { draftCouncilRotation, draftTreasuryTransfer, previewDraft } from "~~/services/governance/drafts";
 import { GOVERNANCE, SUPPLIER, UPGRADE_CALL, proposal } from "~~/services/liveMap/motion/motionFixtures";
 import { draftPreviewOf, selectedPreviewOf, sketchPreviewOf } from "~~/services/liveMap/preview/previewSource";
 
@@ -89,6 +90,37 @@ describe("useMapPreview", () => {
     const { result } = renderHook(() => useMapPreview(CONFIG));
     expect(result.current.preview).toBeNull();
     expect(result.current.title).toBe("Pay a supplier");
+  });
+
+  it("previews the layout's council change on Settings and captions the council it would create", () => {
+    route.pathname = "/settings";
+    route.selected = "0.0.9001";
+    wizard.preview = previewDraft(
+      draftCouncilRotation(
+        { governanceAccountId: GOVERNANCE },
+        { memberKeys: Array.from({ length: 4 }, () => PrivateKey.generateED25519().publicKey), threshold: 2 },
+      ),
+    );
+    const { result } = renderHook(() => useMapPreview(CONFIG));
+    expect(lookup.scheduleIds.filter(Boolean)).toEqual([]);
+    expect(result.current.target).toEqual({ kind: "councilSettings" });
+    expect(result.current.targetKey).toBe("councilSettings");
+    expect(result.current.preview?.key).toBe("draft:councilRotation");
+    expect(captionFactsOf(result.current.target, result.current.preview, result.current.title)).toEqual({
+      kind: "councilSettings",
+      rule: "2-of-4",
+    });
+  });
+
+  it("draws nothing on Settings for a draft of another kind, and captions the council at rest", () => {
+    route.pathname = "/settings";
+    wizard.preview = previewDraft(draftTreasuryTransfer(GOVERNANCE, { recipientAccountId: SUPPLIER, amount: "40" }));
+    const { result } = renderHook(() => useMapPreview(CONFIG));
+    expect(result.current.preview).toBeNull();
+    expect(captionFactsOf(result.current.target, result.current.preview, result.current.title)).toEqual({
+      kind: "councilSettings",
+      rule: null,
+    });
   });
 
   it("shows nothing for a selection it could not read", () => {

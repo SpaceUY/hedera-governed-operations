@@ -1,6 +1,6 @@
 /**
- * What the map previews, from what the rail shows: the draft on the wizard's route, the proposal a
- * detail route or `?schedule=` names on `/`. A proposal is previewed in one of three modes — `live`
+ * What the map previews, from what the rail shows: the draft on the wizard's route, the council change
+ * composed on Settings, the proposal a detail route or `?schedule=` names on `/`. A proposal is previewed in one of three modes — `live`
  * while the council could still sign it (dashed violet), `history` once it ran and succeeded (mint),
  * `void` once its round ended without running (muted dashes) — and not at all when its body, or the
  * registry entry it runs, cannot be described: the map never claims to know what it does not.
@@ -14,11 +14,16 @@ import type { DraftPreview } from "~~/services/governance/drafts";
 import { canShowIntent } from "~~/services/governance/proposalActions";
 import { decodedOperationOf } from "~~/services/liveMap/model/proposalRoutes";
 
-export type PreviewTarget = { kind: "none" } | { kind: "draft" } | { kind: "schedule"; scheduleId: string };
+export type PreviewTarget =
+  | { kind: "none" }
+  | { kind: "draft" }
+  | { kind: "councilSettings" }
+  | { kind: "schedule"; scheduleId: string };
 
 type RouteFacts = { pathname: string; routeScheduleId: string | null; selectedScheduleId: string | null };
 
 export function previewTargetOf({ pathname, routeScheduleId, selectedScheduleId }: RouteFacts): PreviewTarget {
+  if (pathname === GOVERNANCE_ROUTES.settings) return { kind: "councilSettings" };
   if (pathname === GOVERNANCE_ROUTES.newProposal) return { kind: "draft" };
   if (routeScheduleId) return { kind: "schedule", scheduleId: routeScheduleId };
   if (pathname === GOVERNANCE_ROUTES.home && selectedScheduleId)
