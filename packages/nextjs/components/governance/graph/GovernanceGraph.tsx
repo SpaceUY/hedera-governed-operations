@@ -93,6 +93,7 @@ export function GovernanceGraph({
             signed={frame.ring?.signed ?? 0}
             snap={frame.ring?.snap}
             ringTone={frame.ring?.tone}
+            need={frame.ring?.need}
           />
         );
       case "executor":

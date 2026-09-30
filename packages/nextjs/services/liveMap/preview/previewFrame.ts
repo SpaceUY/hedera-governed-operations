@@ -48,10 +48,10 @@ function labelsOn(graph: GovernanceGraph, nodeIds: readonly string[], preview: M
   return labels;
 }
 
+/** A void proposal's round ended without running, so its ring is empty like its muted path. */
 function ringOf({ mode, progress }: MapPreview, council: CouncilKey): MapFrame["ring"] {
-  if (!progress) return null;
+  if (!progress || mode === "void") return null;
   if (mode === "history") return { signed: council.threshold, snap: false, tone: "success" };
-  if (mode === "void") return { signed: progress.signed, snap: false, tone: null };
   return { signed: progress.signed, snap: false, tone: null, need: progress.remaining };
 }
 

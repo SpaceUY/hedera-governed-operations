@@ -104,7 +104,7 @@ describe("previewFrameOf", () => {
     const preview = selectedPreviewOf(withdrawn, 1) as MapPreview;
     const frame = previewFrameOf(preview, { graph: GRAPH, world: SHOWN, context: CONTEXT });
     expect(frame.phases).toEqual({ [TO_REGISTRY]: "void", [TO_VAULT]: "void" });
-    expect(frame.ring).toEqual({ signed: 1, snap: false, tone: null });
+    expect(frame.ring).toBeNull();
   });
 });
 

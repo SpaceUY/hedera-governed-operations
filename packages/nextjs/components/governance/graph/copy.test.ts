@@ -1,4 +1,11 @@
-import { inspectorEdgeBody, inspectorNodeBody, mapEdgeCaption, mapEdgeLabel } from "./copy";
+import {
+  inspectorEdgeBody,
+  inspectorNodeBody,
+  mapEdgeCaption,
+  mapEdgeLabel,
+  moreNeededLabel,
+  treasurySubline,
+} from "./copy";
 import { describe, expect, it } from "vitest";
 
 describe("mapEdgeCaption", () => {
@@ -61,5 +68,19 @@ describe("inspectorEdgeBody", () => {
     ["intent", "governanceAccount", "external", "a pending proposal would use it"],
   ] as const)("explains a %s edge from %s to %s", (kind, from, to, words) => {
     expect(inspectorEdgeBody(kind, from, to)).toContain(words);
+  });
+});
+
+describe("the treasury's words under the rule", () => {
+  it("counts what a proposal still needs, in the singular for one", () => {
+    expect(moreNeededLabel(1)).toBe("1 more signature needed");
+    expect(moreNeededLabel(2)).toBe("2 more signatures needed");
+  });
+
+  it("says executed once the ring has run, reverted when the run failed, and the caption otherwise", () => {
+    expect(treasurySubline("council", "success")).toBe("executed");
+    expect(treasurySubline("council", "error")).toBe("reverted");
+    expect(treasurySubline("council", "progress")).toBe("council");
+    expect(treasurySubline("council", null)).toBe("council");
   });
 });

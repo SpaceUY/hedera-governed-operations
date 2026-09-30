@@ -359,6 +359,11 @@ textarea.textarea {
   transition: opacity 320ms ease;
 }
 
+/* The treasury's "N more needed": the digit rolls to its new value. */
+.map-roll {
+  transition: transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 .map-draw {
   stroke-dasharray: 100 100;
 }
@@ -373,7 +378,8 @@ textarea.textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .map-scope,
-  .map-crossfade {
+  .map-crossfade,
+  .map-roll {
     transition: none;
   }
 }

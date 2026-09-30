@@ -311,3 +311,30 @@ describe("a preview", () => {
     expect(line?.getAttribute("mask")).toBeNull();
   });
 });
+
+describe("the treasury for a selected proposal", () => {
+  it("fills its ring with the approvals and rolls the count still needed", () => {
+    const { container } = renderGraph({
+      frame: { ...REST_FRAME, ring: { signed: 1, snap: false, tone: null, need: 1 } },
+    });
+    const treasury = nodeElement(container, GOVERNANCE_ACCOUNT_NODE_ID);
+    expect(treasury?.getAttribute("aria-label")).toContain("1 more signature needed");
+    expect(within(treasury as HTMLElement).getByText("more needed")).toBeTruthy();
+    expect((container.querySelector(".map-roll") as SVGGElement).style.transform).toBe("translateY(-20px)");
+    expect(container.querySelectorAll('[data-signed] [data-filled="true"]')).toHaveLength(1);
+  });
+
+  it("says executed in mint once the ring has run", () => {
+    renderGraph({ frame: { ...REST_FRAME, ring: { signed: 2, snap: false, tone: "success" } } });
+    expect(screen.getByText("executed").getAttribute("class")).toContain("fill-success-ink");
+  });
+
+  it("names a preview's words in the treasury's accessible name", () => {
+    const { container } = renderGraph({
+      frame: { ...REST_FRAME, labels: { [GOVERNANCE_ACCOUNT_NODE_ID]: "would gain a seat" } },
+    });
+    expect(nodeElement(container, GOVERNANCE_ACCOUNT_NODE_ID)?.getAttribute("aria-label")).toContain(
+      "would gain a seat",
+    );
+  });
+});

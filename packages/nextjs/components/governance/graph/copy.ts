@@ -4,6 +4,7 @@
  * travels along the edges and then switches off.
  */
 import type { EdgeKind, NodeRole } from "~~/services/liveMap/model/graph";
+import type { NodeTone } from "~~/services/liveMap/motion/frame";
 
 /** The map's title, the names of its standing nodes, and what it says while it cannot draw. */
 export const MAP_LABELS = {
@@ -17,9 +18,24 @@ export const MAP_LABELS = {
   swapAdapter: "Swap adapter",
   router: "Swap router",
   councilCaption: "council",
+  moreNeeded: "more needed",
+  executed: "executed",
+  reverted: "reverted",
   /** The seat the connected account holds. */
   you: "You",
 } as const;
+
+/** How many approvals the selected proposal still needs, as the treasury's accessible name says it. */
+export function moreNeededLabel(need: number): string {
+  return `${need} more ${need === 1 ? "signature" : "signatures"} needed`;
+}
+
+/** The line under the treasury's rule: how the run ended once the ring has run, else the node's caption. */
+export function treasurySubline(caption: string, tone: NodeTone | null | undefined): string {
+  if (tone === "success") return MAP_LABELS.executed;
+  if (tone === "error") return MAP_LABELS.reverted;
+  return caption;
+}
 
 /** What a node is, under its name; a demo layout may say it more specifically. */
 export const MAP_NODE_CAPTIONS: Record<NodeRole, string> = {
