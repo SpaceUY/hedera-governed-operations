@@ -4,10 +4,13 @@
  * entry in `PROPOSAL_TYPES` (with a measured `executeGas` for a contract-backed kind), its decoded
  * shape and a branch in `describe*Operation` — and goes on to an encoder (`encode.ts`), a decoder
  * branch (`decode.ts`), a draft and a wizard folder in the app (`docs/GOVERNANCE_UI.md`, "Opening
- * a proposal"), its route, icon and preview words on the live map, and the co-signing agent's reading
- * of it (`readOperation` in `packages/agent/src/operation.ts`) and rule (`reviewOperation` in
- * `policy.ts`) — a policy with no rule for a kind refuses it. The app's `Record<ProposalKind, …>` maps
- * fail the type check until each has its entry.
+ * a proposal"), its route and preview words on the live map (`PROPOSAL_ROUTES`, `PREVIEW_KINDS`),
+ * its icon on the rail's card (`OperationIcon.tsx`), and the co-signing agent: its reading
+ * (`readOperation` in `packages/agent/src/operation.ts`), its rule (`reviewOperation` in `policy.ts`),
+ * parsed by `parsePolicy` in `config.ts` — whose list of rule names is written out, so nothing forces
+ * it — and shown in `policy.example.json`. The switches in `readOperation` and `reviewOperation` and
+ * the app's `Record<ProposalKind, …>` maps fail the type check until each has its entry; a policy
+ * file with no rule for the kind refuses it.
  *
  * Two of the five never touch a contract. A treasury transfer is a `CryptoTransfer` and a council
  * rotation is a `CryptoUpdate` on the governance account itself, so both are readable straight from

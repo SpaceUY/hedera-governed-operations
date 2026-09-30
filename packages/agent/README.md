@@ -142,9 +142,8 @@ that cannot tell what it is approving has one safe answer.
 
 Once seated, the agent holds one of the council's keys — one of four in the demo, which still needs
 two — so every signature it sends is **half a threshold delivered on a policy nobody watched it
-apply**. For most of what it signs that is the point: a
-transfer is bounded by an amount and a list of recipients, and waiting for somebody to open a wallet
-adds nothing. For the operations whose limits cannot bound their impact it is not enough — an upgrade
+apply**. For most of what it signs that is the point: a transfer is bounded by an amount and a list
+of recipients, and waiting for somebody to open a wallet adds nothing. For the operations whose limits cannot bound their impact it is not enough — an upgrade
 replaces the code behind the proxy, and no list of addresses says what that code does.
 
 So a rule can ask for a person as well:
@@ -266,9 +265,10 @@ the release topic: a manifest claims "this team published this build", so the pu
 a decision claims "this agent approved this proposal", so the publisher is the agent. A log the
 operator could also write to would be a log of what somebody said the agent did. `yarn setup` creates
 it with the key of the agent's own account and keeps the admin key on the operator, so the submit key
-can be rotated when the agent's key changes; in a real deployment the key belongs to whatever identity runs the service.
-The agent refuses to start on a topic anyone can publish to, and on one whose single submit key is
-not its own — every message it sent there would come back `INVALID_SIGNATURE`.
+can be rotated when the agent's key changes; in a real deployment the key belongs to whatever
+identity runs the service. The agent refuses to start on a topic anyone can publish to, and on one
+whose single submit key is not its own — every message it sent there would come back
+`INVALID_SIGNATURE`.
 
 Publishing never blocks a decision. It happens after deciding and signing, and a failure is logged
 and stepped over: a fee that failed is not a reason to stop holding a council seat, and the next pass
