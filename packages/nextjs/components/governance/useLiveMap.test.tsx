@@ -1,4 +1,7 @@
+import type { ReactNode } from "react";
+import { MapPlaybackProvider } from "./MapPlaybackProvider";
 import { useLiveMap } from "./useLiveMap";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MAP_NODE_STATES } from "~~/components/governance/graph/copy";
@@ -40,6 +43,13 @@ const CONFIG = {
   executor: { address: "0x5aF0000000000000000000000000000000000000", abi: [], hederaContractId: "0.0.5000" },
   vault: { address: "0x3f806946439c3521eeD7d740c3f84E09888C0419", abi: [], hederaContractId: "0.0.5001" },
 } as GovernanceConfig;
+
+/** The layout's playback, as the governance layout provides it around the map pane. */
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={new QueryClient()}>
+    <MapPlaybackProvider config={CONFIG}>{children}</MapPlaybackProvider>
+  </QueryClientProvider>
+);
 
 const WORLD: GovernanceSnapshot = {
   council: MAP_SNAPSHOT.council,
@@ -93,7 +103,7 @@ beforeEach(() => {
 
 describe("useLiveMap", () => {
   it("draws the strip and the map from one world, at rest while nothing plays", () => {
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current).toMatchObject({
       treasury: WORLD.treasury,
       council: WORLD.council,
@@ -106,18 +116,18 @@ describe("useLiveMap", () => {
   });
 
   it("writes the nodes' states into the map's captions", () => {
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current.map?.captions[MAP_ENTITY_IDS.token]).toBe(MAP_NODE_STATES.token.paused);
   });
 
   it("draws nothing and says no council until the first read", () => {
     read(null);
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current).toMatchObject({ treasury: null, council: null, map: null, frame: REST_FRAME });
   });
 
   it("explains a selected item, and lets it go when the map starts showing something else", () => {
-    const { result, rerender } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result, rerender } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     act(() => result.current.selection.activation.onActivate({ kind: "node", id: GOVERNANCE_ACCOUNT_NODE_ID }));
     expect(result.current.inspector).not.toBeNull();
 
@@ -127,13 +137,13 @@ describe("useLiveMap", () => {
   });
 
   it("says the idle caption with the council's rule once there is a world", () => {
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current.caption?.lead).toBe("Nothing moves until the 2-of-3 council signs.");
   });
 
   it("draws the previewed operation's route into the map and the frame, and its caption follows the preview", () => {
     previewing(DRAFT, TRANSFER_PREVIEW("draft:treasuryTransfer", CONFIG.governanceAccountId), "Pay a supplier");
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current.frame.drawKey).toBe("draft:treasuryTransfer");
     expect(result.current.caption?.lead).toBe("Drafting.");
   });
@@ -148,11 +158,11 @@ describe("useLiveMap", () => {
     afterEach(() => vi.mocked(useProposalAnimationSync).mockRestore());
 
     it("holds the preview back: the map and frame are the sequence's, and the caption is the draft's without a path", () => {
-      const rest = renderHook(() => useLiveMap({ config: CONFIG })).result.current;
+      const rest = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper }).result.current;
       previewing(DRAFT, TRANSFER_PREVIEW("draft:treasuryTransfer", CONFIG.governanceAccountId), "Pay a supplier");
       vi.mocked(useProposalAnimationSync).mockReturnValue({ world: WORLD, playing: PLAYING } as never);
 
-      const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+      const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
       expect(result.current.map?.graph).toEqual(rest.map?.graph);
       expect(result.current.frame.drawKey).toBeNull();
       expect(result.current.frame.highlights).toEqual({ [GOVERNANCE_ACCOUNT_NODE_ID]: "success" });
@@ -165,21 +175,21 @@ describe("useLiveMap", () => {
     it("says the idle caption for a selected proposal while a sequence plays", () => {
       previewing(SELECTED, TRANSFER_PREVIEW("schedule:0.0.7001", CONFIG.governanceAccountId), "Pay a supplier");
       vi.mocked(useProposalAnimationSync).mockReturnValue({ world: WORLD, playing: PLAYING } as never);
-      const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+      const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
       expect(result.current.caption?.lead).toBe("Nothing moves until the 2-of-3 council signs.");
     });
   });
 
   it("says the idle caption when the previewed operation's route cannot be drawn, so no words describe a missing path", () => {
     previewing(SELECTED, TRANSFER_PREVIEW("schedule:0.0.7001", "0.0.9999"), "Pay a supplier");
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current.frame).toBe(REST_FRAME);
     expect(result.current.caption?.lead).toBe("Nothing moves until the 2-of-3 council signs.");
   });
 
   it("says the draft's caption without a path when the drafted operation's route cannot be drawn", () => {
     previewing(DRAFT, TRANSFER_PREVIEW("draft", "0.0.9999"), "Pay a supplier");
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current.frame).toBe(REST_FRAME);
     expect(result.current.caption).toEqual({
       lead: "Drafting.",
@@ -194,7 +204,7 @@ describe("useLiveMap", () => {
       null,
     );
     previewing(DRAFT, sketch, "Upgrade the vault to v2");
-    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }), { wrapper });
     expect(result.current.frame.drawKey).toBe("draft:upgrade");
     expect(result.current.frame.labels).toEqual({ [MAP_ENTITY_IDS.vault]: "would be upgraded" });
     expect(result.current.caption).toEqual({
@@ -205,7 +215,7 @@ describe("useLiveMap", () => {
 
   it("announces a signature this session did not send through the host", () => {
     const onRemoteSignature = vi.fn();
-    renderHook(() => useLiveMap({ config: CONFIG, onRemoteSignature }));
+    renderHook(() => useLiveMap({ config: CONFIG, onRemoteSignature }), { wrapper });
     const { onRemote, world } = vi.mocked(useRemoteApprovals).mock.lastCall![0];
     expect(world).toBe(WORLD);
     onRemote({

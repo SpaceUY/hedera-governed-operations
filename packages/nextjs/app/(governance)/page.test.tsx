@@ -22,6 +22,11 @@ vi.mock("~~/components/governance/GovernanceProvider", () => ({
     executor: { hederaContractId: "0.0.4242" },
   }),
 }));
+// Nothing plays on the map here: the rail shows the proposals as read.
+vi.mock("~~/components/governance/MapPlaybackProvider", () => ({
+  useMapPlayback: () => ({ busy: [], world: null }),
+  useShownProposals: (proposals: unknown[]) => proposals,
+}));
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/mirror/useProposalLookup", () => ({ useProposalLookup: vi.fn() }));
 vi.mock("~~/components/governance/rail/ProposalDetail", () => ({

@@ -26,6 +26,7 @@ vi.mock("~~/hooks/useDemoSigners", () => ({
   useDemoSigners: vi.fn(),
   useDemoSign: vi.fn(),
   useDemoSignatureState: vi.fn(),
+  useDemoSignaturePending: () => false,
 }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.4000";

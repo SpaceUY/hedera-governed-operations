@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
+import { useMapPlayback } from "~~/components/governance/MapPlaybackProvider";
 import type { TokenReading } from "~~/components/governance/TreasuryStrip";
 import { mapCaptionOf } from "~~/components/governance/graph/caption";
 import { inspectorContentOf } from "~~/components/governance/graph/inspector";
@@ -10,10 +11,8 @@ import { useComposedMap } from "~~/components/governance/graph/useComposedMap";
 import { captionFactsOf, useMapPreview } from "~~/components/governance/graph/useMapPreview";
 import { useMapSelection } from "~~/components/governance/graph/useMapSelection";
 import { GOVERNANCE_CONTRACTS, type GovernanceConfig, findDeployment } from "~~/config/governanceConfig";
-import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { type TokenQueryData, useToken } from "~~/hooks/mirror/useToken";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { useProposalAnimationSync } from "~~/hooks/useProposalAnimationSync";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 import { releaseOf } from "~~/services/liveMap/model/vaultRelease";
@@ -46,11 +45,12 @@ const tokenNamer =
   };
 
 /**
- * Everything the map pane draws, from one world. `useMapSnapshot` composes the queries the rail polls
- * too; this only adds the governed token and USDC for the strip's symbols and decimals (`useToken`, the
- * same query the snapshot reads the token's pause state from, so one request serves both). It plays
- * what changed between two reads (`useProposalAnimationSync`), so while a sequence plays the map and
- * the figures show the world it started from, and catch up when it lands. A signature this session did
+ * Everything the map pane draws, from one world. The layout's `MapPlaybackProvider` reads it
+ * (`useMapSnapshot`, the queries the rail polls too) and plays what changed between two reads
+ * (`useProposalAnimationSync`), so while a sequence plays the map and the figures show the world it
+ * started from, and catch up when it lands; this only adds the governed token and USDC for the strip's
+ * symbols and decimals (`useToken`, the same query the snapshot reads the token's pause state from, so
+ * one request serves both). A signature this session did
  * not send is announced through `onRemoteSignature` as well as played. The selection (`useMapSelection`)
  * opens the inspector, explained from the same map; the map starting to show something else (another
  * proposal, the wizard) closes it. What the map previews and says about it comes from `useMapPreview`;
@@ -58,19 +58,11 @@ const tokenNamer =
  */
 export function useLiveMap({ config, onRemoteSignature }: LiveMapOptions) {
   const { targetNetwork } = useTargetNetwork();
-  const { governanceAccountId, network, executor, vault, demoTokenId } = config;
+  const { network, demoTokenId } = config;
   const usdcTokenId = SAUCERSWAP_V2_CONFIG[network].usdcToken;
-  const { snapshot, previous, events, readAt, error } = useMapSnapshot({
-    governanceAccountId,
-    executorContractId: executor.hederaContractId,
-    network,
-    vaultContractId: vault.hederaContractId,
-    demoTokenId,
-    usdcTokenId,
-  });
+  const { snapshot, events, error, world, playing } = useMapPlayback();
   const governedToken = useToken(demoTokenId, { network });
   const usdc = useToken(usdcTokenId, { network });
-  const { world, playing } = useProposalAnimationSync({ snapshot, previous, events, readAt });
 
   const mapPreview = useMapPreview(config);
   const previewed = playing ? null : (mapPreview.preview?.operation ?? null);

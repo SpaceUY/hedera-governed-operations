@@ -7,12 +7,18 @@ import type { CouncilKey } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { SeatExtra } from "~~/components/governance/rail/ApproverList";
 import { ROTATION_ONE_SIGNATURE } from "~~/components/governance/rail/copy";
-import { useDemoSigners } from "~~/hooks/useDemoSigners";
+import { useDemoSignaturePending, useDemoSigners } from "~~/hooks/useDemoSigners";
 import { type DemoSeat, demoMemberLabel, demoSeatPlan } from "~~/services/demoSigners/demoSigners";
 
 type SeatExtras = Readonly<Record<string, SeatExtra>>;
 
-export type DemoSeats = { extras: SeatExtras; incomingExtras: SeatExtras; note: string | null };
+export type DemoSeats = {
+  extras: SeatExtras;
+  incomingExtras: SeatExtras;
+  note: string | null;
+  /** A demo signature on this proposal is on its way: with the server, or waiting for Mirror to list it. */
+  confirming: boolean;
+};
 
 type DemoSeatsInput = {
   proposal: Proposal;
@@ -21,7 +27,7 @@ type DemoSeatsInput = {
   onSigned: () => void;
 };
 
-const NO_DEMO_SEATS: DemoSeats = { extras: {}, incomingExtras: {}, note: null };
+const NO_DEMO_SEATS: DemoSeats = { extras: {}, incomingExtras: {}, note: null, confirming: false };
 
 /** Tinted like the viewer's own "your wallet" badge, softer, since it marks whose key signs rather than whose wallet. */
 const DEMO_KEY_BADGE = <span className="badge badge-soft badge-primary badge-sm">{DEMO_SIGNER_COPY.badge}</span>;
@@ -33,10 +39,11 @@ const DEMO_KEY_BADGE = <span className="badge badge-soft badge-primary badge-sm"
  */
 export function useDemoSeats({ proposal, council, onSigned }: DemoSeatsInput): DemoSeats {
   const members = useDemoSigners().data;
-  if (!members?.length || !council) return NO_DEMO_SEATS;
+  const scheduleId = proposal.schedule.schedule_id;
+  const confirming = useDemoSignaturePending(scheduleId);
+  if (!members?.length || !council) return { ...NO_DEMO_SEATS, confirming };
 
   const plan = demoSeatPlan(members, proposal, council);
-  const scheduleId = proposal.schedule.schedule_id;
   const actionOf = ({ member, offer }: DemoSeat): ReactNode => {
     // Keyed by the proposal so a button that already sent its signature is never reused for another one.
     if (offer === "sign") {
@@ -56,5 +63,6 @@ export function useDemoSeats({ proposal, council, onSigned }: DemoSeatsInput): D
     extras: extrasOf(Object.values(plan.current)),
     incomingExtras: extrasOf(Object.values(plan.incoming)),
     note: names.length > 0 ? DEMO_SIGNER_COPY.note(names) : null,
+    confirming,
   };
 }

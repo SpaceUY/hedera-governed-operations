@@ -14,6 +14,10 @@ vi.mock("~~/hooks/useSubmitProposalDraft", () => ({
 vi.mock("~~/components/governance/LiveMapPane", () => ({
   LiveMapPane: ({ config }: { config: GovernanceConfig }) => <div>map pane of {config.governanceAccountId}</div>,
 }));
+// The map's reads, which the layout's playback runs: never the network from a test.
+vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({
+  useMapSnapshot: () => ({ snapshot: null, previous: null, events: [], readAt: 0, error: null }),
+}));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
   resolveGovernanceConfig: vi.fn(),

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ConfirmingLine } from "./ConfirmingLine";
 import { OperationIcon } from "./OperationIcon";
 import { OperationMeta } from "./OperationMeta";
 import { proposalIdentityOf } from "./proposalIdentity";
@@ -21,6 +22,8 @@ export type OperationCardProps = {
   onSelect: () => void;
   /** Shown under the row while it is selected: the host's proposal detail. */
   detail?: ReactNode;
+  /** The map is still playing this proposal: the row says so under its meta line. */
+  confirming?: boolean;
 };
 
 /**
@@ -34,7 +37,7 @@ export type OperationCardProps = {
  * A scheduled body the decoder could not read is named by the reason (`proposalIdentityOf`), styled
  * as a warning, and offers nothing that could be mistaken for a preview of what it does.
  */
-export const OperationCard = ({ proposal, selected, onSelect, detail }: OperationCardProps) => {
+export const OperationCard = ({ proposal, selected, onSelect, detail, confirming = false }: OperationCardProps) => {
   const identity = proposalIdentityOf(proposal);
   const scheduleId = proposal.schedule.schedule_id;
   const detailId = operationCardDetailId(scheduleId);
@@ -62,6 +65,7 @@ export const OperationCard = ({ proposal, selected, onSelect, detail }: Operatio
             {identity.title}
           </span>
           <OperationMeta proposal={proposal} family={identity.family} />
+          {confirming && <ConfirmingLine />}
         </span>
         <svg
           viewBox="0 0 16 16"

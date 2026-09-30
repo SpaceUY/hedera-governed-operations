@@ -12,6 +12,8 @@ export type PendingOperationsListProps = {
   onSelect: (scheduleId: string) => void;
   /** The selected proposal's detail, opened under its card. */
   selectedDetail?: ReactNode;
+  /** The proposals the map is still playing, whose cards say they are confirming. */
+  confirmingScheduleIds?: readonly string[];
 };
 
 /**
@@ -26,6 +28,7 @@ export const PendingOperationsList = ({
   selectedScheduleId,
   onSelect,
   selectedDetail,
+  confirmingScheduleIds = [],
 }: PendingOperationsListProps) => {
   const [expanded, setExpanded] = useState(false);
   // The selection the reader folded the list over: it no longer holds the list open.
@@ -53,6 +56,7 @@ export const PendingOperationsList = ({
             selected={proposal.schedule.schedule_id === selectedScheduleId}
             onSelect={() => onSelect(proposal.schedule.schedule_id)}
             detail={selectedDetail}
+            confirming={confirmingScheduleIds.includes(proposal.schedule.schedule_id)}
           />
         ))}
       </ul>
