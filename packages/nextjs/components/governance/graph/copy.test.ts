@@ -1,10 +1,10 @@
 import {
+  RUN_OUTCOME_LABELS,
   inspectorEdgeBody,
   inspectorNodeBody,
   mapEdgeCaption,
   mapEdgeLabel,
   moreNeededLabel,
-  treasurySubline,
 } from "./copy";
 import { describe, expect, it } from "vitest";
 
@@ -77,10 +77,7 @@ describe("the treasury's words under the rule", () => {
     expect(moreNeededLabel(2)).toBe("2 more signatures needed");
   });
 
-  it("says executed once the ring has run, reverted when the run failed, and the caption otherwise", () => {
-    expect(treasurySubline("council", "success")).toBe("executed");
-    expect(treasurySubline("council", "error")).toBe("reverted");
-    expect(treasurySubline("council", "progress")).toBe("council");
-    expect(treasurySubline("council", null)).toBe("council");
+  it("says executed once the ring has run, and reverted when the run failed", () => {
+    expect(RUN_OUTCOME_LABELS).toEqual({ success: "executed", error: "reverted" });
   });
 });

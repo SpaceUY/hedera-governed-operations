@@ -31,12 +31,14 @@ export function moreNeededLabel(need: number): string {
   return `${need} more ${signaturesWord(need)} needed`;
 }
 
-/** The line under the treasury's rule: how the run ended once the ring has run, else the node's caption. */
-export function treasurySubline(caption: string, tone: NodeTone | null | undefined): string {
-  if (tone === "success") return MAP_LABELS.executed;
-  if (tone === "error") return MAP_LABELS.reverted;
-  return caption;
-}
+/** The ring's tones once a run has ended. */
+export type RunOutcome = Extract<NodeTone, "success" | "error">;
+
+/** How a run ended, as the line under the treasury's rule says it once the ring has run. */
+export const RUN_OUTCOME_LABELS: Record<RunOutcome, string> = {
+  success: MAP_LABELS.executed,
+  error: MAP_LABELS.reverted,
+};
 
 /** What a node is, under its name; a demo layout may say it more specifically. */
 export const MAP_NODE_CAPTIONS: Record<NodeRole, string> = {

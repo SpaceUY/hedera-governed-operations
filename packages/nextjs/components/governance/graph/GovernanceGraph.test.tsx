@@ -1,4 +1,5 @@
 import { GovernanceGraph } from "./GovernanceGraph";
+import { MAP_LABELS } from "./copy";
 import { KEY_A, MAP_SNAPSHOT, pendingTransferTo } from "./mapFixtures";
 import { composeMap } from "./mapModel";
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -346,6 +347,19 @@ describe("the treasury for a selected proposal", () => {
   it("says executed in mint once the ring has run", () => {
     renderGraph({ frame: { ...REST_FRAME, ring: { signed: 2, snap: false, tone: "success" } } });
     expect(screen.getByText("executed").getAttribute("class")).toContain("fill-success-ink");
+  });
+
+  it("says reverted in coral when the run failed", () => {
+    renderGraph({ frame: { ...REST_FRAME, ring: { signed: 2, snap: false, tone: "error" } } });
+    expect(screen.getByText("reverted").getAttribute("class")).toContain("fill-error");
+  });
+
+  it("keeps its caption under the rule while no proposal is previewed and no run has ended", () => {
+    const { container } = renderGraph({ frame: { ...REST_FRAME, ring: { signed: 1, snap: false, tone: "progress" } } });
+    const treasury = nodeElement(container, GOVERNANCE_ACCOUNT_NODE_ID) as HTMLElement;
+    expect(within(treasury).queryByText("executed")).toBeNull();
+    expect(within(treasury).queryByText("more needed")).toBeNull();
+    expect(within(treasury).getByText(MAP_LABELS.councilCaption)).toBeTruthy();
   });
 
   it("names a preview's words in the treasury's accessible name", () => {
