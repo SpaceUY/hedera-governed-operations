@@ -66,6 +66,26 @@
       "executableWithTestSigner": true,
       "statement": "With the harness test signer seated on the council, signing a pending proposal from the app adds that signature to the scheduled transaction on the testnet Mirror Node.",
       "howToVerify": "The dev server command runs `yarn harness:council-seat` first, which adds this run's test signer to the governance account's threshold key; without that seat the network answers INVALID_SIGNATURE and this assertion fails. Store the test signer key under localStorage[\"burnerWallet.pk\"] and reload /. Do not open any wallet modal: the header must show the signer's 0.0.x account id with a \"test signer\" badge (allow ~20 s for the account to resolve from the Mirror Node). Click a card under \"Pending operations\" that reads \"N more needed\"; in its detail note the schedule id (under \"On HashScan\", as \"Schedule 0.0.x\") and the \"K signed\" count in the headline. GET https://testnet.mirrornode.hedera.com/api/v1/schedules/{scheduleId} and note signatures.length. Click \"Sign with the test signer\" on the signer's own row in the \"Council\" list and wait for \"K signed\" to rise by one. Then GET the same Mirror Node URL again (poll up to 30 s) and confirm signatures.length has risen by one. Console has no errors."
+    },
+    {
+      "id": "E10",
+      "journey": "Browse without a wallet",
+      "route": "/",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": false,
+      "statement": "Selecting a pending proposal previews on the map what it would do: what it does not touch is dimmed, its path is dashed violet, the node it changes says what would happen, and the caption names it.",
+      "howToVerify": "With the testnet .env of a deployment that has a pending proposal, navigate to / at 1440×900. Click a pending card whose proposal decodes (not an 'unrecognized' one). The URL gains ?schedule=<id>; within a second the map shows elements with data-dimmed=\"true\" at computed opacity 0.35, at least one edge with data-phase=\"preview\", a node text in violet starting with \"would \" (e.g. \"would become v2\"), and the caption above the map reads \"<the card's title>. Dashed violet is what would happen once the 2-of-3 council signs.\" (the rule as the ledger has it). Deselecting the card restores the caption \"Nothing moves until the 2-of-3 council signs.\" and removes every data-dimmed=\"true\". Console has no errors."
+    },
+    {
+      "id": "E11",
+      "journey": "Wallet-gated actions",
+      "route": "/governance/new",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": false,
+      "statement": "While a proposal is drafted in the rail, the map previews it as dashed violet and the caption says it is drafting.",
+      "howToVerify": "With the testnet .env of a deployment, navigate to /governance/new. While the form has no valid values yet, the caption above the map reads \"Drafting. Pick an operation type.\". Choose \"Upgrade the vault to v2\" and enter a withdrawal limit of 2: the caption becomes \"Drafting. Dashed violet is what “Upgrade the vault to v2” would do once the 2-of-3 council signs.\", the Treasury → Proposal registry → Vault edges carry data-phase=\"preview\", and the Vault's caption reads \"would become v2\". Console has no errors."
     }
   ]
 }

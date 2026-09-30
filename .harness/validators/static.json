@@ -88,6 +88,22 @@
     {
       "file": "packages/nextjs/components/governance/rail/copy.ts",
       "contains": ["Find a proposal by schedule id", "Show fewer", "Expiring now"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/graph/caption.ts",
+      "contains": ["Nothing moves until the", "Drafting.", "Dashed violet is what would happen once the"]
+    },
+    {
+      "file": "packages/nextjs/services/liveMap/preview/kinds/upgrade.ts",
+      "contains": ["would become v2"]
+    },
+    {
+      "file": "packages/nextjs/services/liveMap/preview/kinds/registry.ts",
+      "contains": ["PREVIEW_KINDS"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/wizard/copy.ts",
+      "contains": ["Sent with your wallet."]
     }
   ]
 }
