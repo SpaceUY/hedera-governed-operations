@@ -46,7 +46,7 @@ export const ProposalDetail = ({ config, scheduleId, variant }: ProposalDetailPr
     network,
     scheduleId,
   });
-  const { accountId, signerKind } = useHederaSigner();
+  const { accountId, signerKind, walletName } = useHederaSigner();
   const { composed } = useLatestComposedMap(config);
 
   if (isLoading) return <DetailPlaceholder />;
@@ -58,6 +58,7 @@ export const ProposalDetail = ({ config, scheduleId, variant }: ProposalDetailPr
       proposal={proposal}
       accountId={accountId}
       signerKind={signerKind}
+      walletName={walletName}
       governanceAccountId={governanceAccountId}
       executorContractId={executorContractId}
       network={network}
