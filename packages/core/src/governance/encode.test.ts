@@ -307,6 +307,16 @@ describe("buildCouncilRotation", () => {
     expect(operation.council.memberKeys).toHaveLength(5);
   });
 
+  it("rewrites the account's memo to the rule of the council it proposes", () => {
+    const rotation = buildCouncilRotation({
+      governanceAccountId: GOVERNANCE_ACCOUNT,
+      memberKeys: keysOf(4),
+      threshold: 2,
+    });
+
+    expect(rotation.accountMemo).toBe("scaffold-hbar governance 2-of-4");
+  });
+
   it("refuses a threshold no number of signatures could reach", () => {
     expect(() =>
       buildCouncilRotation({ governanceAccountId: GOVERNANCE_ACCOUNT, memberKeys: keysOf(3), threshold: 4 }),

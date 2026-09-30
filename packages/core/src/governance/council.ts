@@ -110,6 +110,16 @@ export function councilKeyOf(key: proto.IKey): CouncilKey {
 }
 
 /**
+ * The governance account's memo, which names its council's rule for whoever finds the account on
+ * HashScan. `yarn setup` writes it when it creates the account and every rotation rewrites it in the
+ * same update that replaces the key; a memo written once would keep naming the first council after
+ * the ledger had moved on.
+ */
+export function governanceAccountMemo(threshold: number, memberCount: number): string {
+  return `scaffold-hbar governance ${threshold}-of-${memberCount}`;
+}
+
+/**
  * The council in an account's key as Mirror serves it. A key that is not protobuf-encoded holds no
  * members, so it throws with the message `describe` writes for the key type it found.
  */
