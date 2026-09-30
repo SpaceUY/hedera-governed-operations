@@ -5,7 +5,8 @@
   "version": 2,
   "routes": [
     "/",
-    "/governance/new"
+    "/governance/new",
+    "/settings"
   ],
   "evaluationRules": {
     "posture": "adversarial",
@@ -66,6 +67,16 @@
       "executableWithTestSigner": true,
       "statement": "With the harness test signer seated on the council, signing a pending proposal from the app adds that signature to the scheduled transaction on the testnet Mirror Node.",
       "howToVerify": "The dev server command runs `yarn harness:council-seat` first, which adds this run's test signer to the governance account's threshold key; without that seat the network answers INVALID_SIGNATURE and this assertion fails. Store the test signer key under localStorage[\"burnerWallet.pk\"] and reload /. Do not open any wallet modal: the header must show the signer's 0.0.x account id with a \"test signer\" badge (allow ~20 s for the account to resolve from the Mirror Node). Click a card under \"Pending operations\" that reads \"N more needed\"; in its detail note the schedule id (under \"On HashScan\", as \"Schedule 0.0.x\") and the \"K signed\" count in the headline. GET https://testnet.mirrornode.hedera.com/api/v1/schedules/{scheduleId} and note signatures.length. Click \"Sign with the test signer\" on the signer's own row in the \"Council\" list and wait for \"K signed\" to rise by one. Then GET the same Mirror Node URL again (poll up to 30 s) and confirm signatures.length has risen by one. Console has no errors."
+    },
+    {
+      "id": "E10",
+      "journey": "Browse without a wallet",
+      "route": "/settings",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": true,
+      "statement": "Settings shows the council read from the treasury account's key and the registry's roles read from the chain, beside the live map, without a way to grant a role and without the registry's proposal count.",
+      "howToVerify": "Without a .env the app reads the template's demo instance on testnet, and with one it reads that deployment; either way, navigate to /settings at 1440×900. The header's Settings link is highlighted and Live map is not. The map pane is present. The rail is headed \"Settings\" with a \"← Map\" link to /. A section headed \"Council · native Hedera\" reads \"<rule> signatures move the treasury\" where <rule> equals the treasury strip's council threshold (e.g. \"2-of-3\"), states \"These approvers don’t exist in any contract…\", and lists one row per seat of that rule's n, plus one dashed \"not a member\" row when a co-signing agent is configured and not seated. A section headed \"Propose a council change · native\" has one checked checkbox per seat (plus one unticked checkbox when a configured co-signing agent is not seated and could sign), \"Signatures required\" with − and + around the rule, an \"Add a member\" button, and a \"Schedule with your wallet\" button that is disabled while nothing has changed; after a change it enables only with a connected wallet, and without one the section says \"Connect a wallet to propose\" and the button stays disabled. A section headed \"Contract roles · EVM · proposal registry\" lists PROPOSER_ROLE holders, EXECUTOR_ROLE as \"Treasury account <governance account id> — the only holder\", Role admin \"The registry itself\", and the sentence that changing who may propose is itself a proposal the council approves; that section contains no text input and no button. No number of registered proposals appears anywhere on the page. At 400 px wide there is no horizontal scroll. Console has no errors."
     }
   ]
 }

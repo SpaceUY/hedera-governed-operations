@@ -160,4 +160,6 @@ export const GOVERNANCE_ROUTES = {
   home: "/",
   newProposal: "/governance/new",
   proposal: (scheduleId: string) => `/governance/${scheduleId}`,
+  /** The council, the change composer and the registry's roles, beside the same map. */
+  settings: "/settings",
 } as const;

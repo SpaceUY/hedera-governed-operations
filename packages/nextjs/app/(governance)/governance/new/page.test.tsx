@@ -336,7 +336,7 @@ describe("NewProposalPage", () => {
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
     renderPage();
 
-    fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.councilRotation.title) }));
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp("Add the co-signing agent") }));
 
     expect(screen.getByText("agent form")).toBeTruthy();
     expect(screen.getByText("→ 2-of-4 council")).toBeTruthy();

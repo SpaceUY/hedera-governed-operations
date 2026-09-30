@@ -64,6 +64,11 @@ export function councilRuleLabel(council: CouncilKey): string {
   return `${council.threshold}-of-${council.memberKeys.length}`;
 }
 
+/** What a council rotation is called once it exists: the council it would make, true whoever proposed it and why. */
+export function councilChangeTitle(council: CouncilKey): string {
+  return `Change to a ${councilRuleLabel(council)} council`;
+}
+
 /**
  * A proposal's status. The schedule's own "Executed" only says the network ran the transaction, and a
  * call that reverted ran too, so a proposal that executed says whether it worked.

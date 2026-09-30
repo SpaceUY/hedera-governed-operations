@@ -13,6 +13,7 @@ export const seatedRule = ({ threshold, memberKeys }: CouncilKey): string => `${
 
 /** What seating the co-signing agent says about the council it changes and the one it proposes. */
 export const CO_SIGNING_AGENT_COPY = {
+  title: "Add the co-signing agent",
   accountLabel: "Agent account",
   pickerHint: (council: CouncilKey) => `→ ${seatedRule(council)} council`,
   /**

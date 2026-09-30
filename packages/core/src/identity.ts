@@ -7,6 +7,9 @@ export function isEvmAddress(value: string | null | undefined): value is `0x${st
   return Boolean(value && EVM_ADDRESS_REGEX.test(value));
 }
 
+/** EVM addresses compare case-insensitively: a checksummed one and its lowercase form name the same account. */
+export const sameAddress = (left: string, right: string): boolean => left.toLowerCase() === right.toLowerCase();
+
 export function isHederaAccountId(value: string | null | undefined): value is string {
   return Boolean(value && HEDERA_ACCOUNT_ID_REGEX.test(value));
 }

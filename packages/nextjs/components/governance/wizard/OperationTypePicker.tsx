@@ -49,7 +49,7 @@ const KindGroup = ({ legend, kinds, name, value, onChange, council }: KindGroupP
           >
             <Icon className="size-3.5" />
           </span>
-          {PROPOSAL_KIND_COPY[kind].title}
+          {WIZARD_KIND_ENTRIES[kind].title ?? PROPOSAL_KIND_COPY[kind].title}
           <small className="ml-auto text-xs font-medium text-base-content/60">{hintOf(kind, council)}</small>
         </label>
       );
