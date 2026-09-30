@@ -3,6 +3,7 @@ import {
   changeFrom,
   councilBlockOf,
   councilRiskOf,
+  currentCouncilNeedsAgent,
   draftCouncilChange,
   isChanged,
   offeredSeatsOf,
@@ -112,6 +113,19 @@ describe("councilBlockOf", () => {
     expect(councilBlockOf({ threshold: 3, memberKeys: [YOU, ALICE, BOB, AGENT] }, AGENT)).toBeNull();
     expect(councilBlockOf({ threshold: 3, memberKeys: [YOU, ALICE, BOB] }, AGENT)).toBeNull();
     expect(councilBlockOf({ threshold: 3, memberKeys: [YOU, ALICE, BOB] }, null)).toBeNull();
+  });
+});
+
+describe("currentCouncilNeedsAgent", () => {
+  it("flags a current council that cannot reach its threshold without the agent, which never signs a rotation", () => {
+    expect(currentCouncilNeedsAgent({ threshold: 2, memberKeys: [YOU, AGENT] }, AGENT)).toBe(true);
+    expect(currentCouncilNeedsAgent({ threshold: 1, memberKeys: [AGENT] }, AGENT)).toBe(true);
+  });
+
+  it("lets through a council the other keys reach alone, one without the agent, or no configured agent", () => {
+    expect(currentCouncilNeedsAgent({ threshold: 2, memberKeys: [YOU, ALICE, AGENT] }, AGENT)).toBe(false);
+    expect(currentCouncilNeedsAgent(COUNCIL, AGENT)).toBe(false);
+    expect(currentCouncilNeedsAgent({ threshold: 2, memberKeys: [YOU, AGENT] }, null)).toBe(false);
   });
 });
 

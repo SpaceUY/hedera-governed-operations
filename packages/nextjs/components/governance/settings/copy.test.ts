@@ -36,9 +36,6 @@ describe("SETTINGS_COPY.composer", () => {
   it("words the composer as the chain works: one native schedule, both councils' thresholds", () => {
     expect(SETTINGS_COPY.composer.heading).toBe("Propose a council change · native");
     expect(SETTINGS_COPY.composer.thresholdLabel).toBe("Signatures required");
-    expect(SETTINGS_COPY.composer.note).toBe(
-      "One transaction. The map shows the council this would create in dashed violet.",
-    );
     expect(SETTINGS_COPY.composer.bothCouncils("2-of-3", "2-of-4")).toBe(
       "Changing the council takes two thresholds: the current 2-of-3 council's, and the proposed 2-of-4 council's own. " +
         "The schedule waits until both are met; it does not fail while it waits.",

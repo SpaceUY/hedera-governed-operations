@@ -69,6 +69,11 @@ vi.mock("~~/hooks/mirror/useAccounts", () => ({
   useAccounts: (inputs: string[]) =>
     inputs.map(input => ({ account: mirrorAccounts.byInput[input.trim()], error: null, isLoading: false })),
 }));
+// The connected account as the Mirror Node reads it, for the seat its key holds.
+const viewerAccounts = vi.hoisted(() => ({ byId: {} as Record<string, unknown> }));
+vi.mock("~~/hooks/mirror/useAccount", () => ({
+  useAccount: (id: string | null) => ({ data: id ? viewerAccounts.byId[id] : undefined }),
+}));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("@scaffold-hbar-ui/components", () => ({
   HederaAddressInput: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
@@ -85,6 +90,7 @@ beforeEach(() => {
   });
   Object.assign(signer, { accountId: "0.0.101", isConnected: true });
   mirrorAccounts.byInput = {};
+  viewerAccounts.byId = { "0.0.101": { account: "0.0.101", key: you } };
 });
 afterEach(() => {
   cleanup();
@@ -194,6 +200,30 @@ describe("CouncilChangeComposer", () => {
     expect(scheduleButton().disabled).toBe(true);
     fireEvent.click(scheduleButton());
     expect(wizard.submit).not.toHaveBeenCalled();
+  });
+
+  it("warns a council member who does not propose that they would leave, without saying they keep PROPOSER_ROLE", () => {
+    Object.assign(signer, { accountId: "0.0.900" });
+    viewerAccounts.byId["0.0.900"] = { account: "0.0.900", key: bob };
+    renderComposer(agent);
+    fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(AGENT_COPY.name) }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bob/ }));
+    expect(screen.getByText(SETTINGS_COPY.composer.risks.viewerLeaves(false))).toBeTruthy();
+  });
+
+  it("tells a proposer who unticks their own seat that they keep PROPOSER_ROLE", () => {
+    renderComposer(agent);
+    fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(AGENT_COPY.name) }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /You/ }));
+    expect(screen.getByText(SETTINGS_COPY.composer.risks.viewerLeaves(true))).toBeTruthy();
+  });
+
+  it("warns, without blocking, when the current council needs the agent's seat to reach its threshold", () => {
+    const stuck: CouncilQueryData = { ...COUNCIL, key: { threshold: 2, memberKeys: [seat(you), seat(agent)] } };
+    render(<CouncilChangeComposer council={stuck} naming={naming(seat(agent))} config={CONFIG} unseatedAgent={null} />);
+    expect(screen.getByText(SETTINGS_COPY.composer.agentHoldsCouncil(1, "2-of-2"))).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: SETTINGS_COPY.composer.fewer }));
+    expect(scheduleButton().disabled).toBe(false);
   });
 
   it("moves the threshold within the seats with − and +", () => {

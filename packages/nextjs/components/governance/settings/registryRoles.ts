@@ -5,10 +5,8 @@
  */
 import { SETTINGS_COPY } from "./copy";
 import type { Proposer } from "@sh/core/governance/council";
-import { longZeroAddress } from "@sh/core/identity";
+import { longZeroAddress, sameAddress } from "@sh/core/identity";
 import type { SeatNaming } from "~~/components/governance/rail/councilSeats";
-
-const sameAddress = (left: string, right: string): boolean => left.toLowerCase() === right.toLowerCase();
 
 export type ExecutorHolders = { status: "treasuryOnly" } | { status: "others"; holders: string[] };
 

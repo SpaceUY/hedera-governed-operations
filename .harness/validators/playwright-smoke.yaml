@@ -22,7 +22,7 @@ routes:
     # SMOKE runs without a .env, so the wizard renders against the demo instance; no wallet is connected.
     path: /governance/new
   - name: settings
-    # SMOKE runs without a .env, so the page renders the setup notice; what it checks is that the route boots.
+    # SMOKE runs without a .env, so the page renders against the demo instance; no wallet is connected.
     path: /settings
 forbidden:
   visibleText:
