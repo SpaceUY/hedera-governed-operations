@@ -20,6 +20,17 @@ describe("mapCaptionOf", () => {
     });
   });
 
+  it("says which way a picked kind would go, and asks for the form, before it holds an operation", () => {
+    expect(mapCaptionOf({ kind: "sketching", title: "Pay a supplier" }, "2-of-3")).toEqual({
+      lead: "Drafting.",
+      text: "Dashed violet is the way “Pay a supplier” would go. Fill in the form to see exactly what it would do.",
+    });
+    expect(mapCaptionOf({ kind: "picked", title: "Pay a supplier" }, "2-of-3")).toEqual({
+      lead: "Drafting.",
+      text: "Fill in the form to see where “Pay a supplier” would go.",
+    });
+  });
+
   it("names the selected proposal and what its lines mean", () => {
     expect(mapCaptionOf({ kind: "previewing", title: "Upgrade the vault to v2" }, "2-of-3")).toEqual({
       lead: "Upgrade the vault to v2.",

@@ -13,9 +13,9 @@ import { useProposalAnimationSync } from "~~/hooks/useProposalAnimationSync";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
 import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/liveMap/model/graph";
-import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
+import { MAP_ENTITY_IDS, governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
 import { REST_FRAME } from "~~/services/liveMap/motion/frame";
-import type { MapPreview, PreviewTarget } from "~~/services/liveMap/preview/previewSource";
+import { type MapPreview, type PreviewTarget, sketchPreviewOf } from "~~/services/liveMap/preview/previewSource";
 
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
@@ -61,7 +61,7 @@ function previewing(targetKey: string, preview: MapPreview | null = null, captio
   const target: PreviewTarget = targetKey.startsWith("schedule:")
     ? { kind: "schedule", scheduleId: targetKey.slice("schedule:".length) }
     : { kind: targetKey === "draft" ? "draft" : "none" };
-  const bareCaption = captionFactsOf(target, null, null);
+  const bareCaption = captionFactsOf(target, null, "title" in caption ? caption.title : null);
   vi.mocked(useMapPreview).mockReturnValue({ preview, caption, bareCaption, targetKey });
 }
 
@@ -189,7 +189,10 @@ describe("useLiveMap", () => {
       expect(result.current.map?.graph).toEqual(rest.map?.graph);
       expect(result.current.frame.drawKey).toBeNull();
       expect(result.current.frame.highlights).toEqual({ [GOVERNANCE_ACCOUNT_NODE_ID]: "success" });
-      expect(result.current.caption).toEqual({ lead: "Drafting.", text: "Pick an operation type." });
+      expect(result.current.caption).toEqual({
+        lead: "Drafting.",
+        text: "Fill in the form to see where “Pay a supplier” would go.",
+      });
     });
 
     it("says the idle caption for a selected proposal while a sequence plays", () => {
@@ -217,7 +220,26 @@ describe("useLiveMap", () => {
     previewing("draft", TRANSFER_PREVIEW("draft", "0.0.9999"), { kind: "drafting", title: "Pay a supplier" });
     const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
     expect(result.current.frame).toBe(REST_FRAME);
-    expect(result.current.caption).toEqual({ lead: "Drafting.", text: "Pick an operation type." });
+    expect(result.current.caption).toEqual({
+      lead: "Drafting.",
+      text: "Fill in the form to see where “Pay a supplier” would go.",
+    });
+  });
+
+  it("draws a picked kind's way before its form is filled, and says so", () => {
+    const sketch = sketchPreviewOf(
+      "upgrade",
+      { governanceAccountId: CONFIG.governanceAccountId, entities: governanceEntitiesOf(CONFIG, 296), agentSeat: null },
+      null,
+    );
+    previewing("draft", sketch, { kind: "sketching", title: "Upgrade the vault to v2" });
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    expect(result.current.frame.drawKey).toBe("draft:upgrade");
+    expect(result.current.frame.labels).toEqual({ [MAP_ENTITY_IDS.vault]: "would be upgraded" });
+    expect(result.current.caption).toEqual({
+      lead: "Drafting.",
+      text: "Dashed violet is the way “Upgrade the vault to v2” would go. Fill in the form to see exactly what it would do.",
+    });
   });
 
   it("announces a signature this session did not send through the host", () => {

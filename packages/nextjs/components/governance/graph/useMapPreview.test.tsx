@@ -11,7 +11,7 @@ const route = vi.hoisted(() => ({
   params: {} as Record<string, string>,
   selected: null as string | null,
 }));
-const wizard = vi.hoisted(() => ({ preview: null as unknown }));
+const wizard = vi.hoisted(() => ({ preview: null as unknown, kind: "upgrade" }));
 const lookup = vi.hoisted(() => ({ proposal: undefined as unknown, scheduleIds: [] as string[] }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => route.pathname, useParams: () => route.params }));
@@ -19,8 +19,11 @@ vi.mock("~~/components/governance/rail/useSelectedSchedule", () => ({
   useSelectedSchedule: () => ({ selectedScheduleId: route.selected, select: vi.fn() }),
 }));
 vi.mock("~~/components/governance/wizard/ProposalWizardProvider", () => ({
-  useProposalWizard: () => ({ preview: wizard.preview }),
+  useProposalWizard: () => ({ preview: wizard.preview, kind: wizard.kind }),
 }));
+vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: () => null }));
+vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
+vi.mock("~~/utils/scaffold-hbar/contract", () => ({ contracts: {} }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: () => ({ accountId: "0.0.4101" }) }));
 vi.mock("~~/hooks/mirror/useProposalLookup", () => ({
   useProposalLookup: ({ scheduleId }: { scheduleId: string }) => {
@@ -32,12 +35,15 @@ vi.mock("~~/hooks/mirror/useProposalLookup", () => ({
 const CONFIG = {
   governanceAccountId: GOVERNANCE,
   network: "testnet",
+  demoTokenId: "0.0.6000",
   executor: { hederaContractId: "0.0.5000", address: "0x5aF0000000000000000000000000000000000000" },
+  vault: { hederaContractId: "0.0.5001", address: "0x3f806946439c3521eeD7d740c3f84E09888C0419" },
 } as unknown as GovernanceConfig;
 
 beforeEach(() => {
   Object.assign(route, { pathname: "/", params: {}, selected: null });
   wizard.preview = null;
+  wizard.kind = "upgrade";
   lookup.proposal = undefined;
   lookup.scheduleIds = [];
 });
@@ -62,6 +68,19 @@ describe("useMapPreview", () => {
     expect(result.current.caption).toEqual({ kind: "drafting", title: "Pay a supplier" });
   });
 
+  it("sketches the picked kind's way through the configured vault until the form holds a draft", () => {
+    route.pathname = "/governance/new";
+    const { result } = renderHook(() => useMapPreview(CONFIG));
+    expect(result.current.preview?.key).toBe("draft:upgrade");
+    expect(result.current.preview?.operation).toMatchObject({
+      kind: "sketch",
+      of: "upgrade",
+      refs: { subject: ["0.0.5001"] },
+    });
+    expect(result.current.caption).toEqual({ kind: "sketching", title: "Upgrade the vault to v2" });
+    expect(result.current.bareCaption).toEqual({ kind: "picked", title: "Upgrade the vault to v2" });
+  });
+
   it("shows nothing for a selection it could not read", () => {
     route.selected = "0.0.404";
     const { result } = renderHook(() => useMapPreview(CONFIG));
@@ -71,8 +90,12 @@ describe("useMapPreview", () => {
 });
 
 describe("captionFactsOf", () => {
-  it("asks for a kind while the wizard has nothing drawable, and falls back to idle for an undescribable selection", () => {
-    expect(captionFactsOf({ kind: "draft" }, null, "Pay a supplier")).toEqual({ kind: "drafting", title: null });
+  it("asks for a kind only before one is picked, for the form once one is, and falls back to idle for an undescribable selection", () => {
+    expect(captionFactsOf({ kind: "draft" }, null, null)).toEqual({ kind: "drafting", title: null });
+    expect(captionFactsOf({ kind: "draft" }, null, "Pay a supplier")).toEqual({
+      kind: "picked",
+      title: "Pay a supplier",
+    });
     expect(captionFactsOf({ kind: "schedule", scheduleId: "0.0.1" }, null, "Run entry 3")).toEqual({ kind: "idle" });
     const executed = selectedPreviewOf(proposal({ id: "0.0.2", operation: UPGRADE_CALL }), 0);
     expect(
