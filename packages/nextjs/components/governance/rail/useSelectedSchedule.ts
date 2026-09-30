@@ -2,8 +2,7 @@
 
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-
-const SCHEDULE_PARAM = "schedule";
+import { SELECTED_SCHEDULE_PARAM } from "~~/config/governanceConfig";
 
 /**
  * The selected proposal, kept in the `schedule` query param on `/` rather than in component state, so
@@ -16,13 +15,13 @@ export function useSelectedSchedule() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const selectedScheduleId = searchParams.get(SCHEDULE_PARAM);
+  const selectedScheduleId = searchParams.get(SELECTED_SCHEDULE_PARAM);
 
   const select = useCallback(
     (scheduleId: string | null) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (scheduleId) params.set(SCHEDULE_PARAM, scheduleId);
-      else params.delete(SCHEDULE_PARAM);
+      if (scheduleId) params.set(SELECTED_SCHEDULE_PARAM, scheduleId);
+      else params.delete(SELECTED_SCHEDULE_PARAM);
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },

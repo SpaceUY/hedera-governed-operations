@@ -4,6 +4,7 @@ import {
   type MapDecorator,
   composeMap,
   genericLabels,
+  isIntroducedAccount,
   memberNamesOf,
   readingOrder,
   routeNamesOf,
@@ -12,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  RECIPIENT_STAND_IN_NODE_ID,
   autoLayout,
   deriveGraphState,
   memberNodeId,
@@ -68,6 +70,27 @@ describe("composeMap", () => {
     // A name the decoration leaves out keeps its generic one.
     expect(graph.nodes.find(node => node.id === EXECUTOR_NODE_ID)?.label).toBe("Proposal registry");
     expect(captions[MAP_ENTITY_IDS.token]).toBe("a token");
+  });
+});
+
+describe("composeMap with a recipient's stand-in", () => {
+  const standIn = (map: ReturnType<typeof composeMap>) =>
+    map.graph.nodes.find(node => node.id === RECIPIENT_STAND_IN_NODE_ID);
+
+  it("draws it only when the decoration asks, as an account", () => {
+    expect(standIn(composeMap(MAP_SNAPSHOT))).toBeUndefined();
+    const decorated = composeMap(MAP_SNAPSHOT, () => ({
+      layout: { ...AUTO_MAP_SIZE, positions: {} },
+      recipientStandIn: true,
+    }));
+    const node = standIn(decorated);
+    expect(node).toMatchObject({ role: "external", standIn: true });
+    expect(node && isIntroducedAccount(node)).toBe(true);
+  });
+
+  it("recognises the stand-in by its own field, not by its id or an empty ref", () => {
+    expect(isIntroducedAccount({ id: RECIPIENT_STAND_IN_NODE_ID, ref: "" })).toBe(false);
+    expect(isIntroducedAccount({ id: "anything", ref: "", standIn: true })).toBe(true);
   });
 });
 

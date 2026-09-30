@@ -1,18 +1,12 @@
 import { MAP_NODE_STATES } from "./copy";
 import type { NodeStates } from "~~/services/liveMap/events/mapEvents";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
-
-/** The addresses of the vault's two implementations on this deployment, when it recorded them. */
-export type VaultReleases = { first?: string; next?: string };
-
-const sameAddress = (left: string, right: string | undefined): boolean =>
-  right !== undefined && left.toLowerCase() === right.toLowerCase();
+import { type VaultReleases, releaseOf } from "~~/services/liveMap/model/vaultRelease";
 
 function vaultCaption(implementation: string | null, releases: VaultReleases): string | undefined {
   if (implementation === null) return undefined;
-  if (sameAddress(implementation, releases.first)) return MAP_NODE_STATES.vault.first;
-  if (sameAddress(implementation, releases.next)) return MAP_NODE_STATES.vault.next;
-  return undefined;
+  const release = releaseOf(implementation, releases);
+  return release ? MAP_NODE_STATES.vault[release] : undefined;
 }
 
 /**

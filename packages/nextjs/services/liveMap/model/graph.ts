@@ -9,7 +9,7 @@
  * pending proposal names that the configuration does not know — a transfer's recipient, an incoming
  * council member — becomes a node of its own, so the map always shows where a proposal would go.
  */
-import { type DecodedOperation, type RouteRole, decodedOperationOf, routeOf } from "./proposalRoutes";
+import { type RoutableOperation, type RouteRole, decodedOperationOf, routeOf } from "./proposalRoutes";
 import { ContractId } from "@hiero-ledger/sdk";
 import type { CouncilKey, Proposer } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
@@ -28,8 +28,8 @@ export type NodeRole = "member" | "proposer" | "governanceAccount" | "executor" 
  */
 export type EdgeKind = "authority" | "intent" | "funds";
 
-/** What an edge is doing right now; the graph itself is always at `rest`, the layers above set the rest. */
-export type EdgePhase = "rest" | "preview" | "progress" | "complete" | "failed";
+/** What an edge is doing right now; the graph itself is always at `rest`, the layers above set the rest. `void` is the path a settled proposal never took. */
+export type EdgePhase = "rest" | "preview" | "progress" | "complete" | "failed" | "void";
 
 export type Point = { x: number; y: number };
 
@@ -40,6 +40,13 @@ export type GraphNode = {
   ref: string;
   /** The EVM address the node is also known by, when it is not the long-zero form of `ref`. */
   evmAddress?: string;
+  /** For a council seat, the account whose key holds it when that account proposes: a payment to it reaches the seat. */
+  accountId?: string;
+  /**
+   * Set on the one node that stands for no ledger entity yet: the account a payment would reach before
+   * the form names it (`RECIPIENT_STAND_IN_NODE_ID`). Its `ref` is empty, and no ref ever finds it.
+   */
+  standIn?: true;
   label: string;
   position: Point;
 };
@@ -78,6 +85,18 @@ export type GraphSnapshot = {
    * but the map does not claim to know what it would currently do.
    */
   proposals: Proposal[];
+  /**
+   * The operation the map previews — a draft being written, or the proposal selected in the rail —
+   * whether or not the council could still sign it: a settled transfer still needs its recipient
+   * drawn to show where it went. A kind picked in the wizard before its form holds an operation is
+   * previewed as a sketch of its route. Absent when nothing is previewed.
+   */
+  previewed?: RoutableOperation | null;
+  /**
+   * Draw a node for a payment's recipient before anyone is named (`RECIPIENT_STAND_IN_NODE_ID`),
+   * which a sketched payment reaches. A layout asks for it; without one a recipient appears only once named.
+   */
+  recipientStandIn?: boolean;
 };
 
 /** Where a demo places and names nodes. Anything it leaves out falls back to `autoLayout` and the node's ref. */
@@ -97,6 +116,8 @@ export type GraphScope = { nodeIds: string[]; edgeIds: string[]; hops: string[][
 
 export const GOVERNANCE_ACCOUNT_NODE_ID = "governanceAccount";
 export const EXECUTOR_NODE_ID = "executor";
+/** The account a payment would reach before the form names it; see `GraphNode.standIn`. */
+export const RECIPIENT_STAND_IN_NODE_ID = "standIn:recipient";
 
 export const memberNodeId = (key: string): string => `member:${key}`;
 export const proposerNodeId = (accountId: string): string => `proposer:${accountId}`;
@@ -136,11 +157,18 @@ type GraphParts = { nodes: NamedNode[]; edges: GraphEdge[] };
 
 function findNode(nodes: readonly NamedNode[], ref: string): NamedNode | undefined {
   const wanted = spellingsOf(ref);
-  return nodes.find(node =>
-    [node.ref, node.evmAddress]
-      .flatMap(named => (named ? spellingsOf(named) : []))
-      .some(spelling => wanted.includes(spelling)),
+  return nodes.find(
+    node =>
+      !node.standIn &&
+      [node.ref, node.evmAddress, node.accountId]
+        .flatMap(named => (named ? spellingsOf(named) : []))
+        .some(spelling => wanted.includes(spelling)),
   );
+}
+
+/** The node standing for a ledger entity, by any spelling of it: a `0.0.x` id, an EVM address in any case, a key. */
+export function nodeIdOfRef(graph: Pick<GovernanceGraph, "nodes">, ref: string): string | undefined {
+  return findNode(graph.nodes, ref)?.id;
 }
 
 /** A role's endpoint: a node the graph has, or a ref it does not know yet. */
@@ -166,11 +194,23 @@ function calleeOf(subject: Endpoint[], context: Readonly<GraphParts>): Endpoint[
 
 type ResolvedRoute = Array<{ from: Endpoint[]; to: Endpoint[] }>;
 
+type Resolution = { steps: ResolvedRoute; roles: Partial<Record<RouteRole, Endpoint[]>> };
+
+/**
+ * Who a payment reaches: the accounts it names, or — for a sketch, whose form has named nobody yet —
+ * the stand-in for one. A decoded payment that credits nobody reaches nobody.
+ */
+function recipientsFor(operation: RoutableOperation, refs: string[] | undefined, context: Readonly<GraphParts>) {
+  if (operation.kind !== "sketch" || refs?.length) return endpointsFor(refs ?? [], "external", context);
+  const standIn = context.nodes.find(node => node.standIn);
+  return standIn ? [{ nodeId: standIn.id }] : [];
+}
+
 /**
  * The route's roles as endpoints, or null when the operation cannot be placed honestly: it acts on
  * an account other than the governance account, or it needs a node the graph cannot supply.
  */
-function resolveRoute(operation: DecodedOperation, context: Readonly<GraphParts>): ResolvedRoute | null {
+function resolveRoute(operation: RoutableOperation, context: Readonly<GraphParts>): Resolution | null {
   const route = routeOf(operation);
   if (!route) return null;
 
@@ -187,21 +227,24 @@ function resolveRoute(operation: DecodedOperation, context: Readonly<GraphParts>
     subject,
     token: endpointsFor(route.refs.token ?? [], "token", context),
     router: calleeOf(subject, context),
-    recipient: endpointsFor(route.refs.recipient ?? [], "external", context),
+    recipient: recipientsFor(operation, route.refs.recipient, context),
     member: dedupeEndpoints([
       ...currentMembers.map(node => ({ nodeId: node.id })),
       ...endpointsFor(route.refs.member ?? [], "member", context),
     ]),
   };
 
-  const resolved: ResolvedRoute = [];
+  const steps: ResolvedRoute = [];
+  const roles: Resolution["roles"] = {};
   for (const step of route.steps) {
     const from = endpoints[step.from];
     const to = endpoints[step.to];
     if (!from?.length || !to?.length) return null;
-    resolved.push({ from, to });
+    steps.push({ from, to });
+    roles[step.from] = from;
+    roles[step.to] = to;
   }
-  return resolved;
+  return { steps, roles };
 }
 
 const isSeated = (nodeId: string, edges: readonly GraphEdge[]): boolean =>
@@ -214,13 +257,22 @@ function dedupeEndpoints(endpoints: Endpoint[]): Endpoint[] {
   return [...byKey.values()];
 }
 
+/** A seat, known also by the account whose key holds it when that account proposes. */
+function seatOf(key: string, proposers: readonly Proposer[]): NamedNode {
+  const accountId = proposers.find(proposer => proposer.key === key)?.accountId;
+  return { id: memberNodeId(key), role: "member", ref: key, ...(accountId ? { accountId } : {}) };
+}
+
 function structureOf(snapshot: GraphSnapshot): GraphParts {
   const nodes: NamedNode[] = [
-    ...snapshot.council.memberKeys.map(key => ({ id: memberNodeId(key), role: "member" as const, ref: key })),
+    ...snapshot.council.memberKeys.map(key => seatOf(key, snapshot.proposers)),
     { id: GOVERNANCE_ACCOUNT_NODE_ID, role: "governanceAccount", ref: snapshot.governanceAccountId },
     { id: EXECUTOR_NODE_ID, role: "executor", ...snapshot.executor },
     ...snapshot.entities.map(({ id, role, ref, evmAddress }) => ({ id, role, ref, evmAddress })),
   ];
+  if (snapshot.recipientStandIn) {
+    nodes.push({ id: RECIPIENT_STAND_IN_NODE_ID, role: "external", ref: "", standIn: true });
+  }
   const edges: GraphEdge[] = [];
   const connect = (from: string, to: string, kind: EdgeKind) => {
     if (!edges.some(edge => edge.id === edgeId(from, to))) edges.push({ id: edgeId(from, to), kind, from, to });
@@ -247,7 +299,7 @@ function structureOf(snapshot: GraphSnapshot): GraphParts {
 }
 
 /** Adds what a pending proposal names but the configuration does not: its unknown endpoints and the edges it would use. */
-function addIntent(operation: DecodedOperation, graph: GraphParts): void {
+function addIntent(operation: RoutableOperation, graph: GraphParts): void {
   const route = resolveRoute(operation, graph);
   if (!route) return;
 
@@ -260,7 +312,7 @@ function addIntent(operation: DecodedOperation, graph: GraphParts): void {
     return id;
   };
 
-  for (const { from, to } of route) {
+  for (const { from, to } of route.steps) {
     for (const source of from.map(nodeIdOf)) {
       for (const target of to.map(nodeIdOf)) {
         if (source === target || graph.edges.some(edge => edge.id === edgeId(source, target))) continue;
@@ -302,6 +354,7 @@ export function deriveGraphState(snapshot: GraphSnapshot, layout: GraphLayout = 
   for (const proposal of snapshot.proposals) {
     if (canShowIntent(proposal)) addIntent(decodedOperationOf(proposal), graph);
   }
+  if (snapshot.previewed) addIntent(snapshot.previewed, graph);
 
   const fallback = autoLayout(graph.nodes, layout);
   return {
@@ -316,22 +369,20 @@ export function deriveGraphState(snapshot: GraphSnapshot, layout: GraphLayout = 
   };
 }
 
-/**
- * The nodes and edges an operation would travel, in order, or null when there is nothing honest to
- * show: an unrecognised body, one that acts on an account other than the governance account, or a
- * route this graph lacks a node or an edge for (it was derived without the proposal).
- */
-export function scopeOf(graph: GovernanceGraph, operation: DecodedOperation): GraphScope | null {
-  const route = resolveRoute(operation, graph);
-  if (!route) return null;
+/** The nodes each role of a route reached on a graph, by role. */
+export type RoleNodes = Partial<Record<RouteRole, string[]>>;
 
+/** An operation's route drawn on one graph: the scope it travels, and the nodes each of its roles reached. */
+export type GraphRoute = { scope: GraphScope; roles: RoleNodes };
+
+function scopeOfRoute(graph: GovernanceGraph, steps: ResolvedRoute): GraphScope | null {
   const nodeIds: string[] = [];
   const hops: string[][] = [];
   const visit = (id: string) => {
     if (!nodeIds.includes(id)) nodeIds.push(id);
   };
 
-  for (const { from, to } of route) {
+  for (const { from, to } of steps) {
     const hop: string[] = [];
     for (const source of from) {
       for (const target of to) {
@@ -346,4 +397,32 @@ export function scopeOf(graph: GovernanceGraph, operation: DecodedOperation): Gr
     hops.push(hop);
   }
   return { nodeIds, edgeIds: hops.flat(), hops };
+}
+
+function roleNodesOf(roles: Resolution["roles"]): RoleNodes {
+  return Object.fromEntries(
+    Object.entries(roles).map(([role, endpoints]) => [
+      role,
+      endpoints.flatMap(endpoint => ("nodeId" in endpoint ? [endpoint.nodeId] : [])),
+    ]),
+  );
+}
+
+/**
+ * An operation's route on this graph, resolved once: the nodes and edges it would travel, in order,
+ * and the nodes each of its roles reached — for words a role carries whoever fills it, such as a
+ * payment's recipient before it is named. Null when there is nothing honest to show: an unrecognised
+ * body, one that acts on an account other than the governance account, or a route this graph lacks a
+ * node or an edge for (it was derived without the proposal).
+ */
+export function routeOnGraph(graph: GovernanceGraph, operation: RoutableOperation): GraphRoute | null {
+  const route = resolveRoute(operation, graph);
+  if (!route) return null;
+  const scope = scopeOfRoute(graph, route.steps);
+  return scope && { scope, roles: roleNodesOf(route.roles) };
+}
+
+/** The nodes and edges an operation would travel, in order, or null when it has no route here (`routeOnGraph`). */
+export function scopeOf(graph: GovernanceGraph, operation: RoutableOperation): GraphScope | null {
+  return routeOnGraph(graph, operation)?.scope ?? null;
 }

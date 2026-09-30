@@ -170,10 +170,15 @@ export function resolveGovernanceConfig(chainId: number): GovernanceConfig {
   };
 }
 
+/** The query parameter that holds the proposal selected on `/`, so a reload or a shared link reopens it. */
+export const SELECTED_SCHEDULE_PARAM = "schedule";
+
 export const GOVERNANCE_ROUTES = {
   home: "/",
   newProposal: "/governance/new",
   proposal: (scheduleId: string) => `/governance/${scheduleId}`,
+  /** `/` with this proposal's card open and its preview drawn on the map. */
+  selected: (scheduleId: string) => `/?${SELECTED_SCHEDULE_PARAM}=${encodeURIComponent(scheduleId)}`,
   /** The council, the change composer and the registry's roles, beside the same map. */
   settings: "/settings",
 } as const;

@@ -1,17 +1,23 @@
 import { TREASURY_OUTLINE, distanceFrom, routeOnMap } from "../geometry";
 import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR, pendingTransferTo } from "../mapFixtures";
-import { composeMap } from "../mapModel";
+import { type MapViewpoint, composeMap } from "../mapModel";
 import { DEMO_NAMES, decorateDemoMap } from "./demoGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { GraphSnapshot } from "~~/services/liveMap/model/graph";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  RECIPIENT_STAND_IN_NODE_ID,
   edgeId,
   externalNodeId,
   memberNodeId,
   proposerNodeId,
 } from "~~/services/liveMap/model/graph";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
+import { world } from "~~/services/liveMap/motion/motionFixtures";
+import type { PreviewContext } from "~~/services/liveMap/preview/kinds/previewKind";
+import { previewFrameOf } from "~~/services/liveMap/preview/previewFrame";
+import { type MapPreview, selectedPreviewOf, sketchPreviewOf } from "~~/services/liveMap/preview/previewSource";
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID", "0.0.4102");
@@ -132,40 +138,218 @@ describe("decorateDemoMap", () => {
   });
 });
 
-describe("decorateDemoMap with the co-signing agent", () => {
-  const AGENT_SEAT = "YWdlbnQ=";
-  const seated = {
+describe("decorateDemoMap with the co-signing agent's key", () => {
+  const AGENT_KEY = "YWdlbnQ=";
+  const OTHER_KEY = "ZGF2ZQ==";
+  const GHOST_SLOT = { x: 90, y: 620 };
+  const rotationTo = (memberKeys: string[]) =>
+    ({
+      kind: "councilRotation",
+      accountId: MAP_SNAPSHOT.governanceAccountId,
+      council: { threshold: 2, memberKeys },
+    }) as const;
+  const positionOf = (map: ReturnType<typeof composeMap>, id: string) =>
+    map.graph.nodes.find(node => node.id === id)?.position;
+  const seated = (memberKeys: string[]) => ({
     ...MAP_SNAPSHOT,
-    council: { threshold: 2, memberKeys: [...MAP_SNAPSHOT.council.memberKeys, AGENT_SEAT] },
-  };
-  const nodeOf = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id);
-
-  it("draws the agent as a ghost while the council does not hold its key", () => {
-    expect(composeMap(MAP_SNAPSHOT, decorateDemoMap).ghosts.map(ghost => ghost.label)).toEqual([DEMO_NAMES.agent]);
-    const unseated = composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: AGENT_SEAT });
-    expect(unseated.ghosts.map(ghost => ghost.label)).toEqual([DEMO_NAMES.agent]);
+    council: { threshold: 2, memberKeys },
   });
 
-  it("puts the seated agent where its ghost was, and drops the ghost", () => {
-    const unseated = composeMap(MAP_SNAPSHOT, decorateDemoMap);
-    const map = composeMap(seated, decorateDemoMap, { agentSeat: AGENT_SEAT });
+  it("keeps the ghost while the agent is unconfigured or unread, and while its key is neither seated nor proposed", () => {
+    expect(composeMap(MAP_SNAPSHOT, decorateDemoMap).ghosts).toHaveLength(1);
+    expect(composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: null }).ghosts).toHaveLength(1);
+    const map = composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: AGENT_KEY });
+    expect(map.ghosts).toHaveLength(1);
+    expect(map.graph.nodes.some(node => node.ref === AGENT_KEY)).toBe(false);
+  });
+
+  it("seats the agent a rotation proposes at the ghost's slot, named and lettered as the agent, with no ghost", () => {
+    const map = composeMap(
+      { ...MAP_SNAPSHOT, previewed: rotationTo([KEY_A, KEY_B, KEY_C, AGENT_KEY]) },
+      decorateDemoMap,
+      { agentSeat: AGENT_KEY },
+    );
+    const id = memberNodeId(AGENT_KEY);
+    expect(positionOf(map, id)).toEqual(GHOST_SLOT);
+    expect(labelOf(map, id)).toBe(DEMO_NAMES.agent);
+    expect(map.monograms[id]).toBe("AG");
     expect(map.ghosts).toEqual([]);
-    expect(nodeOf(map, memberNodeId(AGENT_SEAT))).toMatchObject({
-      label: DEMO_NAMES.agent,
-      position: unseated.ghosts[0].position,
-    });
+    expect(map.graph.edges.some(edge => edge.id === edgeId(id, GOVERNANCE_ACCOUNT_NODE_ID))).toBe(true);
+    expect(labelOf(map, memberNodeId(KEY_A))).toBe(DEMO_NAMES.council);
+    expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
   });
 
-  it("still names the council account once the agent holds a seat beside it", () => {
-    const map = composeMap(seated, decorateDemoMap, { agentSeat: AGENT_SEAT });
-    expect(nodeOf(map, memberNodeId(KEY_A))?.label).toBe(DEMO_NAMES.council);
-    expect(nodeOf(map, memberNodeId(KEY_B))?.label).toBe(DEMO_NAMES.alice);
-    expect(nodeOf(map, memberNodeId(KEY_C))?.label).toBe(DEMO_NAMES.bob);
+  it("draws a proposed agent in the ghost's tone captioned as not a member yet, and a seated one as a member", () => {
+    const proposed = composeMap(
+      { ...MAP_SNAPSHOT, previewed: rotationTo([KEY_A, KEY_B, KEY_C, AGENT_KEY]) },
+      decorateDemoMap,
+      { agentSeat: AGENT_KEY },
+    );
+    const id = memberNodeId(AGENT_KEY);
+    expect(proposed.unseated).toEqual([id]);
+    expect(proposed.captions[id]).toBe("not a member yet");
+    expect(labelOf(proposed, id)).toBe(DEMO_NAMES.agent);
+
+    const held = composeMap(seated([KEY_A, KEY_B, KEY_C, AGENT_KEY]), decorateDemoMap, { agentSeat: AGENT_KEY });
+    expect(held.unseated).toEqual([]);
+    expect(held.captions[id]).toBe("seated by the council");
+    expect(held.inspector.nodes[id]).toContain("seated by a council rotation");
+    expect(proposed.inspector.nodes[id]).toBeUndefined();
   });
 
-  it("keeps Bob's name when the agent runs on Bob's key, and draws no ghost", () => {
+  it('names the seat the agent holds "You" without the agent\'s letters when the viewer is its account', () => {
+    const snapshot = seated([KEY_A, KEY_B, KEY_C, AGENT_KEY]);
+    const withAgent = { ...snapshot, proposers: [...snapshot.proposers, { accountId: "0.0.4200", key: AGENT_KEY }] };
+    const map = composeMap(withAgent, decorateDemoMap, { agentSeat: AGENT_KEY, viewerAccountId: "0.0.4200" });
+    const id = memberNodeId(AGENT_KEY);
+    expect(labelOf(map, id)).toBe("You");
+    expect(map.monograms[id]).toBeUndefined();
+  });
+
+  it("puts the seated agent at the ghost's slot instead of the autoLayout, and Bob and the council account keep theirs", () => {
+    const map = composeMap(seated([KEY_A, KEY_B, KEY_C, AGENT_KEY]), decorateDemoMap, { agentSeat: AGENT_KEY });
+    const id = memberNodeId(AGENT_KEY);
+    expect(positionOf(map, id)).toEqual(GHOST_SLOT);
+    expect(labelOf(map, id)).toBe(DEMO_NAMES.agent);
+    expect(map.monograms[id]).toBe("AG");
+    expect(map.ghosts).toEqual([]);
+    expect(labelOf(map, memberNodeId(KEY_A))).toBe(DEMO_NAMES.council);
+    expect(map.captions[memberNodeId(KEY_A)]).toBe("proposer");
+    expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
+    expect(positionOf(map, memberNodeId(KEY_C))).toEqual({ x: 90, y: 480 });
+  });
+
+  it("leaves a fourth seat that is not the agent's to the autoLayout and its own name, and keeps the ghost", () => {
+    const rotation = { ...MAP_SNAPSHOT, previewed: rotationTo([KEY_A, KEY_B, KEY_C, OTHER_KEY]) };
+    for (const [snapshot, agentSeat] of [
+      [rotation, AGENT_KEY],
+      [rotation, null],
+      [seated([KEY_A, KEY_B, KEY_C, OTHER_KEY]), AGENT_KEY],
+    ] as const) {
+      const map = composeMap(snapshot, decorateDemoMap, { agentSeat });
+      const id = memberNodeId(OTHER_KEY);
+      expect(positionOf(map, id)).not.toEqual(GHOST_SLOT);
+      expect(positionOf(map, id)).toBeDefined();
+      expect(labelOf(map, id)).toBe(labelOf(composeMap(snapshot), id));
+      expect(map.monograms[id]).toBeUndefined();
+      expect(map.ghosts).toHaveLength(1);
+    }
+  });
+
+  it("never takes Bob's seat for the agent's, whatever key the agent was configured with", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: KEY_C });
-    expect(nodeOf(map, memberNodeId(KEY_C))?.label).toBe(DEMO_NAMES.bob);
+    expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
+    expect(positionOf(map, memberNodeId(KEY_C))).toEqual({ x: 90, y: 480 });
+    expect(map.monograms[memberNodeId(KEY_C)]).toBeUndefined();
     expect(map.ghosts).toEqual([]);
+  });
+});
+
+describe("decorateDemoMap's supplier", () => {
+  const SUPPLIER_SLOT = { x: 300, y: 590 };
+  const ALICE_ACCOUNT = "0.0.4102";
+  const CONTEXT: PreviewContext = {
+    council: MAP_SNAPSHOT.council,
+    vaultReleaseOf: () => null,
+    tokenOf: () => null,
+  };
+  const SHOWN = { ...world([], MAP_SNAPSHOT.council), proposers: MAP_SNAPSHOT.proposers };
+  const payment = (recipient: string) => pendingTransferTo(recipient);
+  const draftTo = (recipient: string): MapPreview => ({
+    key: "draft:treasuryTransfer",
+    operation: payment(recipient).operation as MapPreview["operation"],
+    mode: "live",
+    proposerAccountId: null,
+    progress: null,
+  });
+
+  /** The demo map with `preview` drawn into it, and the frame the pane would show for it. */
+  function shown(preview: MapPreview, snapshot: GraphSnapshot = MAP_SNAPSHOT, viewpoint: MapViewpoint = {}) {
+    const map = composeMap({ ...snapshot, previewed: preview.operation }, decorateDemoMap, viewpoint);
+    return { map, frame: previewFrameOf(preview, { graph: map.graph, world: SHOWN, context: CONTEXT }) };
+  }
+  const nodeAt = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id);
+  const atSlot = (map: ReturnType<typeof composeMap>) =>
+    map.graph.nodes.filter(node => node.position.x === SUPPLIER_SLOT.x && node.position.y === SUPPLIER_SLOT.y);
+
+  it("is always drawn at its slot, named and explained like the other nodes, and nothing reaches it at rest", () => {
+    const map = composeMap(MAP_SNAPSHOT, decorateDemoMap);
+    expect(nodeAt(map, RECIPIENT_STAND_IN_NODE_ID)).toMatchObject({
+      label: DEMO_NAMES.supplier,
+      position: SUPPLIER_SLOT,
+    });
+    expect(map.inspector.nodes[RECIPIENT_STAND_IN_NODE_ID]).toContain("native scheduled transfer");
+    expect(map.graph.edges.some(edge => edge.to === RECIPIENT_STAND_IN_NODE_ID)).toBe(false);
+  });
+
+  it("lights up for a picked payment, which would receive a payment", () => {
+    const sketch = sketchPreviewOf(
+      "treasuryTransfer",
+      { governanceAccountId: MAP_SNAPSHOT.governanceAccountId, entities: MAP_SNAPSHOT.entities, agentSeat: null },
+      null,
+    );
+    const { frame } = shown(sketch);
+    expect(frame.phases).toEqual({ [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID)]: "preview" });
+    expect(frame.labels).toEqual({ [RECIPIENT_STAND_IN_NODE_ID]: "would receive a payment" });
+  });
+
+  it("stands for an account the map does not have, and shows its id", () => {
+    const { map, frame } = shown(draftTo("0.0.7000"));
+    const recipient = externalNodeId("0.0.7000");
+    expect(atSlot(map).map(node => node.id)).toEqual([recipient]);
+    expect(nodeAt(map, recipient)?.label).toBe(DEMO_NAMES.supplier);
+    expect(map.captions[recipient]).toBe("0.0.7000");
+    expect(frame.labels).toEqual({ [recipient]: "would receive 40 ℏ" });
+  });
+
+  it("stays unlit when the payment goes to someone already on the map: that node is lit instead", () => {
+    const { map, frame } = shown(draftTo(ALICE_ACCOUNT));
+    const alice = memberNodeId(KEY_B);
+    expect(nodeAt(map, alice)?.label).toBe(DEMO_NAMES.alice);
+    expect(map.graph.nodes.some(node => node.id === externalNodeId(ALICE_ACCOUNT))).toBe(false);
+    expect(frame.phases).toEqual({ [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, alice)]: "preview" });
+    expect(frame.labels).toEqual({ [alice]: "would receive 40 ℏ" });
+    expect(frame.scope?.nodeIds).not.toContain(RECIPIENT_STAND_IN_NODE_ID);
+  });
+
+  it("never stands for the co-signing agent's account, which the map knows: that payment is named for the agent", () => {
+    const { map } = shown(draftTo("0.0.4999"), MAP_SNAPSHOT, { agentAccountId: "0.0.4999" });
+    const agent = externalNodeId("0.0.4999");
+    expect(nodeAt(map, agent)?.label).toBe(DEMO_NAMES.agent);
+    expect(atSlot(map).map(node => node.id)).toEqual([RECIPIENT_STAND_IN_NODE_ID]);
+    expect(map.inspector.nodes[agent]).toBeUndefined();
+  });
+
+  it("knows the agent's account only from what the map is told, never from the environment", () => {
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "0.0.4999");
+    const { map } = shown(draftTo("0.0.4999"));
+    expect(nodeAt(map, externalNodeId("0.0.4999"))?.label).toBe(DEMO_NAMES.supplier);
+  });
+
+  it("never stands for an account named by an alias, which may be someone the map already has", () => {
+    const alias = "0x14c9aa0000000000000000000000000000094a9";
+    const { map } = shown(draftTo(alias));
+    expect(nodeAt(map, externalNodeId(alias))?.label).not.toBe(DEMO_NAMES.supplier);
+    expect(atSlot(map).map(node => node.id)).toEqual([RECIPIENT_STAND_IN_NODE_ID]);
+  });
+
+  it("draws nothing for a picked payment while a pending one to an outside account holds the Supplier's place", () => {
+    const sketch = sketchPreviewOf(
+      "treasuryTransfer",
+      { governanceAccountId: MAP_SNAPSHOT.governanceAccountId, entities: MAP_SNAPSHOT.entities, agentSeat: null },
+      null,
+    );
+    const { map, frame } = shown(sketch, { ...MAP_SNAPSHOT, proposals: [payment("0.0.7000")] });
+    expect(nodeAt(map, externalNodeId("0.0.7000"))?.label).toBe(DEMO_NAMES.supplier);
+    expect(frame.scope).toBeNull();
+  });
+
+  it("stays unlit for a selected pending payment to someone on the map", () => {
+    const pending = payment(ALICE_ACCOUNT);
+    const selected = selectedPreviewOf(pending, 2) as MapPreview;
+    const { map, frame } = shown(selected, { ...MAP_SNAPSHOT, proposals: [pending] });
+    expect(nodeAt(map, RECIPIENT_STAND_IN_NODE_ID)?.label).toBe(DEMO_NAMES.supplier);
+    expect(frame.labels).toEqual({ [memberNodeId(KEY_B)]: "would receive 40 ℏ" });
+    expect(frame.scope?.nodeIds).not.toContain(RECIPIENT_STAND_IN_NODE_ID);
   });
 });

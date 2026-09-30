@@ -6,7 +6,7 @@
  */
 import { type ProposalStage, remainingSignatures } from "./proposalProgress";
 import type { Proposal } from "@sh/core/governance/proposals";
-import { proposalStatusLabel } from "~~/services/governance/proposalLabels";
+import { proposalStatusLabel, signaturesWord } from "~~/services/governance/proposalLabels";
 
 export type ProposalFamily = "contract" | "native";
 
@@ -49,8 +49,6 @@ export const FAMILY_COPY: Record<ProposalFamily, { card: string; detail: string 
   contract: { card: "contract · via registry", detail: "Contract operation · goes through the registry" },
   native: { card: "native · no registry", detail: "Native operation · no registry entry, no event" },
 };
-
-const signaturesWord = (count: number) => (count === 1 ? "signature" : "signatures");
 
 function isEntryCancelled({ registry }: Pick<Proposal, "registry">): boolean {
   return registry.status === "read" && registry.entry.state === "cancelled";
@@ -341,6 +339,8 @@ export const DETAIL_COPY = {
   executeCall: (proposalId: number) => `execute(${proposalId}) on the registry`,
   nativeCall: "None — a native transaction, no contract call",
 } as const;
+
+export const RAIL_NOTICE = { dismiss: "Dismiss" } as const;
 
 /** Said at the top of the rail while the app reads the published testnet instance instead of its own. */
 export const DEMO_INSTANCE_COPY = {

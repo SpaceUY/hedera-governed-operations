@@ -46,9 +46,9 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 | Route                      | Purpose                                                                                                                                                                          |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below under "Recent"; the selected one (`?schedule=`) opens its detail under its card; the template's published testnet instance, with a notice, until `yarn setup` writes your own ids |
+| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below under "Recent"; the selected one (`?schedule=`) opens its detail under its card; selecting a proposal previews what it would do on the map; the template's published testnet instance, with a notice, until `yarn setup` writes your own ids |
 | `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)                                                |
-| `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                                                                  |
+| `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed); the map previews the draft as it is written                                                               |
 | `/settings`                | Settings — council (threshold key, Mirror), council-change composer (wallet-signed, native), registry roles (relay, read-only)                                                   |
 
 Config: `packages/nextjs/config/governanceConfig.ts` (the ids `yarn setup` writes, deployed contract lookup).
@@ -98,9 +98,9 @@ packages/nextjs/
   app/                    App Router pages
     (governance)/         layout.tsx: the live map — setup guard, GovernanceProvider, map pane + rail; page.tsx (/), governance/[scheduleId], governance/new
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ConnectWallet, SetupNotice, …
-    governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: TreasuryStrip with AnimatedNumber figures, map) over useLiveMap (its reads, motion, node states, remote signatures, inspector), RemoteSignatureBanner, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
-    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend), MapInspector + inspector.ts (the card for a selected node or edge), MapDecoratorProvider + useComposedMap (the host's layout, shared with the rail); copy.ts holds its words
-    governance/graph/demo/  Demo only: hand-composed layout, names, the co-signing agent — a ghost until the council seats it (deletable)
+    governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: TreasuryStrip with AnimatedNumber figures, map) over useLiveMap (its reads, motion, node states, remote signatures, inspector, preview), RailNotice (the rail's banner), MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
+    governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend), MapInspector + inspector.ts (the card for a selected node or edge), MapDecoratorProvider + useComposedMap (the host's layout, shared with the rail), MapCaptionLine + caption.ts and useMapPreview (the line over the map and the preview of the rail's draft or selected proposal); copy.ts holds its words
+    governance/graph/demo/  Demo only: hand-composed layout, names, the co-signing agent — a ghost until a rotation proposes it or the council seats it (deletable)
     governance/settings/  Settings: CouncilCard, CouncilChangeComposer (+ councilChange.ts, the composer's rules), ContractRolesCard (+ registryRoles.ts), copy.ts
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
@@ -147,6 +147,7 @@ packages/nextjs/
       events/mapEvents.ts   Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
       motion/               How the map moves: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world)
       remoteApprovals.ts    Which approvals of a read this session did not send
+      preview/              What the map previews: previewSource.ts (draft / selected proposal → MapPreview), previewFrame.ts (MapFrame for it), kinds/ (one module per kind: its "would …" words and the route it sketches before the form is filled; registry.ts lists them)
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     operatorKey.ts        Parses HEDERA_OPERATOR_PRIVATE_KEY for yarn setup and the scripts (never the app)
   utils/scaffold-hbar/    Hedera tx helpers, identity, networks, waitForMirrorIndexing

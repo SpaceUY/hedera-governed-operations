@@ -1,7 +1,8 @@
 /**
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
- * node sits, the names "Council account", Alice and Bob, the co-signing agent — a ghost until the
- * council seats it, its seat in the same place after — and the inspector's words for them. The seat of whoever is connected is named "You" by the
+ * node sits, the names "Council account", Alice and Bob, the co-signing agent that is not a member
+ * yet — or, once a rotation proposes its key or the council holds it, seated at the same slot — the
+ * Supplier every transfer pays, and the inspector's words for them. The seat of whoever is connected is named "You" by the
  * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
  */
@@ -12,12 +13,15 @@ import {
   type MapDecorator,
   type MapRegion,
   agentSeatNodeOf,
+  isIntroducedAccount,
 } from "../mapModel";
+import { isValidEntityId } from "@sh/core/mirror";
 import { getDemoAccountIds } from "~~/config/governanceConfig";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
   type Point,
+  RECIPIENT_STAND_IN_NODE_ID,
   edgeId,
   memberNodeId,
 } from "~~/services/liveMap/model/graph";
@@ -75,8 +79,8 @@ const AGENT: GhostNode = {
 
 /**
  * What the inspector says about this layout's nodes and edges where the role's words are too general:
- * that the vault takes upgrades, that the token is ACME. The co-signing agent has none yet — what it
- * signs and why is still being decided — so the inspector shows it with the words for any ghost.
+ * that the vault takes upgrades, that the token is ACME. The co-signing agent has words only once the
+ * council seats it (`AGENT_SEAT_COPY`); until then the inspector shows it with the words for any ghost.
  */
 const INSPECTOR_NODES: Partial<Record<string, string>> = {
   [MAP_ENTITY_IDS.vault]:
@@ -131,9 +135,17 @@ const SUPPLIER_COPY =
  * The seats in the order the council column shows them. Alice and Bob are proposers too, so their
  * keys come with the proposer list; the one remaining seat is the council account `yarn setup` was
  * given (`HEDERA_COUNCIL_ACCOUNT_ID`), named "Council account" — "You" once it is the one connected.
+ * The co-signing agent's seat, when the council holds it or a rotation proposes it, is none of these.
  */
-function demoSeats(context: MapContext): { council?: string; alice?: string; bob?: string; agent?: string } {
-  const { nodes, proposers } = context;
+function demoSeats(context: MapContext): {
+  council?: string;
+  alice?: string;
+  bob?: string;
+  agent?: string;
+  /** Whether the council holds the agent's seat, rather than a rotation only proposing it. */
+  agentHeld: boolean;
+} {
+  const { nodes, proposers, memberKeys } = context;
   const ids = getDemoAccountIds();
   const seatOf = (accountId: string | undefined) => {
     const key = proposers.find(proposer => proposer.accountId === accountId)?.key;
@@ -141,12 +153,15 @@ function demoSeats(context: MapContext): { council?: string; alice?: string; bob
   };
   const alice = seatOf(ids.alice);
   const bob = seatOf(ids.bob);
-  // The agent's own seat, once the council holds it; an agent running on Alice's or Bob's key keeps their name.
-  const agentNode = agentSeatNodeOf(context)?.id;
-  const agent = agentNode === alice || agentNode === bob ? undefined : agentNode;
-  const named = [alice, bob, agent];
-  const others = nodes.filter(node => node.role === "member" && !named.includes(node.id));
-  return { council: others.length === 1 ? others[0].id : undefined, alice, bob, agent };
+  // The agent has a seat of its own: whichever of Alice's and Bob's keys it was configured with, theirs stay theirs.
+  const seat = agentSeatNodeOf(context);
+  const agentNode = seat && seat.id !== alice && seat.id !== bob ? seat : undefined;
+  const agent = agentNode?.id;
+  const others = nodes.filter(
+    node => node.role === "member" && node.id !== alice && node.id !== bob && node.id !== agent,
+  );
+  const agentHeld = agentNode !== undefined && memberKeys.includes(agentNode.ref);
+  return { council: others.length === 1 ? others[0].id : undefined, alice, bob, agent, agentHeld };
 }
 
 export const decorateDemoMap: MapDecorator = context => {
@@ -170,11 +185,19 @@ export const decorateDemoMap: MapDecorator = context => {
     captions[seats.council] = "proposer";
   }
   const inspector: InspectorCopy = { nodes: { ...INSPECTOR_NODES }, edges: { ...INSPECTOR_EDGES } };
-  // Seated, the agent takes the place its ghost held: the story is the same account joining.
+  // The agent's seat, held or proposed, takes the place its ghost waits in and the ghost steps aside: the
+  // story is the same account joining. A proposed seat is not a member yet: it keeps the ghost's look and
+  // caption until the council holds it.
+  const unseated: string[] = [];
   if (seats.agent) {
     positions[seats.agent] = AGENT.position;
-    captions[seats.agent] = "seated by the council";
-    inspector.nodes[seats.agent] = AGENT_SEAT_COPY;
+    if (seats.agentHeld) {
+      captions[seats.agent] = "seated by the council";
+      inspector.nodes[seats.agent] = AGENT_SEAT_COPY;
+    } else {
+      unseated.push(seats.agent);
+      captions[seats.agent] = AGENT.caption;
+    }
   }
   const coSigners = [
     [seats.alice, ALICE],
@@ -196,20 +219,33 @@ export const decorateDemoMap: MapDecorator = context => {
   // account's line to the registry is drawn.
   const hiddenEdges = coSigners.flatMap(([nodeId]) => (nodeId ? [edgeId(nodeId, EXECUTOR_NODE_ID)] : []));
 
-  // The demo's only transfer pays the supplier, so the account a pending transfer names is it.
-  const recipient = context.nodes.find(node => node.role === "external" && node.id !== MAP_ENTITY_IDS.router);
+  // The Supplier is always drawn, as the stand-in for whoever a transfer pays. An account a proposal or
+  // the draft pays that the map has no node for takes its place, name and words, with its id underneath,
+  // so exactly one Supplier is drawn and it is the real one. One the map has — Alice, Bob, the
+  // treasury — is paid on its own node, and the Supplier stays unlit. The co-signing agent's account
+  // is paid under the agent's name, and an alias is never taken for the Supplier: it may be anyone's.
+  const { agentAccountId } = context;
+  const introduced = context.nodes.filter(node => node.role === "external" && isIntroducedAccount(node));
+  const recipient = introduced.find(node => isValidEntityId(node.ref) && node.ref !== agentAccountId);
+  const agentRecipient = introduced.find(node => node.ref === agentAccountId);
+  if (agentRecipient) labels[agentRecipient.id] = DEMO_NAMES.agent;
+  const supplier = recipient?.id ?? RECIPIENT_STAND_IN_NODE_ID;
+  positions[supplier] = SUPPLIER_SLOT;
+  labels[supplier] = DEMO_NAMES.supplier;
+  inspector.nodes[supplier] = SUPPLIER_COPY;
   if (recipient) {
-    positions[recipient.id] = SUPPLIER_SLOT;
-    labels[recipient.id] = DEMO_NAMES.supplier;
-    inspector.nodes[recipient.id] = SUPPLIER_COPY;
+    captions[recipient.id] = recipient.ref;
+    hiddenNodes.push(RECIPIENT_STAND_IN_NODE_ID);
   }
 
   return {
     layout: { ...SIZE, positions, labels },
     captions,
+    unseated,
     ghosts: agentSeatNodeOf(context) ? [] : [AGENT],
     regions: REGIONS,
     inspector,
     hidden: { nodes: hiddenNodes, edges: hiddenEdges },
+    recipientStandIn: true,
   };
 };

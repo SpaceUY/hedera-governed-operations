@@ -14,7 +14,7 @@ export default function ProposalDetailPage() {
       <div className="flex items-center px-6 pt-4">
         {/* Back to the list with this proposal's card open, the way it reads on the map. */}
         <Link
-          href={`${GOVERNANCE_ROUTES.home}?schedule=${encodeURIComponent(params.scheduleId)}`}
+          href={GOVERNANCE_ROUTES.selected(params.scheduleId)}
           className="btn btn-outline btn-sm"
           aria-label="Back to the map"
         >

@@ -4,14 +4,18 @@ import {
   type GovernanceGraph,
   type GraphLayout,
   type GraphSnapshot,
+  RECIPIENT_STAND_IN_NODE_ID,
   autoLayout,
   deriveGraphState,
   edgeId,
+  externalNodeId,
   memberNodeId,
+  nodeIdOfRef,
   proposerNodeId,
+  routeOnGraph,
   scopeOf,
 } from "./graph";
-import type { DecodedOperation } from "./proposalRoutes";
+import type { DecodedOperation, OperationSketch } from "./proposalRoutes";
 import type { RegistryOperation, ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { RegistryCrossCheck } from "@sh/core/governance/registry";
@@ -401,5 +405,163 @@ describe("scopeOf", () => {
 
   it("has no scope when the graph was derived without the proposal that names a new recipient", () => {
     expect(scopeOf(deriveGraphState(SNAPSHOT), transferTo("0.0.9999"))).toBeNull();
+  });
+});
+
+describe("a previewed operation", () => {
+  const SUPPLIER_REF = "0.0.7100";
+  const payment: DecodedOperation = {
+    kind: "treasuryTransfer",
+    hbar: [
+      { accountId: GOVERNANCE, tinybars: -100n },
+      { accountId: SUPPLIER_REF, tinybars: 100n },
+    ],
+    tokens: [],
+  };
+
+  it("adds the entities and edges it would use, though no pending proposal names them", () => {
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: payment });
+    expect(graph.nodes.some(node => node.id === externalNodeId(SUPPLIER_REF))).toBe(true);
+    expect(graph.edges).toContainEqual({
+      id: edgeId(GOVERNANCE_ACCOUNT_NODE_ID, externalNodeId(SUPPLIER_REF)),
+      kind: "intent",
+      from: GOVERNANCE_ACCOUNT_NODE_ID,
+      to: externalNodeId(SUPPLIER_REF),
+    });
+  });
+
+  it("adds nothing for a body nobody can describe", () => {
+    const plain = deriveGraphState(SNAPSHOT);
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: { kind: "unrecognized", reason: "test" } });
+    expect(graph).toEqual(plain);
+  });
+});
+
+describe("nodeIdOfRef", () => {
+  const graph = deriveGraphState(SNAPSHOT);
+
+  it("finds a node by its id, its long-zero address or its EVM address in any case", () => {
+    expect(nodeIdOfRef(graph, "0.0.5001")).toBe("vault");
+    expect(nodeIdOfRef(graph, VAULT_ADDRESS.toLowerCase())).toBe("vault");
+    expect(nodeIdOfRef(graph, TOKEN_ADDRESS)).toBe("token");
+    expect(nodeIdOfRef(graph, TOKEN)).toBe("token");
+  });
+
+  it("finds a council seat by its key, and nothing for an entity the graph lacks", () => {
+    expect(nodeIdOfRef(graph, ALICE)).toBe(memberNodeId(ALICE));
+    expect(nodeIdOfRef(graph, "0.0.99999")).toBeUndefined();
+  });
+});
+
+describe("a sketched kind", () => {
+  const upgrade: OperationSketch = { kind: "sketch", of: "upgrade", refs: { subject: ["0.0.5001"] } };
+  const payment: OperationSketch = { kind: "sketch", of: "treasuryTransfer", refs: {} };
+  const withStandIn: GraphSnapshot = { ...SNAPSHOT, recipientStandIn: true };
+
+  it("goes the kind's way through the configured entity it names", () => {
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: upgrade });
+    expect(scopeOf(graph, upgrade)?.nodeIds).toEqual([GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID, "vault"]);
+  });
+
+  it("has no route for a payment whose recipient nobody named, on a graph with no stand-in for one", () => {
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: payment });
+    expect(graph).toEqual(deriveGraphState(SNAPSHOT));
+    expect(scopeOf(graph, payment)).toBeNull();
+  });
+
+  it("draws the recipient's stand-in with no edge until a payment with no recipient named reaches it", () => {
+    const rest = deriveGraphState(withStandIn);
+    expect(rest.nodes.find(node => node.id === RECIPIENT_STAND_IN_NODE_ID)).toMatchObject({
+      role: "external",
+      standIn: true,
+    });
+    expect(rest.edges.some(edge => edge.to === RECIPIENT_STAND_IN_NODE_ID)).toBe(false);
+
+    const graph = deriveGraphState({ ...withStandIn, previewed: payment });
+    const toStandIn = edgeId(GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID);
+    expect(edgeOf(graph, GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID)?.kind).toBe("intent");
+    expect(scopeOf(graph, payment)).toEqual({
+      nodeIds: [GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID],
+      edgeIds: [toStandIn],
+      hops: [[toStandIn]],
+    });
+  });
+
+  it("is found by no ref, since it stands for no ledger entity", () => {
+    expect(nodeIdOfRef(deriveGraphState(withStandIn), "")).toBeUndefined();
+  });
+
+  it("never sends a decoded payment that credits nobody to the stand-in", () => {
+    const creditsNobody: DecodedOperation = {
+      kind: "treasuryTransfer",
+      hbar: [{ accountId: GOVERNANCE, tinybars: -1n }],
+      tokens: [],
+    };
+    expect(scopeOf(deriveGraphState({ ...withStandIn, previewed: creditsNobody }), creditsNobody)).toBeNull();
+  });
+
+  it("sketches a swap through the configured adapter and the router back to the treasury", () => {
+    const swap: OperationSketch = {
+      kind: "sketch",
+      of: "treasurySwap",
+      refs: { subject: [ADAPTER_ADDRESS], recipient: [GOVERNANCE] },
+    };
+    expect(scopeOf(deriveGraphState({ ...SNAPSHOT, previewed: swap }), swap)?.nodeIds).toEqual([
+      GOVERNANCE_ACCOUNT_NODE_ID,
+      EXECUTOR_NODE_ID,
+      "swapAdapter",
+      "router",
+    ]);
+  });
+
+  it("sketches a token-admin action through the Token admin to the token", () => {
+    const act: OperationSketch = { kind: "sketch", of: "tokenAdmin", refs: { subject: ["0.0.5002"], token: [TOKEN] } };
+    expect(scopeOf(deriveGraphState({ ...SNAPSHOT, previewed: act }), act)?.nodeIds).toEqual([
+      GOVERNANCE_ACCOUNT_NODE_ID,
+      EXECUTOR_NODE_ID,
+      "tokenAdmin",
+      "token",
+    ]);
+  });
+
+  it("sketches a rotation seating the agent's key beside the seats the council keeps", () => {
+    const rotation: OperationSketch = {
+      kind: "sketch",
+      of: "councilRotation",
+      refs: { governanceAccount: [GOVERNANCE], member: [DAVE] },
+    };
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: rotation });
+    expect(edgeOf(graph, memberNodeId(DAVE), GOVERNANCE_ACCOUNT_NODE_ID)?.kind).toBe("intent");
+    expect(scopeOf(graph, rotation)?.edgeIds).toEqual(
+      [ALICE, BOB, CAROL, DAVE].map(key => edgeId(memberNodeId(key), GOVERNANCE_ACCOUNT_NODE_ID)),
+    );
+  });
+
+  it("never sends a named recipient to the stand-in", () => {
+    const transfer = transferTo("0.0.9999");
+    const graph = deriveGraphState({ ...withStandIn, previewed: transfer });
+    expect(scopeOf(graph, transfer)?.nodeIds).toEqual([GOVERNANCE_ACCOUNT_NODE_ID, externalNodeId("0.0.9999")]);
+  });
+
+  it("says which nodes each role of the route reached", () => {
+    const graph = deriveGraphState({ ...withStandIn, previewed: payment });
+    expect(routeOnGraph(graph, payment)?.roles).toEqual({
+      governanceAccount: [GOVERNANCE_ACCOUNT_NODE_ID],
+      recipient: [RECIPIENT_STAND_IN_NODE_ID],
+    });
+    expect(routeOnGraph(graph, payment)?.scope).toEqual(scopeOf(graph, payment));
+    expect(routeOnGraph(graph, { kind: "unrecognized", reason: "a blob" })).toBeNull();
+  });
+});
+
+describe("a payment to an account whose key holds a seat", () => {
+  const seated: GraphSnapshot = { ...SNAPSHOT, proposers: [{ accountId: "0.0.4101", key: ALICE }] };
+
+  it("reaches that seat rather than a new node, so the map never pays someone else in its place", () => {
+    const transfer = transferTo("0.0.4101");
+    const graph = deriveGraphState({ ...seated, recipientStandIn: true, previewed: transfer });
+    expect(graph.nodes.some(node => node.id === externalNodeId("0.0.4101"))).toBe(false);
+    expect(scopeOf(graph, transfer)?.nodeIds).toEqual([GOVERNANCE_ACCOUNT_NODE_ID, memberNodeId(ALICE)]);
+    expect(nodeIdOfRef(graph, "0.0.4101")).toBe(memberNodeId(ALICE));
   });
 });

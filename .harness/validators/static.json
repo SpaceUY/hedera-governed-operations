@@ -95,6 +95,22 @@
       "contains": ["Find a proposal by schedule id", "Show fewer", "Expiring now"]
     },
     {
+      "file": "packages/nextjs/components/governance/graph/caption.ts",
+      "contains": ["Nothing moves until the", "Drafting.", "Dashed violet is what would happen once the", "Fill in the form to see exactly what it would do."]
+    },
+    {
+      "file": "packages/nextjs/services/liveMap/preview/kinds/upgrade.ts",
+      "contains": ["would become v2"]
+    },
+    {
+      "file": "packages/nextjs/services/liveMap/preview/kinds/registry.ts",
+      "contains": ["PREVIEW_KINDS"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/wizard/copy.ts",
+      "contains": ["Sent with your wallet."]
+    },
+    {
       "file": "packages/nextjs/components/governance/settings/copy.ts",
       "contains": ["Council · native Hedera", "signatures move the treasury", "These approvers don’t exist in any contract", "Propose a council change · native", "Signatures required", "Add a member", "Contract roles · EVM · proposal registry", "the only holder", "The registry itself", "changing who may propose is itself a proposal the council approves"]
     },
