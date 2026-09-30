@@ -165,4 +165,6 @@ export const GOVERNANCE_ROUTES = {
   proposal: (scheduleId: string) => `/governance/${scheduleId}`,
   /** `/` with this proposal's card open and its preview drawn on the map. */
   selected: (scheduleId: string) => `/?${SELECTED_SCHEDULE_PARAM}=${encodeURIComponent(scheduleId)}`,
+  /** The council, the change composer and the registry's roles, beside the same map. */
+  settings: "/settings",
 } as const;

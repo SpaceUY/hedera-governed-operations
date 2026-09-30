@@ -176,8 +176,8 @@ export const AGENT_COPY = {
   monogram: "AG",
   notMember: "not a member",
   notSeated: "not seated",
-  /** `rule` is the council the agent's seat would make, the current threshold over one more member. */
-  howToSeat: (rule: string) => `Approve “Add the co-signing agent” to seat it (${rule} council).`,
+  /** `title` is the rotation's title (`councilChangeTitle`) for the council the agent's seat would make. */
+  howToSeat: (title: string) => `Approve “${title}” to seat it.`,
 } as const;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

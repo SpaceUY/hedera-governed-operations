@@ -21,6 +21,9 @@ routes:
   - name: new-proposal
     # SMOKE runs without a .env, so the wizard renders against the demo instance; no wallet is connected.
     path: /governance/new
+  - name: settings
+    # SMOKE runs without a .env, so the page renders against the demo instance; no wallet is connected.
+    path: /settings
 forbidden:
   visibleText:
     - Internal Server Error

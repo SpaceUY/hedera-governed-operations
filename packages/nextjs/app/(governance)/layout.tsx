@@ -22,8 +22,8 @@ function tryResolveGovernanceConfig(chainId: number): ResolvedConfig {
 }
 
 /**
- * The live map: `/`, `/governance/[scheduleId]` and `/governance/new` share it, so the map stays
- * mounted while the rail changes route. Below the header it is one fold on a wide screen — the map
+ * The live map: `/`, `/governance/[scheduleId]`, `/governance/new` and `/settings` share it, so the map
+ * stays mounted while the rail changes route. Below the header it is one fold on a wide screen — the map
  * pane never scrolls and the rail scrolls on its own — and the two stack on a phone.
  *
  * The setup guard runs here, once, for every governance route; a page reads the result with

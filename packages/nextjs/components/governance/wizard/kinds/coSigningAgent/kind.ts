@@ -10,6 +10,7 @@ import { defineWizardKind } from "~~/components/governance/wizard/kinds/wizardKi
  */
 export const CO_SIGNING_AGENT_KIND = defineWizardKind<CoSigningAgentTargets>({
   icon: PlusIcon,
+  title: CO_SIGNING_AGENT_COPY.title,
   hint: CO_SIGNING_AGENT_COPY.pickerHint,
   resolveTargets: ({ config }) => ({
     status: "available",

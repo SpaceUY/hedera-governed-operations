@@ -5,7 +5,8 @@
   "version": 2,
   "routes": [
     "/",
-    "/governance/new"
+    "/governance/new",
+    "/settings"
   ],
   "evaluationRules": {
     "posture": "adversarial",
@@ -70,6 +71,16 @@
     {
       "id": "E10",
       "journey": "Browse without a wallet",
+      "route": "/settings",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": true,
+      "statement": "Settings shows the council read from the treasury account's key and the registry's roles read from the chain, beside the live map, without a way to grant a role and without the registry's proposal count.",
+      "howToVerify": "Without a .env the app reads the template's demo instance on testnet, and with one it reads that deployment; either way, navigate to /settings at 1440×900. The header's Settings link is highlighted and Live map is not. The map pane is present. The rail is headed \"Settings\" with a \"← Map\" link to /. A section headed \"Council · native Hedera\" reads \"<rule> signatures move the treasury\" where <rule> equals the treasury strip's council threshold (e.g. \"2-of-3\"), states \"These approvers don’t exist in any contract…\", and lists one row per seat of that rule's n, plus one dashed \"not a member\" row when a co-signing agent is configured and not seated. A section headed \"Propose a council change · native\" has one checked checkbox per seat (plus one unticked checkbox when a configured co-signing agent is not seated and could sign), \"Signatures required\" with − and + around the rule, an \"Add a member\" button, and a \"Schedule with your wallet\" button that is disabled while nothing has changed; after a change it enables only with a connected wallet, and without one the section says \"Connect a wallet to propose\" and the button stays disabled. A section headed \"Contract roles · EVM · proposal registry\" lists PROPOSER_ROLE holders, EXECUTOR_ROLE as \"Treasury account <governance account id> — the only holder\", Role admin \"The registry itself\", and the sentence that changing who may propose is itself a proposal the council approves; that section contains no text input and no button. No number of registered proposals appears anywhere on the page. At 400 px wide there is no horizontal scroll. Console has no errors."
+    },
+    {
+      "id": "E11",
+      "journey": "Browse without a wallet",
       "route": "/",
       "severity": "major",
       "walletRequired": false,
@@ -78,7 +89,7 @@
       "howToVerify": "With the testnet .env of a deployment that has a pending proposal, navigate to / at 1440×900. Click a pending card whose proposal decodes (not an 'unrecognized' one). The URL gains ?schedule=<id>; within a second the map shows elements with data-dimmed=\"true\" at computed opacity 0.35, at least one edge with data-phase=\"preview\", a node text in violet starting with \"would \" (e.g. \"would become v2\"), and the caption above the map reads \"<the card's title>. Dashed violet is what would happen once the 2-of-3 council signs.\" (the rule as the ledger has it). Deselecting the card restores the caption \"Nothing moves until the 2-of-3 council signs.\" and removes every data-dimmed=\"true\". Console has no errors."
     },
     {
-      "id": "E11",
+      "id": "E12",
       "journey": "Wallet-gated actions",
       "route": "/governance/new",
       "severity": "major",

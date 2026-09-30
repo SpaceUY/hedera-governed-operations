@@ -23,6 +23,11 @@ describe("OperationTypePicker", () => {
     expect(radio(PROPOSAL_KIND_COPY.upgrade.title).name).toBe(radio(PROPOSAL_KIND_COPY.treasuryTransfer.title).name);
   });
 
+  it("keeps the agent story as the rotation's label", () => {
+    render(<OperationTypePicker value="upgrade" onChange={vi.fn()} council={undefined} />);
+    expect(radio("Add the co-signing agent")).toBeTruthy();
+  });
+
   it("reads a kind's hint off the current council once it is known", () => {
     const { rerender } = render(<OperationTypePicker value="upgrade" onChange={vi.fn()} council={undefined} />);
     expect(screen.getByText(PROPOSAL_KIND_COPY.councilRotation.hint)).toBeTruthy();

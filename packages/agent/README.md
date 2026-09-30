@@ -44,7 +44,7 @@ this agent never signed is a record that reads as a lie. A refusal goes to the t
 because the policy's answer does not depend on a seat.
 
 This is a check rather than a comment because of what a seatless signature actually does. Measured on
-testnet: `ScheduleSign` from a key the council does not hold answers `NO_NEW_VALID_SIGNATURES`, is
+testnet with a throwaway account ([tx](https://hashscan.io/testnet/transaction/1790689829.352430104)): `ScheduleSign` from a key the council does not hold answers `NO_NEW_VALID_SIGNATURES`, is
 **charged the same fee as a signature that counted, and leaves no row on the schedule**. No row means
 nothing remembers the attempt — `isSignedByKey` reads false again — so the next pass repeats it,
 every poll, for as long as the proposal stays open. Not a wasted fee: a drain.
@@ -110,7 +110,9 @@ with neither would approve any implementation at all for a listed proxy, and `pa
 start on it.
 
 The manifest is the stronger of the two, because an allowlist answers "is this address blessed" and
-cannot answer "is the code at it the build we blessed". Verified on testnet, all three outcomes:
+cannot answer "is the code at it the build we blessed". Verified on testnet, all three outcomes
+([schedule 0.0.10720729](https://hashscan.io/testnet/schedule/0.0.10720729) approved and [schedule 0.0.10720730](https://hashscan.io/testnet/schedule/0.0.10720730) refused against [topic 0.0.10720712](https://hashscan.io/testnet/topic/0.0.10720712); the mismatch
+against a deliberately tampered manifest on [topic 0.0.10720804](https://hashscan.io/testnet/topic/0.0.10720804)):
 
 |                                             |                                                                               |
 | ------------------------------------------- | ----------------------------------------------------------------------------- |
