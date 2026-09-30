@@ -13,11 +13,13 @@ export type GovernanceEntityIds = {
  * writes its own ids, so the screens show real data before anything is configured. Ids only, no keys.
  */
 export const DEMO_INSTANCE = {
-  governanceAccountId: "0.0.10671146",
-  demoTokenId: "0.0.10671171",
+  governanceAccountId: "0.0.10794626",
+  demoTokenId: "0.0.10794655",
   seedProposalId: 0,
-  releaseTopicId: "0.0.10760100",
-  coSigningAgentAccountId: "0.0.10671144",
+  releaseTopicId: "0.0.10794624",
+  coSigningAgentAccountId: "0.0.10794623",
+  aliceAccountId: "0.0.10794621",
+  bobAccountId: "0.0.10794622",
 } as const;
 
 /**
@@ -80,6 +82,18 @@ export function getCoSigningAgentAccountId(): string | null {
   const configured = process.env.NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID?.trim();
   if (configured) return configured;
   return isDemoInstance() ? DEMO_INSTANCE.coSigningAgentAccountId : null;
+}
+
+/**
+ * The two demo council members `yarn setup` creates, which the demo map names Alice and Bob. Each is
+ * the configured id, else the demo instance's while the app reads it, else undefined.
+ */
+export function getDemoAccountIds(): { alice?: string; bob?: string } {
+  const demo = isDemoInstance();
+  return {
+    alice: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID?.trim() || (demo ? DEMO_INSTANCE.aliceAccountId : undefined),
+    bob: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID?.trim() || (demo ? DEMO_INSTANCE.bobAccountId : undefined),
+  };
 }
 
 /** A deployed contract as the governance screens need it: with the native id a scheduled call targets. */

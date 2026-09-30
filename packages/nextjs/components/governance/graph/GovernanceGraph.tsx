@@ -27,6 +27,7 @@ export type GovernanceGraphProps = {
   graph: Graph;
   council: CouncilKey;
   captions?: Partial<Record<string, string>>;
+  /** In an account's circle, in place of its label's first letter, by node id. */
   monograms?: Partial<Record<string, string>>;
   unseated?: readonly string[];
   ghosts?: GhostNode[];

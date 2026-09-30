@@ -12,9 +12,11 @@ import {
   type MapContext,
   type MapDecorator,
   type MapRegion,
+  agentSeatNodeOf,
   isIntroducedAccount,
 } from "../mapModel";
 import { isValidEntityId } from "@sh/core/mirror";
+import { getDemoAccountIds } from "~~/config/governanceConfig";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -77,8 +79,8 @@ const AGENT: GhostNode = {
 
 /**
  * What the inspector says about this layout's nodes and edges where the role's words are too general:
- * that the vault takes upgrades, that the token is ACME. The co-signing agent has none yet — what it
- * signs and why is still being decided — so the inspector shows it with the words for any ghost.
+ * that the vault takes upgrades, that the token is ACME. The co-signing agent has words only once the
+ * council seats it (`AGENT_SEAT_COPY`); until then the inspector shows it with the words for any ghost.
  */
 const INSPECTOR_NODES: Partial<Record<string, string>> = {
   [MAP_ENTITY_IDS.vault]:
@@ -123,16 +125,11 @@ function coSignerCopy(nodeId: string, { name, subject, possessive }: CoSigner): 
   };
 }
 
+const AGENT_SEAT_COPY =
+  "The co-signing agent's own account, seated by a council rotation. It signs what its written policy allows and publishes every decision to its own topic. It never signs a rotation, so it can neither seat nor unseat anyone.";
+
 const SUPPLIER_COPY =
   "An outside account. The treasury pays it with a native scheduled transfer: same threshold, but no contract, no registry entry and no event.";
-
-/** The demo accounts `yarn setup` writes; literal member expressions so Next.js inlines them. */
-function demoAccountIds(): { alice?: string; bob?: string } {
-  return {
-    alice: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID || undefined,
-    bob: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID || undefined,
-  };
-}
 
 /**
  * The seats in the order the council column shows them. Alice and Bob are proposers too, so their
@@ -140,7 +137,7 @@ function demoAccountIds(): { alice?: string; bob?: string } {
  * given (`HEDERA_COUNCIL_ACCOUNT_ID`), named "Council account" — "You" once it is the one connected.
  * The co-signing agent's seat, when the council holds it or a rotation proposes it, is none of these.
  */
-function demoSeats({ nodes, proposers, memberKeys, agentSeat }: MapContext): {
+function demoSeats(context: MapContext): {
   council?: string;
   alice?: string;
   bob?: string;
@@ -148,7 +145,8 @@ function demoSeats({ nodes, proposers, memberKeys, agentSeat }: MapContext): {
   /** Whether the council holds the agent's seat, rather than a rotation only proposing it. */
   agentHeld: boolean;
 } {
-  const ids = demoAccountIds();
+  const { nodes, proposers, memberKeys } = context;
+  const ids = getDemoAccountIds();
   const seatOf = (accountId: string | undefined) => {
     const key = proposers.find(proposer => proposer.accountId === accountId)?.key;
     return key && nodes.some(node => node.id === memberNodeId(key)) ? memberNodeId(key) : undefined;
@@ -156,9 +154,8 @@ function demoSeats({ nodes, proposers, memberKeys, agentSeat }: MapContext): {
   const alice = seatOf(ids.alice);
   const bob = seatOf(ids.bob);
   // The agent has a seat of its own: whichever of Alice's and Bob's keys it was configured with, theirs stay theirs.
-  const agentNode = nodes.find(
-    node => node.role === "member" && node.ref === agentSeat && node.id !== alice && node.id !== bob,
-  );
+  const seat = agentSeatNodeOf(context);
+  const agentNode = seat && seat.id !== alice && seat.id !== bob ? seat : undefined;
   const agent = agentNode?.id;
   const others = nodes.filter(
     node => node.role === "member" && node.id !== alice && node.id !== bob && node.id !== agent,
@@ -183,24 +180,25 @@ export const decorateDemoMap: MapDecorator = context => {
   [...known, ...others.map(node => node.id)].forEach((nodeId, slot) => {
     if (MEMBER_SLOTS[slot]) positions[nodeId] = MEMBER_SLOTS[slot];
   });
-  const monograms: Partial<Record<string, string>> = {};
-  const unseated: string[] = [];
-  // The agent's seat, held or proposed, takes the place its ghost waits in, and the ghost steps aside.
-  if (seats.agent) {
-    positions[seats.agent] = AGENT.position;
-    labels[seats.agent] = DEMO_NAMES.agent;
-    monograms[seats.agent] = AGENT.monogram;
-    // A proposed seat is not a member yet: it keeps the ghost's slot and look until the council holds it.
-    if (!seats.agentHeld) {
-      unseated.push(seats.agent);
-      captions[seats.agent] = AGENT.caption;
-    }
-  }
   if (seats.council) {
     labels[seats.council] = DEMO_NAMES.council;
     captions[seats.council] = "proposer";
   }
   const inspector: InspectorCopy = { nodes: { ...INSPECTOR_NODES }, edges: { ...INSPECTOR_EDGES } };
+  // The agent's seat, held or proposed, takes the place its ghost waits in and the ghost steps aside: the
+  // story is the same account joining. A proposed seat is not a member yet: it keeps the ghost's look and
+  // caption until the council holds it.
+  const unseated: string[] = [];
+  if (seats.agent) {
+    positions[seats.agent] = AGENT.position;
+    if (seats.agentHeld) {
+      captions[seats.agent] = "seated by the council";
+      inspector.nodes[seats.agent] = AGENT_SEAT_COPY;
+    } else {
+      unseated.push(seats.agent);
+      captions[seats.agent] = AGENT.caption;
+    }
+  }
   const coSigners = [
     [seats.alice, ALICE],
     [seats.bob, BOB],
@@ -243,9 +241,8 @@ export const decorateDemoMap: MapDecorator = context => {
   return {
     layout: { ...SIZE, positions, labels },
     captions,
-    monograms,
     unseated,
-    ghosts: seats.agent ? [] : [AGENT],
+    ghosts: agentSeatNodeOf(context) ? [] : [AGENT],
     regions: REGIONS,
     inspector,
     hidden: { nodes: hiddenNodes, edges: hiddenEdges },

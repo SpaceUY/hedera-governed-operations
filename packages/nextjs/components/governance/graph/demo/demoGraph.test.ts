@@ -192,7 +192,9 @@ describe("decorateDemoMap with the co-signing agent's key", () => {
 
     const held = composeMap(seated([KEY_A, KEY_B, KEY_C, AGENT_KEY]), decorateDemoMap, { agentSeat: AGENT_KEY });
     expect(held.unseated).toEqual([]);
-    expect(held.captions[id]).toBeUndefined();
+    expect(held.captions[id]).toBe("seated by the council");
+    expect(held.inspector.nodes[id]).toContain("seated by a council rotation");
+    expect(proposed.inspector.nodes[id]).toBeUndefined();
   });
 
   it('names the seat the agent holds "You" without the agent\'s letters when the viewer is its account', () => {
@@ -238,6 +240,8 @@ describe("decorateDemoMap with the co-signing agent's key", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: KEY_C });
     expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
     expect(positionOf(map, memberNodeId(KEY_C))).toEqual({ x: 90, y: 480 });
+    expect(map.monograms[memberNodeId(KEY_C)]).toBeUndefined();
+    expect(map.ghosts).toEqual([]);
   });
 });
 

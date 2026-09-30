@@ -56,16 +56,12 @@ nothing signed.
 
 ### Seeing it
 
-Pointing `AGENT_ACCOUNT_ID` at an account with no seat is not enough to try this: the decision topic
-is checked first, at boot, and it refuses a topic whose submit key is not this agent's own. So a
-seatless run takes **two** throwaway pieces — an account the council does not hold, and a topic
-created with that account's key as its submit key — pointed at the governance account and executor
-you already have. The inbox, the policy and every decision are then the real ones; only the signing
-is missing.
-
-The other way round is the demo: leave the agent where it is and rotate the council to drop its key.
-The running process says `seat-missing` on its next pass, and `seat-held` again when a rotation puts
-it back.
+This is where a fresh `yarn setup` leaves it. The agent's account is created **outside** the council,
+with a decision topic of its own, so the first `yarn agent:start` reads the real inbox, decides under
+the real policy and logs `seat-missing`. Seating it is a proposal like any other: "Add the co-signing
+agent" in the app rotates the council from 2-of-3 to 2-of-4, two human members approve it, and the
+running process says `seat-held` on its next pass and starts signing. A rotation that drops its key
+takes it back to `seat-missing` the same way.
 
 ## The policy
 
@@ -293,9 +289,11 @@ Filling it in includes generating `AGENT_TOTP_SECRET`: `policy.example.json` ask
 on upgrades, and a policy that escalates with no secret refuses to start rather than leaving those
 proposals waiting on a code nobody can produce.
 
-On testnet the seat is one of the demo council members `yarn setup` creates: take
-`demoAccounts.bob` out of `packages/nextjs/setup-state.json`. It is also the key `yarn setup` gives
-the decision topic, so a different seat means a different topic. Set `AGENT_DRY_RUN=true` to watch it
+On testnet the agent's account is the one `yarn setup` creates for it: take `demoAccounts.agent` out
+of `packages/nextjs/setup-state.json`. It is not a council member until the council seats it (see
+"Nothing is signed without a seat"), and its key is the one `yarn setup` gives the decision topic, so
+a different account means a different topic — re-running `yarn setup` replaces a decision topic whose
+submit key is not the agent's. Set `AGENT_DRY_RUN=true` to watch it
 decide against a real inbox without signing anything and without publishing anything — the way to try
 a new policy. It still checks the decision topic at boot, because a dry run is for trying a policy
 and not for finding out later that the log it would have written to belongs to somebody else.

@@ -1,5 +1,5 @@
 import type { EnvEntries } from "./envFile";
-import { DEMO_ACCOUNT_NAMES, type SetupState } from "./state";
+import { AGENT_ACCOUNT, DEMO_COUNCIL_MEMBERS, type SetupState } from "./state";
 
 /**
  * Variables derived from the setup state, written to the one env file this script owns. Most are the
@@ -11,10 +11,12 @@ export function appEnvEntries(state: SetupState): EnvEntries {
   const entries: EnvEntries = {};
   if (state.releaseTopicId) entries.NEXT_PUBLIC_RELEASE_TOPIC_ID = state.releaseTopicId;
   if (state.decisionTopicId) entries.AGENT_DECISION_TOPIC_ID = state.decisionTopicId;
-  for (const name of DEMO_ACCOUNT_NAMES) {
+  for (const name of DEMO_COUNCIL_MEMBERS) {
     const account = state.demoAccounts[name];
     if (account) entries[`NEXT_PUBLIC_DEMO_ACCOUNT_${name.toUpperCase()}_ID`] = account.accountId;
   }
+  const agent = state.demoAccounts[AGENT_ACCOUNT];
+  if (agent) entries.NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID = agent.accountId;
   if (state.governance) entries.NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID = state.governance.accountId;
   if (state.demoTokenId) entries.NEXT_PUBLIC_DEMO_TOKEN_ID = state.demoTokenId;
   // Proposal ids are registry indexes, so the first one is 0 and a truthiness check would drop it.

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { MapDecoratorProvider } from "./MapDecoratorContext";
-import { MAP_SNAPSHOT } from "./mapFixtures";
+import { KEY_C, MAP_SNAPSHOT } from "./mapFixtures";
 import { composeMap } from "./mapModel";
 import { useComposedMap, useLatestComposedMap } from "./useComposedMap";
 import { renderHook } from "@testing-library/react";
@@ -9,12 +9,13 @@ import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
+import { memberNodeId } from "~~/services/liveMap/model/graph";
 import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
 import type { DecodedOperation } from "~~/services/liveMap/model/proposalRoutes";
 
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
-vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({ contracts: {} }));
 
@@ -92,6 +93,13 @@ describe("useComposedMap", () => {
 
   it("composes nothing without a world", () => {
     expect(renderHook(() => useComposedMap(CONFIG, null)).result.current).toBeNull();
+  });
+
+  it("names the co-signing agent's seat as the agent, for the agent the app is told about", () => {
+    vi.mocked(useCoSigningAgent).mockReturnValue({ accountId: "0.0.4103", seat: KEY_C });
+    const { result } = renderHook(() => useComposedMap(CONFIG, WORLD));
+    expect(result.current?.graph.nodes.find(node => node.id === memberNodeId(KEY_C))?.label).toBe("Co-signing agent");
+    expect(useCoSigningAgent).toHaveBeenCalledWith("testnet");
   });
 
   it("keeps the same map while the world does not change", () => {

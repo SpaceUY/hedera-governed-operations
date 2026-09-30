@@ -161,3 +161,21 @@ describe("routeNamesOf", () => {
     expect(routeNamesOf(graph, { kind: "unrecognized", reason: "unknown selector" })).toBeNull();
   });
 });
+
+describe("composeMap with the co-signing agent", () => {
+  const AGENT_SEAT = "YWdlbnQ=";
+  const seated = {
+    ...MAP_SNAPSHOT,
+    council: { threshold: 2, memberKeys: [...MAP_SNAPSHOT.council.memberKeys, AGENT_SEAT] },
+  };
+
+  it("names the seat the agent's key holds the co-signing agent, with its monogram", () => {
+    const map = composeMap(seated, undefined, { agentSeat: AGENT_SEAT });
+    expect(map.graph.nodes.find(node => node.id === memberNodeId(AGENT_SEAT))?.label).toBe("Co-signing agent");
+    expect(map.monograms).toEqual({ [memberNodeId(AGENT_SEAT)]: "AG" });
+  });
+
+  it("gives no monogram while the council does not hold the agent's key", () => {
+    expect(composeMap(MAP_SNAPSHOT, undefined, { agentSeat: AGENT_SEAT }).monograms).toEqual({});
+  });
+});

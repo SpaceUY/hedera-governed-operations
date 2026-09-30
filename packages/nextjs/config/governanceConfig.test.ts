@@ -4,6 +4,7 @@ import {
   findDeployedContract,
   findDeployment,
   getCoSigningAgentAccountId,
+  getDemoAccountIds,
   getDeployedContract,
   getGovernanceEntityIds,
   getReleaseTopicId,
@@ -146,6 +147,31 @@ describe("getCoSigningAgentAccountId", () => {
     stubNoIds();
     vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "");
     expect(getCoSigningAgentAccountId()).toBe(DEMO_INSTANCE.coSigningAgentAccountId);
+  });
+});
+
+describe("getDemoAccountIds", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("reads the demo members the app was told about", () => {
+    stubOwnIds();
+    vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID", "0.0.20000001");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID", "0.0.20000002");
+    expect(getDemoAccountIds()).toEqual({ alice: "0.0.20000001", bob: "0.0.20000002" });
+  });
+
+  it("names none when the app's own instance has none, instead of borrowing the demo's", () => {
+    stubOwnIds();
+    vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID", "");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID", "");
+    expect(getDemoAccountIds()).toEqual({ alice: undefined, bob: undefined });
+  });
+
+  it("is the demo instance's Alice and Bob when the app reads the demo instance", () => {
+    stubNoIds();
+    vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID", "");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID", "");
+    expect(getDemoAccountIds()).toEqual({ alice: DEMO_INSTANCE.aliceAccountId, bob: DEMO_INSTANCE.bobAccountId });
   });
 });
 
