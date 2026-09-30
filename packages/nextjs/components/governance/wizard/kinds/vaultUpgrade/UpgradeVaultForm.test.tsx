@@ -1,7 +1,7 @@
 import { UpgradeVaultForm } from "./UpgradeVaultForm";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { type Chain, parseAbi } from "viem";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useReleaseCheck } from "~~/hooks/mirror/useReleaseCheck";
 import { type DraftResult, previewDraft } from "~~/services/governance/drafts";
 
@@ -30,6 +30,13 @@ const TARGETS = {
   implementationAbi: parseAbi(["function initV2(uint256 limit)"]),
 } as const;
 const CHAIN = { id: 296, name: "Hedera Testnet" } as Chain;
+
+// An app with its own ids, so an unset release topic stays unset instead of falling back to the demo's.
+beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "0.0.20000001");
+  vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "0.0.20000002");
+  vi.stubEnv("NEXT_PUBLIC_SEED_PROPOSAL_ID", "0");
+});
 
 afterEach(() => {
   cleanup();

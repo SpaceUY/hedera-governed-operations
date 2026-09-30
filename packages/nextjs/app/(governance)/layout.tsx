@@ -2,12 +2,13 @@
 
 import { type ReactNode, useMemo } from "react";
 import { SetupNotice } from "~~/components/SetupNotice";
+import { DemoInstanceNotice } from "~~/components/governance/DemoInstanceNotice";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
 import { LiveMapPane } from "~~/components/governance/LiveMapPane";
 import { RailNotice, useRailNotice } from "~~/components/governance/RailNotice";
 import { MapDecoratorProvider } from "~~/components/governance/graph/MapDecoratorContext";
 import { decorateDemoMap } from "~~/components/governance/graph/demo/demoGraph";
-import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
+import { type GovernanceConfig, isDemoInstance, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 
 type ResolvedConfig = { config: GovernanceConfig } | { error: unknown };
@@ -43,6 +44,7 @@ export default function GovernanceLayout({ children }: { children: ReactNode }) 
             <LiveMapPane config={resolved.config} onRemoteSignature={railNotice.show} />
           </section>
           <div className="flex min-w-0 flex-col border-t border-base-300 bg-base-100 lg:w-2/5 lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
+            {isDemoInstance() && <DemoInstanceNotice />}
             <RailNotice notice={railNotice.notice} onDismiss={railNotice.dismiss} />
             {children}
           </div>
