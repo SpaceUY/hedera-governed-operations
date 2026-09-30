@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import type { TokenReading } from "~~/components/governance/TreasuryStrip";
-import { mapCaptionOf } from "~~/components/governance/graph/caption";
+import { type CaptionFacts, mapCaptionOf } from "~~/components/governance/graph/caption";
 import { inspectorContentOf } from "~~/components/governance/graph/inspector";
 import { nodeStateCaptions, releaseOf } from "~~/components/governance/graph/nodeStates";
 import { remoteSignatureNotice } from "~~/components/governance/graph/remoteSignatureNotice";
@@ -33,6 +33,8 @@ function tokenReadingOf(query: ReturnType<typeof useToken>): TokenReading {
   if (query.data) return query.data;
   return query.isError ? "unreadable" : null;
 }
+
+const IDLE_CAPTION: CaptionFacts = { kind: "idle" };
 
 type TokenSource = { id: string | null | undefined; data: TokenQueryData | undefined };
 
@@ -74,6 +76,8 @@ export function useLiveMap({ config, onRemoteSignature }: LiveMapOptions) {
   const mapPreview = useMapPreview(config);
   const previewed = playing ? null : (mapPreview.preview?.operation ?? null);
   const composedWorld = useMemo(() => world && { ...world, previewed }, [world, previewed]);
+  // The caption says what the map shows: while a sequence plays the preview waits, so it says nothing of it.
+  const captionFacts = playing ? IDLE_CAPTION : mapPreview.caption;
   const map = useComposedMap(config, composedWorld);
   const nodeStates = nodeStatesShown(playing, world);
   const vaultReleases = useMemo(
@@ -136,7 +140,7 @@ export function useLiveMap({ config, onRemoteSignature }: LiveMapOptions) {
     council: world?.council ?? null,
     tokens: { governedToken: tokenReadingOf(governedToken), usdc: tokenReadingOf(usdc) },
     map: shownMap,
-    caption: world && mapCaptionOf(mapPreview.caption, councilRuleLabel(world.council)),
+    caption: world && mapCaptionOf(captionFacts, councilRuleLabel(world.council)),
     frame,
     error,
     inspector,

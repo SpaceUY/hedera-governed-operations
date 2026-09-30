@@ -157,9 +157,13 @@ describe("LiveMapPane", () => {
     fireEvent.click(treasuryNode as Element);
     expect(screen.getByRole("region", { name: "Inspector" })).toBeTruthy();
 
+    const elsewhere = document.body.appendChild(document.createElement("button"));
+    elsewhere.focus();
     previewing("schedule:0.0.7001");
     rerender(<LiveMapPane config={CONFIG} />);
     expect(screen.queryByRole("region", { name: "Inspector" })).toBeNull();
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
   });
 
   it("heads the map with its caption, naming the council's rule", () => {
