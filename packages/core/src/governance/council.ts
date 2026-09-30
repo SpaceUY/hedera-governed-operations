@@ -110,19 +110,27 @@ export function councilKeyOf(key: proto.IKey): CouncilKey {
 }
 
 /**
+ * The council in an account's key as Mirror serves it. A key that is not protobuf-encoded holds no
+ * members, so it throws with the message `describe` writes for the key type it found.
+ */
+function councilKeyFromMirrorKey(key: MirrorAccount["key"], describe: (keyType: string) => string): CouncilKey {
+  if (key?._type !== PROTOBUF_ENCODED) throw new Error(describe(key?._type ?? "missing"));
+  return councilKeyOf(proto.Key.decode(bytesFromUnprefixedHex(key.key)));
+}
+
+/**
  * Reads the council out of the governance account's key. Throws when the account holds a single
  * key: one signature would then be enough to move the treasury, which is the setup this whole
  * mechanism exists to avoid, so failing loudly beats showing "1 of 1".
  */
 export async function fetchCouncilKey(governanceAccountId: string, network: HederaNetworkName): Promise<CouncilKey> {
   const { key } = await fetchAccount(governanceAccountId, { network });
-  if (key?._type !== PROTOBUF_ENCODED) {
-    throw new Error(
-      `Governance account ${governanceAccountId} holds a ${key?._type ?? "missing"} key, not a threshold key. ` +
-        "Anything it pays for would run on a single signature, with no council to approve it.",
-    );
-  }
-  return councilKeyOf(proto.Key.decode(bytesFromUnprefixedHex(key.key)));
+  return councilKeyFromMirrorKey(
+    key,
+    keyType =>
+      `Governance account ${governanceAccountId} holds a ${keyType} key, not a threshold key. ` +
+      "Anything it pays for would run on a single signature, with no council to approve it.",
+  );
 }
 
 /** A consensus timestamp as Mirror writes it: seconds, a dot, up to nine digits of nanoseconds. */
@@ -145,13 +153,11 @@ export async function fetchCouncilKeyBefore(
   }
   const path = `/api/v1/accounts/${governanceAccountId}?transactions=false&timestamp=lt:${consensusTimestamp}`;
   const { key } = await mirrorRequest<MirrorAccount>(path, { network });
-  if (key?._type !== PROTOBUF_ENCODED) {
-    throw new Error(
-      `Governance account ${governanceAccountId} held a ${key?._type ?? "missing"} key before ${consensusTimestamp}, ` +
-        "not a threshold key.",
-    );
-  }
-  return councilKeyOf(proto.Key.decode(bytesFromUnprefixedHex(key.key)));
+  return councilKeyFromMirrorKey(
+    key,
+    keyType =>
+      `Governance account ${governanceAccountId} held a ${keyType} key before ${consensusTimestamp}, not a threshold key.`,
+  );
 }
 
 /**
