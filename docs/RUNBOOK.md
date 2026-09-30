@@ -78,7 +78,7 @@ yarn hardhat:verify:testnet
 yarn setup
 ```
 
-The second run finds the contracts and finishes the fixtures: the HTS token whose pause and freeze keys are the `TokenAdmin` contract, a balance for `bob` so the freeze in the demo has something to act on, and one **pending proposal** — an upgrade of `AcmeVault` to `AcmeVaultV2` — for the council to approve (step 5 walks an approval end to end). Every id lands in `packages/nextjs/.env.local`.
+The second run finds the contracts and finishes the fixtures: the HTS token whose pause and freeze keys are the `TokenAdmin` contract, a balance for `bob` so the freeze in the demo has something to act on, and one **pending proposal** — an upgrade of `AcmeVault` to `AcmeVaultV2` — registered in `GovernedExecutor`. It is an entry, not a schedule yet: nobody can sign it until someone schedules `execute(id)` for the council, and the app has no page for an entry without a schedule. Step 5 walks a proposal that is scheduled from the start. Every id lands in `packages/nextjs/.env.local`.
 
 A third run creates nothing. That is the check that the bootstrap is complete:
 
@@ -106,7 +106,7 @@ yarn next:dev
 
 ## 5. Take a proposal from open to executed
 
-This is the journey the template exists for: you propose an operation, the council signs it from its own wallets, and the network runs it the moment the threshold is met. It uses a treasury transfer because that is the shortest path through it — a native `CryptoTransfer`, one wallet transaction to open, no contract, no registry entry and no `PROPOSER_ROLE` needed. Every other kind reaches the council the same way; the contract-backed ones only add a registration in front (see "Opening a proposal" in `docs/GOVERNANCE_UI.md`).
+This is the journey the template exists for: you propose an operation, the council signs it from its own wallets, and the network runs it the moment the threshold is met. It uses a treasury transfer because that is the shortest path through it — a native `CryptoTransfer`, one wallet transaction to open, no contract, no registry entry and no `PROPOSER_ROLE` needed to schedule it. The role still decides where it shows up: Mirror cannot list schedules by payer, so the map's inbox and the agent's are the schedules created by `PROPOSER_ROLE` holders, and `yarn setup` granted the role to your council account, the operator, alice and bob. A native proposal from any other account runs just the same, but is reachable only by its schedule id. Every other kind reaches the council the same way; the contract-backed ones only add a registration in front (see "Opening a proposal" in `docs/GOVERNANCE_UI.md`).
 
 The council is the 2-of-3 key `yarn setup` put on the governance account: your own account (`HEDERA_COUNCIL_ACCOUNT_ID`) and the two demo accounts, `alice` and `bob`. The co-signing agent has an account of its own, `agent`, outside the council; approving "Add the co-signing agent" seats it and makes the council 2-of-4 — your account, alice, bob and the agent (5.4). That is the state of the template's published demo instance, the one the app reads without a `.env`. The ids are in `packages/nextjs/.env.local` (`NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID`, `NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID`, `NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID`, `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID`); the demo accounts' keys are only in `packages/nextjs/setup-state.json`, which is gitignored. Start with the app running and HashPack connected as your council account (step 4).
 
@@ -115,7 +115,7 @@ The council is the 2-of-3 key `yarn setup` put on the governance account: your o
 1. On the live map, click **New proposal** (or open http://localhost:3000/governance/new).
 2. Under **Native · no contract, no registry entry**, pick **Pay a supplier**.
 3. Fill in **Recipient account** (`0.0.xxxxx` or an EVM address — alice's id is a convenient one), leave **Asset** on **HBAR (ℏ)** and enter an **Amount (ℏ)**; `0.05` is plenty. The governance account starts with 20 ℏ and pays every approved operation out of it.
-4. Read **What the council will see**: the target, **Gas limit** `n/a — native, network fee only`, **Expires** `7 days after scheduling. Unsigned, it simply lapses.` and **Who approves** `The 2-of-3 council.` The preview is decoded from the very body about to be scheduled, so it is what the detail page will show the council.
+4. Read **What the council will see**: the target, **Gas limit** `n/a — native, network fee only`, **Expires** `7 days after scheduling. Unsigned, it simply lapses.` and **Who approves** `The 2-of-3 council.` (`2-of-4` here and below once the agent is seated). The preview is decoded from the very body about to be scheduled, so it is what the detail page will show the council.
 5. Click **Schedule with your wallet** and approve the request in HashPack. While it waits, the footer reads `Step 1 of 1: schedule the call for the council. Approve it in HashPack — the request is valid for …`; after that window the network would refuse it.
 
 That one `ScheduleCreate` is the whole proposal: the governance account is the payer of the transfer it schedules, and your key is its admin key, so you and only you can withdraw it (5.6). Once it lands, the app takes you to it at `/governance/0.0.xxxxx`.
@@ -139,7 +139,7 @@ Back on the map (**← Map**), the card sits under **Pending operations** with `
 
 It reads `1 signed` because you opened it from a council seat. The network counts the signatures on a `ScheduleCreate` towards the transaction it schedules, so the proposer's approval arrives with the proposal and your row already says `Signed`. That is also why your row has no Sign button: the button only sits on the connected account's own row while that seat has not signed.
 
-**Sign with HashPack** is for a proposal somebody else opened. The seed proposal from step 3.3 is one: `yarn setup` opened it with the operator account, so unless your council account is the operator, your row there reads `Not yet` and carries the button. Pressing it sends a `ScheduleSign` from your wallet. A signature approves; it only makes anything run when it is the one that meets the threshold.
+**Sign with HashPack** is for a proposal somebody else opened. Open one as alice from the second wallet of 5.4 — the same **Pay a supplier**, say — and look at it from your own session: it reads `1 signed`, alice's row `Signed`, and your row `Not yet` with the button. Pressing it sends a `ScheduleSign` from your wallet, and yours is the second signature. The demo instance's transfer in 5.5 ran exactly that way, with bob as the second signature. A signature approves; it only makes anything run when it is the one that meets the threshold.
 
 ### 5.4 Get the second signature
 
@@ -189,7 +189,7 @@ yarn agent:start
 
 Until it is seated it logs one `seat-missing` line and keeps deciding without signing: your transfer comes out `"outcome":"approved-not-signed"`, which is the check that the policy covers it.
 
-*Seat it.* Seating the agent is a council rotation like any other, proposed from your seat and approved by the humans. On `/governance/new` pick **Add the co-signing agent** (under the native group, hinted `→ 2-of-4 council`) and enter the agent's account in **Agent account** — `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID` in `.env.local`. **Settings** in the header offers the same change: the council card lists the agent as `Not seated. Tick it below to propose a 2-of-4 council.` Either way the preview's **Who approves** reads `The current 2-of-3 council and the proposed 2-of-4 council, each to its own threshold.`, and **Schedule with your wallet** opens it. The detail calls it `Change to a 2-of-4 council` and lists both councils. Your create already counts in both, and alice sits in both, so her one signature from the second wallet completes both thresholds and the network rewrites the governance account's key. On the demo instance this is [schedule `0.0.10794960`](https://hashscan.io/testnet/schedule/0.0.10794960): opened by alice, signed by alice and bob, its scheduled `CRYPTOUPDATEACCOUNT` `SUCCESS`, leaving the 2-of-4 key over the council account, alice, bob and the agent.
+*Seat it.* Seating the agent is a council rotation like any other, proposed from your seat and approved by the humans. On `/governance/new` pick **Add the co-signing agent** (under the native group, hinted `→ 2-of-4 council`) and enter the agent's account in **Agent account** — `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID` in `.env.local`. **Settings** in the header offers the same change: the council card lists the agent as `Not seated. Tick it below to propose a 2-of-4 council.` Either way the preview's **Who approves** reads `The current 2-of-3 council and the proposed 2-of-4 council, each to its own threshold.`, and **Schedule with your wallet** opens it. The detail calls it `Change to a 2-of-4 council` and lists both councils. Your create already counts in both, and alice sits in both, so her one signature from the second wallet completes both thresholds and the network rewrites the governance account's key. On the demo instance this is [schedule `0.0.10794960`](https://hashscan.io/testnet/schedule/0.0.10794960): opened by alice, signed by alice and bob — there the two human seats were alice's and bob's rather than yours and alice's — its scheduled `CRYPTOUPDATEACCOUNT` `SUCCESS`, leaving the 2-of-4 key over the council account, alice, bob and the agent.
 
 On its next pass the running agent logs `seat-held`. From then on, within one poll (15 s by default) of your proposal appearing it prints a decision line — `"outcome":"approved","kind":"treasuryTransfer","reason":"within policy"` — and signs. A proposal outside the policy comes out `refused`, with the limit it failed as the reason. The app names its seat **Co-signing agent** on its own, since `yarn setup` wrote the agent's id to `.env.local`. The rest — confirmation codes for upgrades, the decision log, Docker — is in `packages/agent/README.md`.
 
@@ -297,7 +297,8 @@ governance account's threshold key, and the network answers `INVALID_SIGNATURE` 
 would fail on a template whose whole subject is the approval.
 
 `yarn harness:council-seat` closes that gap. It rebuilds the governance account's key as the three
-configured members plus this run's signer, signed by the two demo members — they meet the old key's
+configured members, plus the co-signing agent when the council has already seated it, plus this
+run's signer, signed by the two demo members — they meet the old key's
 threshold and, being members of the new one too, its threshold as well, so the incoming signer never
 has to sign its own way in. Rebuilding rather than appending is what keeps seats from accumulating:
 a previous run's key is dropped rather than kept.
@@ -322,9 +323,10 @@ the "a workspace that has already run `yarn setup`" requirement above.
 
 Two things, both on testnet, neither cleaned up by `validate-semantic` (only `harness:run` sweeps):
 
-1. **The council is left at 2-of-4**, with the run's now-deleted signer still among its keys. The
-   threshold is unchanged, so the demo keeps working, and the next run drops that key. To put it
-   back to 2-of-3 by hand, run the same `AccountUpdate` with only the three configured members,
+1. **The council is left with one key more than before**, the run's now-deleted signer: 2-of-4,
+   or 2-of-5 with the agent seated. The threshold is unchanged, so the demo keeps working, and the
+   next run drops that key. To undo it by hand, run the same `AccountUpdate` with the members the
+   council had before the run — the three configured members, and the agent if it was seated —
    signed by the two demo seats.
 2. **The ephemeral account and its key** stay in `chain-signer.json` at the repo root (gitignored)
    for reuse. Delete the account with an `AccountDeleteTransaction` signed with that key, balance
@@ -373,7 +375,7 @@ The test signer only activates on testnet. In a production build (`yarn next:bui
 | Test signer account `0x…` not found on testnet                                             | The account was never created with that key, or the Mirror Node has not indexed it yet                                                            | Create it with `setECDSAKeyWithAlias` (step 7) and reload after ~20 s; the app retries the alias lookup for about 20 s                                                                                 |
 | `validate-semantic` passes E1/E5/E6/E8 but fails E9 with "no Sign control"                 | The app is behind the setup guard: `yarn setup` stopped halfway or the deploy has not run in this workspace                                       | Run steps 3.1–3.3, then rerun. The log line above the failure names the contract whose Hedera id is missing                                                                                            |
 | The server log says `Could not seat the test signer on the council`                        | The seat could not be given — usually no `packages/nextjs/.env` (it holds `HEDERA_COUNCIL_ACCOUNT_ID`) or no `setup-state.json`                    | Put `.env` back before `validate-semantic` (that stage skips ASSERT, so the file is allowed) and make sure `yarn setup` has run. E9 fails without it; the other four still pass — with no `.env` at all they grade the demo instance, which is why this stage runs after `yarn setup` |
-| The map reads `Council threshold 2-of-4` after a harness run                               | Expected: the run's test signer was seated and the run does not remove it                                                                        | Harmless — the threshold is unchanged and the next run drops the stale key. To restore 2-of-3 now, re-run the `AccountUpdate` with only the three configured members (see step 6)                      |
+| The map's **Council threshold** shows one key more than expected after a harness run      | Expected: the run's test signer was seated and the run does not remove it                                                                        | Harmless — the threshold is unchanged and the next run drops the stale key. To restore it now, re-run the `AccountUpdate` with the members the council had before the run (see step 6)                |
 | `Dev server exited before reporting a Local URL` right after `Chain signer provisioned`    | The seat script died before `yarn next:dev` could start                                                                                          | Read the line above it: the script prints its reason and, as of this version, no longer exits non-zero. An older checkout will need the fix in `scripts/harnessCouncilSeat.ts`                         |
 | `yarn setup` stops at `Not deployed yet: GovernedExecutor, …`                               | Expected on a first run: the contracts are deployed against the governance account this run just created                                          | Deploy them (`yarn hardhat:deploy --network hederaTestnet`) and run `yarn setup` again (step 3)                                                    |
 | Deploy fails with `Set GOVERNANCE_ACCOUNT_ADDRESS to the EVM address…`                      | The deploy ran before `yarn setup` created the governance account, so `packages/hardhat/.env` has neither value                                    | Run `yarn setup` first; it writes both into that file                                                                                              |
