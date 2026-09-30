@@ -27,7 +27,7 @@
             },
             {
               "label": "Set the operator, council and WalletConnect variables",
-              "text": "HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY from a testnet account; HEDERA_COUNCIL_ACCOUNT_ID, your own account id, which becomes one of the three keys that approve proposals; NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID from Reown Cloud.",
+              "text": "HEDERA_OPERATOR_ID and HEDERA_OPERATOR_PRIVATE_KEY from a testnet account; HEDERA_COUNCIL_ACCOUNT_ID, your own account id, which becomes one of the council keys that approve proposals; NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID from Reown Cloud.",
               "url": "https://portal.hedera.com"
             },
             {
