@@ -8,7 +8,7 @@ The template's subject is an approval that no single key can give. A proposer fi
 
 ## Journeys
 
-1. **Browse without a wallet.** Open the live map, read the treasury figures and the council's threshold, and see the proposals still collecting signatures in the rail beside it. Without a `.env` or a deployment the app says so instead, naming the command that fixes it.
+1. **Browse without a wallet.** Open the live map, read the treasury figures and the council's threshold, and see the proposals still collecting signatures in the rail beside it. Without a `.env` the app reads the template's public demo instance on testnet and says so, naming `yarn setup` as the way to deploy your own; a setup that stopped halfway or a missing deployment is reported instead, naming the command that fixes it.
 2. **Read a proposal.** Open a proposal from the rail and see what it would do in a sentence, its registry entry, how many of the required signatures it has, and when it expires — all read from the Mirror Node, with no indexer and no wallet.
 3. **File a proposal.** Choose an operation kind on `/governance/new` and fill in its form. Without a wallet the page explains that proposing is paid for by the proposer's own account and leaves the button disabled.
 4. **Approve from a wallet.** A council member signs a pending proposal with `ScheduleSign` from their wallet. Their signature counts towards the threshold; the network runs the operation by itself once the threshold is reached.

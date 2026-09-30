@@ -54,6 +54,7 @@ const createTransfer = () =>
 const walletState = (overrides: Partial<ReturnType<typeof useHederaWalletConnect>>) => ({
   provider: null,
   accountId: null,
+  walletName: null,
   isConnected: false,
   isInitializing: false,
   isBusy: false,
@@ -62,8 +63,13 @@ const walletState = (overrides: Partial<ReturnType<typeof useHederaWalletConnect
   ...overrides,
 });
 
-const connectedWith = (provider: ProviderMock) =>
-  walletState({ provider: provider as unknown as HederaProvider, accountId: ACCOUNT_ID, isConnected: true });
+const connectedWith = (provider: ProviderMock, walletName: string | null = null) =>
+  walletState({
+    provider: provider as unknown as HederaProvider,
+    accountId: ACCOUNT_ID,
+    walletName,
+    isConnected: true,
+  });
 
 describe("useHederaSigner", () => {
   beforeEach(() => {
@@ -85,7 +91,7 @@ describe("useHederaSigner", () => {
     it("exposes no signer", () => {
       const { result } = renderHook(() => useHederaSigner());
 
-      expect(result.current).toMatchObject({ accountId: null, isConnected: false });
+      expect(result.current).toMatchObject({ accountId: null, isConnected: false, walletName: null });
       expect("provider" in result.current).toBe(false);
     });
 
@@ -154,6 +160,14 @@ describe("useHederaSigner", () => {
       await expect(result.current.executeTransaction(createTransfer())).rejects.toBeInstanceOf(WalletRejectedError);
     });
 
+    it("says which WalletConnect wallet is connected", () => {
+      mockedUseHederaWalletConnect.mockReturnValue(connectedWith(createProviderMock(), "HashPack"));
+
+      const { result } = renderHook(() => useHederaSigner());
+
+      expect(result.current).toMatchObject({ signerKind: "hashpack", walletName: "HashPack" });
+    });
+
     it("disconnect delegates to the wallet provider", async () => {
       const state = connectedWith(createProviderMock());
       mockedUseHederaWalletConnect.mockReturnValue(state);
@@ -187,6 +201,15 @@ describe("useHederaSigner", () => {
       const { result } = renderHook(() => useHederaSigner());
 
       expect(result.current.accountId).toBe(BURNER_ACCOUNT_ID);
+    });
+
+    it("has no wallet name, even with a wallet session open underneath", () => {
+      mockedUseHederaWalletConnect.mockReturnValue(connectedWith(createProviderMock(), "HashPack"));
+      mockedUseBurnerSigner.mockReturnValue(burnerReady(createBurnerSignerMock()));
+
+      const { result } = renderHook(() => useHederaSigner());
+
+      expect(result.current.walletName).toBeNull();
     });
 
     it("executeTransaction signs with the burner and never reaches the wallet", async () => {

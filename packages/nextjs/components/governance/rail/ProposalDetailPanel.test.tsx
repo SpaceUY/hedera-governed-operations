@@ -100,6 +100,7 @@ const renderPanel = (props: Partial<PanelProps> = {}) =>
       proposal={baseProposal()}
       accountId={MEMBER_A}
       signerKind="hashpack"
+      walletName={null}
       governanceAccountId={GOVERNANCE_ACCOUNT_ID}
       executorContractId={EXECUTOR_CONTRACT_ID}
       network="testnet"

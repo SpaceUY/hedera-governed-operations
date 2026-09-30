@@ -55,6 +55,10 @@
       "contains": ["Governance is not set up yet"]
     },
     {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["You are viewing the demo instance on testnet", "yarn setup"]
+    },
+    {
       "file": "packages/hardhat/hardhat.config.ts",
       "contains": ["hederaTestnet", "hederaMainnet", "sourcify"]
     },
@@ -97,6 +101,10 @@
     {
       "file": "packages/core/src/governance/roles.ts",
       "contains": ["EXECUTOR_ROLE", "getRoleAdmin"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["HashPack cannot sign this step", "HashPack cannot sign a schedule delete yet", "such as Kabila", "Use another wallet"]
     }
   ]
 }
