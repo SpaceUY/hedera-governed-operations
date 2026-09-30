@@ -97,10 +97,10 @@ describe("ApproverList", () => {
     expect(screen.queryByRole("button", { name: "Sign as Bob" })).toBeNull();
   });
 
-  it("lets a seat's extra caption replace the map's", () => {
+  it("lets a seat's extra badge replace the map's caption", () => {
     renderList({
       memberNames: { "key-b": { name: "Bob", caption: "demo co-signer" } },
-      seatExtras: { "key-b": { caption: "demo key" } },
+      seatExtras: { "key-b": { badge: <span>demo key</span> } },
     });
     const bob = screen.getByText("Bob").closest("li")!;
     expect(within(bob).getByText("demo key")).toBeTruthy();

@@ -419,7 +419,7 @@ describe("ProposalDetailPanel", () => {
     renderPanel();
     const row = screen.getByText(MEMBER_B).closest("li")!;
     expect(within(row).getByRole("button", { name: "Sign as Alice" })).toBeTruthy();
-    expect(within(row).getByText("demo key")).toBeTruthy();
+    expect(within(row).getByText("demo key").className).toContain("badge-primary");
     expect(screen.getByText("Alice is a demo co-signer: the key lives server-side, testnet only.")).toBeTruthy();
   });
 

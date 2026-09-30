@@ -23,6 +23,9 @@ type DemoSeatsInput = {
 
 const NO_DEMO_SEATS: DemoSeats = { extras: {}, incomingExtras: {}, note: null };
 
+/** Tinted like the viewer's own "your wallet" badge, softer, since it marks whose key signs rather than whose wallet. */
+const DEMO_KEY_BADGE = <span className="badge badge-soft badge-primary badge-sm">{DEMO_SIGNER_COPY.badge}</span>;
+
 /**
  * Demo only: what the rail's council lists add for the demo co-signers this server can sign for — the
  * "demo key" badge on their rows, a "Sign as …" while the proposal still waits on them, and the note
@@ -44,9 +47,7 @@ export function useDemoSeats({ proposal, council, onSigned }: DemoSeatsInput): D
     return undefined;
   };
   const extrasOf = (seats: DemoSeat[]): SeatExtras =>
-    Object.fromEntries(
-      seats.map(seat => [seat.member.publicKey, { caption: DEMO_SIGNER_COPY.badge, action: actionOf(seat) }]),
-    );
+    Object.fromEntries(seats.map(seat => [seat.member.publicKey, { badge: DEMO_KEY_BADGE, action: actionOf(seat) }]));
   const seated = [...Object.values(plan.current), ...Object.values(plan.incoming)].map(({ member }) =>
     demoMemberLabel(member.name),
   );

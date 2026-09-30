@@ -7,8 +7,8 @@ import type { MemberName } from "~~/components/governance/graph/mapModel";
 import type { CoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { type HederaNetworkName, getHashScanUrl } from "~~/utils/scaffold-hbar/networks";
 
-/** What a screen adds to one seat's row: a caption in place of the map's, an action in place of the status. */
-export type SeatExtra = { caption?: string; action?: ReactNode };
+/** What a screen adds to one seat's row: a badge in place of the map's caption, an action in place of the status. */
+export type SeatExtra = { badge?: ReactNode; action?: ReactNode };
 
 export type ApproverListProps = {
   heading: string;
@@ -85,7 +85,7 @@ export const ApproverList = ({
             <CouncilMemberRow
               key={key}
               {...seat}
-              caption={extra?.caption ?? seat.caption}
+              badge={extra?.badge}
               state={state}
               action={state === "signed" ? undefined : action}
               signature={signatureOf(key)}
