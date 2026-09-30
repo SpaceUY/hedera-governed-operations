@@ -11,6 +11,9 @@ import { proposalInboxQueryKey } from "~~/hooks/mirror/useProposals";
 
 const GovernanceConfigContext = createContext<GovernanceConfig | null>(null);
 
+/** How long the hand-over waits for the inbox: no longer than one inbox poll, as the card appears by then anyway. */
+const HAND_OVER_LIMIT_MS = DEFAULT_PENDING_POLL_MS;
+
 type OpenSubmittedOptions = { network: GovernanceConfig["network"]; onNotice: (text: string) => void };
 
 /** Waits for `pending`, but no longer than `ms`: a read that never answers must not hold a page back. */
@@ -37,10 +40,7 @@ export function useOpenSubmitted({ network, onNotice }: OpenSubmittedOptions) {
   return useCallback(
     async (scheduleId: string) => {
       onNotice(SUBMITTED_NOTICE);
-      await settleWithin(
-        queryClient.refetchQueries({ queryKey: proposalInboxQueryKey(network) }),
-        DEFAULT_PENDING_POLL_MS,
-      );
+      await settleWithin(queryClient.refetchQueries({ queryKey: proposalInboxQueryKey(network) }), HAND_OVER_LIMIT_MS);
       router.push(GOVERNANCE_ROUTES.selected(scheduleId));
     },
     [network, onNotice, queryClient, router],
