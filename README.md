@@ -226,6 +226,10 @@ Paying for a transaction is not the same as approving one, though. A `ScheduleSi
 
 Experimental software: not audited, testnet first. Review every module before using it with mainnet funds.
 
+## Authors
+
+Built by SpaceDev.
+
 ## Licence
 
 MIT — see [LICENCE](LICENCE).

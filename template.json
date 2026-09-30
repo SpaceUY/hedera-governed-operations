@@ -1,6 +1,6 @@
 {
   "name": "governed-operations",
-  "description": "Hedera template with a Hardhat workspace and a Next.js app: HCS, HTS, Mirror Node reads and HashPack signing.",
+  "description": "Multi-sig governance on Hedera native primitives: a threshold key holds the quorum and the Schedule Service holds each proposal until the council signs from HashPack or Kabila. Ships contract upgrades, SaucerSwap treasury swaps, HTS token admin, transfers and council rotation, plus an optional co-signing agent that publishes its decisions to HCS.",
   "version": "0.1.0",
   "create-scaffold-hbar": {
     "requirements": {
