@@ -5,8 +5,8 @@ import { defineWizardKind } from "~~/components/governance/wizard/kinds/wizardKi
 
 /**
  * Seats the co-signing agent by rewriting the governance account's own threshold key: no contract, so
- * nothing can be missing. The configuration names no agent account today, so the form starts empty;
- * once it does, `suggestedAgentAccountId` is where it goes.
+ * nothing can be missing. The kind does not read the configured agent account yet, so the form starts
+ * empty; `suggestedAgentAccountId` is where it would go.
  */
 export const CO_SIGNING_AGENT_KIND = defineWizardKind<CoSigningAgentTargets>({
   icon: PlusIcon,

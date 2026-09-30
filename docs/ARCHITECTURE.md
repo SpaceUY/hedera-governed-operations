@@ -330,8 +330,12 @@ Changing who approves is itself a proposal, and it is the one kind whose progres
 `m of n`. Measured on testnet: a scheduled `AccountUpdate` that replaces a threshold key does not run
 on the outgoing council's threshold alone — the schedule stays pending — and runs once the incoming
 key's own threshold is also met. Each side needs its own threshold rather than all of its members,
-so a 2-of-3 council rotating to another 2-of-3 needs four signatures in total, two from each
-([schedule 0.0.10716509](https://hashscan.io/testnet/schedule/0.0.10716509), on a throwaway account).
+and a member of both councils counts toward both. So how many signatures a rotation takes depends on
+how far the two councils overlap: a 2-of-3 council rotating to a 2-of-3 of three other keys needs
+four, two from each ([schedule 0.0.10716509](https://hashscan.io/testnet/schedule/0.0.10716509), on
+a throwaway account), while seating one more member — 2-of-3 to 2-of-4, every current seat kept —
+runs on two, since both signers sit on both sides ([schedule 0.0.10794960](https://hashscan.io/testnet/schedule/0.0.10794960),
+the rotation that seated the demo's co-signing agent).
 
 The incoming council comes out of the decoded body in the same shape `fetchCouncilKey` returns for
 the current one, so `countThresholdSignatures` runs over both: a rotation's row carries `progress`
