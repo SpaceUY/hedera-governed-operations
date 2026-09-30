@@ -10,6 +10,8 @@ export const DEMO_SIGNER_COPY = {
   badge: "demo key",
   signAs: (name: string) => `Sign as ${name}`,
   signingAs: (name: string) => `Signing as ${name}…`,
+  /** The network took the signature; Mirror lists it a few seconds later, and the row then shows it. */
+  sentAs: (name: string) => `Sent as ${name}`,
   /** Under the council, naming the demo members it seats. */
   note: (names: readonly string[]) =>
     names.length === 1

@@ -30,7 +30,7 @@ describe("DemoSignButton", () => {
     expect(button.className).toContain("btn-sm");
   });
 
-  it("posts once, calls onSigned, and stays disabled without claiming the seat signed", async () => {
+  it("posts once, calls onSigned, and stays disabled saying it was sent, without claiming the seat signed", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ transactionId: "0.0.11@1.1" }));
     const onSigned = renderButton();
     const button = screen.getByRole("button", { name: "Sign as Alice" });
@@ -44,8 +44,16 @@ describe("DemoSignButton", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ scheduleId: "0.0.9001", member: "alice" });
     expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole("button").textContent).toBe("Signing as Alice…");
+    expect(screen.getByRole("button").textContent).toBe("Sent as Alice");
     expect(screen.queryByText(/Signed/)).toBeNull();
+  });
+
+  it("says it is signing while the server still has the request", async () => {
+    fetchMock.mockReturnValue(new Promise(() => undefined));
+    renderButton();
+    fireEvent.click(screen.getByRole("button", { name: "Sign as Alice" }));
+    await waitFor(() => expect(screen.getByRole("button").textContent).toBe("Signing as Alice…"));
+    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("shows the server's refusal and lets the member try again", async () => {

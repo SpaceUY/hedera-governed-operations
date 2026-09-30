@@ -6,7 +6,7 @@ import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
-import { useDemoSign, useDemoSignatureSent, useDemoSigners } from "~~/hooks/useDemoSigners";
+import { useDemoSign, useDemoSignatureState, useDemoSigners } from "~~/hooks/useDemoSigners";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
@@ -23,7 +23,7 @@ vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: vi.fn() }));
 vi.mock("~~/hooks/useDemoSigners", () => ({
   useDemoSigners: vi.fn(),
   useDemoSign: vi.fn(),
-  useDemoSignatureSent: vi.fn(),
+  useDemoSignatureState: vi.fn(),
 }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.4000";
@@ -95,7 +95,7 @@ function mockHooks() {
   } as unknown as ReturnType<typeof useProposals>);
   vi.mocked(useCoSigningAgent).mockReturnValue(null);
   vi.mocked(useDemoSigners).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useDemoSigners>);
-  vi.mocked(useDemoSignatureSent).mockReturnValue(false);
+  vi.mocked(useDemoSignatureState).mockReturnValue("none");
   vi.mocked(useDemoSign).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,

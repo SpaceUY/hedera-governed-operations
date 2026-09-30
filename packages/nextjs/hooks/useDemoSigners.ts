@@ -15,9 +15,23 @@ import {
 
 export const DEMO_SIGNERS_QUERY_KEY = ["demo", "signers"] as const;
 
-/** Which demo members this server can sign for. Asked once: it only changes when `yarn setup` runs. */
+/**
+ * How long an answer of nobody stands. The server reads its keys and its co-signing agent at boot, so
+ * a developer who fixes either and comes back to the tab should not need a reload to see the buttons.
+ */
+const NOBODY_STALE_MS = 30_000;
+
+/**
+ * Which demo members this server can sign for. A list with members is asked once: it only changes when
+ * `yarn setup` runs. An empty one goes stale, so the next focus or opened proposal asks again.
+ */
 export function useDemoSigners() {
-  return useQuery({ queryKey: DEMO_SIGNERS_QUERY_KEY, queryFn: fetchDemoMembers, staleTime: Infinity, retry: false });
+  return useQuery({
+    queryKey: DEMO_SIGNERS_QUERY_KEY,
+    queryFn: fetchDemoMembers,
+    staleTime: query => (query.state.data?.length ? Infinity : NOBODY_STALE_MS),
+    retry: false,
+  });
 }
 
 /**
@@ -39,15 +53,22 @@ export function useDemoSign() {
   });
 }
 
+export type DemoSignatureState = "none" | "sending" | "sent";
+
 /**
- * Whether a demo signature for this schedule and seat was already sent from this session and has not
- * failed, read from the mutation cache so it survives the button being unmounted and mounted again
- * (another proposal opened and closed again) while Mirror has yet to list the signature.
+ * Where a demo signature for this schedule and seat stands in this session: `sending` while the server
+ * has the request, `sent` once the network took it (Mirror may not list it yet), `none` if it was never
+ * sent or failed. Read from the mutation cache so it survives the button being unmounted and mounted
+ * again (another proposal opened and closed again).
  */
-export function useDemoSignatureSent(scheduleId: string, memberKey: string): boolean {
-  const sent = useMutationState({
+export function useDemoSignatureState(scheduleId: string, memberKey: string): DemoSignatureState {
+  const statuses = useMutationState({
     filters: { mutationKey: GOVERNANCE_MUTATION_KEYS.signAs },
-    select: ({ state }) => (state.status === "error" ? null : (signedAsOf(state.variables) ?? null)),
+    select: ({ state }) => {
+      const own = signedAsOf(state.variables);
+      return own?.scheduleId === scheduleId && own.memberKey === memberKey ? state.status : null;
+    },
   });
-  return sent.some(own => own?.scheduleId === scheduleId && own.memberKey === memberKey);
+  if (statuses.includes("pending")) return "sending";
+  return statuses.includes("success") ? "sent" : "none";
 }

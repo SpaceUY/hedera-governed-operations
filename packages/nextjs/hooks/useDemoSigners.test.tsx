@@ -1,5 +1,5 @@
 import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
-import { useDemoSign, useDemoSignatureSent, useDemoSigners } from "./useDemoSigners";
+import { useDemoSign, useDemoSignatureState, useDemoSigners } from "./useDemoSigners";
 import { QueryClient, partialMatchKey } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +10,7 @@ const fetchMock = vi.fn();
 
 beforeEach(() => vi.stubGlobal("fetch", fetchMock));
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   fetchMock.mockReset();
 });
@@ -34,6 +35,33 @@ describe("useDemoSigners", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  describe("how long an answer stands", () => {
+    const answered = async (members: unknown[]) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      fetchMock.mockResolvedValue(jsonResponse({ members }));
+      const hook = renderHook(() => useDemoSigners(), { wrapper: createQueryWrapper() });
+      await waitFor(() => expect(hook.result.current.data).toEqual(members));
+      return hook;
+    };
+
+    it("asks again after a while when the server signed for nobody, so a fixed server needs no reload", async () => {
+      const { result, rerender } = await answered([]);
+      expect(result.current.isStale).toBe(false);
+
+      vi.setSystemTime(Date.now() + 31_000);
+      rerender();
+      expect(result.current.isStale).toBe(true);
+    });
+
+    it("never asks again once it has members", async () => {
+      const { result, rerender } = await answered([ALICE]);
+
+      vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+      rerender();
+      expect(result.current.isStale).toBe(false);
+    });
+  });
 });
 
 describe("useDemoSign", () => {
@@ -57,30 +85,40 @@ describe("useDemoSign", () => {
   });
 });
 
-describe("useDemoSignatureSent", () => {
-  const sentFor = (client: QueryClient, scheduleId: string, memberKey: string) =>
-    renderHook(() => useDemoSignatureSent(scheduleId, memberKey), { wrapper: createQueryWrapper(client) });
+describe("useDemoSignatureState", () => {
+  const stateOf = (client: QueryClient, scheduleId: string, memberKey: string) =>
+    renderHook(() => useDemoSignatureState(scheduleId, memberKey), { wrapper: createQueryWrapper(client) });
 
-  it("knows a signature sent from this session for that schedule and seat only, and not one that failed", async () => {
+  it("says sending while the server has the request and sent once the network took it, for that schedule and seat only", async () => {
     const client = new QueryClient();
-    fetchMock.mockResolvedValueOnce(jsonResponse({ transactionId: "0.0.11@1.1" }));
+    let release: (response: Response) => void = () => undefined;
+    fetchMock.mockReturnValueOnce(new Promise<Response>(resolve => (release = resolve)));
     const { result } = renderHook(() => useDemoSign(), { wrapper: createQueryWrapper(client) });
-    await act(() =>
-      result.current.mutateAsync({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey }),
-    );
+    let sending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      sending = result.current.mutateAsync({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey });
+    });
 
-    expect(sentFor(client, "0.0.9001", ALICE.publicKey).result.current).toBe(true);
-    expect(sentFor(client, "0.0.9002", ALICE.publicKey).result.current).toBe(false);
-    expect(sentFor(client, "0.0.9001", "Qk9C").result.current).toBe(false);
+    await waitFor(() => expect(stateOf(client, "0.0.9001", ALICE.publicKey).result.current).toBe("sending"));
 
+    await act(async () => {
+      release(jsonResponse({ transactionId: "0.0.11@1.1" }));
+      await sending;
+    });
+    expect(stateOf(client, "0.0.9001", ALICE.publicKey).result.current).toBe("sent");
+    expect(stateOf(client, "0.0.9002", ALICE.publicKey).result.current).toBe("none");
+    expect(stateOf(client, "0.0.9001", "Qk9C").result.current).toBe("none");
+  });
+
+  it("says none after a signature the server refused", async () => {
     const failing = new QueryClient();
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "no" }, 409));
-    const second = renderHook(() => useDemoSign(), { wrapper: createQueryWrapper(failing) });
+    const { result } = renderHook(() => useDemoSign(), { wrapper: createQueryWrapper(failing) });
     await act(() =>
-      second.result.current
+      result.current
         .mutateAsync({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey })
         .catch(() => undefined),
     );
-    expect(sentFor(failing, "0.0.9001", ALICE.publicKey).result.current).toBe(false);
+    expect(stateOf(failing, "0.0.9001", ALICE.publicKey).result.current).toBe("none");
   });
 });
