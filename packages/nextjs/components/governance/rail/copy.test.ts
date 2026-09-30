@@ -11,6 +11,7 @@ import {
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
 import { describe, expect, it } from "vitest";
+import { councilChangeTitle } from "~~/services/governance/proposalLabels";
 
 const REGISTRY_CALL = {
   kind: "registryCall",
@@ -121,6 +122,7 @@ describe("signedWhenLabel", () => {
 
 describe("AGENT_COPY", () => {
   it("names the proposal as the rail titles it", () => {
-    expect(AGENT_COPY.howToSeat("2-of-4")).toBe("Approve “Change to a 2-of-4 council” to seat it.");
+    const title = councilChangeTitle({ threshold: 2, memberKeys: ["a", "b", "c", "d"] });
+    expect(AGENT_COPY.howToSeat(title)).toBe("Approve “Change to a 2-of-4 council” to seat it.");
   });
 });
