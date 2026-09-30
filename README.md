@@ -1,6 +1,6 @@
 # Hedera Governed Operations
 
-**The native alternative to a Safe on Hedera.** Operations no single key should run — a contract upgrade, a treasury swap, a token pause — approved m-of-n by the network itself, not by a multisig contract. The quorum is an account **threshold key**; each proposal is a transaction the **Hedera Schedule Service** holds until the council has signed, and the network runs it the moment the threshold is met. There is no multisig contract to deploy, audit or upgrade.
+**Multi-sig governance built from Hedera's own primitives.** Treasury moves, contract upgrades and token administration that no single key should run, approved m-of-n by the network itself. The quorum is an account **threshold key**; each proposal is a transaction the **Hedera Schedule Service** holds until the council has signed, and the network runs it the moment the threshold is met — with no multisig contract to deploy, audit or upgrade.
 
 - **Any operation, not one.** Five kinds ship with a form: contract upgrade (UUPS), treasury swap on SaucerSwap, HTS token administration, treasury transfer and council rotation. Contract calls go through a role-gated registry; transfers and rotations are native transactions with no contract in the way.
 - **Real wallets, asynchronously.** Council members sign from their own wallets over WalletConnect, days apart, without sharing a machine. What they are asked to approve is decoded into a sentence, read straight from the Mirror Node with no indexer.
@@ -23,9 +23,9 @@ sequenceDiagram
   M-->>A: The app reads every state from here
 ```
 
-### Why not just deploy a Safe?
+### When to use this instead of a Safe
 
-Safe runs on Hedera's EVM, and teams use it: 140 Safe proxies were created on Hedera mainnet between 2025-04-09 and 2026-09-29. The native path gets a fraction of that attention — the whole mainnet created 7.4 scheduled transactions a day in the two weeks to 2026-09-28, and none of them was governance. The mechanism is not what is missing: Safe has an interface and a reference implementation, and the native path had neither. This template is that implementation.
+Safe is live on Hedera's EVM and is the right choice for EVM-first teams: 140 Safe proxies were created on Hedera mainnet between 2025-04-09 and 2026-09-29. This template is for teams whose operations are Hedera-native — HBAR and HTS treasuries, contracts they upgrade, keys they rotate — and who want the approval to live in the network itself. That path has had no reference implementation: the whole mainnet created 7.4 scheduled transactions a day in the two weeks to 2026-09-28, and none of them was governance. This template is that implementation.
 
 |                              | Safe on Hedera's EVM                                                                                                                            | Threshold key + Schedule Service                                                                                       |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
