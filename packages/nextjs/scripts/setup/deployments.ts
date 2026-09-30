@@ -3,6 +3,12 @@
  * The setup script never writes that file: the deploys live in the other workspace and run with
  * the deployer key, so the generated record is the only thing the two sides share. Its absence is
  * how setup knows it is being run before the contracts exist.
+ *
+ * Its presence is not enough, though: the template ships that file with the contracts of its own demo
+ * instance, so a fresh scaffold finds a complete record before it has deployed anything. Those
+ * contracts answer to another governance account, and building on them would give the new token's
+ * keys and the seed proposal to a council this setup does not hold. `readOwnDeployment` asks the
+ * executor who it serves before any of it is used.
  */
 
 /**
@@ -68,4 +74,31 @@ export function readGovernanceDeployment(contracts: DeployedContracts): Deployme
       tokenAdminContractId: deployed("TokenAdmin").hederaContractId,
     },
   };
+}
+
+export type DeploymentLookups = {
+  /** Whether the executor at this address grants `EXECUTOR_ROLE` to this governance account. */
+  executorServes(executorEvm: string, governanceEvm: string): Promise<boolean>;
+};
+
+/** A complete record whose executor answers to another governance account: nothing to build on. */
+export type ForeignDeployment = { ready: false; foreignExecutorContractId: string };
+
+export type OwnDeploymentLookup = DeploymentLookup | ForeignDeployment;
+
+/**
+ * The deployment recorded in `deployedContracts.ts`, only if it was made for this governance account.
+ * The executor is the one contract checked: the vault, the adapter and `TokenAdmin` all take its
+ * address in their constructors and are deployed with it.
+ */
+export async function readOwnDeployment(
+  contracts: DeployedContracts,
+  governanceEvm: string,
+  lookups: DeploymentLookups,
+): Promise<OwnDeploymentLookup> {
+  const recorded = readGovernanceDeployment(contracts);
+  if (!recorded.ready) return recorded;
+  const { executorEvm, executorContractId } = recorded.deployment;
+  if (await lookups.executorServes(executorEvm, governanceEvm)) return recorded;
+  return { ready: false, foreignExecutorContractId: executorContractId };
 }
