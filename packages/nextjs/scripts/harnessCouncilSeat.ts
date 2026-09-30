@@ -20,7 +20,8 @@
  * credential-free as it claims to be.
  *
  * Two things make it safe to re-run. The key is rebuilt from the three configured members every
- * time, so seats never accumulate and a previous run's signer is dropped rather than kept. And the
+ * time — plus the co-signing agent, if the council has seated it — so seats never accumulate and a
+ * previous run's signer is dropped rather than kept. And the
  * update is signed by the two demo members alone: they meet the old key's threshold and, being
  * members of the new one too, its threshold as well — so the incoming signer never has to sign its
  * own way in.
@@ -32,8 +33,9 @@ import { readSetupEnv } from "./setup/env";
 import { GOVERNANCE_THRESHOLD, demoCouncilMembers } from "./setup/governance";
 import { createClient } from "./setup/hedera";
 import { accountIdentity } from "./setup/hederaGovernance";
-import { loadState } from "./setup/state";
+import { AGENT_ACCOUNT, type DemoAccount, loadState } from "./setup/state";
 import { AccountId, AccountUpdateTransaction, KeyList, PrivateKey, PublicKey } from "@hiero-ledger/sdk";
+import { councilHoldsKey, fetchCouncilKey } from "@sh/core/governance/council";
 import { isMirrorNotFound } from "@sh/core/mirror";
 import { config as loadDotenv } from "dotenv";
 import { existsSync, readFileSync } from "node:fs";
@@ -71,6 +73,21 @@ async function awaitIndexing<T>(read: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * The co-signing agent's key, when the council has already seated it. The agent's account is created
+ * outside the council and seated by a rotation the council approves, so a rebuild that dropped it
+ * would undo that proposal on every harness run.
+ */
+async function seatedAgentKeys(
+  agent: DemoAccount | undefined,
+  governanceAccountId: string,
+  network: ReturnType<typeof readSetupEnv>["network"],
+): Promise<string[]> {
+  if (!agent) return [];
+  const council = await fetchCouncilKey(governanceAccountId, network);
+  return councilHoldsKey(council, PublicKey.fromString(agent.publicKey).toStringRaw()) ? [agent.publicKey] : [];
+}
+
 async function main(): Promise<void> {
   const signerAccountId = resolveSignerAccountId(process.env);
   if (!signerAccountId) {
@@ -94,7 +111,8 @@ async function main(): Promise<void> {
     awaitIndexing(() => accountIdentity(signerAccountId, env.network)),
   ]);
 
-  const memberKeys = [council.publicKey, alice.publicKey, bob.publicKey, signer.publicKey];
+  const agentKeys = await seatedAgentKeys(state.demoAccounts[AGENT_ACCOUNT], state.governance.accountId, env.network);
+  const memberKeys = [council.publicKey, alice.publicKey, bob.publicKey, ...agentKeys, signer.publicKey];
   const seated = new KeyList(
     memberKeys.map(key => PublicKey.fromString(key)),
     GOVERNANCE_THRESHOLD,

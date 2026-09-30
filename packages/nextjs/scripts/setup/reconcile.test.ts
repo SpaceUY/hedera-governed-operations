@@ -22,17 +22,17 @@ const recordingActions = (): SetupActions => ({
 
 const completeState = () => ({
   ...emptyState("testnet"),
-  demoAccounts: { alice: account("alice"), bob: account("bob") },
+  demoAccounts: { alice: account("alice"), bob: account("bob"), agent: account("agent") },
 });
 
 const callCounts = (actions: SetupActions) =>
   [actions.createDemoAccount, actions.associateToken].map(fn => vi.mocked(fn).mock.calls.length);
 
 describe("reconcile", () => {
-  it("creates one demo account per name from an empty state", async () => {
+  it("creates one demo account per name from an empty state, the agent's included", async () => {
     const actions = recordingActions();
     await reconcile(emptyState("testnet"), { lookups: lookupsWhere({}), actions });
-    expect(actions.createDemoAccount).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(actions.createDemoAccount).mock.calls).toEqual([["alice"], ["bob"], ["agent"]]);
   });
 
   it("associates USDC to every account it creates", async () => {
@@ -52,10 +52,7 @@ describe("reconcile", () => {
       lookups: lookupsWhere({}),
       actions: recordingActions(),
     });
-    expect(state).toEqual({
-      ...emptyState("testnet"),
-      demoAccounts: { alice: account("alice"), bob: account("bob") },
-    });
+    expect(state).toEqual(completeState());
   });
 
   it("runs no action when the state is complete and verified on the mirror", async () => {
@@ -108,6 +105,8 @@ describe("reconcile", () => {
       { label: "USDC association for alice", outcome: "reused" },
       { label: "Demo account bob 0.0.bob", outcome: "created" },
       { label: "USDC association for bob", outcome: "created" },
+      { label: "Demo account agent 0.0.agent", outcome: "reused" },
+      { label: "USDC association for agent", outcome: "reused" },
     ]);
   });
 });

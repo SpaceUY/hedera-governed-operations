@@ -48,6 +48,19 @@ describe("proposalIdentityOf", () => {
     });
   });
 
+  it("titles a council rotation by the council it proposes, whoever opened it", () => {
+    const rotation = {
+      kind: "councilRotation",
+      accountId: "0.0.4000",
+      council: { threshold: 3, memberKeys: ["a", "b", "c"] },
+    };
+    expect(identityOf(rotation, { status: "notApplicable" })).toMatchObject({
+      title: "Change to a 3-of-3 council",
+      family: "native",
+      iconKind: "councilRotation",
+    });
+  });
+
   it("names a registry call by the entry it runs until that entry is read", () => {
     expect(identityOf(REGISTRY_CALL, { status: "unreachable", reason: "relay down" })).toEqual({
       title: "Run entry 7 of the registry at 0.0.5000",

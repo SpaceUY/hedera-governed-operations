@@ -19,21 +19,13 @@ import {
 } from "../mirror";
 import type { HederaNetworkName } from "../network";
 import { createRelayClient } from "../relayClient";
+import { PROPOSER_ROLE, readRoleMembers } from "./roles";
 import { proto } from "@hiero-ledger/proto";
 import { ContractId, PublicKey } from "@hiero-ledger/sdk";
-import { type Address, keccak256, parseAbi, toHex } from "viem";
+import { type Address } from "viem";
 
 /** How Mirror labels a key it cannot express as one public key: a key list, with or without a threshold. */
 const PROTOBUF_ENCODED = "ProtobufEncoded";
-
-/** `AccessControlEnumerable` is what makes the role enumerable; plain `AccessControl` only answers yes or no. */
-const EXECUTOR_ROLES_ABI = parseAbi([
-  "function getRoleMemberCount(bytes32 role) view returns (uint256)",
-  "function getRoleMember(bytes32 role, uint256 index) view returns (address)",
-]);
-
-/** A role is identified by the hash of its name, the way the contract declares it. */
-const PROPOSER_ROLE = keccak256(toHex("PROPOSER_ROLE"));
 
 export type CouncilKey = {
   /** Signatures the network waits for before it runs a proposal: the m of "m of n". */
@@ -263,19 +255,7 @@ export async function fetchProposerAccountIds({
 }: ProposerLookup): Promise<ProposerAccounts> {
   const relay = createRelayClient(rpcUrl);
   const address = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as Address;
-  const readRole = { address, abi: EXECUTOR_ROLES_ABI } as const;
-
-  const memberCount = await relay.readContract({
-    ...readRole,
-    functionName: "getRoleMemberCount",
-    args: [PROPOSER_ROLE],
-  });
-
-  const addresses = await Promise.all(
-    Array.from({ length: Number(memberCount) }, (_unused, index) =>
-      relay.readContract({ ...readRole, functionName: "getRoleMember", args: [PROPOSER_ROLE, BigInt(index)] }),
-    ),
-  );
+  const addresses = await readRoleMembers(relay, address, PROPOSER_ROLE);
 
   const readings = await Promise.allSettled(addresses.map(member => fetchAccount(member, { network })));
 

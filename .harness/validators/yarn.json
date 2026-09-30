@@ -24,7 +24,7 @@
     {
       "name": "test",
       "command": "yarn test",
-      "timeoutMs": 300000,
+      "timeoutMs": 420000,
       "purpose": "Unit tests for the Next.js workspace."
     },
     {

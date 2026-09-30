@@ -4,6 +4,7 @@ import {
   type MapDecorator,
   composeMap,
   genericLabels,
+  isIntroducedAccount,
   memberNamesOf,
   readingOrder,
   routeNamesOf,
@@ -12,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  RECIPIENT_STAND_IN_NODE_ID,
   autoLayout,
   deriveGraphState,
   memberNodeId,
@@ -71,19 +73,40 @@ describe("composeMap", () => {
   });
 });
 
+describe("composeMap with a recipient's stand-in", () => {
+  const standIn = (map: ReturnType<typeof composeMap>) =>
+    map.graph.nodes.find(node => node.id === RECIPIENT_STAND_IN_NODE_ID);
+
+  it("draws it only when the decoration asks, as an account", () => {
+    expect(standIn(composeMap(MAP_SNAPSHOT))).toBeUndefined();
+    const decorated = composeMap(MAP_SNAPSHOT, () => ({
+      layout: { ...AUTO_MAP_SIZE, positions: {} },
+      recipientStandIn: true,
+    }));
+    const node = standIn(decorated);
+    expect(node).toMatchObject({ role: "external", standIn: true });
+    expect(node && isIntroducedAccount(node)).toBe(true);
+  });
+
+  it("recognises the stand-in by its own field, not by its id or an empty ref", () => {
+    expect(isIntroducedAccount({ id: RECIPIENT_STAND_IN_NODE_ID, ref: "" })).toBe(false);
+    expect(isIntroducedAccount({ id: "anything", ref: "", standIn: true })).toBe(true);
+  });
+});
+
 describe("composeMap with a connected account", () => {
   const labelOf = (map: ReturnType<typeof composeMap>, id: string) =>
     map.graph.nodes.find(node => node.id === id)?.label;
 
   it("names the seat whose key the connected proposer holds You, and no other", () => {
-    const map = composeMap(MAP_SNAPSHOT, undefined, "0.0.4102");
+    const map = composeMap(MAP_SNAPSHOT, undefined, { viewerAccountId: "0.0.4102" });
     expect(labelOf(map, memberNodeId(KEY_B))).toBe("You");
     expect(labelOf(map, memberNodeId(KEY_A))).toBe("0.0.4101");
   });
 
   it("names nobody You without a wallet, or for an account that holds no seat", () => {
     for (const viewer of [undefined, null, "0.0.9999", "0.0.4001"]) {
-      const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, undefined, viewer);
+      const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, undefined, { viewerAccountId: viewer });
       expect(map.graph.nodes.some(node => node.label === "You")).toBe(false);
     }
   });
@@ -106,7 +129,7 @@ describe("memberNamesOf", () => {
       layout: { width: 400, height: 300, positions: {}, labels: { [memberNodeId(KEY_B)]: "Bob" } },
       captions: { [memberNodeId(KEY_B)]: "demo co-signer" },
     });
-    const names = memberNamesOf(composeMap(MAP_SNAPSHOT, decorate, "0.0.4101"));
+    const names = memberNamesOf(composeMap(MAP_SNAPSHOT, decorate, { viewerAccountId: "0.0.4101" }));
     expect(names[KEY_A]).toEqual({ name: "You", caption: undefined });
     expect(names[KEY_B]).toEqual({ name: "Bob", caption: "demo co-signer" });
     expect(names[KEY_C]).toEqual({ name: "0.0.4103", caption: undefined });
@@ -136,5 +159,23 @@ describe("routeNamesOf", () => {
   it("is null for a route the map cannot draw", () => {
     const { graph } = composeMap(MAP_SNAPSHOT);
     expect(routeNamesOf(graph, { kind: "unrecognized", reason: "unknown selector" })).toBeNull();
+  });
+});
+
+describe("composeMap with the co-signing agent", () => {
+  const AGENT_SEAT = "YWdlbnQ=";
+  const seated = {
+    ...MAP_SNAPSHOT,
+    council: { threshold: 2, memberKeys: [...MAP_SNAPSHOT.council.memberKeys, AGENT_SEAT] },
+  };
+
+  it("names the seat the agent's key holds the co-signing agent, with its monogram", () => {
+    const map = composeMap(seated, undefined, { agentSeat: AGENT_SEAT });
+    expect(map.graph.nodes.find(node => node.id === memberNodeId(AGENT_SEAT))?.label).toBe("Co-signing agent");
+    expect(map.monograms).toEqual({ [memberNodeId(AGENT_SEAT)]: "AG" });
+  });
+
+  it("gives no monogram while the council does not hold the agent's key", () => {
+    expect(composeMap(MAP_SNAPSHOT, undefined, { agentSeat: AGENT_SEAT }).monograms).toEqual({});
   });
 });

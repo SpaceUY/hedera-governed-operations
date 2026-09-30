@@ -53,6 +53,12 @@ describe("appEnvEntries for the governed-operations fixtures", () => {
 });
 
 describe("appEnvEntries for the agent", () => {
+  it("maps the agent's account to the variable the app names the co-signing agent by, not to a demo member's", () => {
+    expect(appEnvEntries({ ...emptyState("testnet"), demoAccounts: { agent: account } })).toEqual({
+      NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID: "0.0.8",
+    });
+  });
+
   it("writes the decision topic under the agent's own name, since the app never reads it", () => {
     expect(appEnvEntries({ ...emptyState("testnet"), decisionTopicId: "0.0.31" })).toEqual({
       AGENT_DECISION_TOPIC_ID: "0.0.31",

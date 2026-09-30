@@ -7,6 +7,7 @@ import { ProposalStages } from "./ProposalStages";
 import { UnseatedAgentRow } from "./UnseatedAgentRow";
 import { WithdrawCancelActions } from "./WithdrawCancelActions";
 import {
+  AGENT_COPY,
   COUNCIL_HEADINGS,
   DETAIL_COPY,
   FAMILY_COPY,
@@ -19,19 +20,21 @@ import {
   signatureHeadline,
   signatureSubline,
 } from "./copy";
+import { unseatedAgentSeatOf, withSeat } from "./councilSeats";
 import { expiryCountdown } from "./expiryCountdown";
 import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
-import { type CouncilKey, memberSignedAt } from "@sh/core/governance/council";
+import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
 import type { MemberName } from "~~/components/governance/graph/mapModel";
 import { gasLimitLabel } from "~~/components/governance/wizard/copy";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
-import { type CoSigningAgent, useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
+import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import {
   UNREACHABLE_REGISTRY_SIGN_WARNING,
+  councilChangeTitle,
   councilRuleLabel,
   executionFailureLabel,
   proposalStatusLabel,
@@ -60,6 +63,8 @@ export type ProposalDetailPanelProps = {
   accountId: string | null;
   /** Which signer the Sign button asks, so it can say where to approve. */
   signerKind: HederaSignerKind;
+  /** The connected WalletConnect wallet's name, for what Withdraw and Cancel say it can sign. */
+  walletName: string | null;
   governanceAccountId: string;
   executorContractId: string;
   network: HederaNetworkName;
@@ -86,6 +91,7 @@ export const ProposalDetailPanel = ({
   proposal,
   accountId,
   signerKind,
+  walletName,
   governanceAccountId,
   executorContractId,
   network,
@@ -249,7 +255,12 @@ export const ProposalDetailPanel = ({
               {...listProps}
             >
               {unseatedAgentSeat && (
-                <UnseatedAgentRow ruleWithAgent={councilRuleLabel(withSeat(council.data.key, unseatedAgentSeat))} />
+                <UnseatedAgentRow
+                  notes={[
+                    AGENT_COPY.notSeated,
+                    AGENT_COPY.howToSeat(councilChangeTitle(withSeat(council.data.key, unseatedAgentSeat))),
+                  ]}
+                />
               )}
             </ApproverList>
           )}
@@ -289,6 +300,7 @@ export const ProposalDetailPanel = ({
       <WithdrawCancelActions
         proposal={proposal}
         accountId={accountId}
+        walletName={walletName}
         executorContractId={executorContractId}
         governanceAccountId={governanceAccountId}
         network={network}
@@ -300,20 +312,6 @@ export const ProposalDetailPanel = ({
     </div>
   );
 };
-
-/**
- * The agent's seat while the council does not hold it. An agent whose key is not one public key can
- * never be seated, so it gets no row at all.
- */
-function unseatedAgentSeatOf(agent: CoSigningAgent | null, council: CouncilKey): string | null {
-  if (!agent?.seat || council.memberKeys.includes(agent.seat)) return null;
-  return agent.seat;
-}
-
-/** The council once that seat is added at the same threshold — what "Add the co-signing agent" proposes. */
-function withSeat(council: CouncilKey, seat: string): CouncilKey {
-  return { threshold: council.threshold, memberKeys: [...council.memberKeys, seat] };
-}
 
 /**
  * When each counted seat's signature landed, from the signature rows the schedule already carries —

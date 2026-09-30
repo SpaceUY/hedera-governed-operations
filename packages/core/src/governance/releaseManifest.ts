@@ -20,6 +20,7 @@
  * says the source matches the deployed code, the manifest says the deployed code is the build the
  * team blessed for this version.
  */
+import { sameAddress } from "../identity";
 import {
   type MirrorRequestOptions,
   type MirrorTopic,
@@ -157,8 +158,6 @@ export type ManifestFailure =
 export type ManifestCheck =
   | { matched: true; manifest: PublishedManifest }
   | ({ matched: false; reason: string } & ManifestFailure);
-
-const sameAddress = (left: string, right: string): boolean => left.toLowerCase() === right.toLowerCase();
 
 /** Which of the check's two reads failed: the code at the implementation, or the release topic. */
 export type ReleaseReadSubject = "implementation" | "topic";

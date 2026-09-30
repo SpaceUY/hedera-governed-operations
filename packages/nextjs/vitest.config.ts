@@ -9,7 +9,10 @@ export default defineConfig({
   // Inlined packages ship sourcemaps without sources; Vite would warn once per file.
   logLevel: "error",
   test: {
-    environment: "jsdom",
+    // jsdom costs every file a startup; only component tests need it. A .ts test that touches the DOM opts in with
+    // `// @vitest-environment jsdom`.
+    environment: "node",
+    environmentMatchGlobs: [["**/*.test.tsx", "jsdom"]],
     setupFiles: ["./vitest.setup.ts"],
     // These packages ship ESM with extensionless or directory imports; Node cannot resolve them, Vite can.
     server: { deps: { inline: ["@scaffold-hbar-ui/hooks", "@scaffold-hbar-ui/components"] } },

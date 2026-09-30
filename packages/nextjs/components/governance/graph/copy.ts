@@ -3,7 +3,9 @@
  * are named for what exists on the ledger, never for an action: an operation is something that
  * travels along the edges and then switches off.
  */
+import { signaturesWord } from "~~/services/governance/proposalLabels";
 import type { EdgeKind, NodeRole } from "~~/services/liveMap/model/graph";
+import type { NodeTone } from "~~/services/liveMap/motion/frame";
 
 /** The map's title, the names of its standing nodes, and what it says while it cannot draw. */
 export const MAP_LABELS = {
@@ -17,9 +19,26 @@ export const MAP_LABELS = {
   swapAdapter: "Swap adapter",
   router: "Swap router",
   councilCaption: "council",
+  moreNeeded: "more needed",
+  executed: "executed",
+  reverted: "reverted",
   /** The seat the connected account holds. */
   you: "You",
 } as const;
+
+/** How many approvals the selected proposal still needs, as the treasury's accessible name says it. */
+export function moreNeededLabel(need: number): string {
+  return `${need} more ${signaturesWord(need)} needed`;
+}
+
+/** The ring's tones once a run has ended. */
+export type RunOutcome = Extract<NodeTone, "success" | "error">;
+
+/** How a run ended, as the line under the treasury's rule says it once the ring has run. */
+export const RUN_OUTCOME_LABELS: Record<RunOutcome, string> = {
+  success: MAP_LABELS.executed,
+  error: MAP_LABELS.reverted,
+};
 
 /** What a node is, under its name; a demo layout may say it more specifically. */
 export const MAP_NODE_CAPTIONS: Record<NodeRole, string> = {
@@ -86,8 +105,6 @@ export const MAP_LEGEND = {
 export function remoteSignatureMessage(member: string | undefined, proposal: string): string {
   return `${member ?? "A council member"} signed “${proposal}” from their own device. Nobody on this screen pressed anything — the poll saw it.`;
 }
-
-export const REMOTE_SIGNATURE_BANNER = { dismiss: "Dismiss" } as const;
 
 /**
  * The inspector: the card that explains the node or edge someone clicked. Its kickers use the

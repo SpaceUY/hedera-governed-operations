@@ -131,9 +131,9 @@ type ScheduleSearchResultProps = {
 };
 
 /**
- * Only mounted once a syntactically valid id has been committed: `useProposalLookup` has no `enabled`
- * gate of its own (unlike `useSchedule`), so keeping it out of the tree until then is what stops a
- * request from firing on every keystroke or on an empty field.
+ * Only mounted once a syntactically valid id has been committed, so nothing shows for an empty field
+ * or a keystroke. `useProposalLookup` also reads nothing for a malformed id, so one that reached it
+ * anyway would say "not found" rather than repeat Mirror's error.
  */
 const ScheduleSearchResult = ({ scheduleId, selected, onToggle, detail, ...options }: ScheduleSearchResultProps) => {
   const { proposal, isLoading, error } = useProposalLookup({ ...options, scheduleId });

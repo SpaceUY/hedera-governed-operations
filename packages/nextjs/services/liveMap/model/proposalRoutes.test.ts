@@ -132,4 +132,10 @@ describe("routeOf", () => {
     });
     expect(route?.refs).toEqual({ governanceAccount: ["0.0.4000"], member: ["a2V5MQ==", "a2V5NA=="] });
   });
+
+  it("routes a sketched kind the kind's way, through what the sketch names and nothing more", () => {
+    const route = routeOf({ kind: "sketch", of: "treasuryTransfer", refs: {} });
+    expect(route).toEqual({ kind: "treasuryTransfer", steps: PROPOSAL_ROUTES.treasuryTransfer, refs: {} });
+    expect(routeOf({ kind: "sketch", of: "upgrade", refs: { subject: [VAULT] } })?.refs).toEqual({ subject: [VAULT] });
+  });
 });

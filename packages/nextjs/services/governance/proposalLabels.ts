@@ -41,6 +41,9 @@ export function registryLabel(registry: RegistryCrossCheck): string {
   }
 }
 
+/** "signature" or "signatures", for a count that reads "N more … needed". */
+export const signaturesWord = (count: number): string => (count === 1 ? "signature" : "signatures");
+
 /**
  * Signatures collected out of the threshold, never out of the council's size: a bare "2 of 2" beside
  * a 2-of-3 council reads as a council of two, so the count says what it is counted against.
@@ -62,6 +65,11 @@ export function memberLabel(memberKey: string, proposers: readonly Proposer[], v
 /** The council's rule, the same on the map, the treasury strip and the wizard's preview. */
 export function councilRuleLabel(council: CouncilKey): string {
   return `${council.threshold}-of-${council.memberKeys.length}`;
+}
+
+/** What a council rotation is called once it exists: the council it would make, true whoever proposed it and why. */
+export function councilChangeTitle(council: CouncilKey): string {
+  return `Change to a ${councilRuleLabel(council)} council`;
 }
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { REMOTE_SIGNATURE_BANNER } from "~~/components/governance/graph/copy";
+import { RAIL_NOTICE } from "~~/components/governance/rail/copy";
 
 /** How long a banner stays before it clears itself. */
 const BANNER_MS = 8_000;
@@ -9,11 +9,11 @@ const BANNER_MS = 8_000;
 type Notice = { id: number; text: string };
 
 /**
- * The latest signature from elsewhere, as the banner shows it: `show` is what `LiveMapPane` calls
- * (`onRemoteSignature`), and the notice clears itself after a while or when dismissed. A newer one
+ * The rail's latest notice — a signature read from elsewhere, a proposal just sent — as the banner
+ * shows it: `show` sets it, and it clears itself after a while or when dismissed. A newer one
  * replaces it and starts its own clock.
  */
-export function useRemoteSignatureNotice() {
+export function useRailNotice() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const show = useCallback((text: string) => setNotice(current => ({ id: (current?.id ?? 0) + 1, text })), []);
   const dismiss = useCallback(() => setNotice(null), []);
@@ -27,14 +27,14 @@ export function useRemoteSignatureNotice() {
   return { notice, show, dismiss };
 }
 
-type RemoteSignatureBannerProps = { notice: Notice | null; onDismiss: () => void };
+type RailNoticeProps = { notice: Notice | null; onDismiss: () => void };
 
 /**
- * A council member signed from somewhere else, and the map played it: said at the top of the rail,
- * where the proposals it concerns are listed. A polite status, so a screen reader hears it without
- * losing its place.
+ * Something the person should know that did not come from a click on this screen's rail — a council
+ * member signed elsewhere, or the wallet sent a proposal — said at the top of the rail, where the
+ * proposals are listed. A polite status, so a screen reader hears it without losing its place.
  */
-export function RemoteSignatureBanner({ notice, onDismiss }: RemoteSignatureBannerProps) {
+export function RailNotice({ notice, onDismiss }: RailNoticeProps) {
   return (
     // Rendered even when empty, with no box of its own: a live region hidden with `display: none` is out
     // of the accessibility tree, and some screen readers miss what appears in it once it is shown.
@@ -46,7 +46,7 @@ export function RemoteSignatureBanner({ notice, onDismiss }: RemoteSignatureBann
           <button
             type="button"
             onClick={onDismiss}
-            aria-label={REMOTE_SIGNATURE_BANNER.dismiss}
+            aria-label={RAIL_NOTICE.dismiss}
             className="btn btn-circle btn-ghost btn-xs -my-0.5 shrink-0"
           >
             <svg viewBox="0 0 24 24" width={12} height={12} aria-hidden="true">

@@ -6,6 +6,7 @@
  * its role or its ledger id; a demo passes its own decorator, and deleting the demo leaves this.
  */
 import { MAP_LABELS } from "./copy";
+import { AGENT_COPY } from "~~/components/governance/rail/copy";
 import { memberLabel } from "~~/services/governance/proposalLabels";
 import {
   EXECUTOR_NODE_ID,
@@ -39,7 +40,30 @@ export type GhostNode = {
 /** A name for an area of a hand-composed layout, such as the column the council sits in. */
 export type MapRegion = { label: string; position: Point; orientation: "horizontal" | "vertical" };
 
-export type MapContext = { nodes: readonly GraphNode[]; proposers: GraphSnapshot["proposers"] };
+export type MapContext = {
+  nodes: readonly GraphNode[];
+  proposers: GraphSnapshot["proposers"];
+  /** The keys of the council as the ledger has it now, so a decorator can tell a seat held from one only proposed. */
+  memberKeys: readonly string[];
+  /** The account of the co-signing agent the app was told about, or null when none is configured. */
+  agentAccountId: string | null;
+  /**
+   * The council key of the co-signing agent the app was told about, or null: unconfigured, unread, or
+   * not one key. A member node carrying it is the agent's seat, held or only proposed; a decoration
+   * tells the two apart by `memberKeys`.
+   */
+  agentSeat: string | null;
+};
+
+/**
+ * Who is looking and what the app knows outside the ledger: the connected account, and the co-signing
+ * agent's account and seat.
+ */
+export type MapViewpoint = {
+  viewerAccountId?: string | null;
+  agentAccountId?: string | null;
+  agentSeat?: string | null;
+};
 
 /**
  * What the inspector says about one layout's nodes and edges, by id, in place of what their role
@@ -51,6 +75,8 @@ export type MapDecoration = {
   layout: GraphLayout;
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
+  /** Member nodes a proposal would seat but the ledger does not: drawn in the ghost's tone, like a ghost. */
+  unseated?: readonly string[];
   ghosts?: GhostNode[];
   regions?: MapRegion[];
   inspector?: InspectorCopy;
@@ -60,6 +86,12 @@ export type MapDecoration = {
    * what is drawn changes; nothing is read differently.
    */
   hidden?: HiddenParts;
+  /**
+   * Draw a node for a payment's recipient before anyone is named (`RECIPIENT_STAND_IN_NODE_ID`), placed,
+   * named and explained through the layout like any node: a payment picked in the wizard reaches it.
+   * Without it a recipient appears only once a proposal or a draft names one.
+   */
+  recipientStandIn?: boolean;
 };
 
 export type HiddenParts = { nodes?: readonly string[]; edges?: readonly string[] };
@@ -70,6 +102,9 @@ export type MapDecorator = (context: MapContext) => MapDecoration;
 export type ComposedMap = {
   graph: GovernanceGraph;
   captions: Partial<Record<string, string>>;
+  /** What an account's circle shows in place of its label's first letter, by node id. */
+  monograms: Partial<Record<string, string>>;
+  unseated: readonly string[];
   ghosts: GhostNode[];
   regions: MapRegion[];
   inspector: InspectorCopy;
@@ -87,16 +122,37 @@ const FIXED_LABELS: Record<string, string> = {
 };
 
 /**
- * Names that need no demo: the fixed points by role, and a member by the account whose key holds the
+ * Names that need no demo: the fixed points by role, the co-signing agent's seat as the agent — the
+ * name the rail's council lists give it — and any other member by the account whose key holds the
  * seat when that account is a proposer (the only accounts whose keys the map reads), else by its key.
  */
-export function genericLabels({ nodes, proposers }: MapContext): Record<string, string> {
+export function genericLabels({
+  nodes,
+  proposers,
+  agentSeat,
+}: Pick<MapContext, "nodes" | "proposers"> & Partial<Pick<MapContext, "agentSeat">>): Record<string, string> {
   const labels: Record<string, string> = { ...FIXED_LABELS };
   for (const node of nodes) {
     if (node.role !== "member") continue;
-    labels[node.id] = memberLabel(node.ref, proposers, null);
+    labels[node.id] = node.ref === agentSeat ? AGENT_COPY.name : memberLabel(node.ref, proposers, null);
   }
   return labels;
+}
+
+/** The member node carrying the co-signing agent's key, held or only proposed, or undefined when none does. */
+export function agentSeatNodeOf({ nodes, agentSeat }: Pick<MapContext, "nodes" | "agentSeat">): GraphNode | undefined {
+  if (!agentSeat) return undefined;
+  return nodes.find(node => node.role === "member" && node.ref === agentSeat);
+}
+
+/**
+ * The agent's letters go with its name: a seat a layout named otherwise — "You" for the agent's own
+ * account, or whoever it puts on the agent's key — shows that name's first letter instead.
+ */
+function agentMonogramsOf(graph: GovernanceGraph, context: MapContext): Partial<Record<string, string>> {
+  const agentNode = agentSeatNodeOf(context);
+  const shown = agentNode && graph.nodes.find(node => node.id === agentNode.id);
+  return shown && shown.label === AGENT_COPY.name ? { [shown.id]: AGENT_COPY.monogram } : {};
 }
 
 /**
@@ -104,32 +160,47 @@ export function genericLabels({ nodes, proposers }: MapContext): Record<string, 
  * proposer list — the only accounts whose keys the map reads — so a seat whose holder is not a
  * proposer is never taken for the viewer's.
  */
-export function viewerSeatOf({ nodes, proposers }: MapContext, viewerAccountId: string): string | undefined {
+export function viewerSeatOf(
+  { nodes, proposers }: Pick<MapContext, "nodes" | "proposers">,
+  viewerAccountId: string,
+): string | undefined {
   const key = proposers.find(proposer => proposer.accountId === viewerAccountId)?.key;
   return nodes.find(node => node.role === "member" && node.ref === key)?.id;
 }
 
 /**
- * `viewerAccountId` is the connected account, if any: the seat it holds is named "You", over any name
- * the generic labels or a decoration gave it.
+ * `viewpoint.viewerAccountId` is the connected account, if any: the seat it holds is named "You", over
+ * any name the generic labels or a decoration gave it. `viewpoint.agentSeat` names the co-signing
+ * agent's seat as the agent, with the agent's monogram; it and `agentAccountId` also reach the decoration.
  */
 export function composeMap(
   snapshot: GraphSnapshot,
   decorate?: MapDecorator,
-  viewerAccountId?: string | null,
+  { viewerAccountId, agentAccountId = null, agentSeat = null }: MapViewpoint = {},
 ): ComposedMap {
   const { nodes } = deriveGraphState(snapshot, { ...AUTO_MAP_SIZE, positions: {} });
-  const context: MapContext = { nodes, proposers: snapshot.proposers };
+  const context: MapContext = {
+    nodes,
+    proposers: snapshot.proposers,
+    memberKeys: snapshot.council.memberKeys,
+    agentAccountId,
+    agentSeat,
+  };
   const labels = genericLabels(context);
   const decoration = decorate?.(context);
   const layout = decoration?.layout ?? { ...AUTO_MAP_SIZE, positions: {} };
   const viewerSeat = viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
   const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
 
-  const graph = deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } });
+  const graph = deriveGraphState(
+    { ...snapshot, recipientStandIn: decoration?.recipientStandIn },
+    { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } },
+  );
   return {
     graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
+    monograms: agentMonogramsOf(graph, context),
+    unseated: decoration?.unseated ?? [],
     ghosts: decoration?.ghosts ?? [],
     regions: decoration?.regions ?? [],
     inspector: decoration?.inspector ?? { nodes: {}, edges: {} },
@@ -138,10 +209,11 @@ export function composeMap(
 
 /**
  * An `external` node is either a contract the configuration names, which the system calls, or an
- * account a pending proposal introduced — a transfer's recipient — whose id is built from its ref.
+ * account a pending proposal introduced — a transfer's recipient — whose id is built from its ref,
+ * or the stand-in a layout draws for that recipient before anyone is named.
  */
-export function isIntroducedAccount(node: Pick<GraphNode, "id" | "ref">): boolean {
-  return node.id === externalNodeId(node.ref);
+export function isIntroducedAccount(node: Pick<GraphNode, "id" | "ref" | "standIn">): boolean {
+  return node.standIn === true || node.id === externalNodeId(node.ref);
 }
 
 function withoutHidden(graph: GovernanceGraph, { nodes = [], edges = [] }: HiddenParts): GovernanceGraph {

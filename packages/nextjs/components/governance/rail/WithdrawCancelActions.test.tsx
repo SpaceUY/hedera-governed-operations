@@ -11,6 +11,8 @@ vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: vi.fn() }));
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/useCancelProposalFlow", () => ({ useCancelProposalFlow: vi.fn() }));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
+vi.mock("@reown/appkit/react", () => ({ useAppKit: () => ({ open: vi.fn() }) }));
+vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: () => ({ disconnect: vi.fn() }) }));
 
 const EXECUTOR_CONTRACT_ID = "0.0.5000";
 const GOVERNANCE_ACCOUNT_ID = "0.0.4000";
@@ -116,11 +118,16 @@ afterEach(cleanup);
 
 const WITHDRAWN = { status: "deleted", signatureCount: 0, executedAt: null, expiresAt: null, isSettled: true } as const;
 
-const renderActions = (proposal: Proposal, accountId: string | null = PROPOSER_ACCOUNT_ID) =>
+const renderActions = (
+  proposal: Proposal,
+  accountId: string | null = PROPOSER_ACCOUNT_ID,
+  walletName: string | null = null,
+) =>
   render(
     <WithdrawCancelActions
       proposal={proposal}
       accountId={accountId}
+      walletName={walletName}
       executorContractId={EXECUTOR_CONTRACT_ID}
       governanceAccountId={GOVERNANCE_ACCOUNT_ID}
       network="testnet"
@@ -264,5 +271,54 @@ describe("WithdrawCancelActions", () => {
     expect(screen.getByText(/A native operation has no registry entry, so this ends it/)).toBeTruthy();
     expect(screen.getByText(/No “cancel” here/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Cancel this proposal" })).toBeNull();
+  });
+
+  describe("with a wallet that cannot sign a schedule delete", () => {
+    const live = () => baseProposal({ registry: cancellableEntry(PROPOSER_EVM) });
+    const dialog = () => screen.queryByRole("dialog");
+    const withdrawButton = () => screen.getByRole("button", { name: "Withdraw my approval round" });
+    const cancelButton = () => screen.getByRole("button", { name: "Cancel this proposal" });
+
+    it("opens the dialog instead of the wallet on Withdraw", () => {
+      renderActions(live(), PROPOSER_ACCOUNT_ID, "HashPack");
+      expect(dialog()).toBeNull();
+      fireEvent.click(withdrawButton());
+      expect(dialog()?.textContent).toMatch(/Withdrawing deletes this schedule.*such as Kabila/);
+      expect(vi.mocked(useWithdrawProposal).mock.results.at(-1)?.value.mutate).not.toHaveBeenCalled();
+    });
+
+    it("opens the dialog instead of the confirmation on a Cancel that deletes first", () => {
+      renderActions(live(), PROPOSER_ACCOUNT_ID, "HashPack");
+      fireEvent.click(cancelButton());
+      expect(dialog()?.textContent).toMatch(/Cancelling deletes the open schedule first.*such as Kabila/);
+      expect(start).not.toHaveBeenCalled();
+    });
+
+    it("closes the dialog and sends nothing", () => {
+      renderActions(live(), PROPOSER_ACCOUNT_ID, "HashPack");
+      fireEvent.click(withdrawButton());
+      fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+      expect(dialog()).toBeNull();
+    });
+
+    it("goes ahead on a cancel with no live schedule: that is a contract call", () => {
+      renderActions(
+        baseProposal({ state: WITHDRAWN, registry: cancellableEntry(PROPOSER_EVM) }),
+        PROPOSER_ACCOUNT_ID,
+        "HashPack",
+      );
+      fireEvent.click(cancelButton());
+      expect(dialog()).toBeNull();
+    });
+
+    it.each([
+      ["Kabila", "Kabila"],
+      ["the test signer", null],
+    ])("sends the withdrawal straight to %s", (_, walletName) => {
+      renderActions(live(), PROPOSER_ACCOUNT_ID, walletName);
+      fireEvent.click(withdrawButton());
+      expect(dialog()).toBeNull();
+      expect(vi.mocked(useWithdrawProposal).mock.results.at(-1)?.value.mutate).toHaveBeenCalled();
+    });
   });
 });

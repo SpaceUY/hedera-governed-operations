@@ -1,6 +1,7 @@
 import NewProposalPage from "./page";
 import { encodeTreasurySwap, encodeUpgrade } from "@sh/core/governance/encode";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
 import {
@@ -155,9 +156,11 @@ const CONFIG: GovernanceConfig = {
 /** The page as the governance layout hosts it: inside the provider that owns the draft and the submit. */
 const renderPage = () =>
   render(
-    <GovernanceProvider config={CONFIG}>
-      <NewProposalPage />
-    </GovernanceProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <GovernanceProvider config={CONFIG} onNotice={vi.fn()}>
+        <NewProposalPage />
+      </GovernanceProvider>
+    </QueryClientProvider>,
   );
 
 const setup = ({ accountId, proposers }: { accountId: string | null; proposers: string[] }) => {
@@ -295,7 +298,7 @@ describe("NewProposalPage", () => {
     expect(cta("treasuryTransfer")).toBeTruthy();
   });
 
-  it("lets a proposer submit a vault upgrade the council can read, then opens its page", () => {
+  it("lets a proposer submit a vault upgrade the council can read, then opens it on the map", async () => {
     drafts.upgrade = UPGRADE_DRAFT;
     setup({ accountId: PROPOSER, proposers: [PROPOSER] });
     renderPage();
@@ -305,7 +308,7 @@ describe("NewProposalPage", () => {
     fireEvent.click(cta("upgrade"));
 
     expect(mutate).toHaveBeenCalledWith(UPGRADE_DRAFT, expect.anything());
-    expect(push).toHaveBeenCalledWith("/governance/0.0.901");
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/?schedule=0.0.901"));
   });
 
   it("offers to schedule the entry an earlier attempt registered for this same call, not to register it again", () => {
@@ -336,7 +339,7 @@ describe("NewProposalPage", () => {
     setup({ accountId: "0.0.5555", proposers: [PROPOSER] });
     renderPage();
 
-    fireEvent.click(screen.getByRole("radio", { name: new RegExp(PROPOSAL_KIND_COPY.councilRotation.title) }));
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp("Add the co-signing agent") }));
 
     expect(screen.getByText("agent form")).toBeTruthy();
     expect(screen.getByText("→ 2-of-4 council")).toBeTruthy();
