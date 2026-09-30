@@ -6,6 +6,7 @@
  * its role or its ledger id; a demo passes its own decorator, and deleting the demo leaves this.
  */
 import { MAP_LABELS } from "./copy";
+import { AGENT_COPY } from "~~/components/governance/rail/copy";
 import { memberLabel } from "~~/services/governance/proposalLabels";
 import {
   EXECUTOR_NODE_ID,
@@ -46,7 +47,11 @@ export type MapContext = {
   memberKeys: readonly string[];
   /** The account of the co-signing agent the app was told about, or null when none is configured. */
   agentAccountId: string | null;
-  /** The council key of the co-signing agent the app was told about, or null: unconfigured, unread, or not one key. */
+  /**
+   * The council key of the co-signing agent the app was told about, or null: unconfigured, unread, or
+   * not one key. A member node carrying it is the agent's seat, held or only proposed; a decoration
+   * tells the two apart by `memberKeys`.
+   */
   agentSeat: string | null;
 };
 
@@ -70,8 +75,6 @@ export type MapDecoration = {
   layout: GraphLayout;
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
-  /** The letters in a node's circle, by node id, where its name's first letter is not what it should say. */
-  monograms?: Partial<Record<string, string>>;
   /** Member nodes a proposal would seat but the ledger does not: drawn in the ghost's tone, like a ghost. */
   unseated?: readonly string[];
   ghosts?: GhostNode[];
@@ -99,6 +102,7 @@ export type MapDecorator = (context: MapContext) => MapDecoration;
 export type ComposedMap = {
   graph: GovernanceGraph;
   captions: Partial<Record<string, string>>;
+  /** What an account's circle shows in place of its label's first letter, by node id. */
   monograms: Partial<Record<string, string>>;
   unseated: readonly string[];
   ghosts: GhostNode[];
@@ -118,16 +122,37 @@ const FIXED_LABELS: Record<string, string> = {
 };
 
 /**
- * Names that need no demo: the fixed points by role, and a member by the account whose key holds the
+ * Names that need no demo: the fixed points by role, the co-signing agent's seat as the agent — the
+ * name the rail's council lists give it — and any other member by the account whose key holds the
  * seat when that account is a proposer (the only accounts whose keys the map reads), else by its key.
  */
-export function genericLabels({ nodes, proposers }: Pick<MapContext, "nodes" | "proposers">): Record<string, string> {
+export function genericLabels({
+  nodes,
+  proposers,
+  agentSeat,
+}: Pick<MapContext, "nodes" | "proposers"> & Partial<Pick<MapContext, "agentSeat">>): Record<string, string> {
   const labels: Record<string, string> = { ...FIXED_LABELS };
   for (const node of nodes) {
     if (node.role !== "member") continue;
-    labels[node.id] = memberLabel(node.ref, proposers, null);
+    labels[node.id] = node.ref === agentSeat ? AGENT_COPY.name : memberLabel(node.ref, proposers, null);
   }
   return labels;
+}
+
+/** The member node carrying the co-signing agent's key, held or only proposed, or undefined when none does. */
+export function agentSeatNodeOf({ nodes, agentSeat }: Pick<MapContext, "nodes" | "agentSeat">): GraphNode | undefined {
+  if (!agentSeat) return undefined;
+  return nodes.find(node => node.role === "member" && node.ref === agentSeat);
+}
+
+/**
+ * The agent's letters go with its name: a seat a layout named otherwise — "You" for the agent's own
+ * account, or whoever it puts on the agent's key — shows that name's first letter instead.
+ */
+function agentMonogramsOf(graph: GovernanceGraph, context: MapContext): Partial<Record<string, string>> {
+  const agentNode = agentSeatNodeOf(context);
+  const shown = agentNode && graph.nodes.find(node => node.id === agentNode.id);
+  return shown && shown.label === AGENT_COPY.name ? { [shown.id]: AGENT_COPY.monogram } : {};
 }
 
 /**
@@ -145,8 +170,8 @@ export function viewerSeatOf(
 
 /**
  * `viewpoint.viewerAccountId` is the connected account, if any: the seat it holds is named "You", over
- * any name the generic labels or a decoration gave it. `viewpoint.agentAccountId` and `agentSeat` reach
- * the decoration.
+ * any name the generic labels or a decoration gave it. `viewpoint.agentSeat` names the co-signing
+ * agent's seat as the agent, with the agent's monogram; it and `agentAccountId` also reach the decoration.
  */
 export function composeMap(
   snapshot: GraphSnapshot,
@@ -167,10 +192,6 @@ export function composeMap(
   const viewerSeat = viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
   const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
 
-  // "You" is not the letters a decoration chose for whoever it named otherwise.
-  const monograms = { ...decoration?.monograms };
-  if (viewerSeat) delete monograms[viewerSeat];
-
   const graph = deriveGraphState(
     { ...snapshot, recipientStandIn: decoration?.recipientStandIn },
     { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } },
@@ -178,7 +199,7 @@ export function composeMap(
   return {
     graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
-    monograms,
+    monograms: agentMonogramsOf(graph, context),
     unseated: decoration?.unseated ?? [],
     ghosts: decoration?.ghosts ?? [],
     regions: decoration?.regions ?? [],

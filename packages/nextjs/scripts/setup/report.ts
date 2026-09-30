@@ -2,7 +2,7 @@ import type { SetupEnv } from "./env";
 import { GOVERNANCE_THRESHOLD } from "./governance";
 import { hashScanUrl } from "./hashscan";
 import { type SetupStep, USDC_TESTNET_TOKEN_ID } from "./reconcile";
-import { DEMO_ACCOUNT_NAMES, type SetupState } from "./state";
+import { AGENT_ACCOUNT, DEMO_ACCOUNT_NAMES, DEMO_COUNCIL_MEMBERS, type SetupState } from "./state";
 
 const OUTCOME_MARK = { created: "+", reused: "=" } as const;
 
@@ -25,7 +25,8 @@ function governanceLines(state: SetupState, network: SetupEnv["network"]): strin
     const { accountId, councilAccountId } = state.governance;
     lines.push(
       `Council:  ${accountId}  ${hashScanUrl("account", accountId, network)}`,
-      `          ${GOVERNANCE_THRESHOLD}-of-3: ${councilAccountId} (yours), ${DEMO_ACCOUNT_NAMES.join(", ")}`,
+      `          ${GOVERNANCE_THRESHOLD}-of-3: ${councilAccountId} (yours), ${DEMO_COUNCIL_MEMBERS.join(", ")}`,
+      `          ${AGENT_ACCOUNT} is created outside it; "Add the co-signing agent" proposes its seat`,
     );
   }
   if (state.demoTokenId) {

@@ -19,6 +19,7 @@ vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
 vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: () => null }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: () => null }));
 vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
 vi.mock("~~/components/governance/graph/useMapPreview", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/components/governance/graph/useMapPreview")>()),
