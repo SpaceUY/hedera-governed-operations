@@ -145,7 +145,8 @@ export const ProposalDetailPanel = ({
       type="button"
       className="btn btn-primary btn-sm shrink-0"
       onClick={() => sign.mutate(schedule.schedule_id, { onSuccess: refresh })}
-      disabled={sign.isPending}
+      // While the map plays a signature the panel shows the proposal as it was before it, seat unsigned.
+      disabled={sign.isPending || confirming}
     >
       {SIGN_LABELS[signerKind]}
     </button>
