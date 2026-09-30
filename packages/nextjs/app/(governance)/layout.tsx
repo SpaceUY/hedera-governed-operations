@@ -2,12 +2,13 @@
 
 import { type ReactNode, useMemo } from "react";
 import { SetupNotice } from "~~/components/SetupNotice";
+import { DemoInstanceNotice } from "~~/components/governance/DemoInstanceNotice";
 import { GovernanceProvider } from "~~/components/governance/GovernanceProvider";
 import { LiveMapPane } from "~~/components/governance/LiveMapPane";
 import { RailNotice, useRailNotice } from "~~/components/governance/RailNotice";
 import { MapDecoratorProvider } from "~~/components/governance/graph/MapDecoratorContext";
 import { decorateDemoMap } from "~~/components/governance/graph/demo/demoGraph";
-import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
+import { type GovernanceConfig, isDemoInstance, resolveGovernanceConfig } from "~~/config/governanceConfig";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
 
 type ResolvedConfig = { config: GovernanceConfig } | { error: unknown };
@@ -21,8 +22,8 @@ function tryResolveGovernanceConfig(chainId: number): ResolvedConfig {
 }
 
 /**
- * The live map: `/`, `/governance/[scheduleId]` and `/governance/new` share it, so the map stays
- * mounted while the rail changes route. Below the header it is one fold on a wide screen — the map
+ * The live map: `/`, `/governance/[scheduleId]`, `/governance/new` and `/settings` share it, so the map
+ * stays mounted while the rail changes route. Below the header it is one fold on a wide screen — the map
  * pane never scrolls and the rail scrolls on its own — and the two stack on a phone.
  *
  * The setup guard runs here, once, for every governance route; a page reads the result with
@@ -43,6 +44,7 @@ export default function GovernanceLayout({ children }: { children: ReactNode }) 
             <LiveMapPane config={resolved.config} onRemoteSignature={railNotice.show} />
           </section>
           <div className="flex min-w-0 flex-col border-t border-base-300 bg-base-100 lg:w-2/5 lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l">
+            {isDemoInstance() && <DemoInstanceNotice />}
             <RailNotice notice={railNotice.notice} onDismiss={railNotice.dismiss} />
             {children}
           </div>

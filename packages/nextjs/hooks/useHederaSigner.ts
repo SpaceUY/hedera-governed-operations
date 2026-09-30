@@ -14,6 +14,8 @@ const NOT_CONNECTED_MESSAGE = "Connect a Hedera wallet first";
 /**
  * Single signing entry point for components: the harness test signer when its key is present
  * (see `BurnerSignerProvider`), the HashPack session otherwise. `signerKind` tells the UI which one is active.
+ * `signerKind` is "hashpack" for every WalletConnect wallet, so `walletName` says which one it is (null for
+ * the test signer and while disconnected).
  */
 export function useHederaSigner() {
   const wallet = useHederaWalletConnect();
@@ -31,6 +33,7 @@ export function useHederaSigner() {
 
   const signer: HederaSigner | null = burner.signer ?? hashPackSigner;
   const signerKind: HederaSignerKind = burner.signer ? "burner" : "hashpack";
+  const walletName = hashPackSigner && !burner.signer ? wallet.walletName : null;
 
   const requireSigner = useCallback((): HederaSigner => {
     if (!signer) throw new Error(NOT_CONNECTED_MESSAGE);
@@ -63,6 +66,7 @@ export function useHederaSigner() {
     isInitializing: wallet.isInitializing || burner.status === "resolving",
     isBusy: wallet.isBusy,
     signerKind,
+    walletName,
     requireAccountId,
     requireSigner,
     executeTransaction,

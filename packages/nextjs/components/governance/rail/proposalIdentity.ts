@@ -9,6 +9,7 @@ import type { ProposalFamily } from "./copy";
 import { describeRegistryOperation, describeScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { PROPOSAL_KIND_COPY } from "~~/components/governance/wizard/copy";
+import { councilChangeTitle } from "~~/services/governance/proposalLabels";
 
 export type ProposalIdentity = {
   title: string;
@@ -27,7 +28,10 @@ export function proposalIdentityOf({
   }
   if (operation.kind !== "registryCall") {
     return {
-      title: PROPOSAL_KIND_COPY[operation.kind].title,
+      title:
+        operation.kind === "councilRotation"
+          ? councilChangeTitle(operation.council)
+          : PROPOSAL_KIND_COPY[operation.kind].title,
       unrecognized: false,
       family: "native",
       iconKind: operation.kind,

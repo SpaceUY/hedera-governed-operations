@@ -1,10 +1,13 @@
 import {
+  DEMO_INSTANCE,
   GOVERNANCE_ROUTES,
   findDeployedContract,
   findDeployment,
+  getCoSigningAgentAccountId,
   getDeployedContract,
   getGovernanceEntityIds,
   getReleaseTopicId,
+  isDemoInstance,
   resolveGovernanceConfig,
 } from "./governanceConfig";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -23,8 +26,50 @@ vi.mock("~~/utils/scaffold-hbar/contract", () => ({
   },
 }));
 
+/** No id `yarn setup` writes, whatever the shell running the tests has exported. */
+const stubNoIds = () => {
+  vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "");
+  vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "");
+  vi.stubEnv("NEXT_PUBLIC_SEED_PROPOSAL_ID", "");
+};
+
+const stubOwnIds = () => {
+  vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "0.0.20000001");
+  vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "0.0.20000002");
+  vi.stubEnv("NEXT_PUBLIC_SEED_PROPOSAL_ID", "0");
+};
+
+describe("isDemoInstance", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("is true when none of the ids yarn setup writes is set", () => {
+    stubNoIds();
+    expect(isDemoInstance()).toBe(true);
+  });
+
+  it("is false once yarn setup has written the app's own ids", () => {
+    stubOwnIds();
+    expect(isDemoInstance()).toBe(false);
+  });
+
+  it("is false for a setup that stopped halfway, so it is reported instead of hidden behind the demo", () => {
+    stubNoIds();
+    vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "0.0.20000002");
+    expect(isDemoInstance()).toBe(false);
+  });
+});
+
 describe("getGovernanceEntityIds", () => {
   afterEach(() => vi.unstubAllEnvs());
+
+  it("reads the app's own ids and not the demo's when they are set", () => {
+    stubOwnIds();
+    expect(getGovernanceEntityIds()).toEqual({
+      governanceAccountId: "0.0.20000001",
+      demoTokenId: "0.0.20000002",
+      seedProposalId: 0,
+    });
+  });
 
   it("reads the ids yarn setup writes", () => {
     vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "0.0.10671146");
@@ -38,8 +83,18 @@ describe("getGovernanceEntityIds", () => {
     });
   });
 
-  it("throws a clear error when yarn setup has not run", () => {
-    vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "");
+  it("reads the demo instance when yarn setup has not run", () => {
+    stubNoIds();
+    expect(getGovernanceEntityIds()).toEqual({
+      governanceAccountId: DEMO_INSTANCE.governanceAccountId,
+      demoTokenId: DEMO_INSTANCE.demoTokenId,
+      seedProposalId: DEMO_INSTANCE.seedProposalId,
+    });
+  });
+
+  it("throws a clear error when only some of the ids are set, rather than mixing them with the demo's", () => {
+    stubNoIds();
+    vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "0.0.10671146");
     expect(() => getGovernanceEntityIds()).toThrow(/yarn setup/);
   });
 
@@ -60,8 +115,37 @@ describe("getReleaseTopicId", () => {
   });
 
   it("is null when no release topic is configured, which hides the release line", () => {
+    stubOwnIds();
     vi.stubEnv("NEXT_PUBLIC_RELEASE_TOPIC_ID", "");
     expect(getReleaseTopicId()).toBeNull();
+  });
+
+  it("is the demo instance's topic when the app reads the demo instance", () => {
+    stubNoIds();
+    vi.stubEnv("NEXT_PUBLIC_RELEASE_TOPIC_ID", "");
+    expect(getReleaseTopicId()).toBe(DEMO_INSTANCE.releaseTopicId);
+  });
+});
+
+describe("getCoSigningAgentAccountId", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("reads the agent the app was told about", () => {
+    stubOwnIds();
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "0.0.20000003");
+    expect(getCoSigningAgentAccountId()).toBe("0.0.20000003");
+  });
+
+  it("is null when the app's own instance names no agent, instead of borrowing the demo's", () => {
+    stubOwnIds();
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "");
+    expect(getCoSigningAgentAccountId()).toBeNull();
+  });
+
+  it("is the demo instance's agent when the app reads the demo instance", () => {
+    stubNoIds();
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "");
+    expect(getCoSigningAgentAccountId()).toBe(DEMO_INSTANCE.coSigningAgentAccountId);
   });
 });
 

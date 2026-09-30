@@ -1,4 +1,5 @@
 import {
+  councilChangeTitle,
   councilRuleLabel,
   executionFailureLabel,
   memberLabel,
@@ -37,6 +38,12 @@ describe("registryLabel", () => {
 describe("councilRuleLabel", () => {
   it("states the council rule", () => {
     expect(councilRuleLabel({ threshold: 2, memberKeys: ["a", "b", "c"] })).toBe("2-of-3");
+  });
+});
+
+describe("councilChangeTitle", () => {
+  it("titles a council change by the council it would make", () => {
+    expect(councilChangeTitle({ threshold: 2, memberKeys: ["a", "b", "c", "d"] })).toBe("Change to a 2-of-4 council");
   });
 });
 
