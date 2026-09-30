@@ -35,7 +35,6 @@ import { useSignProposal } from "~~/hooks/useSignProposal";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import {
   UNREACHABLE_REGISTRY_SIGN_WARNING,
-  councilChangeTitle,
   councilRuleLabel,
   executionFailureLabel,
   proposalStatusLabel,
@@ -262,7 +261,7 @@ export const ProposalDetailPanel = ({
                 <UnseatedAgentRow
                   notes={[
                     AGENT_COPY.notSeated,
-                    AGENT_COPY.howToSeat(councilChangeTitle(withSeat(council.data.key, unseatedAgentSeat))),
+                    AGENT_COPY.howToSeat(councilRuleLabel(withSeat(council.data.key, unseatedAgentSeat))),
                   ]}
                 />
               )}
