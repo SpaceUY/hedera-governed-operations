@@ -7,7 +7,7 @@ import type { GovernanceConfig } from "~~/config/governanceConfig";
 import type { CouncilQueryData } from "~~/hooks/mirror/useCouncil";
 
 const TREASURY_ID = "0.0.10671103";
-const EXECUTOR = { address: "0x5aF0000000000000000000000000000000000Abc", hederaContractId: "0.0.10671156" };
+const EXECUTOR = { address: "0x5aF0000000000000000000000000000000000Abc", hederaContractId: "0.0.10671156" } as const;
 const CONFIG = { governanceAccountId: TREASURY_ID, executor: EXECUTOR } as unknown as GovernanceConfig;
 const ROLES = {
   executors: [longZeroAddress(TREASURY_ID)],
