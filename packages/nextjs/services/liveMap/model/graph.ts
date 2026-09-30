@@ -369,22 +369,20 @@ export function deriveGraphState(snapshot: GraphSnapshot, layout: GraphLayout = 
   };
 }
 
-/**
- * The nodes and edges an operation would travel, in order, or null when there is nothing honest to
- * show: an unrecognised body, one that acts on an account other than the governance account, or a
- * route this graph lacks a node or an edge for (it was derived without the proposal).
- */
-export function scopeOf(graph: GovernanceGraph, operation: RoutableOperation): GraphScope | null {
-  const route = resolveRoute(operation, graph);
-  if (!route) return null;
+/** The nodes each role of a route reached on a graph, by role. */
+export type RoleNodes = Partial<Record<RouteRole, string[]>>;
 
+/** An operation's route drawn on one graph: the scope it travels, and the nodes each of its roles reached. */
+export type GraphRoute = { scope: GraphScope; roles: RoleNodes };
+
+function scopeOfRoute(graph: GovernanceGraph, steps: ResolvedRoute): GraphScope | null {
   const nodeIds: string[] = [];
   const hops: string[][] = [];
   const visit = (id: string) => {
     if (!nodeIds.includes(id)) nodeIds.push(id);
   };
 
-  for (const { from, to } of route.steps) {
+  for (const { from, to } of steps) {
     const hop: string[] = [];
     for (const source of from) {
       for (const target of to) {
@@ -401,19 +399,30 @@ export function scopeOf(graph: GovernanceGraph, operation: RoutableOperation): G
   return { nodeIds, edgeIds: hops.flat(), hops };
 }
 
-/**
- * The nodes each role of the operation's route reaches on this graph, by role; empty when it has no
- * route. For words a role carries whoever fills it, such as a payment's recipient before it is named.
- */
-export function roleNodesOf(
-  graph: GovernanceGraph,
-  operation: RoutableOperation,
-): Partial<Record<RouteRole, string[]>> {
-  const roles = resolveRoute(operation, graph)?.roles ?? {};
+function roleNodesOf(roles: Resolution["roles"]): RoleNodes {
   return Object.fromEntries(
     Object.entries(roles).map(([role, endpoints]) => [
       role,
       endpoints.flatMap(endpoint => ("nodeId" in endpoint ? [endpoint.nodeId] : [])),
     ]),
   );
+}
+
+/**
+ * An operation's route on this graph, resolved once: the nodes and edges it would travel, in order,
+ * and the nodes each of its roles reached — for words a role carries whoever fills it, such as a
+ * payment's recipient before it is named. Null when there is nothing honest to show: an unrecognised
+ * body, one that acts on an account other than the governance account, or a route this graph lacks a
+ * node or an edge for (it was derived without the proposal).
+ */
+export function routeOnGraph(graph: GovernanceGraph, operation: RoutableOperation): GraphRoute | null {
+  const route = resolveRoute(operation, graph);
+  if (!route) return null;
+  const scope = scopeOfRoute(graph, route.steps);
+  return scope && { scope, roles: roleNodesOf(route.roles) };
+}
+
+/** The nodes and edges an operation would travel, in order, or null when it has no route here (`routeOnGraph`). */
+export function scopeOf(graph: GovernanceGraph, operation: RoutableOperation): GraphScope | null {
+  return routeOnGraph(graph, operation)?.scope ?? null;
 }

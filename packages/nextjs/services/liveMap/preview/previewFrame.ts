@@ -14,9 +14,9 @@ import {
   type EdgePhase,
   GOVERNANCE_ACCOUNT_NODE_ID,
   type GovernanceGraph,
+  type RoleNodes,
   nodeIdOfRef,
-  roleNodesOf,
-  scopeOf,
+  routeOnGraph,
 } from "~~/services/liveMap/model/graph";
 import {
   type MapFrame,
@@ -47,10 +47,12 @@ function councilOf(graph: GovernanceGraph, council: CouncilKey) {
 
 type NodeWords = { id: string; text: string };
 
+/** What the words are placed against: the graph, the nodes the route's roles reached on it, and the pane's context. */
+type WordsGround = { graph: GovernanceGraph; roles: RoleNodes; context: PreviewContext };
+
 /** The words on each node: by the entity an operation names, or by the role a sketch's words belong to. */
-function wordsOf(graph: GovernanceGraph, { operation }: MapPreview, context: PreviewContext): NodeWords[] {
+function wordsOf({ operation }: MapPreview, { graph, roles, context }: WordsGround): NodeWords[] {
   if (operation.kind === "sketch") {
-    const roles = roleNodesOf(graph, operation);
     return operation.words.flatMap(({ role, text }) => (roles[role] ?? []).map(id => ({ id, text })));
   }
   return previewLabelsOf(operation, context).flatMap(({ ref, text }) => {
@@ -59,9 +61,10 @@ function wordsOf(graph: GovernanceGraph, { operation }: MapPreview, context: Pre
   });
 }
 
-function labelsOn(graph: GovernanceGraph, nodeIds: readonly string[], preview: MapPreview, context: PreviewContext) {
+/** The words on the nodes the frame keeps lit. */
+function labelsOn(nodeIds: readonly string[], preview: MapPreview, ground: WordsGround) {
   const labels: Partial<Record<string, string>> = {};
-  for (const { id, text } of wordsOf(graph, preview, context)) {
+  for (const { id, text } of wordsOf(preview, ground)) {
     if (nodeIds.includes(id)) labels[id] = text;
   }
   return labels;
@@ -78,8 +81,9 @@ function ringOf({ mode, progress }: MapPreview, council: CouncilKey): MapFrame["
 
 export function previewFrameOf(preview: MapPreview | null, { graph, world, context }: PreviewWorld): MapFrame {
   if (!preview) return REST_FRAME;
-  const scope = scopeOf(graph, preview.operation);
-  if (!scope) return REST_FRAME;
+  const route = routeOnGraph(graph, preview.operation);
+  if (!route) return REST_FRAME;
+  const { scope, roles } = route;
 
   const council = councilOf(graph, world.council);
   const arcId =
@@ -95,7 +99,7 @@ export function previewFrameOf(preview: MapPreview | null, { graph, world, conte
     ...REST_FRAME,
     phases: Object.fromEntries(scope.edgeIds.map(id => [id, phase])),
     scope: { nodeIds, edgeIds },
-    labels: preview.mode === "live" ? labelsOn(graph, nodeIds, preview, context) : {},
+    labels: preview.mode === "live" ? labelsOn(nodeIds, preview, { graph, roles, context }) : {},
     highlights:
       preview.mode === "history" ? Object.fromEntries(targetsOf(graph, scope.hops).map(id => [id, "success"])) : {},
     ring: ringOf(preview, world.council),

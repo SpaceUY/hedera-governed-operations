@@ -12,7 +12,7 @@ import {
   memberNodeId,
   nodeIdOfRef,
   proposerNodeId,
-  roleNodesOf,
+  routeOnGraph,
   scopeOf,
 } from "./graph";
 import type { DecodedOperation, OperationSketch } from "./proposalRoutes";
@@ -545,11 +545,12 @@ describe("a sketched kind", () => {
 
   it("says which nodes each role of the route reached", () => {
     const graph = deriveGraphState({ ...withStandIn, previewed: payment });
-    expect(roleNodesOf(graph, payment)).toEqual({
+    expect(routeOnGraph(graph, payment)?.roles).toEqual({
       governanceAccount: [GOVERNANCE_ACCOUNT_NODE_ID],
       recipient: [RECIPIENT_STAND_IN_NODE_ID],
     });
-    expect(roleNodesOf(graph, { kind: "unrecognized", reason: "a blob" })).toEqual({});
+    expect(routeOnGraph(graph, payment)?.scope).toEqual(scopeOf(graph, payment));
+    expect(routeOnGraph(graph, { kind: "unrecognized", reason: "a blob" })).toBeNull();
   });
 });
 
