@@ -8,13 +8,47 @@ export type GovernanceEntityIds = {
 };
 
 /**
+ * The public testnet instance this template is published with: the ids `yarn setup` wrote for the
+ * contracts committed in `contracts/deployedContracts.ts`. A fresh clone reads it until `yarn setup`
+ * writes its own ids, so the screens show real data before anything is configured. Ids only, no keys.
+ */
+export const DEMO_INSTANCE = {
+  governanceAccountId: "0.0.10794626",
+  demoTokenId: "0.0.10794655",
+  seedProposalId: 0,
+  releaseTopicId: "0.0.10794624",
+  coSigningAgentAccountId: "0.0.10794623",
+  aliceAccountId: "0.0.10794621",
+  bobAccountId: "0.0.10794622",
+} as const;
+
+/**
  * Each variable is read with a literal `process.env.NEXT_PUBLIC_*` member expression: Next.js only
  * inlines those into the client bundle, so a computed lookup is always `undefined` in the browser.
  */
+function readGovernanceEnv() {
+  return {
+    governanceAccountId: process.env.NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID,
+    demoTokenId: process.env.NEXT_PUBLIC_DEMO_TOKEN_ID,
+    seedProposalId: process.env.NEXT_PUBLIC_SEED_PROPOSAL_ID,
+  };
+}
+
+/**
+ * True when none of the ids `yarn setup` writes is set, so the app reads `DEMO_INSTANCE`. Some but
+ * not all of them is not the demo: it is a setup that stopped halfway, and it is reported as such.
+ */
+export function isDemoInstance(): boolean {
+  return Object.values(readGovernanceEnv()).every(value => !value);
+}
+
 export function getGovernanceEntityIds(): GovernanceEntityIds {
-  const governanceAccountId = process.env.NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID;
-  const demoTokenId = process.env.NEXT_PUBLIC_DEMO_TOKEN_ID;
-  const seedProposalId = process.env.NEXT_PUBLIC_SEED_PROPOSAL_ID;
+  if (isDemoInstance()) {
+    const { governanceAccountId, demoTokenId, seedProposalId } = DEMO_INSTANCE;
+    return { governanceAccountId, demoTokenId, seedProposalId };
+  }
+
+  const { governanceAccountId, demoTokenId, seedProposalId } = readGovernanceEnv();
   if (!governanceAccountId || !demoTokenId || !seedProposalId) {
     throw new Error(
       "Missing NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID, NEXT_PUBLIC_DEMO_TOKEN_ID or NEXT_PUBLIC_SEED_PROPOSAL_ID. " +
@@ -35,7 +69,9 @@ export function getGovernanceEntityIds(): GovernanceEntityIds {
  * only the upgrade form reads it, to say whether a release vouches for the implementation.
  */
 export function getReleaseTopicId(): string | null {
-  return process.env.NEXT_PUBLIC_RELEASE_TOPIC_ID?.trim() || null;
+  const configured = process.env.NEXT_PUBLIC_RELEASE_TOPIC_ID?.trim();
+  if (configured) return configured;
+  return isDemoInstance() ? DEMO_INSTANCE.releaseTopicId : null;
 }
 
 /**
@@ -43,7 +79,21 @@ export function getReleaseTopicId(): string | null {
  * account id, public like every other id here. Optional — without it the council list names no agent.
  */
 export function getCoSigningAgentAccountId(): string | null {
-  return process.env.NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID?.trim() || null;
+  const configured = process.env.NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID?.trim();
+  if (configured) return configured;
+  return isDemoInstance() ? DEMO_INSTANCE.coSigningAgentAccountId : null;
+}
+
+/**
+ * The two demo council members `yarn setup` creates, which the demo map names Alice and Bob. Each is
+ * the configured id, else the demo instance's while the app reads it, else undefined.
+ */
+export function getDemoAccountIds(): { alice?: string; bob?: string } {
+  const demo = isDemoInstance();
+  return {
+    alice: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID?.trim() || (demo ? DEMO_INSTANCE.aliceAccountId : undefined),
+    bob: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID?.trim() || (demo ? DEMO_INSTANCE.bobAccountId : undefined),
+  };
 }
 
 /** A deployed contract as the governance screens need it: with the native id a scheduled call targets. */
@@ -90,6 +140,8 @@ export const GOVERNANCE_CONTRACTS = {
    * Only the wizard's upgrade form needs it, so it is not part of `resolveGovernanceConfig`.
    */
   vaultNextImplementation: "AcmeVaultV2",
+  /** The code the vault's proxy was deployed with, under the name hardhat-deploy records it by. */
+  vaultFirstImplementation: "AcmeVault_Implementation",
   /**
    * Holds the token's pause and freeze keys. Only the map and the wizard's token form need it, so it
    * is not part of the guard.
@@ -122,4 +174,6 @@ export const GOVERNANCE_ROUTES = {
   home: "/",
   newProposal: "/governance/new",
   proposal: (scheduleId: string) => `/governance/${scheduleId}`,
+  /** The council, the change composer and the registry's roles, beside the same map. */
+  settings: "/settings",
 } as const;

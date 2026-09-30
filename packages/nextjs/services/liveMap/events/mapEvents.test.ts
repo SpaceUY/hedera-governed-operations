@@ -84,6 +84,7 @@ const snapshot = (proposals: Proposal[], overrides: Partial<GovernanceSnapshot> 
   proposals,
   unreachableProposers: [],
   treasury: null,
+  nodeStates: { vaultImplementation: null, tokenPaused: null },
   ...overrides,
 });
 

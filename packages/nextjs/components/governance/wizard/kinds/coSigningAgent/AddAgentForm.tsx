@@ -7,7 +7,7 @@ import { HederaAddressInput } from "@scaffold-hbar-ui/components";
 import type { CouncilKey } from "@sh/core/governance/council";
 import { MAP_LABELS } from "~~/components/governance/graph/copy";
 import { type MemberName, memberNamesOf } from "~~/components/governance/graph/mapModel";
-import { useComposedMap } from "~~/components/governance/graph/useComposedMap";
+import { useLatestComposedMap } from "~~/components/governance/graph/useComposedMap";
 import { ACCOUNT_LOOKUP_LABELS } from "~~/components/governance/wizard/copy";
 import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
@@ -37,7 +37,7 @@ export const AddAgentForm = ({
   const [agentText, setAgentText] = useState(suggestedAgentAccountId ?? "");
   const agentInput = agentText.trim();
   const agent = useAccount(agentInput, { network });
-  const { composed } = useComposedMap(config);
+  const { composed } = useLatestComposedMap(config);
   const memberNames = useMemo(() => composed && memberNamesOf(composed), [composed]);
   const { governanceAccountId } = config;
 

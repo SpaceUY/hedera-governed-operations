@@ -100,6 +100,7 @@ const renderPanel = (props: Partial<PanelProps> = {}) =>
       proposal={baseProposal()}
       accountId={MEMBER_A}
       signerKind="hashpack"
+      walletName={null}
       governanceAccountId={GOVERNANCE_ACCOUNT_ID}
       executorContractId={EXECUTOR_CONTRACT_ID}
       network="testnet"
@@ -308,7 +309,7 @@ describe("ProposalDetailPanel", () => {
     expect(within(row).getByText("AG")).toBeTruthy();
     expect(within(row).getByText("not a member")).toBeTruthy();
     expect(within(row).getByText("not seated")).toBeTruthy();
-    expect(within(row).getByText("Approve “Add the co-signing agent” to seat it (2-of-3 council).")).toBeTruthy();
+    expect(within(row).getByText("Approve “Change to a 2-of-3 council” to seat it.")).toBeTruthy();
   });
 
   it("names the co-signing agent's own seat instead once it holds one, and shows no agent without one configured", () => {

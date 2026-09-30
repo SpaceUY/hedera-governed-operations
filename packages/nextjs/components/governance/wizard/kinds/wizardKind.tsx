@@ -33,6 +33,8 @@ export type KindHint = (council: CouncilKey) => string;
 /** A kind as the wizard reads it: an icon, and either its form or the notice saying why there is none. */
 export type WizardKindEntry = {
   icon: KindIcon;
+  /** The picker's label, for a kind whose story is narrower than the proposal kind it opens. */
+  title?: string;
   hint?: KindHint;
   open: (
     host: WizardHost,
@@ -43,6 +45,8 @@ export type WizardKindEntry = {
 
 type KindDefinition<Targets> = {
   icon: KindIcon;
+  /** The picker's label, for a kind whose story is narrower than the proposal kind it opens. */
+  title?: string;
   hint?: KindHint;
   resolveTargets: (host: WizardHost) => KindTargets<Targets>;
   Form: ComponentType<KindFormProps<Targets>>;
@@ -55,12 +59,14 @@ type KindDefinition<Targets> = {
  */
 export function defineWizardKind<Targets>({
   icon,
+  title,
   hint,
   resolveTargets,
   Form,
 }: KindDefinition<Targets>): WizardKindEntry {
   return {
     icon,
+    title,
     hint,
     open: host => {
       const resolved = resolveTargets(host);

@@ -9,7 +9,7 @@
  */
 import type { SetupEnv } from "./env";
 import type { SetupStep } from "./reconcile";
-import { DEMO_ACCOUNT_NAMES, type GovernanceAccount, type SetupState } from "./state";
+import { DEMO_COUNCIL_MEMBERS, type GovernanceAccount, type SetupState } from "./state";
 
 /** Signatures needed out of the three members: the human plus one of the demo accounts. */
 export const GOVERNANCE_THRESHOLD = 2;
@@ -44,10 +44,10 @@ export type GovernanceResult = {
 
 /** The council seats this script holds the keys for, in a fixed order, both of them required. */
 export function demoCouncilMembers(state: SetupState) {
-  const accounts = DEMO_ACCOUNT_NAMES.map(name => state.demoAccounts[name]);
+  const accounts = DEMO_COUNCIL_MEMBERS.map(name => state.demoAccounts[name]);
   if (accounts.some(account => account === undefined)) {
     throw new Error(
-      `The threshold key needs the demo accounts (${DEMO_ACCOUNT_NAMES.join(", ")}) and the state has none; ` +
+      `The threshold key needs the demo accounts (${DEMO_COUNCIL_MEMBERS.join(", ")}) and the state has none; ` +
         "they are created by the core reconcile, before this runs",
     );
   }

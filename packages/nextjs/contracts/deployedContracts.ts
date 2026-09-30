@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-hbar/contract";
 const deployedContracts = {
   296: {
     AcmeVault: {
-      address: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+      address: "0xeA63e5b8eF5B0eC87a6236a557bBc447E948De63",
       abi: [
         {
           anonymous: false,
@@ -295,11 +295,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 40855605,
-      hederaContractId: "0.0.10671161",
+      deployedOnBlock: 41184114,
+      hederaContractId: "0.0.10794643",
     },
     AcmeVaultV2: {
-      address: "0xF3111f1480f088c19CB80096f698E5f1B42Cb9A6",
+      address: "0x54d742A00c50536e4FaC4a3849771A2468F12418",
       abi: [
         {
           inputs: [
@@ -635,11 +635,11 @@ const deployedContracts = {
         totalDeposits: "contracts/AcmeVault.sol",
         upgradeToAndCall: "contracts/AcmeVault.sol",
       },
-      deployedOnBlock: 40855609,
-      hederaContractId: "0.0.10671163",
+      deployedOnBlock: 41184119,
+      hederaContractId: "0.0.10794646",
     },
     AcmeVault_Implementation: {
-      address: "0x618023e309E32A8E70F59fb1228C4ee5C2a867b4",
+      address: "0x4Dd56b18EAA0e0a18B1928b7588859e1e7B0C163",
       abi: [
         {
           inputs: [],
@@ -876,10 +876,10 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 40855601,
+      deployedOnBlock: 41184110,
     },
     AcmeVault_Proxy: {
-      address: "0x3f806946439c3521eeD7d740c3f84E09888C0419",
+      address: "0xeA63e5b8eF5B0eC87a6236a557bBc447E948De63",
       abi: [
         {
           inputs: [
@@ -952,10 +952,10 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 40855605,
+      deployedOnBlock: 41184114,
     },
     GovernedExecutor: {
-      address: "0x3cd48d7eAAD9e9b6E2DAaA14862aFDa5811f62Fe",
+      address: "0xE3E24BeF0903e68e584E3a93e5F0b746959f4C7C",
       abi: [
         {
           inputs: [
@@ -1537,11 +1537,11 @@ const deployedContracts = {
         revokeRole: "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol",
         supportsInterface: "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol",
       },
-      deployedOnBlock: 40855597,
-      hederaContractId: "0.0.10671156",
+      deployedOnBlock: 41184105,
+      hederaContractId: "0.0.10794640",
     },
     SaucerSwapAdapter: {
-      address: "0x9507B1d193fA1E38F2da77A6b6C82B1c8b7672d3",
+      address: "0x6405578Fd89C36756C805346EBeba46e146d5202",
       abi: [
         {
           inputs: [
@@ -1707,11 +1707,11 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 40855613,
-      hederaContractId: "0.0.10671165",
+      deployedOnBlock: 41184123,
+      hederaContractId: "0.0.10794647",
     },
     TokenAdmin: {
-      address: "0xDFcFe039Fb4BaD9C3C66424F61B273014FF84C6B",
+      address: "0x41d9344a909F0DE9135b89A1a922749874D4eACC",
       abi: [
         {
           inputs: [
@@ -1887,8 +1887,8 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 40855617,
-      hederaContractId: "0.0.10671169",
+      deployedOnBlock: 41184128,
+      hederaContractId: "0.0.10794649",
     },
   },
 } as const;

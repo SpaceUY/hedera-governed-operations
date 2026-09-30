@@ -3,7 +3,12 @@
  * over them with an opaque plate, so no edge has to know the outline of the node it ends at. The one
  * outline an edge does know is the treasury's, which an edge that does not end there goes around.
  */
-import { GOVERNANCE_ACCOUNT_NODE_ID, type GraphEdge, type GraphNode, type Point } from "~~/services/governance/graph";
+import {
+  GOVERNANCE_ACCOUNT_NODE_ID,
+  type GraphEdge,
+  type GraphNode,
+  type Point,
+} from "~~/services/liveMap/model/graph";
 
 export const ACCOUNT_RADIUS = 28;
 export const TREASURY_RADIUS = 58;

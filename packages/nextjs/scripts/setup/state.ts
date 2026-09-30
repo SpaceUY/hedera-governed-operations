@@ -1,16 +1,21 @@
 import type { SetupNetwork } from "./env";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-export const DEMO_ACCOUNT_NAMES = ["alice", "bob"] as const;
+export const DEMO_ACCOUNT_NAMES = ["alice", "bob", "agent"] as const;
 
 export type DemoAccountName = (typeof DEMO_ACCOUNT_NAMES)[number];
 
+/** The demo accounts that hold a seat on the council from the start, in the order the key lists them. */
+export const DEMO_COUNCIL_MEMBERS = ["alice", "bob"] as const satisfies readonly DemoAccountName[];
+
 /**
- * Which demo account the co-signing agent votes with. It is a fixture choice, not a rule: in a real
- * deployment the seat is whatever identity runs the service. Two places depend on it — the agent's
- * `.env` and the submit key of the topic it publishes its decisions to — so it is named once here.
+ * The co-signing agent's own account. It is created outside the council on purpose: the council
+ * seats it by rotation ("Add the co-signing agent"), and until then the agent decides and logs but
+ * signs nothing. Two places depend on it — the agent's `.env` and the submit key of the topic it
+ * publishes its decisions to — so it is named once here. In a real deployment it is whatever identity
+ * runs the service.
  */
-export const AGENT_SEAT: DemoAccountName = "bob";
+export const AGENT_ACCOUNT: DemoAccountName = "agent";
 
 /** Keys are stored DER-encoded; they only ever live in the gitignored state file. */
 export type DemoAccount = {

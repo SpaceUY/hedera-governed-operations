@@ -2,20 +2,20 @@ import GovernanceLayout from "./layout";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
-import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
+import { type GovernanceConfig, isDemoInstance, resolveGovernanceConfig } from "~~/config/governanceConfig";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/hooks/useSubmitProposalDraft", () => ({
   useSubmitProposalDraft: () => ({ mutate: vi.fn(), reset: vi.fn(), status: "idle", error: null }),
 }));
-vi.mock("~~/components/governance/TreasuryStrip", () => ({ TreasuryStrip: () => <div>treasury strip</div> }));
-vi.mock("~~/components/governance/graph/GovernanceMap", () => ({
-  GovernanceMap: ({ config }: { config: GovernanceConfig }) => <div>map of {config.governanceAccountId}</div>,
+vi.mock("~~/components/governance/LiveMapPane", () => ({
+  LiveMapPane: ({ config }: { config: GovernanceConfig }) => <div>map pane of {config.governanceAccountId}</div>,
 }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
   resolveGovernanceConfig: vi.fn(),
+  isDemoInstance: vi.fn(() => false),
 }));
 
 const DEPLOYED = {
@@ -55,8 +55,7 @@ describe("GovernanceLayout", () => {
     expect(screen.getByText("Governance is not set up yet")).toBeTruthy();
     expect(screen.getByText("Run `yarn setup`")).toBeTruthy();
     expect(screen.queryByText(/rail page/)).toBeNull();
-    expect(screen.queryByText("treasury strip")).toBeNull();
-    expect(screen.queryByText(/map of/)).toBeNull();
+    expect(screen.queryByText(/map pane of/)).toBeNull();
   });
 
   it("renders the map pane beside the route's page and hands the page the resolved config", () => {
@@ -69,11 +68,38 @@ describe("GovernanceLayout", () => {
     );
 
     const mapPane = screen.getByRole("region", { name: "Live map" });
-    expect(mapPane.textContent).toContain("treasury strip");
+    expect(mapPane.textContent).toContain("map pane of 0.0.10671146");
     expect(mapPane.textContent).not.toContain("execute button");
-    expect(mapPane.textContent).toContain("map of 0.0.10671146");
     expect(screen.getByText("rail page for 0.0.10671146")).toBeTruthy();
     expect(mapPane.contains(screen.getByText(/rail page/))).toBe(false);
     expect(resolveGovernanceConfig).toHaveBeenCalledWith(296);
+  });
+
+  it("says so above the route's page when the app reads the demo instance", () => {
+    vi.mocked(resolveGovernanceConfig).mockReturnValue(CONFIG);
+    vi.mocked(isDemoInstance).mockReturnValue(true);
+
+    render(
+      <GovernanceLayout>
+        <RailPage />
+      </GovernanceLayout>,
+    );
+
+    expect(screen.getByRole("note").textContent).toContain("demo instance on testnet");
+    expect(screen.getByRole("note").textContent).toContain("yarn setup");
+    expect(screen.getByText("rail page for 0.0.10671146")).toBeTruthy();
+  });
+
+  it("shows no demo notice once the app reads its own instance", () => {
+    vi.mocked(resolveGovernanceConfig).mockReturnValue(CONFIG);
+    vi.mocked(isDemoInstance).mockReturnValue(false);
+
+    render(
+      <GovernanceLayout>
+        <RailPage />
+      </GovernanceLayout>,
+    );
+
+    expect(screen.queryByRole("note")).toBeNull();
   });
 });

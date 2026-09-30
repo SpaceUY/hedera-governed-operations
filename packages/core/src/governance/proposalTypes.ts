@@ -68,11 +68,13 @@ export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; execu
    */
   treasurySwap: { label: "Treasury swap", executeGas: 300_000 },
   /**
-   * **Not measured.** `TokenAdmin` has one transaction in its history on testnet and it is its own
-   * deployment, so no pause, unpause, freeze or unfreeze has ever run through the executor against
-   * the contracts deployed now. The figure is inherited from an earlier deployment and the limit is
-   * arithmetic: four HTS calls of one slot each, through two contracts. Treat it as a guess until a
-   * run replaces this comment with a transaction.
+   * Measured: pause 65,128, unpause 65,084, freeze 67,734, unfreeze 67,789 — `execute` from the
+   * governance account through the executor and `TokenAdmin` to `0x167`, on the contracts deployed
+   * now (`0.0.10671146@1790713600.116717689`, `@1790713606.017477132`, `@1790713642.156765307`,
+   * `@1790713653.623309547`, entries 18, 19, 21 and 22). Plain `ContractExecute` at a 300,000 limit,
+   * which consumes what a schedule would. A freeze names the holder by the address the network knows
+   * it by: an account with an EVM alias named by its long-zero address is refused with
+   * `HtsRejected(15)`, `INVALID_ACCOUNT_ID` (entry 20, 64,206 consumed).
    */
   tokenAdmin: { label: "Token administration", executeGas: 90_000 },
   treasuryTransfer: { label: "Treasury transfer", executeGas: null },
