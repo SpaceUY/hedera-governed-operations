@@ -26,6 +26,7 @@ import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
 import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
+import { useDemoSeats } from "~~/components/governance/demo/useDemoSeats";
 import type { MemberName } from "~~/components/governance/graph/mapModel";
 import { gasLimitLabel } from "~~/components/governance/wizard/copy";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
@@ -109,6 +110,7 @@ export const ProposalDetailPanel = ({
   const sign = useSignProposal();
   const council = useCouncil({ governanceAccountId, executorContractId, network });
   const agent = useCoSigningAgent(network);
+  const demo = useDemoSeats({ proposal, council: council.data?.key, onSigned: refresh });
   const unseatedAgentSeat = council.data ? unseatedAgentSeatOf(agent, council.data.key) : null;
   const proposers = council.data?.proposers ?? [];
   const rule = council.data ? councilRuleLabel(council.data.key) : `${proposal.progress.threshold}-of-?`;
@@ -154,6 +156,7 @@ export const ProposalDetailPanel = ({
     memberNames,
     isCollecting: isPending,
     signAction: signButton,
+    seatExtras: demo.extras,
     agent,
     headingLevel: sectionHeadingLevel,
   };
@@ -245,6 +248,7 @@ export const ProposalDetailPanel = ({
                 progress={proposal.incomingProgress}
                 {...listProps}
                 signAction={incomingSignAction}
+                seatExtras={demo.incomingExtras}
               />
             </>
           ) : (
@@ -264,6 +268,7 @@ export const ProposalDetailPanel = ({
               )}
             </ApproverList>
           )}
+          {demo.note && <p className="m-0 text-sm text-base-content/70">{demo.note}</p>}
         </div>
       )}
 

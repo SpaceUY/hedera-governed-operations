@@ -6,6 +6,7 @@ import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
+import { useDemoSign, useDemoSigners } from "~~/hooks/useDemoSigners";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
@@ -19,6 +20,7 @@ vi.mock("~~/hooks/useCancelProposalFlow", () => ({
 }));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
 vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: vi.fn() }));
+vi.mock("~~/hooks/useDemoSigners", () => ({ useDemoSigners: vi.fn(), useDemoSign: vi.fn() }));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.4000";
 const EXECUTOR_CONTRACT_ID = "0.0.5000";
@@ -88,6 +90,13 @@ function mockHooks() {
     inbox: { data: undefined, isLoading: false },
   } as unknown as ReturnType<typeof useProposals>);
   vi.mocked(useCoSigningAgent).mockReturnValue(null);
+  vi.mocked(useDemoSigners).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useDemoSigners>);
+  vi.mocked(useDemoSign).mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+    isSuccess: false,
+    error: null,
+  } as unknown as ReturnType<typeof useDemoSign>);
 }
 
 beforeEach(mockHooks);
@@ -344,5 +353,82 @@ describe("ProposalDetailPanel", () => {
     expect(screen.getByText(/Status SUCCESS, fee paid by the treasury/)).toBeTruthy();
     expect(screen.getByText("Scheduled transaction · SUCCESS")).toBeTruthy();
     expect(screen.queryByText("There is no reject button.")).toBeNull();
+  });
+  const DEMO_ALICE = { name: "alice", accountId: MEMBER_B, publicKey: KEY_B } as const;
+
+  it("puts Sign as Alice on Alice's row with a demo key badge, and says where her key lives", () => {
+    vi.mocked(useDemoSigners).mockReturnValue({ data: [DEMO_ALICE] } as never);
+    renderPanel();
+    const row = screen.getByText(MEMBER_B).closest("li")!;
+    expect(within(row).getByRole("button", { name: "Sign as Alice" })).toBeTruthy();
+    expect(within(row).getByText("demo key")).toBeTruthy();
+    expect(screen.getByText("Alice is a demo co-signer: the key lives server-side, testnet only.")).toBeTruthy();
+  });
+
+  it("keeps the badge and drops the button once Alice has signed", () => {
+    vi.mocked(useDemoSigners).mockReturnValue({ data: [DEMO_ALICE] } as never);
+    renderPanel({ proposal: baseProposal({ progress: { signed: 1, threshold: 2, signedBy: [KEY_B] } }) });
+    const row = screen.getByText(MEMBER_B).closest("li")!;
+    expect(within(row).queryByRole("button", { name: "Sign as Alice" })).toBeNull();
+    expect(within(row).getByText("demo key")).toBeTruthy();
+  });
+
+  it("shows no demo button, badge or note without demo keys on the server", () => {
+    renderPanel();
+    expect(screen.queryByRole("button", { name: /Sign as/ })).toBeNull();
+    expect(screen.queryByText("demo key")).toBeNull();
+    expect(screen.queryByText(/demo co-signer/)).toBeNull();
+  });
+
+  it("names both demo members in one note, each with its own button, beside the viewer's own Sign", () => {
+    const demoBob = { name: "bob", accountId: "0.0.4103", publicKey: KEY_X } as const;
+    vi.mocked(useDemoSigners).mockReturnValue({ data: [DEMO_ALICE, demoBob] } as never);
+    vi.mocked(useCouncil).mockReturnValue({
+      data: {
+        key: { threshold: 2, memberKeys: [KEY_A, KEY_B, KEY_X] },
+        proposers: [...PROPOSERS, { accountId: "0.0.4103", key: KEY_X }],
+        proposerAccountIds: [],
+        unresolvableProposers: [],
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useCouncil>);
+    renderPanel({ proposal: baseProposal({ progress: { signed: 0, threshold: 2, signedBy: [] } }) });
+    expect(screen.getByRole("button", { name: "Sign with HashPack" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign as Alice" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign as Bob" })).toBeTruthy();
+    expect(
+      screen.getByText("Alice and Bob are demo co-signers: their keys live server-side, testnet only."),
+    ).toBeTruthy();
+  });
+
+  it("offers no demo signature on a proposal nobody may be asked to sign", () => {
+    vi.mocked(useDemoSigners).mockReturnValue({ data: [DEMO_ALICE] } as never);
+    renderPanel({
+      proposal: baseProposal({
+        state: { status: "executed", signatureCount: 2, executedAt: null, expiresAt: null, isSettled: true },
+        progress: { signed: 2, threshold: 2, signedBy: [KEY_A, KEY_B] },
+      }),
+    });
+    expect(screen.queryByRole("button", { name: /Sign as/ })).toBeNull();
+    expect(screen.getByText("demo key")).toBeTruthy();
+  });
+
+  it("offers a rotation's demo signature once, on the current council, for a member of both", () => {
+    vi.mocked(useDemoSigners).mockReturnValue({ data: [DEMO_ALICE] } as never);
+    renderPanel({
+      accountId: null,
+      proposal: baseProposal({
+        operation: {
+          kind: "councilRotation",
+          accountId: GOVERNANCE_ACCOUNT_ID,
+          council: { threshold: 2, memberKeys: [KEY_B, KEY_X] },
+        },
+        incomingProgress: { signed: 0, threshold: 2, signedBy: [] },
+      }),
+    });
+    expect(screen.getAllByRole("button", { name: "Sign as Alice" })).toHaveLength(1);
+    const incoming = screen.getByRole("region", { name: /Incoming council/ });
+    expect(within(incoming).getByText("Signing above counts here too")).toBeTruthy();
+    expect(within(incoming).queryByRole("button", { name: "Sign as Alice" })).toBeNull();
   });
 });

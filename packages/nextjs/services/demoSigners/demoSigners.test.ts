@@ -3,6 +3,7 @@ import {
   awaitsSignatureFrom,
   demoMemberLabel,
   demoMembersToOffer,
+  demoSeatPlan,
   fetchDemoMembers,
   requestDemoSignature,
 } from "./demoSigners";
@@ -88,6 +89,46 @@ describe("awaitsSignatureFrom", () => {
   it("ignores the incoming council on any other kind", () => {
     const facts = { council, operation: TRANSFER, progress: progressOf([]), incomingProgress: null };
     expect(awaitsSignatureFrom(CAROL, facts)).toBe(false);
+  });
+});
+
+describe("demoSeatPlan", () => {
+  it("badges every demo member the council seats, and offers a button to those still owed", () => {
+    const plan = demoSeatPlan([alice, bob], proposalWith({ progress: progressOf([ALICE]) }), council);
+    expect(plan.current).toEqual({ [ALICE]: { member: alice, offer: null }, [BOB]: { member: bob, offer: "sign" } });
+    expect(plan.incoming).toEqual({});
+  });
+
+  it("keeps the badges on a proposal nobody may sign any more", () => {
+    const executed = proposalWith({
+      state: { status: "executed", signatureCount: 2, executedAt: null, expiresAt: null, isSettled: true },
+    });
+    expect(Object.values(demoSeatPlan([alice, bob], executed, council).current).map(({ offer }) => offer)).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  it("leaves out a demo member the council does not seat", () => {
+    expect(demoSeatPlan([alice, bob], proposalWith(), { threshold: 1, memberKeys: [OWNER, ALICE] }).current).toEqual({
+      [ALICE]: { member: alice, offer: "sign" },
+    });
+  });
+
+  it("puts a rotation's button on the current council for a member of both, and on the incoming one otherwise", () => {
+    const current: CouncilKey = { threshold: 2, memberKeys: [OWNER, ALICE] };
+    const incoming: CouncilKey = { threshold: 2, memberKeys: [ALICE, BOB] };
+    const rotation = proposalWith({
+      operation: { kind: "councilRotation", accountId: "0.0.10590498", council: incoming },
+      progress: progressOf([OWNER]),
+      incomingProgress: progressOf([]),
+    });
+    const plan = demoSeatPlan([alice, bob], rotation, current);
+    expect(plan.current).toEqual({ [ALICE]: { member: alice, offer: "sign" } });
+    expect(plan.incoming).toEqual({
+      [ALICE]: { member: alice, offer: "countsAbove" },
+      [BOB]: { member: bob, offer: "sign" },
+    });
   });
 });
 

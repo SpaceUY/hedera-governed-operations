@@ -84,6 +84,44 @@ export function demoMemberLabel(name: DemoMemberName): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+/** A demo member's seat on one council list: the badge always, and what its row offers. */
+export type DemoSeat = { member: DemoMember; offer: "sign" | "countsAbove" | null };
+
+export type DemoSeatPlan = {
+  current: Readonly<Record<string, DemoSeat>>;
+  incoming: Readonly<Record<string, DemoSeat>>;
+};
+
+function seatsOn(
+  members: readonly DemoMember[],
+  council: CouncilKey,
+  offerOf: (member: DemoMember) => DemoSeat["offer"],
+): Record<string, DemoSeat> {
+  return Object.fromEntries(
+    members
+      .filter(member => council.memberKeys.includes(member.publicKey))
+      .map(member => [member.publicKey, { member, offer: offerOf(member) }]),
+  );
+}
+
+/**
+ * Where each demo member sits on the lists a proposal shows, by member key: the current council, and
+ * for a rotation the incoming one too. A member still owed a signature gets the button on the current
+ * list; one signature counts toward both thresholds, so a member of both councils is told so on the
+ * incoming list instead — the same rule the viewer's own Sign follows.
+ */
+export function demoSeatPlan(members: readonly DemoMember[], proposal: Proposal, council: CouncilKey): DemoSeatPlan {
+  const owed = new Set(demoMembersToOffer(members, proposal, council).map(({ publicKey }) => publicKey));
+  const current = seatsOn(members, council, ({ publicKey }) => (owed.has(publicKey) ? "sign" : null));
+  const { operation, incomingProgress } = proposal;
+  if (operation.kind !== "councilRotation" || !incomingProgress) return { current, incoming: {} };
+  const incoming = seatsOn(members, operation.council, ({ publicKey }) => {
+    if (!owed.has(publicKey)) return null;
+    return council.memberKeys.includes(publicKey) ? "countsAbove" : "sign";
+  });
+  return { current, incoming };
+}
+
 function refusalOf(body: unknown): string {
   if (typeof body !== "object" || body === null || !("error" in body)) return "";
   return typeof body.error === "string" ? body.error : "";

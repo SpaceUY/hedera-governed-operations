@@ -85,4 +85,35 @@ describe("ApproverList", () => {
     expect(rows).toHaveLength(4);
     expect(rows[3].textContent).toBe("after the members");
   });
+  it("puts a seat's extra action on a row that is not the viewer's, until that seat signs", () => {
+    const seatExtras = { "key-c": { action: <button type="button">Sign as Bob</button> } };
+    renderList({ seatExtras });
+    const row = screen.getByText("Member key-c…").closest("li")!;
+    expect(within(row).getByRole("button", { name: "Sign as Bob" })).toBeTruthy();
+    cleanup();
+
+    renderList({ seatExtras, progress: { signed: 2, threshold: 2, signedBy: ["key-a", "key-c"] } });
+    expect(screen.queryByRole("button", { name: "Sign as Bob" })).toBeNull();
+  });
+
+  it("lets a seat's extra caption replace the map's", () => {
+    renderList({
+      memberNames: { "key-b": { name: "Bob", caption: "demo co-signer" } },
+      seatExtras: { "key-b": { caption: "demo key" } },
+    });
+    const bob = screen.getByText("Bob").closest("li")!;
+    expect(within(bob).getByText("demo key")).toBeTruthy();
+    expect(within(bob).queryByText("demo co-signer")).toBeNull();
+  });
+
+  it("keeps the viewer's own Sign on the viewer's row, whatever an extra says", () => {
+    renderList({
+      viewerAccountId: "0.0.102",
+      signAction: <button type="button">Sign with HashPack</button>,
+      seatExtras: { "key-b": { action: <button type="button">Sign as Bob</button> } },
+    });
+    const row = screen.getByText("your wallet").closest("li")!;
+    expect(within(row).getByRole("button", { name: "Sign with HashPack" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign as Bob" })).toBeNull();
+  });
 });
