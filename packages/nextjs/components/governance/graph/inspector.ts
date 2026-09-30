@@ -95,7 +95,7 @@ function idRowOf(node: GraphNode, term: string, context: InspectorContext): Insp
 function nodeRows(node: GraphNode, context: InspectorContext): InspectorRow[] {
   const { terms } = MAP_INSPECTOR;
   // A stand-in names no ledger entity, so it has no id to show.
-  if (!node.ref) return [];
+  if (node.standIn) return [];
   if (node.role !== "member") return [idRowOf(node, terms.id, context)];
   const account = accountOfSeat(node, context.proposers);
   const key = { term: terms.key, value: node.ref };

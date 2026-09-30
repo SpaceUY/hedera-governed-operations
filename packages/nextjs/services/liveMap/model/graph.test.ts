@@ -473,7 +473,7 @@ describe("a sketched kind", () => {
     const rest = deriveGraphState(withStandIn);
     expect(rest.nodes.find(node => node.id === RECIPIENT_STAND_IN_NODE_ID)).toMatchObject({
       role: "external",
-      ref: "",
+      standIn: true,
     });
     expect(rest.edges.some(edge => edge.to === RECIPIENT_STAND_IN_NODE_ID)).toBe(false);
 
@@ -485,6 +485,10 @@ describe("a sketched kind", () => {
       edgeIds: [toStandIn],
       hops: [[toStandIn]],
     });
+  });
+
+  it("is found by no ref, since it stands for no ledger entity", () => {
+    expect(nodeIdOfRef(deriveGraphState(withStandIn), "")).toBeUndefined();
   });
 
   it("never sends a decoded payment that credits nobody to the stand-in", () => {

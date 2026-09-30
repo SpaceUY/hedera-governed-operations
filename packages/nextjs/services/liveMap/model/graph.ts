@@ -42,6 +42,11 @@ export type GraphNode = {
   evmAddress?: string;
   /** For a council seat, the account whose key holds it when that account proposes: a payment to it reaches the seat. */
   accountId?: string;
+  /**
+   * Set on the one node that stands for no ledger entity yet: the account a payment would reach before
+   * the form names it (`RECIPIENT_STAND_IN_NODE_ID`). Its `ref` is empty, and no ref ever finds it.
+   */
+  standIn?: true;
   label: string;
   position: Point;
 };
@@ -111,7 +116,7 @@ export type GraphScope = { nodeIds: string[]; edgeIds: string[]; hops: string[][
 
 export const GOVERNANCE_ACCOUNT_NODE_ID = "governanceAccount";
 export const EXECUTOR_NODE_ID = "executor";
-/** The account a payment would reach before the form names it; it stands for no ledger entity, so its `ref` is empty. */
+/** The account a payment would reach before the form names it; see `GraphNode.standIn`. */
 export const RECIPIENT_STAND_IN_NODE_ID = "standIn:recipient";
 
 export const memberNodeId = (key: string): string => `member:${key}`;
@@ -152,10 +157,12 @@ type GraphParts = { nodes: NamedNode[]; edges: GraphEdge[] };
 
 function findNode(nodes: readonly NamedNode[], ref: string): NamedNode | undefined {
   const wanted = spellingsOf(ref);
-  return nodes.find(node =>
-    [node.ref, node.evmAddress, node.accountId]
-      .flatMap(named => (named ? spellingsOf(named) : []))
-      .some(spelling => wanted.includes(spelling)),
+  return nodes.find(
+    node =>
+      !node.standIn &&
+      [node.ref, node.evmAddress, node.accountId]
+        .flatMap(named => (named ? spellingsOf(named) : []))
+        .some(spelling => wanted.includes(spelling)),
   );
 }
 
@@ -195,8 +202,8 @@ type Resolution = { steps: ResolvedRoute; roles: Partial<Record<RouteRole, Endpo
  */
 function recipientsFor(operation: RoutableOperation, refs: string[] | undefined, context: Readonly<GraphParts>) {
   if (operation.kind !== "sketch" || refs?.length) return endpointsFor(refs ?? [], "external", context);
-  const standIn = context.nodes.some(node => node.id === RECIPIENT_STAND_IN_NODE_ID);
-  return standIn ? [{ nodeId: RECIPIENT_STAND_IN_NODE_ID }] : [];
+  const standIn = context.nodes.find(node => node.standIn);
+  return standIn ? [{ nodeId: standIn.id }] : [];
 }
 
 /**
@@ -263,7 +270,9 @@ function structureOf(snapshot: GraphSnapshot): GraphParts {
     { id: EXECUTOR_NODE_ID, role: "executor", ...snapshot.executor },
     ...snapshot.entities.map(({ id, role, ref, evmAddress }) => ({ id, role, ref, evmAddress })),
   ];
-  if (snapshot.recipientStandIn) nodes.push({ id: RECIPIENT_STAND_IN_NODE_ID, role: "external", ref: "" });
+  if (snapshot.recipientStandIn) {
+    nodes.push({ id: RECIPIENT_STAND_IN_NODE_ID, role: "external", ref: "", standIn: true });
+  }
   const edges: GraphEdge[] = [];
   const connect = (from: string, to: string, kind: EdgeKind) => {
     if (!edges.some(edge => edge.id === edgeId(from, to))) edges.push({ id: edgeId(from, to), kind, from, to });

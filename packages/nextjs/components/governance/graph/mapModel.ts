@@ -15,7 +15,6 @@ import {
   type GraphNode,
   type GraphSnapshot,
   type Point,
-  RECIPIENT_STAND_IN_NODE_ID,
   deriveGraphState,
   externalNodeId,
   scopeOf,
@@ -181,8 +180,8 @@ export function composeMap(
  * account a pending proposal introduced — a transfer's recipient — whose id is built from its ref,
  * or the stand-in a layout draws for that recipient before anyone is named.
  */
-export function isIntroducedAccount(node: Pick<GraphNode, "id" | "ref">): boolean {
-  return node.id === externalNodeId(node.ref) || node.id === RECIPIENT_STAND_IN_NODE_ID;
+export function isIntroducedAccount(node: Pick<GraphNode, "id" | "ref" | "standIn">): boolean {
+  return node.standIn === true || node.id === externalNodeId(node.ref);
 }
 
 function withoutHidden(graph: GovernanceGraph, { nodes = [], edges = [] }: HiddenParts): GovernanceGraph {

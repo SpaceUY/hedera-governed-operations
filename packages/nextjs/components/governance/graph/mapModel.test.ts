@@ -84,8 +84,13 @@ describe("composeMap with a recipient's stand-in", () => {
       recipientStandIn: true,
     }));
     const node = standIn(decorated);
-    expect(node).toBeDefined();
-    expect(isIntroducedAccount(node!)).toBe(true);
+    expect(node).toMatchObject({ role: "external", standIn: true });
+    expect(node && isIntroducedAccount(node)).toBe(true);
+  });
+
+  it("recognises the stand-in by its own field, not by its id or an empty ref", () => {
+    expect(isIntroducedAccount({ id: RECIPIENT_STAND_IN_NODE_ID, ref: "" })).toBe(false);
+    expect(isIntroducedAccount({ id: "anything", ref: "", standIn: true })).toBe(true);
   });
 });
 
