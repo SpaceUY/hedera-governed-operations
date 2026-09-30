@@ -17,6 +17,7 @@ import { REST_FRAME } from "~~/services/liveMap/motion/frame";
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
+vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: () => null }));
 vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
 vi.mock("~~/components/governance/rail/useSelectedSchedule", () => ({ useSelectedSchedule: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));

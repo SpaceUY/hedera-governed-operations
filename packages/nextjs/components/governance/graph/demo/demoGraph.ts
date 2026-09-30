@@ -1,11 +1,18 @@
 /**
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
- * node sits, the names "Council account", Alice and Bob, the co-signing agent that is not a member
- * yet, and the inspector's words for them. The seat of whoever is connected is named "You" by the
+ * node sits, the names "Council account", Alice and Bob, the co-signing agent — a ghost until the
+ * council seats it, its seat in the same place after — and the inspector's words for them. The seat of whoever is connected is named "You" by the
  * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
  */
-import type { GhostNode, InspectorCopy, MapContext, MapDecorator, MapRegion } from "../mapModel";
+import {
+  type GhostNode,
+  type InspectorCopy,
+  type MapContext,
+  type MapDecorator,
+  type MapRegion,
+  agentSeatNodeOf,
+} from "../mapModel";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -113,6 +120,9 @@ function coSignerCopy(nodeId: string, { name, subject, possessive }: CoSigner): 
   };
 }
 
+const AGENT_SEAT_COPY =
+  "The co-signing agent's own account, seated by a council rotation. It signs what its written policy allows and publishes every decision to its own topic. It never signs a rotation, so it can neither seat nor unseat anyone.";
+
 const SUPPLIER_COPY =
   "An outside account. The treasury pays it with a native scheduled transfer: same threshold, but no contract, no registry entry and no event.";
 
@@ -129,7 +139,8 @@ function demoAccountIds(): { alice?: string; bob?: string } {
  * keys come with the proposer list; the one remaining seat is the council account `yarn setup` was
  * given (`HEDERA_COUNCIL_ACCOUNT_ID`), named "Council account" — "You" once it is the one connected.
  */
-function demoSeats({ nodes, proposers }: MapContext): { council?: string; alice?: string; bob?: string } {
+function demoSeats(context: MapContext): { council?: string; alice?: string; bob?: string; agent?: string } {
+  const { nodes, proposers } = context;
   const ids = demoAccountIds();
   const seatOf = (accountId: string | undefined) => {
     const key = proposers.find(proposer => proposer.accountId === accountId)?.key;
@@ -137,8 +148,12 @@ function demoSeats({ nodes, proposers }: MapContext): { council?: string; alice?
   };
   const alice = seatOf(ids.alice);
   const bob = seatOf(ids.bob);
-  const others = nodes.filter(node => node.role === "member" && node.id !== alice && node.id !== bob);
-  return { council: others.length === 1 ? others[0].id : undefined, alice, bob };
+  // The agent's own seat, once the council holds it; an agent running on Alice's or Bob's key keeps their name.
+  const agentNode = agentSeatNodeOf(context)?.id;
+  const agent = agentNode === alice || agentNode === bob ? undefined : agentNode;
+  const named = [alice, bob, agent];
+  const others = nodes.filter(node => node.role === "member" && !named.includes(node.id));
+  return { council: others.length === 1 ? others[0].id : undefined, alice, bob, agent };
 }
 
 export const decorateDemoMap: MapDecorator = context => {
@@ -151,7 +166,9 @@ export const decorateDemoMap: MapDecorator = context => {
 
   const seats = demoSeats(context);
   const known = [seats.council, seats.alice, seats.bob].flatMap(nodeId => (nodeId ? [nodeId] : []));
-  const others = context.nodes.filter(node => node.role === "member" && !known.includes(node.id));
+  const others = context.nodes.filter(
+    node => node.role === "member" && !known.includes(node.id) && node.id !== seats.agent,
+  );
   [...known, ...others.map(node => node.id)].forEach((nodeId, slot) => {
     if (MEMBER_SLOTS[slot]) positions[nodeId] = MEMBER_SLOTS[slot];
   });
@@ -160,6 +177,12 @@ export const decorateDemoMap: MapDecorator = context => {
     captions[seats.council] = "proposer";
   }
   const inspector: InspectorCopy = { nodes: { ...INSPECTOR_NODES }, edges: { ...INSPECTOR_EDGES } };
+  // Seated, the agent takes the place its ghost held: the story is the same account joining.
+  if (seats.agent) {
+    positions[seats.agent] = AGENT.position;
+    captions[seats.agent] = "seated by the council";
+    inspector.nodes[seats.agent] = AGENT_SEAT_COPY;
+  }
   const coSigners = [
     [seats.alice, ALICE],
     [seats.bob, BOB],
@@ -191,7 +214,7 @@ export const decorateDemoMap: MapDecorator = context => {
   return {
     layout: { ...SIZE, positions, labels },
     captions,
-    ghosts: [AGENT],
+    ghosts: agentSeatNodeOf(context) ? [] : [AGENT],
     regions: REGIONS,
     inspector,
     hidden: { nodes: hiddenNodes, edges: hiddenEdges },
