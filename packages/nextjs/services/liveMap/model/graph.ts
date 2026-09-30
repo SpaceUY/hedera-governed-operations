@@ -28,8 +28,8 @@ export type NodeRole = "member" | "proposer" | "governanceAccount" | "executor" 
  */
 export type EdgeKind = "authority" | "intent" | "funds";
 
-/** What an edge is doing right now; the graph itself is always at `rest`, the layers above set the rest. */
-export type EdgePhase = "rest" | "preview" | "progress" | "complete" | "failed";
+/** What an edge is doing right now; the graph itself is always at `rest`, the layers above set the rest. `void` is the path a settled proposal never took. */
+export type EdgePhase = "rest" | "preview" | "progress" | "complete" | "failed" | "void";
 
 export type Point = { x: number; y: number };
 
@@ -78,6 +78,12 @@ export type GraphSnapshot = {
    * but the map does not claim to know what it would currently do.
    */
   proposals: Proposal[];
+  /**
+   * The operation the map previews — a draft being written, or the proposal selected in the rail —
+   * whether or not the council could still sign it: a settled transfer still needs its recipient
+   * drawn to show where it went. Absent when nothing is previewed.
+   */
+  previewed?: DecodedOperation | null;
 };
 
 /** Where a demo places and names nodes. Anything it leaves out falls back to `autoLayout` and the node's ref. */
@@ -141,6 +147,11 @@ function findNode(nodes: readonly NamedNode[], ref: string): NamedNode | undefin
       .flatMap(named => (named ? spellingsOf(named) : []))
       .some(spelling => wanted.includes(spelling)),
   );
+}
+
+/** The node standing for a ledger entity, by any spelling of it: a `0.0.x` id, an EVM address in any case, a key. */
+export function nodeIdOfRef(graph: Pick<GovernanceGraph, "nodes">, ref: string): string | undefined {
+  return findNode(graph.nodes, ref)?.id;
 }
 
 /** A role's endpoint: a node the graph has, or a ref it does not know yet. */
@@ -302,6 +313,7 @@ export function deriveGraphState(snapshot: GraphSnapshot, layout: GraphLayout = 
   for (const proposal of snapshot.proposals) {
     if (canShowIntent(proposal)) addIntent(decodedOperationOf(proposal), graph);
   }
+  if (snapshot.previewed) addIntent(snapshot.previewed, graph);
 
   const fallback = autoLayout(graph.nodes, layout);
   return {

@@ -11,14 +11,15 @@ const PHASE_STROKE: Record<EdgePhase, string> = {
   progress: "stroke-warning",
   complete: "stroke-success",
   failed: "stroke-error",
+  void: "stroke-base-content/60",
 };
 
 /**
- * A preview is dashed whatever the edge is; otherwise money moves along a dotted line and authority
- * along a solid one, in the phase's colour.
+ * A preview, and the path a settled proposal never took, are dashed whatever the edge is; otherwise
+ * money moves along a dotted line and authority along a solid one, in the phase's colour.
  */
 function dashOf(kind: EdgeKind, phase: EdgePhase): string {
-  if (phase === "preview") return "[stroke-dasharray:6_5]";
+  if (phase === "preview" || phase === "void") return "[stroke-dasharray:6_5]";
   if (kind === "funds") return "[stroke-dasharray:1_5]";
   return "";
 }

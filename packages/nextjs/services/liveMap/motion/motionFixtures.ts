@@ -6,6 +6,7 @@ import type { MirrorSchedule, MirrorTransaction, ScheduleExecution } from "@sh/c
 import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import { type GraphSnapshot, deriveGraphState } from "~~/services/liveMap/model/graph";
+import type { DecodedOperation } from "~~/services/liveMap/model/proposalRoutes";
 
 export const [ALICE, BOB, CAROL, DAVE] = ["YWxpY2U=", "Ym9i", "Y2Fyb2w=", "ZGF2ZQ=="];
 export const GOVERNANCE = "0.0.4000";
@@ -128,8 +129,8 @@ export function world(proposals: Proposal[], council: CouncilKey = COUNCIL): Gov
   };
 }
 
-/** The graph the map would draw for `shown`. */
-export function graphOf(shown: GovernanceSnapshot) {
+/** The graph the map would draw for `shown`, with the operation it previews, if any. */
+export function graphOf(shown: GovernanceSnapshot, previewed: DecodedOperation | null = null) {
   const snapshot: GraphSnapshot = {
     governanceAccountId: GOVERNANCE,
     executor: { ref: "0.0.5000" },
@@ -137,6 +138,7 @@ export function graphOf(shown: GovernanceSnapshot) {
     proposers: shown.proposers,
     entities: [{ id: "vault", role: "target", ref: "0.0.5001", evmAddress: VAULT_ADDRESS }],
     proposals: shown.proposals,
+    previewed,
   };
   return deriveGraphState(snapshot);
 }

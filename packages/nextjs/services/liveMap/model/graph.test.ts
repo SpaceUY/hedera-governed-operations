@@ -7,7 +7,9 @@ import {
   autoLayout,
   deriveGraphState,
   edgeId,
+  externalNodeId,
   memberNodeId,
+  nodeIdOfRef,
   proposerNodeId,
   scopeOf,
 } from "./graph";
@@ -401,5 +403,50 @@ describe("scopeOf", () => {
 
   it("has no scope when the graph was derived without the proposal that names a new recipient", () => {
     expect(scopeOf(deriveGraphState(SNAPSHOT), transferTo("0.0.9999"))).toBeNull();
+  });
+});
+
+describe("a previewed operation", () => {
+  const SUPPLIER_REF = "0.0.7100";
+  const payment: DecodedOperation = {
+    kind: "treasuryTransfer",
+    hbar: [
+      { accountId: GOVERNANCE, tinybars: -100n },
+      { accountId: SUPPLIER_REF, tinybars: 100n },
+    ],
+    tokens: [],
+  };
+
+  it("adds the entities and edges it would use, though no pending proposal names them", () => {
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: payment });
+    expect(graph.nodes.some(node => node.id === externalNodeId(SUPPLIER_REF))).toBe(true);
+    expect(graph.edges).toContainEqual({
+      id: edgeId(GOVERNANCE_ACCOUNT_NODE_ID, externalNodeId(SUPPLIER_REF)),
+      kind: "intent",
+      from: GOVERNANCE_ACCOUNT_NODE_ID,
+      to: externalNodeId(SUPPLIER_REF),
+    });
+  });
+
+  it("adds nothing for a body nobody can describe", () => {
+    const plain = deriveGraphState(SNAPSHOT);
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: { kind: "unrecognized", reason: "test" } });
+    expect(graph).toEqual(plain);
+  });
+});
+
+describe("nodeIdOfRef", () => {
+  const graph = deriveGraphState(SNAPSHOT);
+
+  it("finds a node by its id, its long-zero address or its EVM address in any case", () => {
+    expect(nodeIdOfRef(graph, "0.0.5001")).toBe("vault");
+    expect(nodeIdOfRef(graph, VAULT_ADDRESS.toLowerCase())).toBe("vault");
+    expect(nodeIdOfRef(graph, TOKEN_ADDRESS)).toBe("token");
+    expect(nodeIdOfRef(graph, TOKEN)).toBe("token");
+  });
+
+  it("finds a council seat by its key, and nothing for an entity the graph lacks", () => {
+    expect(nodeIdOfRef(graph, ALICE)).toBe(memberNodeId(ALICE));
+    expect(nodeIdOfRef(graph, "0.0.99999")).toBeUndefined();
   });
 });
