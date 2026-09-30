@@ -309,16 +309,19 @@ body be the evidence the memo is not. Matching a selector says nothing about the
 and `CryptoUpdate` carries around twenty fields besides the key — the account's own expiry, its
 automatic association slots, its staking — so a rotation that quietly also set one of those would be
 approved as "changes who approves". The bodies that can carry more than one operation are checked by
-re-encoding what was understood and comparing it against what arrived.
+re-encoding what was understood and comparing it against what arrived. The one field a rotation may
+carry besides the key is the account's memo, and only when it names the proposed council's rule —
+`buildCouncilRotation` rewrites it so the account never describes a council it no longer has; any
+other text is a rename riding along with the key and leaves the body unrecognised.
 
 **An entity named by an address stays an address.** A contract or an account can arrive as an EVM
 address or a key alias rather than a number, and converting one to the other needs the Mirror Node.
 Reading only the number would render every one of them as `0.0.0`, which is a real account and the
 wrong one, so the address is carried through and the cross-check matches a contract in either form.
 
-**The memo is never read back.** It is free text written by whoever opened the proposal, so it can
-say "upgrade" over a body that moves the treasury somewhere else. It is a label for a human scanning
-HashScan, and the decoded body is the evidence.
+**The schedule's memo is never read back.** It is free text written by whoever opened the
+proposal, so it can say "upgrade" over a body that moves the treasury somewhere else. It is a label
+for a human scanning HashScan, and the decoded body is the evidence.
 
 **A selector names an operation; it does not prove a target.** The decoder classifies by function
 selector alone, so the target always travels with the answer. Gating on it — refusing to approve a
