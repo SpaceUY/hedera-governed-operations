@@ -15,6 +15,7 @@ import {
   GOVERNANCE_ACCOUNT_NODE_ID,
   type GovernanceGraph,
   nodeIdOfRef,
+  roleNodesOf,
   scopeOf,
 } from "~~/services/liveMap/model/graph";
 import {
@@ -44,14 +45,29 @@ function councilOf(graph: GovernanceGraph, council: CouncilKey) {
   return { nodeIds: [GOVERNANCE_ACCOUNT_NODE_ID, ...seats], edgeIds: lines.map(edge => edge.id) };
 }
 
+type NodeWords = { id: string; text: string };
+
+/** The words on each node: by the entity an operation names, or by the role a sketch's words belong to. */
+function wordsOf(graph: GovernanceGraph, { operation }: MapPreview, context: PreviewContext): NodeWords[] {
+  if (operation.kind === "sketch") {
+    const roles = roleNodesOf(graph, operation);
+    return operation.words.flatMap(({ role, text }) => (roles[role] ?? []).map(id => ({ id, text })));
+  }
+  return previewLabelsOf(operation, context).flatMap(({ ref, text }) => {
+    const id = nodeIdOfRef(graph, ref);
+    return id ? [{ id, text }] : [];
+  });
+}
+
 function labelsOn(graph: GovernanceGraph, nodeIds: readonly string[], preview: MapPreview, context: PreviewContext) {
   const labels: Partial<Record<string, string>> = {};
-  for (const { ref, text } of previewLabelsOf(preview.operation, context)) {
-    const id = nodeIdOfRef(graph, ref);
-    if (id && nodeIds.includes(id)) labels[id] = text;
+  for (const { id, text } of wordsOf(graph, preview, context)) {
+    if (nodeIds.includes(id)) labels[id] = text;
   }
   return labels;
 }
+
+const kindOf = ({ operation }: MapPreview) => (operation.kind === "sketch" ? operation.of : operation.kind);
 
 /** A void proposal's round ended without running, so its ring is empty like its muted path. */
 function ringOf({ mode, progress }: MapPreview, council: CouncilKey): MapFrame["ring"] {
@@ -67,7 +83,7 @@ export function previewFrameOf(preview: MapPreview | null, { graph, world, conte
 
   const council = councilOf(graph, world.council);
   const arcId =
-    isContractProposalKind(preview.operation.kind) && preview.proposerAccountId
+    isContractProposalKind(kindOf(preview)) && preview.proposerAccountId
       ? proposerArc(graph, world, preview.proposerAccountId)
       : undefined;
   const arc = graph.edges.find(edge => edge.id === arcId);

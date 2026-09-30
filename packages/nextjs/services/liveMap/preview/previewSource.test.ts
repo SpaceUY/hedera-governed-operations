@@ -1,4 +1,12 @@
-import { draftPreviewOf, previewModeOf, previewTargetKey, previewTargetOf, selectedPreviewOf } from "./previewSource";
+import { SKETCH_CONTEXT } from "./kinds/previewFixtures";
+import {
+  draftPreviewOf,
+  previewModeOf,
+  previewTargetKey,
+  previewTargetOf,
+  selectedPreviewOf,
+  sketchPreviewOf,
+} from "./previewSource";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { type MirrorTransaction, type ScheduleExecution } from "@sh/core/mirror";
 import { describe, expect, it } from "vitest";
@@ -118,5 +126,18 @@ describe("draftPreviewOf", () => {
     expect(small?.key).toBe("draft:treasuryTransfer");
     expect(large?.key).toBe(small?.key);
     expect(large).toMatchObject({ mode: "live", progress: null, proposerAccountId: null });
+  });
+});
+
+describe("sketchPreviewOf", () => {
+  it("previews a picked kind live, keyed like its draft, so filling the form in crossfades rather than redraws", () => {
+    const sketch = sketchPreviewOf("treasuryTransfer", SKETCH_CONTEXT, "0.0.4101");
+    const draft = draftPreviewOf(
+      previewDraft(draftTreasuryTransfer(GOVERNANCE, { recipientAccountId: SUPPLIER, amount: "1" })),
+      null,
+    );
+    expect(sketch).toMatchObject({ mode: "live", progress: null, proposerAccountId: "0.0.4101" });
+    expect(sketch.operation).toMatchObject({ kind: "sketch", of: "treasuryTransfer" });
+    expect(sketch.key).toBe(draft?.key);
   });
 });

@@ -1,4 +1,4 @@
-import { NEXT_RELEASE, PREVIEW_CONTEXT, VAULT } from "./previewFixtures";
+import { NEXT_RELEASE, PREVIEW_CONTEXT, SKETCH_CONTEXT, VAULT, VAULT_ID } from "./previewFixtures";
 import { UPGRADE_PREVIEW } from "./upgrade";
 import { describe, expect, it } from "vitest";
 
@@ -21,5 +21,12 @@ describe("UPGRADE_PREVIEW", () => {
     expect(UPGRADE_PREVIEW.labels(upgradeTo("0x00000000000000000000000000000000000000b1"), PREVIEW_CONTEXT)).toEqual([
       { ref: VAULT, text: "would be upgraded" },
     ]);
+  });
+
+  it("sketches the way to the configured vault, which would be upgraded, before the form names a release", () => {
+    expect(UPGRADE_PREVIEW.sketch(SKETCH_CONTEXT)).toEqual({
+      refs: { subject: [VAULT_ID] },
+      words: [{ role: "subject", text: "would be upgraded" }],
+    });
   });
 });

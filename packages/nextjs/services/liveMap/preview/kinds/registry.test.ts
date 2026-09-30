@@ -1,5 +1,5 @@
-import { PREVIEW_CONTEXT } from "./previewFixtures";
-import { PREVIEW_KINDS, previewLabelsOf } from "./registry";
+import { PREVIEW_CONTEXT, SKETCH_CONTEXT, VAULT_ID } from "./previewFixtures";
+import { PREVIEW_KINDS, previewLabelsOf, sketchOf } from "./registry";
 import { describe, expect, it } from "vitest";
 
 describe("PREVIEW_KINDS", () => {
@@ -18,5 +18,14 @@ describe("PREVIEW_KINDS", () => {
       account: null,
     };
     expect(previewLabelsOf(pause, PREVIEW_CONTEXT)).toEqual([{ ref: pause.token, text: "would be paused" }]);
+  });
+
+  it("sketches a picked kind through its own module", () => {
+    expect(sketchOf("upgrade", SKETCH_CONTEXT)).toEqual({
+      kind: "sketch",
+      of: "upgrade",
+      refs: { subject: [VAULT_ID] },
+      words: [{ role: "subject", text: "would be upgraded" }],
+    });
   });
 });

@@ -1,11 +1,13 @@
+import { SKETCH_CONTEXT } from "./kinds/previewFixtures";
 import type { PreviewContext } from "./kinds/previewKind";
 import { paneFrameOf, previewFrameOf } from "./previewFrame";
-import { type MapPreview, selectedPreviewOf } from "./previewSource";
+import { type MapPreview, selectedPreviewOf, sketchPreviewOf } from "./previewSource";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { describe, expect, it } from "vitest";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  RECIPIENT_STAND_IN_NODE_ID,
   deriveGraphState,
   edgeId,
   externalNodeId,
@@ -17,6 +19,8 @@ import {
   BOB,
   CAROL,
   DAVE,
+  GOVERNANCE,
+  PROPOSERS,
   ROTATION,
   SUCCEEDED,
   SUPPLIER,
@@ -120,6 +124,40 @@ describe("previewFrameOf", () => {
     const frame = previewFrameOf(preview, { graph: GRAPH, world: SHOWN, context: CONTEXT });
     expect(frame.phases).toEqual({ [TO_REGISTRY]: "void", [TO_VAULT]: "void" });
     expect(frame.ring).toBeNull();
+  });
+});
+
+describe("previewFrameOf a picked kind", () => {
+  const sketchGraph = (preview: MapPreview, recipientStandIn = false) =>
+    deriveGraphState({
+      governanceAccountId: GOVERNANCE,
+      executor: { ref: "0.0.5000" },
+      council: SHOWN.council,
+      proposers: PROPOSERS,
+      entities: [...SKETCH_CONTEXT.entities],
+      proposals: [],
+      previewed: preview.operation,
+      recipientStandIn,
+    });
+
+  it("draws the kind's way dashed through the configured vault, with words that need no form", () => {
+    const sketch = sketchPreviewOf("upgrade", SKETCH_CONTEXT, null);
+    const frame = previewFrameOf(sketch, { graph: sketchGraph(sketch), world: world([]), context: CONTEXT });
+    expect(frame.phases).toEqual({ [TO_REGISTRY]: "preview", [TO_VAULT]: "preview" });
+    expect(frame.labels).toEqual({ vault: "would be upgraded" });
+    expect(frame.drawKey).toBe("draft:upgrade");
+  });
+
+  it("sends a payment nobody is named for yet to the recipient's stand-in, which would receive a payment", () => {
+    const sketch = sketchPreviewOf("treasuryTransfer", SKETCH_CONTEXT, null);
+    const frame = previewFrameOf(sketch, { graph: sketchGraph(sketch, true), world: world([]), context: CONTEXT });
+    expect(frame.phases).toEqual({ [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID)]: "preview" });
+    expect(frame.labels).toEqual({ [RECIPIENT_STAND_IN_NODE_ID]: "would receive a payment" });
+  });
+
+  it("draws nothing for that payment on a map with no stand-in", () => {
+    const sketch = sketchPreviewOf("treasuryTransfer", SKETCH_CONTEXT, null);
+    expect(previewFrameOf(sketch, { graph: sketchGraph(sketch), world: world([]), context: CONTEXT })).toBe(REST_FRAME);
   });
 });
 

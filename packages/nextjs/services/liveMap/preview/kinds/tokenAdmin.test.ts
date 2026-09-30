@@ -1,4 +1,4 @@
-import { PREVIEW_CONTEXT } from "./previewFixtures";
+import { KNOWN_TOKEN, PREVIEW_CONTEXT, SKETCH_CONTEXT, TOKEN_ADMIN_ID } from "./previewFixtures";
 import { TOKEN_ADMIN_PREVIEW } from "./tokenAdmin";
 import type { TokenAdminOperation } from "@sh/core/governance/proposalTypes";
 import { describe, expect, it } from "vitest";
@@ -20,5 +20,12 @@ describe("TOKEN_ADMIN_PREVIEW", () => {
     ["unfreeze", "would unfreeze 1 account"],
   ] as const)("%s puts “%s” on the token", (operation, text) => {
     expect(TOKEN_ADMIN_PREVIEW.labels(act(operation), PREVIEW_CONTEXT)).toEqual([{ ref: TOKEN, text }]);
+  });
+
+  it("sketches the way through the configured Token admin to the token, saying nothing until an action is picked", () => {
+    expect(TOKEN_ADMIN_PREVIEW.sketch(SKETCH_CONTEXT)).toEqual({
+      refs: { subject: [TOKEN_ADMIN_ID], token: [KNOWN_TOKEN] },
+      words: [],
+    });
   });
 });

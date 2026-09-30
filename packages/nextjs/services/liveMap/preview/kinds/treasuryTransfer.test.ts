@@ -1,4 +1,4 @@
-import { GOVERNANCE, KNOWN_TOKEN, PREVIEW_CONTEXT, SUPPLIER } from "./previewFixtures";
+import { GOVERNANCE, KNOWN_TOKEN, PREVIEW_CONTEXT, SKETCH_CONTEXT, SUPPLIER } from "./previewFixtures";
 import { TREASURY_TRANSFER_PREVIEW } from "./treasuryTransfer";
 import { describe, expect, it } from "vitest";
 
@@ -45,5 +45,12 @@ describe("TREASURY_TRANSFER_PREVIEW", () => {
     expect(TREASURY_TRANSFER_PREVIEW.labels(pay, PREVIEW_CONTEXT)).toEqual([
       { ref: SUPPLIER, text: "would receive a payment" },
     ]);
+  });
+
+  it("sketches a payment to whoever the form will name, which would receive a payment", () => {
+    expect(TREASURY_TRANSFER_PREVIEW.sketch(SKETCH_CONTEXT)).toEqual({
+      refs: {},
+      words: [{ role: "recipient", text: "would receive a payment" }],
+    });
   });
 });

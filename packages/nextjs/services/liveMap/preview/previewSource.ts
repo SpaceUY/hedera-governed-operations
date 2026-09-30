@@ -5,7 +5,9 @@
  * `void` once its round ended without running (muted dashes) — and not at all when its body, or the
  * registry entry it runs, cannot be described: the map never claims to know what it does not.
  */
-import type { KnownOperation } from "./kinds/previewKind";
+import type { KnownOperation, PreviewSketch, SketchContext } from "./kinds/previewKind";
+import { sketchOf } from "./kinds/registry";
+import type { ProposalKind } from "@sh/core/governance/proposalTypes";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import type { DraftPreview } from "~~/services/governance/drafts";
@@ -41,7 +43,8 @@ export function previewModeOf(proposal: Proposal): PreviewMode | null {
 export type MapPreview = {
   /** Changes with the selection or the draft's kind, and restarts the dashed drawing when it does. */
   key: string;
-  operation: KnownOperation;
+  /** What is previewed: a decoded operation, or a kind picked in the wizard whose form holds none yet. */
+  operation: KnownOperation | PreviewSketch;
   mode: PreviewMode;
   /** Who registered a contract proposal — its creator, or the connected account for a draft — for its PROPOSER_ROLE arc. */
   proposerAccountId: string | null;
@@ -68,4 +71,17 @@ export function draftPreviewOf(preview: DraftPreview, proposerAccountId: string 
   const operation = preview.path === "native" ? preview.scheduled : preview.operation;
   if (operation.kind === "unrecognized" || operation.kind === "registryCall") return null;
   return { key: `draft:${preview.kind}`, operation, mode: "live", proposerAccountId, progress: null };
+}
+
+/**
+ * A kind picked in the wizard before its form holds an operation: its way through the map, with no
+ * amount or recipient. Keyed like the draft it becomes, so filling the form in crossfades the words
+ * rather than redrawing the path.
+ */
+export function sketchPreviewOf(
+  kind: ProposalKind,
+  context: SketchContext,
+  proposerAccountId: string | null,
+): MapPreview {
+  return { key: `draft:${kind}`, operation: sketchOf(kind, context), mode: "live", proposerAccountId, progress: null };
 }

@@ -12,7 +12,10 @@ function tokenAmount(tokenId: string, amount: bigint, { tokenOf }: PreviewContex
   return token ? `${formatUnits(amount, token.decimals)} ${token.symbol}` : null;
 }
 
-/** On every credited account: what it would receive. The debited side is the treasury, which says nothing. */
+/**
+ * On every credited account: what it would receive. The debited side is the treasury, which says
+ * nothing. A sketch names no recipient — that is the form's — and says only that one would be paid.
+ */
 export const TREASURY_TRANSFER_PREVIEW: PreviewKind<"treasuryTransfer"> = {
   labels: (operation, context) => {
     const credited: Movement[] = [
@@ -29,4 +32,5 @@ export const TREASURY_TRANSFER_PREVIEW: PreviewKind<"treasuryTransfer"> = {
       return { ref, text: amounts.length > 0 ? `${WORDS.receives} ${amounts.join(" and ")}` : WORDS.unnamedAmount };
     });
   },
+  sketch: () => ({ refs: {}, words: [{ role: "recipient", text: WORDS.unnamedAmount }] }),
 };
