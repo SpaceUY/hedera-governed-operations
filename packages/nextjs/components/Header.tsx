@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useRef } from "react";
-import Image from "next/image";
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bars3Icon, Cog6ToothIcon, MapIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon } from "@heroicons/react/24/outline";
 import { MirrorPollStatus } from "~~/components/MirrorPollStatus";
 import { SwitchTheme } from "~~/components/SwitchTheme";
 import { WalletConnectButton } from "~~/components/scaffold-hbar";
@@ -14,20 +13,11 @@ import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-hbar";
 type HeaderMenuLink = {
   label: string;
   href: string;
-  icon?: React.ReactNode;
 };
 
 export const menuLinks: HeaderMenuLink[] = [
-  {
-    label: "Live map",
-    href: GOVERNANCE_ROUTES.home,
-    icon: <MapIcon className="h-4 w-4" />,
-  },
-  {
-    label: "Settings",
-    href: GOVERNANCE_ROUTES.settings,
-    icon: <Cog6ToothIcon className="h-4 w-4" />,
-  },
+  { label: "Live map", href: GOVERNANCE_ROUTES.home },
+  { label: "Settings", href: GOVERNANCE_ROUTES.settings },
 ];
 
 /** The live map owns `/` and every `/governance/…` route, so its link stays lit on a proposal or the wizard. */
@@ -41,19 +31,18 @@ export const HeaderMenuLinks = () => {
 
   return (
     <>
-      {menuLinks.map(({ label, href, icon }) => {
+      {menuLinks.map(({ label, href }) => {
         const isActive = isMenuLinkActive(href, pathname);
         return (
           <li key={href}>
             <Link
               href={href}
-              passHref
+              aria-current={isActive ? "page" : undefined}
               className={`${
-                isActive ? "bg-primary/10 text-primary font-semibold" : "hover:bg-primary/5"
-              } py-1.5 px-3 text-sm rounded-full gap-2 grid grid-flow-col transition-colors`}
+                isActive ? "bg-hedera-smoke/15 text-base-content" : "text-base-content/60 hover:text-base-content"
+              } rounded-full px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
             >
-              {icon}
-              <span>{label}</span>
+              {label}
             </Link>
           </li>
         );
@@ -61,6 +50,14 @@ export const HeaderMenuLinks = () => {
     </>
   );
 };
+
+/** The hashgraph glyph beside the product name: a circle around two rails and two ties. */
+const BrandMark = () => (
+  <svg viewBox="0 0 24 24" aria-hidden className="h-6 w-6 shrink-0 fill-none stroke-hedera-ultraviolet stroke-2">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M7 9.5h10M7 14.5h10M9.5 6v12M14.5 6v12" />
+  </svg>
+);
 
 /**
  * Site header
@@ -73,11 +70,10 @@ export const Header = () => {
   });
 
   return (
-    <div className="sticky lg:static top-0 navbar bg-base-100/95 backdrop-blur min-h-0 shrink-0 justify-between z-20 shadow-sm border-b border-base-300 px-0 sm:px-2">
-      <div className="absolute inset-x-0 top-0 h-0.5 hedera-gradient" />
-      <div className="navbar-start w-auto lg:w-1/2">
-        <details className="dropdown" ref={burgerMenuRef}>
-          <summary className="ml-1 btn btn-ghost lg:hidden hover:bg-transparent">
+    <div className="sticky lg:static top-0 navbar h-16 min-h-0 py-0 bg-base-100/95 backdrop-blur shrink-0 justify-between z-20 border-b border-base-300 px-1 sm:px-2 lg:px-6">
+      <div className="navbar-start w-auto lg:w-1/2 gap-1 lg:gap-7">
+        <details className="dropdown lg:hidden" ref={burgerMenuRef}>
+          <summary className="btn btn-ghost hover:bg-transparent">
             <Bars3Icon className="h-1/2" />
           </summary>
           <ul
@@ -89,27 +85,24 @@ export const Header = () => {
             <HeaderMenuLinks />
           </ul>
         </details>
-        <Link href="/" passHref className="flex items-center gap-3 ml-3 lg:ml-4 mr-4 lg:mr-6 shrink-0">
-          <div className="flex relative w-9 h-9">
-            <Image alt="Hedera icon" className="cursor-pointer dark:hidden" fill src="/Hedera-Icon-Dark.svg" />
-            <Image alt="Hedera icon" className="cursor-pointer hidden dark:block" fill src="/Hedera-Icon-White.svg" />
-          </div>
-          <div className="hidden sm:flex flex-col">
-            <span className="font-bold leading-tight text-base">Governed Operations</span>
-            <span className="hidden md:block text-[10px] tracking-wider uppercase text-base-content/50 font-medium">
-              Council-Approved Hedera Demo
-            </span>
-          </div>
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2.5 rounded-full text-base font-bold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >
+          <BrandMark />
+          <span className="sr-only sm:not-sr-only">Governed Operations</span>
         </Link>
-        <ul className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">
+        <ul className="hidden lg:flex items-center gap-1">
           <HeaderMenuLinks />
         </ul>
       </div>
-      <div className="navbar-end grow mr-4 gap-3">
+      <div className="navbar-end grow mr-2 gap-3 lg:mr-0">
         <div className="hidden md:flex">
           <MirrorPollStatus />
         </div>
-        <span className="badge badge-outline hidden sm:inline-flex whitespace-nowrap">{targetNetwork.name}</span>
+        <span className="hidden sm:inline-flex items-center rounded-full border border-base-content/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-base-content/60">
+          {targetNetwork.name}
+        </span>
         <SwitchTheme />
         <WalletConnectButton />
       </div>
