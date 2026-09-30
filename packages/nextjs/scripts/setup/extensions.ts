@@ -15,7 +15,7 @@ import { GOVERNANCE_LOW_BALANCE_HBAR, createGovernanceActions, createGovernanceL
 import type { MirrorLookups } from "./reconcile";
 import { formatSteps } from "./report";
 import { reconcileSeedProposal } from "./seedProposal";
-import { AGENT_SEAT, type SetupState } from "./state";
+import { AGENT_ACCOUNT, type SetupState } from "./state";
 import { reconcileTreasuryAssociation } from "./treasuryAssociation";
 import type { Client } from "@hiero-ledger/sdk";
 import deployedContracts from "~~/contracts/deployedContracts";
@@ -54,10 +54,13 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
   const releaseTopicId = await reconcileSignedTopic(ctx.state.releaseTopicId, "Release topic", {
     isSigned: services.lookups.topicIsSigned,
     create: services.actions.createReleaseTopic,
+    flaw: "takes messages from anyone",
   });
+  const agentPublicKey = agentAccountPublicKey(ctx.state);
   const decisionTopicId = await reconcileSignedTopic(ctx.state.decisionTopicId, "Agent decision topic", {
-    isSigned: services.lookups.topicIsSigned,
-    create: () => services.actions.createDecisionTopic(agentSeatPublicKey(ctx.state)),
+    isSigned: topicId => services.lookups.topicIsHeldBy(topicId, agentPublicKey),
+    create: () => services.actions.createDecisionTopic(agentPublicKey),
+    flaw: "does not take messages from the agent's key alone",
   });
   const topics = { releaseTopicId, decisionTopicId };
   const { governance, proposers, step } = await reconcileGovernance({ ...ctx.state, ...topics }, env, services);
@@ -108,28 +111,33 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
 export async function reconcileSignedTopic(
   existing: string | undefined,
   subject: string,
-  services: { isSigned(topicId: string): Promise<boolean>; create(): Promise<string> },
+  services: {
+    isSigned(topicId: string): Promise<boolean>;
+    create(): Promise<string>;
+    /** What is wrong with a topic that cannot be reused, for the line that says it is being replaced. */
+    flaw: string;
+  },
 ): Promise<string> {
   const reusable = existing !== undefined && (await services.isSigned(existing));
   const topicId = reusable ? existing : await services.create();
   const outcome = reusable ? "reused" : "created";
   if (!reusable && existing !== undefined) {
-    console.log(`  ${subject} ${existing} takes messages from anyone; replacing it with a topic that does not.`);
+    console.log(`  ${subject} ${existing} ${services.flaw}; replacing it with a new one.`);
   }
   console.log(formatSteps([{ label: `${subject} ${topicId}`, outcome }]).join("\n"));
   return topicId;
 }
 
-/** The demo account whose seat the agent votes with, and whose key holds the decision topic. */
-function agentSeatPublicKey(state: SetupState): string {
-  const seat = state.demoAccounts[AGENT_SEAT];
-  if (!seat) {
+/** The agent's own demo account, whose key holds the decision topic. */
+function agentAccountPublicKey(state: SetupState): string {
+  const agent = state.demoAccounts[AGENT_ACCOUNT];
+  if (!agent) {
     throw new Error(
-      `The agent's decision topic is held by the key of demo account ${AGENT_SEAT} and the state has none; ` +
+      `The agent's decision topic is held by the key of demo account ${AGENT_ACCOUNT} and the state has none; ` +
         "it is created by the core reconcile, before this runs",
     );
   }
-  return seat.publicKey;
+  return agent.publicKey;
 }
 
 function deployNextMessage(missing: string[]): string[] {
