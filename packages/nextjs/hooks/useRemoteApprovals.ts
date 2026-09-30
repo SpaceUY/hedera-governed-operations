@@ -48,8 +48,9 @@ export function openedScheduleIdOf(data: unknown): string | undefined {
  * Calls `onRemote` for every approval a read reports that did not come from this session: a council
  * member signing from another device, the co-signing agent, anyone. What this session sent is read
  * from its own mutations in the query cache — signing, asking the server to sign for a demo co-signer,
- * and opening a proposal, whose creator's approval arrives with it — so nothing here keeps state about the ledger. Each approval is judged
- * once, when it is first seen, so a mutation that resolves or expires later never re-announces it.
+ * and opening a proposal, whose creator's approval arrives with it — so nothing here keeps state about
+ * the ledger. Each approval is judged once, when it is first seen, so a mutation that resolves or
+ * expires later never re-announces it.
  * Which approvals are the connected account's is told by its key, read once from the Mirror Node.
  */
 export function useRemoteApprovals({ events, world, network, onRemote }: RemoteApprovalsInput) {

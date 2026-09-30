@@ -37,7 +37,7 @@ import type { DemoSignErrorResponse, DemoSignResponse, DemoSignersResponse } fro
 /** Never prerendered: what it answers depends on the state file and the ledger at request time. */
 export const dynamic = "force-dynamic";
 
-/** The media type alone, so `application/json; charset=utf-8` passes and `multipart/form-data; x=application/json` does not. */
+/** The media type alone: `application/json; charset=utf-8` passes, `multipart/form-data; x=application/json` does not. */
 const isJsonRequest = (req: Request): boolean =>
   req.headers.get("content-type")?.split(";")[0].trim().toLowerCase() === "application/json";
 

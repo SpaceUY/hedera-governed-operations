@@ -6,7 +6,7 @@ import { useAccount } from "~~/hooks/mirror/useAccount";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
-import { useDemoSign, useDemoSigners } from "~~/hooks/useDemoSigners";
+import { useDemoSign, useDemoSignatureSent, useDemoSigners } from "~~/hooks/useDemoSigners";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { useWithdrawProposal } from "~~/hooks/useWithdrawProposal";
 import { UNREACHABLE_REGISTRY_SIGN_WARNING } from "~~/services/governance/proposalLabels";
@@ -20,7 +20,11 @@ vi.mock("~~/hooks/useCancelProposalFlow", () => ({
 }));
 vi.mock("~~/hooks/useWithdrawProposal", () => ({ useWithdrawProposal: vi.fn() }));
 vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: vi.fn() }));
-vi.mock("~~/hooks/useDemoSigners", () => ({ useDemoSigners: vi.fn(), useDemoSign: vi.fn() }));
+vi.mock("~~/hooks/useDemoSigners", () => ({
+  useDemoSigners: vi.fn(),
+  useDemoSign: vi.fn(),
+  useDemoSignatureSent: vi.fn(),
+}));
 
 const GOVERNANCE_ACCOUNT_ID = "0.0.4000";
 const EXECUTOR_CONTRACT_ID = "0.0.5000";
@@ -91,6 +95,7 @@ function mockHooks() {
   } as unknown as ReturnType<typeof useProposals>);
   vi.mocked(useCoSigningAgent).mockReturnValue(null);
   vi.mocked(useDemoSigners).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useDemoSigners>);
+  vi.mocked(useDemoSignatureSent).mockReturnValue(false);
   vi.mocked(useDemoSign).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
@@ -354,6 +359,7 @@ describe("ProposalDetailPanel", () => {
     expect(screen.getByText("Scheduled transaction · SUCCESS")).toBeTruthy();
     expect(screen.queryByText("There is no reject button.")).toBeNull();
   });
+
   const DEMO_ALICE = { name: "alice", accountId: MEMBER_B, publicKey: KEY_B } as const;
 
   it("puts Sign as Alice on Alice's row with a demo key badge, and says where her key lives", () => {

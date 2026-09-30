@@ -1,5 +1,6 @@
 import { DemoSignButton } from "./DemoSignButton";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryWrapper, jsonResponse } from "~~/hooks/mirror/testUtils";
 import type { DemoMember } from "~~/services/demoSigners/demoSigners";
@@ -7,9 +8,9 @@ import type { DemoMember } from "~~/services/demoSigners/demoSigners";
 const ALICE: DemoMember = { name: "alice", accountId: "0.0.11", publicKey: "QUxJQ0U=" };
 const fetchMock = vi.fn();
 
-function renderButton(onSigned = vi.fn()) {
+function renderButton(onSigned = vi.fn(), client = new QueryClient()) {
   render(<DemoSignButton scheduleId="0.0.9001" member={ALICE} onSigned={onSigned} />, {
-    wrapper: createQueryWrapper(),
+    wrapper: createQueryWrapper(client),
   });
   return onSigned;
 }
@@ -33,8 +34,11 @@ describe("DemoSignButton", () => {
     fetchMock.mockResolvedValue(jsonResponse({ transactionId: "0.0.11@1.1" }));
     const onSigned = renderButton();
     const button = screen.getByRole("button", { name: "Sign as Alice" });
-    fireEvent.click(button);
-    fireEvent.click(button);
+    // Both presses land before React has rendered the first one's pending state.
+    act(() => {
+      button.click();
+      button.click();
+    });
 
     await waitFor(() => expect(onSigned).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -54,7 +58,19 @@ describe("DemoSignButton", () => {
     expect((screen.getByRole("button", { name: "Sign as Alice" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("lets the member press again after a refusal, and only then", async () => {
+  it("stays disabled when the button is mounted again while the signature is still not listed", async () => {
+    fetchMock.mockImplementation(async () => jsonResponse({ transactionId: "0.0.11@1.1" }));
+    const client = new QueryClient();
+    const onSigned = renderButton(vi.fn(), client);
+    fireEvent.click(screen.getByRole("button", { name: "Sign as Alice" }));
+    await waitFor(() => expect(onSigned).toHaveBeenCalledTimes(1));
+    cleanup();
+
+    renderButton(vi.fn(), client);
+    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("lets the member press again after a refusal", async () => {
     fetchMock.mockImplementation(async () =>
       jsonResponse({ error: "The registry could not be read. Try again." }, 502),
     );

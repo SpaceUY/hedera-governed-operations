@@ -1,5 +1,5 @@
 import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
-import { useDemoSign, useDemoSigners } from "./useDemoSigners";
+import { useDemoSign, useDemoSignatureSent, useDemoSigners } from "./useDemoSigners";
 import { QueryClient, partialMatchKey } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,5 +54,33 @@ describe("useDemoSign", () => {
 
   it("is not matched by the wallet signature's key, so the sign filters never pick it up", () => {
     expect(partialMatchKey([...GOVERNANCE_MUTATION_KEYS.signAs], [...GOVERNANCE_MUTATION_KEYS.sign])).toBe(false);
+  });
+});
+
+describe("useDemoSignatureSent", () => {
+  const sentFor = (client: QueryClient, scheduleId: string, memberKey: string) =>
+    renderHook(() => useDemoSignatureSent(scheduleId, memberKey), { wrapper: createQueryWrapper(client) });
+
+  it("knows a signature sent from this session for that schedule and seat only, and not one that failed", async () => {
+    const client = new QueryClient();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ transactionId: "0.0.11@1.1" }));
+    const { result } = renderHook(() => useDemoSign(), { wrapper: createQueryWrapper(client) });
+    await act(() =>
+      result.current.mutateAsync({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey }),
+    );
+
+    expect(sentFor(client, "0.0.9001", ALICE.publicKey).result.current).toBe(true);
+    expect(sentFor(client, "0.0.9002", ALICE.publicKey).result.current).toBe(false);
+    expect(sentFor(client, "0.0.9001", "Qk9C").result.current).toBe(false);
+
+    const failing = new QueryClient();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "no" }, 409));
+    const second = renderHook(() => useDemoSign(), { wrapper: createQueryWrapper(failing) });
+    await act(() =>
+      second.result.current
+        .mutateAsync({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey })
+        .catch(() => undefined),
+    );
+    expect(sentFor(failing, "0.0.9001", ALICE.publicKey).result.current).toBe(false);
   });
 });

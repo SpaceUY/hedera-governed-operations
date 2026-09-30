@@ -13,7 +13,9 @@
  *   1. delete `app/api/demo/`, `services/demoSigners/`, `hooks/useDemoSigners.ts` and
  *      `components/governance/demo/`;
  *   2. remove the `useDemoSeats` import, its call, the two `seatExtras` props and the note from
- *      `components/governance/rail/ProposalDetailPanel.tsx`.
+ *      `components/governance/rail/ProposalDetailPanel.tsx`, and with them the demo cases and the
+ *      `useDemoSigners` mock in `ProposalDetailPanel.test.tsx` and the demo copy pin in
+ *      `.harness/validators/static.json`.
  */
 import type { CouncilKey, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";

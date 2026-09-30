@@ -4,7 +4,8 @@
  * Demo only: see `services/demoSigners/demoSigners.ts` for the feature and the two steps that remove it.
  */
 import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { signedAsOf } from "./useRemoteApprovals";
+import { useMutation, useMutationState, useQuery } from "@tanstack/react-query";
 import {
   type DemoSignRequest,
   type DemoSignResponse,
@@ -36,4 +37,17 @@ export function useDemoSign() {
     mutationKey: GOVERNANCE_MUTATION_KEYS.signAs,
     mutationFn: ({ scheduleId, member }) => requestDemoSignature({ scheduleId, member }),
   });
+}
+
+/**
+ * Whether a demo signature for this schedule and seat was already sent from this session and has not
+ * failed, read from the mutation cache so it survives the button being unmounted and mounted again
+ * (another proposal opened and closed again) while Mirror has yet to list the signature.
+ */
+export function useDemoSignatureSent(scheduleId: string, memberKey: string): boolean {
+  const sent = useMutationState({
+    filters: { mutationKey: GOVERNANCE_MUTATION_KEYS.signAs },
+    select: ({ state }) => (state.status === "error" ? null : (signedAsOf(state.variables) ?? null)),
+  });
+  return sent.some(own => own?.scheduleId === scheduleId && own.memberKey === memberKey);
 }

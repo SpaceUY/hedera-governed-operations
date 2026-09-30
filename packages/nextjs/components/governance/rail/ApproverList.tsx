@@ -7,7 +7,7 @@ import type { MemberName } from "~~/components/governance/graph/mapModel";
 import type { CoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { type HederaNetworkName, getHashScanUrl } from "~~/utils/scaffold-hbar/networks";
 
-/** What a screen adds to one seat's row, by member key: a caption in place of the map's, an action in place of the status. */
+/** What a screen adds to one seat's row: a caption in place of the map's, an action in place of the status. */
 export type SeatExtra = { caption?: string; action?: ReactNode };
 
 export type ApproverListProps = {
@@ -44,8 +44,9 @@ export type ApproverListProps = {
 /**
  * Every seat of one council, one row each: who holds it — named as the map names it, "You" for the
  * connected account's own seat — and whether it has signed. The viewer's own row carries the Sign
- * button; another seat carries only what `seatExtras` gives it. A council rotation renders this twice — see `ProposalDetailPanel` —
- * since the schedule waits for both the current council's threshold and the incoming one's own.
+ * button; another seat carries only what `seatExtras` gives it. A council rotation renders this twice —
+ * see `ProposalDetailPanel` — since the schedule waits for both the current council's threshold and the
+ * incoming one's own.
  */
 export const ApproverList = ({
   heading,

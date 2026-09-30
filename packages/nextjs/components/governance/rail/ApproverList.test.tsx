@@ -85,6 +85,7 @@ describe("ApproverList", () => {
     expect(rows).toHaveLength(4);
     expect(rows[3].textContent).toBe("after the members");
   });
+
   it("puts a seat's extra action on a row that is not the viewer's, until that seat signs", () => {
     const seatExtras = { "key-c": { action: <button type="button">Sign as Bob</button> } };
     renderList({ seatExtras });

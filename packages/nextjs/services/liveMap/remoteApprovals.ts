@@ -22,7 +22,7 @@ export type SessionWrites = {
   memberKey: string | null;
   /** Schedules this session signed (submitted or done; not failed). */
   signed: readonly string[];
-  /** Signatures this session asked the server to add for another seat — a demo co-signer (submitted or done; not failed). */
+  /** Signatures this session asked the server to add for a demo co-signer (submitted or done; not failed). */
   signedAs: readonly SignedAs[];
   /** Schedules this session opened. */
   opened: readonly string[];
@@ -37,8 +37,9 @@ export type SessionWrites = {
  * session signed — or opened, since the creator's own approval arrives together with `proposed`. Until
  * that key is read, every approval on a schedule this session signed or opened counts as its own, so
  * nothing is announced that this session may have sent. A signature this session asked the server to add
- * for another seat (`signedAs`) is its own too, for that schedule and that key only. A proposal read before the session learnt its
- * schedule id (Mirror indexed it while the wallet was still answering) is matched by its creator.
+ * for another seat (`signedAs`) is its own too, for that schedule and that key only. A proposal read
+ * before the session learnt its schedule id (Mirror indexed it while the wallet was still answering) is
+ * matched by its creator.
  */
 export function remoteApprovals(
   events: readonly AnimationEvent[],
