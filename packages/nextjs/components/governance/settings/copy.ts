@@ -40,6 +40,11 @@ export const SETTINGS_COPY = {
     bothCouncils: (currentRule: string, proposedRule: string) =>
       `Changing the council takes two thresholds: the current ${currentRule} council's, and the proposed ` +
       `${proposedRule} council's own. The schedule waits until both are met; it does not fail while it waits.`,
+    /** A council the seats besides the agent's can never reach: the change could never execute. */
+    agentBlocks: (otherKeys: number, rule: string) =>
+      otherKeys === 0
+        ? `The co-signing agent never signs a council rotation, so a ${rule} council of the agent alone could never approve this change: it could never run.`
+        : `The co-signing agent never signs a council rotation, so the other ${otherKeys} ${otherKeys === 1 ? "key" : "keys"} can’t reach ${rule}: this change could never run.`,
     agentNeverSigns:
       "A co-signing agent never signs a council rotation, whatever its policy says: if one holds a seat, both " +
       "thresholds have to be reached by the council's human members.",
@@ -74,5 +79,6 @@ export const SETTINGS_COPY = {
     note: "Because the registry administers its own roles, changing who may propose is itself a proposal the council approves.",
     loading: "Reading the registry's roles…",
     unreadable: "Could not read the registry's roles through the JSON-RPC relay right now.",
+    proposersUnreadable: "Could not read who holds PROPOSER_ROLE right now. It is read again on the next visit.",
   },
 } as const;

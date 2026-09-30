@@ -5,6 +5,7 @@
  * repeated key, an unreachable threshold — and its words are shown as they are. What this module
  * adds is the composing itself, and the warnings about councils that are legal but risky.
  */
+import type { UnseatedAgent } from "./useUnseatedAgent";
 import { type CouncilKey, memberPublicKey } from "@sh/core/governance/council";
 import { type DraftResult, draftCouncilRotation, tryDraft } from "~~/services/governance/drafts";
 
@@ -15,6 +16,12 @@ export const changeFrom = (council: CouncilKey): CouncilChange => ({
   memberKeys: [...council.memberKeys],
   threshold: council.threshold,
 });
+
+/** The seats a change may hold: the council's, then the co-signing agent's while it is not seated and could sign. */
+export function offeredSeatsOf(council: CouncilKey, unseatedAgent: UnseatedAgent | null): string[] {
+  if (unseatedAgent?.check.status !== "found") return council.memberKeys;
+  return [...council.memberKeys, unseatedAgent.seat];
+}
 
 const clamp = (threshold: number, seats: number): number => Math.max(1, Math.min(threshold, seats));
 
@@ -73,6 +80,20 @@ export function councilRiskOf(
     return "viewerLeaves";
   }
   return null;
+}
+
+/** Why a legal council could never run: `otherKeys` are the seats besides the agent's, too few for the threshold. */
+export type CouncilBlock = { reason: "agentNeverSignsRotation"; otherKeys: number };
+
+/**
+ * A change that can never execute. The co-signing agent never signs a council rotation, and the proposed
+ * council has to reach its own threshold, so with the agent ticked the other seats must reach it alone.
+ */
+export function councilBlockOf(change: CouncilChange, agentSeat: string | null): CouncilBlock | null {
+  if (!agentSeat || !change.memberKeys.includes(agentSeat)) return null;
+  const otherKeys = change.memberKeys.length - 1;
+  if (change.threshold <= otherKeys) return null;
+  return { reason: "agentNeverSignsRotation", otherKeys };
 }
 
 /** The rotation to schedule, or nothing while the composition is the council the ledger already has. */

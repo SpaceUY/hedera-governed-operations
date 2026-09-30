@@ -1,9 +1,11 @@
 // @vitest-environment node
 import {
   changeFrom,
+  councilBlockOf,
   councilRiskOf,
   draftCouncilChange,
   isChanged,
+  offeredSeatsOf,
   reoffer,
   seatTagOf,
   stepThreshold,
@@ -77,6 +79,39 @@ describe("councilRiskOf", () => {
 
   it("does not warn a viewer who holds no seat today about leaving", () => {
     expect(councilRiskOf({ threshold: 2, memberKeys: [ALICE, BOB, AGENT] }, COUNCIL, null)).toBeNull();
+  });
+});
+
+describe("offeredSeatsOf", () => {
+  it("offers the unseated agent's seat after the council's only when the agent could sign from it", () => {
+    const found = { seat: AGENT, check: { status: "found" as const, key: PrivateKey.generateECDSA().publicKey } };
+    const invalid = { seat: AGENT, check: { status: "invalid" as const, message: "holds an ED25519 key" } };
+    expect(offeredSeatsOf(COUNCIL, found)).toEqual([YOU, ALICE, BOB, AGENT]);
+    expect(offeredSeatsOf(COUNCIL, invalid)).toEqual([YOU, ALICE, BOB]);
+    expect(offeredSeatsOf(COUNCIL, null)).toEqual([YOU, ALICE, BOB]);
+  });
+});
+
+describe("councilBlockOf", () => {
+  it("blocks a council the other keys cannot reach without the agent, which never signs a rotation", () => {
+    expect(councilBlockOf({ threshold: 2, memberKeys: [YOU, AGENT] }, AGENT)).toEqual({
+      reason: "agentNeverSignsRotation",
+      otherKeys: 1,
+    });
+    expect(councilBlockOf({ threshold: 4, memberKeys: [YOU, ALICE, BOB, AGENT] }, AGENT)).toEqual({
+      reason: "agentNeverSignsRotation",
+      otherKeys: 3,
+    });
+    expect(councilBlockOf({ threshold: 1, memberKeys: [AGENT] }, AGENT)).toEqual({
+      reason: "agentNeverSignsRotation",
+      otherKeys: 0,
+    });
+  });
+
+  it("lets through a council the other keys reach alone, one without the agent, or no configured agent", () => {
+    expect(councilBlockOf({ threshold: 3, memberKeys: [YOU, ALICE, BOB, AGENT] }, AGENT)).toBeNull();
+    expect(councilBlockOf({ threshold: 3, memberKeys: [YOU, ALICE, BOB] }, AGENT)).toBeNull();
+    expect(councilBlockOf({ threshold: 3, memberKeys: [YOU, ALICE, BOB] }, null)).toBeNull();
   });
 });
 

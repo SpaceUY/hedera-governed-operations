@@ -1,10 +1,14 @@
 import { CouncilChangeComposer } from "./CouncilChangeComposer";
 import { SETTINGS_COPY } from "./copy";
+import type { UnseatedAgent } from "./useUnseatedAgent";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { memberKeyOfAccount } from "@sh/core/governance/council";
+import type { MirrorAccount } from "@sh/core/mirror";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AGENT_COPY } from "~~/components/governance/rail/copy";
+import { agentSeatOf } from "~~/components/governance/wizard/kinds/coSigningAgent/agentSeat";
+import { CO_SIGNING_AGENT_COPY } from "~~/components/governance/wizard/kinds/coSigningAgent/copy";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import type { CouncilQueryData } from "~~/hooks/mirror/useCouncil";
 import { type DraftResult, previewDraft } from "~~/services/governance/drafts";
@@ -59,8 +63,6 @@ vi.mock("~~/components/governance/wizard/CouncilPreviewPanel", () => ({
 vi.mock("~~/components/ConnectWallet", () => ({ ConnectWallet: () => <button>Connect</button> }));
 const signer = vi.hoisted(() => ({ accountId: "0.0.101" as string | null, isConnected: true, signerKind: "hashpack" }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: () => signer }));
-const agentAccount = vi.hoisted(() => ({ data: undefined as unknown, error: null }));
-vi.mock("~~/hooks/mirror/useAccount", () => ({ useAccount: () => agentAccount }));
 // What the Mirror Node answers for each typed account; anything else reads as not known yet.
 const mirrorAccounts = vi.hoisted(() => ({ byInput: {} as Record<string, unknown> }));
 vi.mock("~~/hooks/mirror/useAccounts", () => ({
@@ -82,7 +84,6 @@ beforeEach(() => {
     store.listeners.forEach(listener => listener());
   });
   Object.assign(signer, { accountId: "0.0.101", isConnected: true });
-  agentAccount.data = undefined;
   mirrorAccounts.byInput = {};
 });
 afterEach(() => {
@@ -98,8 +99,21 @@ const naming = (agentSeat: string | null = null) => ({
   memberNames: NAMES,
   agent: agentSeat ? { accountId: "0.0.600", seat: agentSeat } : null,
 });
-const renderComposer = (agentSeat: string | null = null) =>
-  render(<CouncilChangeComposer council={COUNCIL} naming={naming(agentSeat)} config={CONFIG} />);
+type MirrorKey = { _type: string; key: string };
+/** The agent as the page checks it, holding `key` on account 0.0.600 while the council does not seat it. */
+const unseated = (key: MirrorKey): UnseatedAgent => ({
+  seat: seat(key),
+  check: agentSeatOf("0.0.600", { account: { account: "0.0.600", key } as MirrorAccount, error: null }, COUNCIL.key),
+});
+const renderComposer = (agentKey: MirrorKey | null = null) =>
+  render(
+    <CouncilChangeComposer
+      council={COUNCIL}
+      naming={naming(agentKey ? seat(agentKey) : null)}
+      config={CONFIG}
+      unseatedAgent={agentKey ? unseated(agentKey) : null}
+    />,
+  );
 const scheduleButton = () => screen.getByRole("button", { name: "Schedule with your wallet" }) as HTMLButtonElement;
 
 describe("CouncilChangeComposer", () => {
@@ -144,8 +158,7 @@ describe("CouncilChangeComposer", () => {
   });
 
   it("offers the co-signing agent unticked while the council does not seat it, and ticking it proposes 2-of-4", () => {
-    agentAccount.data = { account: "0.0.600", key: agent };
-    renderComposer(seat(agent));
+    renderComposer(agent);
     const agentBox = screen.getByRole("checkbox", { name: new RegExp(AGENT_COPY.name) }) as HTMLInputElement;
     expect(agentBox.checked).toBe(false);
     fireEvent.click(agentBox);
@@ -154,13 +167,34 @@ describe("CouncilChangeComposer", () => {
     expect(screen.getByText(SETTINGS_COPY.composer.agentAlone(4, 2))).toBeTruthy();
   });
 
-  it("does not offer an agent whose key it could not sign with", () => {
-    agentAccount.data = {
-      account: "0.0.600",
-      key: { _type: "ED25519", key: PrivateKey.generateED25519().publicKey.toStringRaw() },
-    };
-    renderComposer(seat(agent));
+  it("does not offer an agent whose key it could not sign with, and says why", () => {
+    renderComposer({ _type: "ED25519", key: PrivateKey.generateED25519().publicKey.toStringRaw() });
     expect(screen.queryByRole("checkbox", { name: new RegExp(AGENT_COPY.name) })).toBeNull();
+    expect(screen.getByText(CO_SIGNING_AGENT_COPY.notEcdsa("0.0.600", "ED25519"))).toBeTruthy();
+  });
+
+  it("refuses to schedule a council the others cannot reach without the agent, which never signs a rotation", () => {
+    renderComposer(agent);
+    fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(AGENT_COPY.name) }));
+    const more = screen.getByRole("button", { name: SETTINGS_COPY.composer.more });
+    fireEvent.click(more);
+    expect(screen.queryByText(SETTINGS_COPY.composer.agentBlocks(3, "3-of-4"))).toBeNull();
+    expect(scheduleButton().disabled).toBe(false);
+    fireEvent.click(more);
+    expect(screen.getByText(SETTINGS_COPY.composer.agentBlocks(3, "4-of-4"))).toBeTruthy();
+    expect(scheduleButton().disabled).toBe(true);
+  });
+
+  it("refuses you and the agent at 2-of-2: the agent never signs, so you alone can't reach it", () => {
+    renderComposer(agent);
+    fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(AGENT_COPY.name) }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Alice/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bob/ }));
+    expect(screen.getByText("2-of-2")).toBeTruthy();
+    expect(screen.getByText(SETTINGS_COPY.composer.agentBlocks(1, "2-of-2"))).toBeTruthy();
+    expect(scheduleButton().disabled).toBe(true);
+    fireEvent.click(scheduleButton());
+    expect(wizard.submit).not.toHaveBeenCalled();
   });
 
   it("moves the threshold within the seats with − and +", () => {

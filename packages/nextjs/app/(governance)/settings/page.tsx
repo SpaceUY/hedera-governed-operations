@@ -10,6 +10,7 @@ import { ContractRolesCard } from "~~/components/governance/settings/ContractRol
 import { CouncilCard } from "~~/components/governance/settings/CouncilCard";
 import { CouncilChangeComposer } from "~~/components/governance/settings/CouncilChangeComposer";
 import { SETTINGS_COPY } from "~~/components/governance/settings/copy";
+import { useUnseatedAgent } from "~~/components/governance/settings/useUnseatedAgent";
 import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useRegistryRoles } from "~~/hooks/mirror/useRegistryRoles";
@@ -30,6 +31,7 @@ export default function SettingsPage() {
   const roles = useRegistryRoles({ executorContractId: executor.hederaContractId, network });
   const { composed } = useLatestComposedMap(config);
   const agent = useCoSigningAgent(network);
+  const unseatedAgent = useUnseatedAgent(agent, council.data?.key, network);
   const { accountId } = useHederaSigner();
   const memberNames = useMemo(() => (composed ? memberNamesOf(composed) : undefined), [composed]);
   const naming: SeatNaming = {
@@ -48,19 +50,26 @@ export default function SettingsPage() {
         <h1 className="m-0 text-base font-bold">{SETTINGS_COPY.heading}</h1>
       </div>
       <div className="flex flex-col gap-4 px-6 py-5 wrap-anywhere">
-        <CouncilCard council={council.data} unreadable={council.isError} naming={naming} />
+        <CouncilCard
+          council={council.data}
+          unreadable={council.isError}
+          naming={naming}
+          unseatedAgent={unseatedAgent}
+        />
         {council.data && (
           <CouncilChangeComposer
             key={`${councilRuleLabel(council.data.key)}:${council.data.key.memberKeys.join(",")}`}
             council={council.data}
             naming={naming}
             config={config}
+            unseatedAgent={unseatedAgent}
           />
         )}
         <ContractRolesCard
           roles={roles.data}
           rolesUnreadable={roles.isError}
           council={council.data}
+          councilUnreadable={council.isError}
           config={config}
           naming={naming}
         />

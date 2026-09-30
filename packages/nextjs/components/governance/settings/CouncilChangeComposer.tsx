@@ -6,28 +6,29 @@ import {
   type CouncilChange,
   type CouncilRisk,
   changeFrom,
+  councilBlockOf,
   councilRiskOf,
   draftCouncilChange,
+  offeredSeatsOf,
   reoffer,
   seatTagOf,
   stepThreshold,
   toggleSeat,
 } from "./councilChange";
 import { type MemberSeat, memberKeysOf } from "./memberAccounts";
+import type { UnseatedAgent } from "./useUnseatedAgent";
 import { HederaAddressInput } from "@scaffold-hbar-ui/components";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ConnectWallet } from "~~/components/ConnectWallet";
 import { monogramOf } from "~~/components/governance/graph/geometry";
 import { SeatAvatar } from "~~/components/governance/rail/SeatAvatar";
 import { MEMBER_COPY } from "~~/components/governance/rail/copy";
-import { type SeatNaming, councilSeatOf, unseatedAgentSeatOf } from "~~/components/governance/rail/councilSeats";
+import { type SeatNaming, councilSeatOf } from "~~/components/governance/rail/councilSeats";
 import { CouncilPreviewPanel } from "~~/components/governance/wizard/CouncilPreviewPanel";
 import { ProposalSubmitFooter } from "~~/components/governance/wizard/ProposalSubmitFooter";
 import { useProposalWizard } from "~~/components/governance/wizard/ProposalWizardProvider";
 import { ACCOUNT_LOOKUP_LABELS, OPEN_PROPOSAL_NOTICES, openProposalCopy } from "~~/components/governance/wizard/copy";
-import { agentSeatOf } from "~~/components/governance/wizard/kinds/coSigningAgent/agentSeat";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
-import { useAccount } from "~~/hooks/mirror/useAccount";
 import { type AccountListRead, useAccounts } from "~~/hooks/mirror/useAccounts";
 import type { CouncilQueryData } from "~~/hooks/mirror/useCouncil";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
@@ -39,20 +40,12 @@ import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 const NO_DRAFT: DraftResult = { status: "empty" };
 const TAG_CLASSES = { joins: "text-success-ink", leaves: "text-error" } as const;
 
-export type CouncilChangeComposerProps = { council: CouncilQueryData; naming: SeatNaming; config: GovernanceConfig };
-
-/** The seats a change may hold: the council's, then the co-signing agent's while it is not seated and could sign. */
-function useOfferedSeats({ council, naming, config }: CouncilChangeComposerProps): string[] {
-  const agentSeat = unseatedAgentSeatOf(naming.agent ?? null, council.key);
-  const agentAccountId = agentSeat ? (naming.agent?.accountId ?? null) : null;
-  // The same query `useCoSigningAgent` already read, so this asks the Mirror Node nothing new.
-  const agentAccount = useAccount(agentAccountId, { network: config.network });
-  return useMemo(() => {
-    if (!agentSeat || !agentAccountId) return council.key.memberKeys;
-    const check = agentSeatOf(agentAccountId, { account: agentAccount.data, error: agentAccount.error }, council.key);
-    return check.status === "found" ? [...council.key.memberKeys, agentSeat] : council.key.memberKeys;
-  }, [agentSeat, agentAccountId, agentAccount.data, agentAccount.error, council.key]);
-}
+export type CouncilChangeComposerProps = {
+  council: CouncilQueryData;
+  naming: SeatNaming;
+  config: GovernanceConfig;
+  unseatedAgent: UnseatedAgent | null;
+};
 
 /** An account row keeps its id while the rows around it are added and removed. */
 type MemberRow = { id: number; input: string };
@@ -81,11 +74,11 @@ function riskText(risk: CouncilRisk, facts: { seats: number; keepsProposerRole: 
  * submit opens the new proposal; the composer empties it on the way out, so the wizard never opens on it.
  */
 export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
-  const { council, naming, config } = props;
+  const { council, naming, config, unseatedAgent } = props;
   const headingId = useId();
   const thresholdId = useId();
   const [change, setChange] = useState<CouncilChange>(() => changeFrom(council.key));
-  const councilOffered = useOfferedSeats(props);
+  const councilOffered = useMemo(() => offeredSeatsOf(council.key, unseatedAgent), [council.key, unseatedAgent]);
   const { targetNetwork } = useTargetNetwork();
 
   const nextRowId = useRef(0);
@@ -124,7 +117,10 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
 
   const submitting = submitStatus === "pending";
   const ownPreview = result.status === "ready" && preview?.kind === "councilRotation" ? preview : null;
+  const agentSeat = naming.agent?.seat ?? null;
+  const block = councilBlockOf(change, agentSeat);
   const canSubmit =
+    block === null &&
     canOpenProposal("councilRotation", accountId ?? null, council.proposerAccountIds) &&
     ownPreview !== null &&
     isPreviewRecognized(ownPreview) &&
@@ -135,7 +131,6 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
   const proposedRule = councilRuleLabel(change);
   const viewer = naming.proposers.find(proposer => proposer.accountId === accountId);
   const risk = councilRiskOf(change, council.key, viewer?.key ?? null);
-  const agentSeat = naming.agent?.seat ?? null;
   const agentTicked = agentSeat !== null && change.memberKeys.includes(agentSeat);
   const seats = change.memberKeys.length;
   const addedNames = Object.fromEntries(
@@ -231,6 +226,11 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
             })}
           </ol>
         )}
+        {unseatedAgent?.check.status === "invalid" && (
+          <p role="status" className="m-0 text-sm text-base-content/60">
+            {unseatedAgent.check.message}
+          </p>
+        )}
         <button type="button" className="btn btn-outline btn-sm self-start" onClick={addRow}>
           {SETTINGS_COPY.composer.members.addMember}
         </button>
@@ -272,6 +272,11 @@ export const CouncilChangeComposer = (props: CouncilChangeComposerProps) => {
       )}
       {!risk && agentTicked && change.threshold >= 2 && (
         <p className="m-0 text-sm text-base-content/70">{SETTINGS_COPY.composer.agentAlone(seats, change.threshold)}</p>
+      )}
+      {block && (
+        <p role="alert" className="m-0 text-sm text-error">
+          {SETTINGS_COPY.composer.agentBlocks(block.otherKeys, proposedRule)}
+        </p>
       )}
       {result.status === "invalid" && (
         <p role="alert" className="m-0 text-sm text-error">
