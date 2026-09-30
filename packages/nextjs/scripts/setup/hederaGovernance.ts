@@ -4,6 +4,7 @@
  * behind the service types each reconcile declares, so the decisions stay testable without a network.
  */
 import { DEMO_TOKEN, type DemoTokenActions, type DemoTokenLookups } from "./demoToken";
+import type { DeploymentLookups } from "./deployments";
 import type { SetupEnv } from "./env";
 import { GOVERNANCE_THRESHOLD, type GovernanceActions, type GovernanceLookups } from "./governance";
 import { accountHasToken, accountTokens, associateToken, mirrorHas } from "./hedera";
@@ -29,6 +30,7 @@ import {
   TopicCreateTransaction,
   TransferTransaction,
 } from "@hiero-ledger/sdk";
+import { EXECUTOR_ROLE } from "@sh/core/governance/roles";
 import { type MirrorAccount, fetchAccount, fetchTopic, hasSubmitKey, isMirrorNotFound } from "@sh/core/mirror";
 import { createPublicClient, http, parseAbi } from "viem";
 import { parseOperatorKey } from "~~/services/operatorKey";
@@ -49,6 +51,7 @@ const DEFAULT_TESTNET_RPC_URL = "https://testnet.hashio.io/api";
 
 const EXECUTOR_ABI = parseAbi([
   "function proposal(uint256 id) view returns ((address target, address proposer, uint8 state, bytes data))",
+  "function hasRole(bytes32 role, address account) view returns (bool)",
 ]);
 
 const VAULT_ABI = parseAbi(["function executor() view returns (address)"]);
@@ -200,6 +203,7 @@ export type TopicTrustLookups = {
 export type GovernanceSetupLookups = GovernanceLookups &
   DemoTokenLookups &
   SeedProposalLookups &
+  DeploymentLookups &
   TopicTrustLookups & { accountHbarBalance(accountId: string): Promise<number> };
 
 export type SignedTopicActions = {
@@ -303,6 +307,13 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
         address: vaultProxyEvm as `0x${string}`,
         abi: VAULT_ABI,
         functionName: "executor",
+      }),
+    executorServes: (executorEvm, governanceEvm) =>
+      relay.readContract({
+        address: executorEvm as `0x${string}`,
+        abi: EXECUTOR_ABI,
+        functionName: "hasRole",
+        args: [EXECUTOR_ROLE, governanceEvm as `0x${string}`],
       }),
     proposalSettled: async (executorContractId, proposalId) => {
       const executorEvm = `0x${ContractId.fromString(executorContractId).toEvmAddress()}` as `0x${string}`;
