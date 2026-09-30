@@ -130,7 +130,7 @@ yarn harness:run                      # full loop: generate from .harness/prd.md
 | Stage | Credentials | Other |
 | ----- | ----------- | ----- |
 | `validate` | none | No `.env` inside the tree — the static validator forbids it. CI runs this on every pull request |
-| `validate-semantic` | `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_PRIVATE_KEY` **exported in the shell** (the harness never reads `.env`) | The `claude` CLI authenticated, Chrome or Playwright Chromium, and a workspace where `yarn setup` and the deploy have already run |
+| `validate-semantic` | `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_PRIVATE_KEY` **exported in the shell** (the harness never reads `.env`) | The `claude` CLI authenticated, Chrome or Playwright Chromium, and a workspace where `yarn setup` and the deploy have already run. With no `.env` the app browses the demo instance, so four assertions pass and E9, which seats the run's signer on your council, fails |
 
 ```bash
 export HEDERA_OPERATOR_ID=0.0.xxxxx
