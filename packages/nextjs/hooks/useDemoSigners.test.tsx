@@ -1,14 +1,33 @@
 import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
-import { useDemoSign, useDemoSignatureState, useDemoSigners } from "./useDemoSigners";
+import { useDemoSign, useDemoSignaturePending, useDemoSignatureState, useDemoSigners } from "./useDemoSigners";
+import { ScheduleSignRefusedError } from "./useSignProposal";
+import { type MirrorTransaction, fetchTransaction } from "@sh/core/mirror";
 import { QueryClient, partialMatchKey } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryWrapper, jsonResponse } from "~~/hooks/mirror/testUtils";
+import { proposalInboxQueryKey } from "~~/hooks/mirror/useProposals";
+
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
+  fetchTransaction: vi.fn(),
+}));
+// Poll without waiting, so the not-yet-indexed path runs at test speed.
+vi.mock("~~/utils/scaffold-hbar/waitForMirrorIndexing", async importOriginal => ({
+  ...(await importOriginal<typeof import("~~/utils/scaffold-hbar/waitForMirrorIndexing")>()),
+  MIRROR_INDEXING_RETRY_DELAYS_MS: [0, 0],
+}));
+
+/** The Mirror row a ScheduleSign leaves, with the result consensus gave it. */
+const signRow = (result: string) => [{ name: "SCHEDULESIGN", result }] as unknown as MirrorTransaction[];
 
 const ALICE = { name: "alice", accountId: "0.0.11", publicKey: "QUxJQ0U=" } as const;
 const fetchMock = vi.fn();
 
-beforeEach(() => vi.stubGlobal("fetch", fetchMock));
+beforeEach(() => {
+  vi.stubGlobal("fetch", fetchMock);
+  vi.mocked(fetchTransaction).mockReset().mockResolvedValue(signRow("SUCCESS"));
+});
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -80,6 +99,33 @@ describe("useDemoSign", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ scheduleId: "0.0.9001", member: "alice" });
   });
 
+  it("succeeds only once Mirror lists the signature the server sent, then re-reads the inbox", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ transactionId: "0.0.11@1.1" }));
+    vi.mocked(fetchTransaction).mockReset().mockResolvedValueOnce([]).mockResolvedValue(signRow("SUCCESS"));
+    const client = new QueryClient();
+    const refetch = vi.spyOn(client, "refetchQueries");
+    const { result } = renderHook(() => useDemoSign(), { wrapper: createQueryWrapper(client) });
+
+    await act(() =>
+      result.current.mutateAsync({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey }),
+    );
+
+    expect(fetchTransaction).toHaveBeenCalledTimes(2);
+    expect(fetchTransaction).toHaveBeenCalledWith("0.0.11@1.1", expect.anything());
+    expect(refetch).toHaveBeenCalledWith({ queryKey: proposalInboxQueryKey("testnet") });
+  });
+
+  it("says the network refused the signature, with its result", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ transactionId: "0.0.11@1.1" }));
+    vi.mocked(fetchTransaction).mockReset().mockResolvedValue(signRow("NO_NEW_VALID_SIGNATURES"));
+    const { result } = renderHook(() => useDemoSign(), { wrapper: createQueryWrapper() });
+
+    const sending = result.current.mutateAsync({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey });
+
+    await expect(sending).rejects.toBeInstanceOf(ScheduleSignRefusedError);
+    await expect(sending).rejects.toThrow(/NO_NEW_VALID_SIGNATURES/);
+  });
+
   it("is not matched by the wallet signature's key, so the sign filters never pick it up", () => {
     expect(partialMatchKey([...GOVERNANCE_MUTATION_KEYS.signAs], [...GOVERNANCE_MUTATION_KEYS.sign])).toBe(false);
   });
@@ -120,5 +166,34 @@ describe("useDemoSignatureState", () => {
         .catch(() => undefined),
     );
     expect(stateOf(failing, "0.0.9001", ALICE.publicKey).result.current).toBe("none");
+  });
+});
+
+describe("useDemoSignaturePending", () => {
+  it("is true while a demo signature for the schedule is with the server or waiting for Mirror, for that schedule only", async () => {
+    const client = new QueryClient();
+    let listed: (rows: MirrorTransaction[]) => void = () => undefined;
+    fetchMock.mockResolvedValue(jsonResponse({ transactionId: "0.0.11@1.1" }));
+    vi.mocked(fetchTransaction)
+      .mockReset()
+      .mockReturnValue(new Promise(resolve => (listed = resolve)));
+    const { result } = renderHook(
+      () => ({
+        sign: useDemoSign(),
+        this: useDemoSignaturePending("0.0.9001"),
+        other: useDemoSignaturePending("0.0.9002"),
+      }),
+      { wrapper: createQueryWrapper(client) },
+    );
+    expect(result.current.this).toBe(false);
+
+    act(() => result.current.sign.mutate({ scheduleId: "0.0.9001", member: "alice", memberKey: ALICE.publicKey }));
+
+    await waitFor(() => expect(result.current.this).toBe(true));
+    expect(result.current.other).toBe(false);
+    await waitFor(() => expect(fetchTransaction).toHaveBeenCalled());
+    expect(result.current.this).toBe(true);
+    await act(async () => listed(signRow("SUCCESS")));
+    await waitFor(() => expect(result.current.this).toBe(false));
   });
 });

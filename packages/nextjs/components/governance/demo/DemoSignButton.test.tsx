@@ -1,9 +1,18 @@
 import { DemoSignButton } from "./DemoSignButton";
+import { type MirrorTransaction, fetchTransaction } from "@sh/core/mirror";
 import { QueryClient } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryWrapper, jsonResponse } from "~~/hooks/mirror/testUtils";
 import type { DemoMember } from "~~/services/demoSigners/demoSigners";
+
+vi.mock("@sh/core/mirror", async importOriginal => ({
+  ...(await importOriginal<typeof import("@sh/core/mirror")>()),
+  fetchTransaction: vi.fn(),
+}));
+
+/** Mirror lists the signature the server sent at once. */
+const SIGNED = [{ name: "SCHEDULESIGN", result: "SUCCESS" }] as unknown as MirrorTransaction[];
 
 const ALICE: DemoMember = { name: "alice", accountId: "0.0.11", publicKey: "QUxJQ0U=" };
 const fetchMock = vi.fn();
@@ -15,7 +24,10 @@ function renderButton(onSigned = vi.fn(), client = new QueryClient()) {
   return onSigned;
 }
 
-beforeEach(() => vi.stubGlobal("fetch", fetchMock));
+beforeEach(() => {
+  vi.stubGlobal("fetch", fetchMock);
+  vi.mocked(fetchTransaction).mockReset().mockResolvedValue(SIGNED);
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
