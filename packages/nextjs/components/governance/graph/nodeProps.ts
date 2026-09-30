@@ -13,7 +13,20 @@ export type NodeProps = {
   activation?: MapActivation;
   /** Set while an operation is reaching the node: its plate flashes in the tone's colour. */
   highlight?: NodeTone;
+  /** What the previewed operation would do to this node ("would become v2"); crossfades over the caption. */
+  preview?: string;
+  /** Changes when a new preview starts, so its words fade in again. */
+  drawKey?: string | null;
 };
+
+/** A node's accessible name: its name, its caption, and what a preview says would happen to it. */
+export function nodeAccessibleName({
+  label,
+  caption,
+  preview,
+}: Pick<NodeProps, "label" | "caption" | "preview">): string {
+  return preview ? `${label}, ${caption}, ${preview}` : `${label}, ${caption}`;
+}
 
 export const translate = ({ x, y }: Point): string => `translate(${x} ${y})`;
 

@@ -1,4 +1,12 @@
-import { type PlayingEvent, REST_FRAME, frameOf, nodeStatesShown, treasuryShown } from "./frame";
+import {
+  type PlayingEvent,
+  REST_FRAME,
+  frameOf,
+  nodeStatesShown,
+  proposerArc,
+  targetsOf,
+  treasuryShown,
+} from "./frame";
 import {
   ALICE,
   BOB,
@@ -23,7 +31,9 @@ import {
   edgeId,
   externalNodeId,
   memberNodeId,
+  scopeOf,
 } from "~~/services/liveMap/model/graph";
+import { decodedOperationOf } from "~~/services/liveMap/model/proposalRoutes";
 
 const ID = "0.0.9001";
 const TO_REGISTRY = edgeId(GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID);
@@ -209,6 +219,20 @@ describe("treasuryShown", () => {
   it("never lets a signature move the figures", () => {
     const approved: AnimationEvent = { kind: "approved", scheduleId: ID, memberKey: BOB, at: ago(1) };
     expect(treasuryShown(playing({ name: "ringFill" }, approved), shown)).toBe(shown.treasury);
+  });
+});
+
+describe("the frame's preview fields", () => {
+  it("are empty at rest", () => {
+    expect(REST_FRAME.scope).toBeNull();
+    expect(REST_FRAME.labels).toEqual({});
+    expect(REST_FRAME.drawKey).toBeNull();
+  });
+
+  it("find the proposer's arc and the end of a route", () => {
+    expect(proposerArc(GRAPH, SHOWN, "0.0.4101")).toBe(edgeId(memberNodeId(ALICE), EXECUTOR_NODE_ID));
+    const hops = scopeOf(GRAPH, decodedOperationOf(pendingUpgrade))?.hops ?? [];
+    expect(targetsOf(GRAPH, hops)).toEqual(["vault"]);
   });
 });
 

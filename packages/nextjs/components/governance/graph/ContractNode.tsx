@@ -1,8 +1,9 @@
 "use client";
 
 import { MapItem } from "./MapItem";
+import { NodeCaption } from "./NodeCaption";
 import { CONTRACT_SIZE, FOCUS_GAP } from "./geometry";
-import { FOCUS_RING_CLASS, type NodeProps, plateStrokeClass, translate } from "./nodeProps";
+import { FOCUS_RING_CLASS, type NodeProps, nodeAccessibleName, plateStrokeClass, translate } from "./nodeProps";
 
 /** `external`: a contract outside the governed system, which it calls but does not control. */
 export type ContractTone = "contract" | "external";
@@ -14,7 +15,7 @@ export function ContractNode({ tone = "contract", ...node }: NodeProps & { tone?
   return (
     <MapItem
       item={{ kind: "node", id: node.id }}
-      label={`${node.label}, ${node.caption}`}
+      label={nodeAccessibleName(node)}
       focus={node.focus}
       activation={node.activation}
       transform={translate(node.position)}
@@ -40,9 +41,7 @@ export function ContractNode({ tone = "contract", ...node }: NodeProps & { tone?
       <text y={-4} textAnchor="middle" className="fill-base-content text-map-label font-semibold">
         {node.label}
       </text>
-      <text y={15} textAnchor="middle" className="fill-base-content/60 text-map-caption">
-        {node.caption}
-      </text>
+      <NodeCaption y={15} caption={node.caption} preview={node.preview} drawKey={node.drawKey} />
     </MapItem>
   );
 }
