@@ -85,7 +85,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": false,
       "statement": "While a proposal is drafted in the rail, the map previews it as dashed violet and the caption says it is drafting.",
-      "howToVerify": "With the testnet .env of a deployment, navigate to /governance/new. While the form has no valid values yet, the caption above the map reads \"Drafting. Pick an operation type.\". Choose \"Upgrade the vault to v2\" and enter a withdrawal limit of 2: the caption becomes \"Drafting. Dashed violet is what “Upgrade the vault to v2” would do once the 2-of-3 council signs.\", the Treasury → Proposal registry → Vault edges carry data-phase=\"preview\", and the Vault's caption reads \"would become v2\". Console has no errors."
+      "howToVerify": "With the testnet .env of a deployment, navigate to /governance/new. The wizard opens with \"Upgrade the vault to v2\" picked and its form empty: the caption above the map reads \"Drafting. Dashed violet is the way “Upgrade the vault to v2” would go. Fill in the form to see exactly what it would do.\", the Treasury → Proposal registry → Vault edges already carry data-phase=\"preview\" and the Vault's caption reads \"would be upgraded\". Pick \"Pay a supplier\": the dashed line runs from the Treasury to the Supplier, whose caption reads \"would receive a payment\". Pick \"Upgrade the vault to v2\" again and enter a withdrawal limit of 2: the caption becomes \"Drafting. Dashed violet is what “Upgrade the vault to v2” would do once the 2-of-3 council signs.\", the Treasury → Proposal registry → Vault edges carry data-phase=\"preview\", and the Vault's caption reads \"would become v2\". Console has no errors."
     }
   ]
 }

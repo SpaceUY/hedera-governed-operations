@@ -91,7 +91,7 @@
     },
     {
       "file": "packages/nextjs/components/governance/graph/caption.ts",
-      "contains": ["Nothing moves until the", "Drafting.", "Dashed violet is what would happen once the"]
+      "contains": ["Nothing moves until the", "Drafting.", "Dashed violet is what would happen once the", "Fill in the form to see exactly what it would do."]
     },
     {
       "file": "packages/nextjs/services/liveMap/preview/kinds/upgrade.ts",
