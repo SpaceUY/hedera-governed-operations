@@ -8,6 +8,7 @@ const SUBJECT = "Release topic";
 const services = (isSigned: boolean) => ({
   isSigned: vi.fn().mockResolvedValue(isSigned),
   create: vi.fn().mockResolvedValue(FRESH),
+  flaw: "takes messages from anyone",
 });
 
 beforeEach(() => vi.spyOn(console, "log").mockImplementation(() => undefined));

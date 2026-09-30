@@ -198,6 +198,8 @@ async function tokenPauseKeyContractId(client: Client, network: string, tokenId:
 export type TopicTrustLookups = {
   /** Whether the topic exists and only its submit key can write to it. */
   topicIsSigned(topicId: string): Promise<boolean>;
+  /** Whether the topic exists and that one public key is its submit key, so only its holder can write to it. */
+  topicIsHeldBy(topicId: string, publicKey: string): Promise<boolean>;
 };
 
 export type GovernanceSetupLookups = GovernanceLookups &
@@ -253,8 +255,9 @@ async function createReleaseTopic(client: Client, env: SetupEnv): Promise<string
  * said the agent did. The admin key stays with the operator so the submit key can be rotated when
  * the seat changes hands.
  *
- * In the demo the seat is a demo account (`AGENT_SEAT`); in a real deployment it is whatever
- * identity runs the service, and this is the key that has to change with it.
+ * In the demo it is the agent's own demo account (`AGENT_ACCOUNT`), which the council does not hold
+ * until it seats it; in a real deployment it is whatever identity runs the service, and this is the
+ * key that has to change with it.
  */
 async function createDecisionTopic(client: Client, env: SetupEnv, agentPublicKey: string): Promise<string> {
   const response = await new TopicCreateTransaction()
@@ -282,6 +285,24 @@ async function topicIsSigned(topicId: string, network: string): Promise<boolean>
   }
 }
 
+/**
+ * The decision topic is reused only if its submit key is still the agent's own. A topic an earlier
+ * run created for another seat takes nothing from this agent — every decision comes back
+ * `INVALID_SIGNATURE`, and the agent refuses to start on it — so the answer is a new topic.
+ */
+async function topicIsHeldBy(topicId: string, publicKey: string, network: string): Promise<boolean> {
+  try {
+    const { deleted, submit_key: submitKey } = await fetchTopic(topicId, { network });
+    // A key list comes back protobuf-encoded; the setup only ever creates the topic for one key.
+    if (deleted || !submitKey?.key || submitKey._type === "ProtobufEncoded") return false;
+    const holder = PublicKey.fromString(submitKey.key).toStringRaw();
+    return holder.toLowerCase() === PublicKey.fromString(publicKey).toStringRaw().toLowerCase();
+  } catch (error) {
+    if (isMirrorNotFound(error)) return false;
+    throw error;
+  }
+}
+
 export function createGovernanceLookups(env: SetupEnv, client: Client): GovernanceSetupLookups {
   const { network } = env;
   const relay = createPublicClient({
@@ -291,6 +312,7 @@ export function createGovernanceLookups(env: SetupEnv, client: Client): Governan
   return {
     accountExists: accountId => mirrorHas(`/api/v1/accounts/${accountId}`, network),
     topicIsSigned: topicId => topicIsSigned(topicId, network),
+    topicIsHeldBy: (topicId, publicKey) => topicIsHeldBy(topicId, publicKey, network),
     accountIdentity: accountId => accountIdentity(accountId, network),
     accountHbarBalance: async accountId => {
       const account = await fetchAccount(accountId, { network });

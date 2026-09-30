@@ -590,8 +590,9 @@ manifest, and a refusal names the limit it failed.
 **The submit key is the agent's own**, and that is the difference from the release topic. A manifest
 claims "this team published this build", so the publisher is the team; a decision claims "this agent
 approved this proposal", so the publisher is the agent. A log the operator could also write to would
-be a log of what somebody said the agent did. `yarn setup` creates it with the seat's key and keeps
-the admin key on the operator so it can be rotated when the seat changes hands, and the agent refuses
+be a log of what somebody said the agent did. `yarn setup` creates it with the key of the agent's own account
+— which the council does not hold until it seats it — and keeps the admin key on the operator so it
+can be rotated when the agent's key changes hands, and the agent refuses
 to start on a topic anyone can publish to or one whose single submit key is not its own.
 
 Publishing is a record of what happened, never a step the agent waits on: it runs after deciding and
