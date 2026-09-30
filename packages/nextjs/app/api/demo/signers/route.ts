@@ -37,6 +37,10 @@ import type { DemoSignErrorResponse, DemoSignResponse, DemoSignersResponse } fro
 /** Never prerendered: what it answers depends on the state file and the ledger at request time. */
 export const dynamic = "force-dynamic";
 
+/** The media type alone, so `application/json; charset=utf-8` passes and `multipart/form-data; x=application/json` does not. */
+const isJsonRequest = (req: Request): boolean =>
+  req.headers.get("content-type")?.split(";")[0].trim().toLowerCase() === "application/json";
+
 const failure = (status: number, error: string) => NextResponse.json<DemoSignErrorResponse>({ error }, { status });
 
 /** The demo accounts only exist on testnet, so the executor is the one deployed there. */
@@ -79,9 +83,7 @@ export async function POST(req: Request) {
 
   // A page on any other origin can send a text/plain POST to localhost without a preflight; requiring
   // JSON forces one, which this route never answers, so only the app itself can ask for a signature.
-  if (!req.headers.get("content-type")?.startsWith("application/json")) {
-    return failure(415, "Expected a JSON body.");
-  }
+  if (!isJsonRequest(req)) return failure(415, "Expected a JSON body.");
   const request = parseDemoSignRequest(await req.json().catch(() => null));
   if (!request) return failure(400, "Expected { scheduleId: 0.0.x, member: one of the demo members }.");
   const signer = demo.signers.find(({ member }) => member.name === request.member);

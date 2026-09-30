@@ -68,19 +68,38 @@ describe("loadDemoSigners", () => {
     expect(demo.recordedAgent?.accountId).toBe("0.0.99");
   });
 
-  it("records no agent when setup wrote none, or one it cannot read an account from", () => {
+  it("records no agent when setup wrote none, or something that names no agent", () => {
     const signers = { alice: accountOf("0.0.11", alice) };
-    writeState({ demoAccounts: signers });
-    const none = loadDemoSigners(environment);
-    expect(none.status === "available" && none.recordedAgent).toBeNull();
+    const recordedFor = (agentAccount: unknown) => {
+      writeState({ demoAccounts: signers, ...(agentAccount === undefined ? {} : { agentAccount }) });
+      const demo = loadDemoSigners(environment);
+      return demo.status === "available" ? demo.recordedAgent : "unavailable";
+    };
+    for (const agentAccount of [undefined, null, "0.0.99", 99, [], {}, { accountId: 99, privateKey: null }]) {
+      expect(recordedFor(agentAccount)).toBeNull();
+    }
+  });
 
+  it("keeps an agent record that names the agent by one half only", () => {
+    const signers = { alice: accountOf("0.0.11", alice) };
     writeState({ demoAccounts: signers, agentAccount: { privateKey: agent.toStringDer() } });
-    const noAccount = loadDemoSigners(environment);
-    expect(noAccount.status === "available" && noAccount.recordedAgent).toBeNull();
+    const byKey = loadDemoSigners(environment);
+    expect(byKey.status === "available" && byKey.recordedAgent).toEqual({
+      accountId: "",
+      privateKey: agent.toStringDer(),
+    });
 
-    writeState({ demoAccounts: signers, agentAccount: "0.0.99" });
-    const notAnObject = loadDemoSigners(environment);
-    expect(notAnObject.status === "available" && notAnObject.recordedAgent).toBeNull();
+    writeState({ demoAccounts: signers, agentAccount: { accountId: " 0.0.99 " } });
+    const byAccount = loadDemoSigners(environment);
+    expect(byAccount.status === "available" && byAccount.recordedAgent).toEqual({
+      accountId: "0.0.99",
+      privateKey: "",
+    });
+  });
+
+  it("skips demo entries that are not accounts", () => {
+    writeState({ demoAccounts: { alice: null, bob: { accountId: "0.0.12" } } });
+    expect(loadDemoSigners(environment)).toEqual({ status: "unavailable" });
   });
 
   it("derives the public key rather than trusting the file", () => {
@@ -124,6 +143,21 @@ describe("loadDemoSigners", () => {
     writeState({ demoAccounts: { alice: accountOf("0.0.11", alice) } });
     vi.stubEnv("NEXT_PUBLIC_ENABLE_BURNER_SIGNER", "true");
     expect(loadDemoSigners({ ...environment, nodeEnv: "production" })).toEqual({ status: "unavailable" });
+  });
+
+  it.each([undefined, "", "staging", "Production"])(
+    "is unavailable for a build mode that is not development: %s",
+    nodeEnv => {
+      writeState({ demoAccounts: { alice: accountOf("0.0.11", alice) } });
+      expect(loadDemoSigners({ ...environment, nodeEnv })).toEqual({ status: "unavailable" });
+    },
+  );
+
+  it("is available under the development server and the test runner", () => {
+    writeState({ demoAccounts: { alice: accountOf("0.0.11", alice) } });
+    for (const nodeEnv of ["development", "test"]) {
+      expect(loadDemoSigners({ ...environment, nodeEnv }).status).toBe("available");
+    }
   });
 });
 

@@ -4,14 +4,16 @@ import { PrivateKey, ScheduleSignTransaction, Status, StatusError, TransactionId
 import recorded from "@sh/core/governance/__fixtures__/scheduled-bodies.json";
 import { type CouncilKey, fetchCouncilKey } from "@sh/core/governance/council";
 import { decodeScheduledOperation } from "@sh/core/governance/decode";
+import type { ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import { type RegistryCrossCheck, type RegistryEntryState, fetchRegistryEntries } from "@sh/core/governance/registry";
 import { MirrorNodeError, type MirrorSchedule, fetchAccount, fetchSchedule } from "@sh/core/mirror";
 import executedSchedule from "@sh/core/mirror/__fixtures__/schedule-executed.json";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { hederaTestnet } from "viem/chains";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getDeployedContract } from "~~/config/governanceConfig";
+import { GOVERNANCE_CONTRACTS, getDeployedContract } from "~~/config/governanceConfig";
 
 vi.mock("@sh/core/mirror", async importOriginal => ({
   ...(await importOriginal<typeof import("@sh/core/mirror")>()),
@@ -22,6 +24,10 @@ vi.mock("@sh/core/governance/council", async importOriginal => ({
   ...(await importOriginal<typeof import("@sh/core/governance/council")>()),
   fetchCouncilKey: vi.fn(),
 }));
+vi.mock("@sh/core/governance/decode", async importOriginal => {
+  const original = await importOriginal<typeof import("@sh/core/governance/decode")>();
+  return { ...original, decodeScheduledOperation: vi.fn(original.decodeScheduledOperation) };
+});
 vi.mock("@sh/core/governance/registry", async importOriginal => ({
   ...(await importOriginal<typeof import("@sh/core/governance/registry")>()),
   fetchRegistryEntries: vi.fn(),
@@ -122,6 +128,16 @@ const post = (body: unknown, contentType = "application/json") =>
       }),
     ),
   );
+const postRaw = (body: string) =>
+  read(
+    POST(
+      new Request("http://localhost/api/demo/signers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+      }),
+    ),
+  );
 const signAs = (member: Name) => post({ scheduleId: SCHEDULE_ID, member });
 
 /** A refusal is only one if nothing was sent to the network. */
@@ -146,6 +162,7 @@ function acceptSignatures() {
 
 beforeEach(() => {
   execute = acceptSignatures();
+  vi.stubEnv("NODE_ENV", "development");
   workDir = mkdtempSync(join(tmpdir(), "demo-signers-"));
   vi.spyOn(process, "cwd").mockReturnValue(workDir);
   vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", GOVERNANCE_ACCOUNT_ID);
@@ -233,6 +250,13 @@ describe("GET /api/demo/signers", () => {
     expect(body.unavailableReason).toMatch(/No co-signing agent is configured/);
   });
 
+  it("lists nobody, and reads nothing, while the governance account is not configured", async () => {
+    writeState();
+    vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "");
+    expect(await (await get()).json()).toEqual({ members: [] });
+    expect(fetchAccount).not.toHaveBeenCalled();
+  });
+
   it("offers nobody while the agent's account cannot be read, and says why", async () => {
     writeState();
     vi.mocked(fetchAccount).mockRejectedValue(new Error("Mirror down at 10.0.0.1"));
@@ -282,6 +306,25 @@ describe("POST /api/demo/signers", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("answers 400 for a body that is not JSON at all, and for an empty one", async () => {
+    writeState();
+    expect((await postRaw("{ not json")).status).toBe(400);
+    expect((await postRaw("")).status).toBe(400);
+    expect(fetchSchedule).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("accepts JSON sent with a charset, and refuses a form that only mentions JSON", async () => {
+    writeState();
+    expect((await post({ scheduleId: SCHEDULE_ID, member: "alice" }, "Application/JSON; charset=utf-8")).status).toBe(
+      200,
+    );
+    execute.mockClear();
+    const form = await post({ scheduleId: SCHEDULE_ID, member: "alice" }, "multipart/form-data; x=application/json");
+    expect(form.status).toBe(415);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("answers 415 for a body not sent as JSON, which a cross-origin page could send without a preflight", async () => {
     writeState();
     expect((await post({ scheduleId: SCHEDULE_ID, member: "alice" }, "text/plain")).status).toBe(415);
@@ -300,6 +343,15 @@ describe("POST /api/demo/signers", () => {
     const response = await refusal("bob", 403);
     expect((await response.json()).error).toMatch(/never signs for it/);
     expect(fetchSchedule).not.toHaveBeenCalled();
+  });
+
+  it("refuses the agent's member with 403 when only setup recorded the agent, and still signs as the other", async () => {
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "");
+    writeState(["alice", "bob"], accountOf(ACCOUNT_IDS.bob, keys.bob));
+    await refusal("bob", 403);
+    expect(fetchSchedule).not.toHaveBeenCalled();
+    expect((await signAs("alice")).status).toBe(200);
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it("refuses to sign while no agent is configured or recorded, before reading the schedule", async () => {
@@ -416,7 +468,64 @@ describe("POST /api/demo/signers", () => {
     const transaction = execute.mock.contexts[0] as ScheduleSignTransaction;
     expect(transaction.scheduleId?.toString()).toBe(SCHEDULE_ID);
     expect(transaction.transactionId?.accountId?.toString()).toBe(ACCOUNT_IDS.alice);
+    const [client] = execute.mock.calls[0];
+    expect(client.ledgerId?.toString()).toBe("testnet");
+    expect(client.operatorAccountId?.toString()).toBe(ACCOUNT_IDS.alice);
+    expect(client.operatorPublicKey?.toStringRaw()).toBe(keys.alice.publicKey.toStringRaw());
     expect(await response.json()).toEqual({ transactionId: transaction.transactionId!.toString() });
+  });
+
+  it("asks the ledger about testnet, with no cache, and the executor deployed on it", async () => {
+    writeState();
+    await signAs("alice");
+    expect(fetchSchedule).toHaveBeenCalledWith(SCHEDULE_ID, {
+      network: "testnet",
+      fetchOptions: { cache: "no-store" },
+    });
+    expect(fetchCouncilKey).toHaveBeenCalledWith(GOVERNANCE_ACCOUNT_ID, "testnet");
+    expect(getDeployedContract).toHaveBeenCalledWith(hederaTestnet.id, GOVERNANCE_CONTRACTS.executor);
+  });
+
+  it("signs a native proposal, which has no registry entry to ask", async () => {
+    writeState();
+    vi.mocked(fetchSchedule).mockResolvedValue(
+      pendingProposal({ transaction_body: recorded.treasuryTransfer.transactionBody }),
+    );
+    expect((await signAs("alice")).status).toBe(200);
+    expect(fetchRegistryEntries).not.toHaveBeenCalled();
+  });
+
+  describe("a council rotation, which waits on both councils", () => {
+    const incomingOnly = { threshold: 1, memberKeys: [OTHER_MEMBER, rawOf(keys.bob)] };
+    const currentCouncil: CouncilKey = { threshold: 1, memberKeys: [OTHER_MEMBER, rawOf(keys.alice)] };
+    const aliceSigned = {
+      consensus_timestamp: "1.0",
+      public_key_prefix: rawOf(keys.alice),
+      signature: "…",
+      type: "ECDSA_SECP256K1",
+    };
+    const rotation: ScheduledOperation = {
+      kind: "councilRotation",
+      accountId: GOVERNANCE_ACCOUNT_ID,
+      council: incomingOnly,
+    };
+
+    beforeEach(() => {
+      writeState();
+      vi.mocked(fetchCouncilKey).mockResolvedValue(currentCouncil);
+      vi.mocked(decodeScheduledOperation).mockReturnValue(rotation);
+    });
+
+    it("signs for a member only the incoming council seats, while that council still waits on it", async () => {
+      vi.mocked(fetchSchedule).mockResolvedValue(pendingProposal({ signatures: [aliceSigned] as never }));
+      expect((await signAs("bob")).status).toBe(200);
+    });
+
+    it("refuses that member once the incoming council has its signature", async () => {
+      const bobSigned = { ...aliceSigned, public_key_prefix: rawOf(keys.bob) };
+      vi.mocked(fetchSchedule).mockResolvedValue(pendingProposal({ signatures: [aliceSigned, bobSigned] as never }));
+      await refusal("bob", 409);
+    });
   });
 
   it("repeats a network refusal by its status code", async () => {

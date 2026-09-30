@@ -106,8 +106,12 @@ function recordedAgentOf(state: object): RecordedAgent | null {
   const agent = "agentAccount" in state ? state.agentAccount : undefined;
   if (typeof agent !== "object" || agent === null) return null;
   const { accountId, privateKey } = agent as Partial<Record<keyof RecordedAgent, unknown>>;
-  if (typeof accountId !== "string" || !accountId) return null;
-  return { accountId, privateKey: typeof privateKey === "string" ? privateKey : "" };
+  const recorded = {
+    accountId: typeof accountId === "string" ? accountId.trim() : "",
+    privateKey: typeof privateKey === "string" ? privateKey : "",
+  };
+  // Either half names the agent: an account id excludes by account, a key excludes by seat.
+  return recorded.accountId || recorded.privateKey ? recorded : null;
 }
 
 type SetupKeys = { demoAccounts: Partial<Record<DemoMemberName, DemoAccount>>; recordedAgent: RecordedAgent | null };
@@ -124,7 +128,9 @@ function readSetupKeys(stateFile: string): SetupKeys {
 
 export function loadDemoSigners({ stateFile, nodeEnv, network, appChainId }: DemoSignerEnvironment): DemoSigners {
   if (network !== DEMO_NETWORK || appChainId !== hederaTestnet.id) return { status: "wrongNetwork" };
-  if (nodeEnv === "production") return { status: "unavailable" };
+  // Fail closed: only the development server (and the test runner) may hold these keys, so a build
+  // mode nobody thought of, or none at all, is refused like production.
+  if (nodeEnv !== "development" && nodeEnv !== "test") return { status: "unavailable" };
 
   const { demoAccounts, recordedAgent } = readSetupKeys(stateFile);
   const signers = DEMO_ACCOUNT_NAMES.flatMap(name => {
@@ -149,7 +155,8 @@ export type AgentExclusion =
  * Which accounts and seats the co-signing agent holds, from the two places that name it: the account
  * the app is told about (`NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID`, whose key is read from the Mirror
  * Node — the ledger, not the file, decides what it signs with) and the account `yarn setup` recorded
- * for it (whose key is derived from the private key in the state file).
+ * for it (whose key is derived from the private key in the state file). A configured account whose key
+ * is not one public key has no seat to compare, so it excludes by account id only.
  */
 export async function readAgentExclusion(
   configuredAccountId: string | null,
