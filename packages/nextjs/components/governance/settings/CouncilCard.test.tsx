@@ -65,6 +65,21 @@ describe("CouncilCard", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByText(AGENT_COPY.name)).toBeTruthy();
     expect(screen.queryByText(AGENT_COPY.notMember)).toBeNull();
+    expect(screen.getAllByText("demo co-signer")).toHaveLength(1);
+  });
+
+  it("captions the seated agent as the map does", () => {
+    const names = { ...NAMES, "key-c": { name: AGENT_COPY.name, caption: "seated by the council" } };
+    render(
+      <CouncilCard
+        council={COUNCIL}
+        unreadable={false}
+        naming={{ ...naming({ accountId: "0.0.103", seat: "key-c" }), memberNames: names }}
+        unseatedAgent={null}
+      />,
+    );
+    const row = screen.getByText(AGENT_COPY.name).closest("li")!;
+    expect(within(row).getByText("seated by the council")).toBeTruthy();
   });
 
   it("adds a dashed row for an agent the council does not seat, naming the council ticking it would propose", () => {

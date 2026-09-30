@@ -344,6 +344,13 @@ describe("ProposalDetailPanel", () => {
     expect(screen.queryByText("Co-signing agent")).toBeNull();
   });
 
+  it("captions the seated co-signing agent's row as the map does", () => {
+    vi.mocked(useCoSigningAgent).mockReturnValue({ accountId: "0.0.4999", seat: KEY_B });
+    renderPanel({ memberNames: { [KEY_B]: { name: "Co-signing agent", caption: "seated by the council" } } });
+    const row = screen.getByText("Co-signing agent").closest("li")!;
+    expect(within(row).getByText("seated by the council")).toBeTruthy();
+  });
+
   it("folds the raw ids, function and gas away under one disclosure", () => {
     renderPanel({ proposal: baseProposal({ operation: REGISTRY_CALL, registry: PENDING_UPGRADE_ENTRY }) });
     const raw = screen.getByText("Raw ids, function and calldata").closest("details")!;

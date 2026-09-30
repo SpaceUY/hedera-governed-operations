@@ -25,11 +25,15 @@ export function councilSeatOf(
   { proposers, viewerAccountId, memberNames = {}, agent }: SeatNaming,
 ): CouncilSeat {
   const isAgent = agent?.seat === key;
+  const mapName = memberNames[key];
   const accountId =
     proposers.find(proposer => proposer.key === key)?.accountId ?? (isAgent ? agent.accountId : undefined);
+  // The agent's seat takes the map's caption (the demo's "seated by the council") only where the map
+  // names that seat the agent too: an agent left on a demo member's key is that member on the map.
+  const mapCaptionFits = !isAgent || mapName?.name === AGENT_COPY.name;
   return {
-    name: isAgent ? AGENT_COPY.name : (memberNames[key]?.name ?? memberLabel(key, proposers, viewerAccountId)),
-    caption: isAgent ? undefined : memberNames[key]?.caption,
+    name: isAgent ? AGENT_COPY.name : (mapName?.name ?? memberLabel(key, proposers, viewerAccountId)),
+    caption: mapCaptionFits ? mapName?.caption : undefined,
     monogram: isAgent ? AGENT_COPY.monogram : undefined,
     accountId,
     isViewer: accountId !== undefined && accountId === viewerAccountId,
