@@ -43,4 +43,15 @@ describe("mapCaptionOf", () => {
       "Muted dashes are the path it would have taken. It never ran.",
     );
   });
+
+  it("says where the council lives on Settings, and names the council a change would create", () => {
+    expect(mapCaptionOf({ kind: "councilSettings", rule: null }, "2-of-3")).toEqual({
+      lead: "Council settings.",
+      text: "The council lives in the treasury account’s key, not in any contract.",
+    });
+    expect(mapCaptionOf({ kind: "councilSettings", rule: "2-of-4" }, "2-of-3")).toEqual({
+      lead: "Council settings.",
+      text: "Dashed violet is the council this change would create: a 2-of-4 council.",
+    });
+  });
 });

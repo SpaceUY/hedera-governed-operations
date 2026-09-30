@@ -20,7 +20,8 @@ with a reason attached.
 5. Signs what passed, with `ScheduleSign`. Reaching the threshold is what makes the network execute.
 6. Publishes the decision to an HCS topic — see [The decision log](#the-decision-log).
 
-Every decision is also one JSON line on stdout.
+Every decision is also one JSON line on stdout. These two are from an earlier deployment of the same
+contracts:
 
 ```json
 {"at":"…","event":"decision","scheduleId":"0.0.10720313","outcome":"approved","kind":"treasuryTransfer","reason":"within policy","proposal":"Transfer 0.05 ℏ to 0.0.10671142 out of 0.0.10671146","confirmation":"notRequired"}
@@ -139,10 +140,10 @@ that cannot tell what it is approving has one safe answer.
 
 ## Human in the loop
 
-The agent holds one of the council's three keys, so every signature it sends is **half a threshold
-delivered on a policy nobody watched it apply**. For most of what it signs that is the point: a
-transfer is bounded by an amount and a list of recipients, and waiting for somebody to open a wallet
-adds nothing. For the operations whose limits cannot bound their impact it is not enough — an upgrade
+Once seated, the agent holds one of the council's keys — one of four in the demo, which still needs
+two — so every signature it sends is **half a threshold delivered on a policy nobody watched it
+apply**. For most of what it signs that is the point: a transfer is bounded by an amount and a list
+of recipients, and waiting for somebody to open a wallet adds nothing. For the operations whose limits cannot bound their impact it is not enough — an upgrade
 replaces the code behind the proxy, and no list of addresses says what that code does.
 
 So a rule can ask for a person as well:
@@ -236,19 +237,21 @@ quarter of an hour ago should not still be authorising a transaction.
 ## The decision log
 
 Every decision — the checks it ran, the outcome, and whether a person released it — goes to an HCS
-topic as one JSON message:
+topic as one JSON message. This one is from the decision topic of an earlier deployment of the same
+contracts ([topic 0.0.10762625](https://hashscan.io/testnet/topic/0.0.10762625)), where the agent
+still ran on a demo council member's key:
 
 ```json
 {
   "schema": "governed-operations/agent-decision/1",
-  "scheduleId": "0.0.10720313",
+  "scheduleId": "0.0.10762676",
   "outcome": "approved",
   "reason": "within policy, release v2.0.0",
   "kind": "upgrade",
-  "proposal": "Upgrade 0x… to 0x… — entry 7",
+  "proposal": "Run entry 0 of the registry at 0.0.10671156 — Upgrade 0x3f806946439c3521eeD7d740c3f84E09888C0419 to the implementation at 0xF3111f1480f088c19CB80096f698E5f1B42Cb9A6",
   "confirmed": true,
   "agentAccountId": "0.0.10671144",
-  "decidedAt": "2026-09-28T10:00:00.000Z"
+  "decidedAt": "2026-09-28T15:59:27.662Z"
 }
 ```
 
@@ -261,10 +264,11 @@ something other than the agent's own clock.
 the release topic: a manifest claims "this team published this build", so the publisher is the team;
 a decision claims "this agent approved this proposal", so the publisher is the agent. A log the
 operator could also write to would be a log of what somebody said the agent did. `yarn setup` creates
-it with the seat's key and keeps the admin key on the operator, so the submit key can be rotated when
-the seat changes hands; in a real deployment the key belongs to whatever identity runs the service.
-The agent refuses to start on a topic anyone can publish to, and on one whose single submit key is
-not its own — every message it sent there would come back `INVALID_SIGNATURE`.
+it with the key of the agent's own account and keeps the admin key on the operator, so the submit key
+can be rotated when the agent's key changes; in a real deployment the key belongs to whatever
+identity runs the service. The agent refuses to start on a topic anyone can publish to, and on one
+whose single submit key is not its own — every message it sent there would come back
+`INVALID_SIGNATURE`.
 
 Publishing never blocks a decision. It happens after deciding and signing, and a failure is logged
 and stepped over: a fee that failed is not a reason to stop holding a council seat, and the next pass

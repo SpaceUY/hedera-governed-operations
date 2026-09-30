@@ -1,7 +1,7 @@
 /**
  * The line over the map that says what it is showing: nothing yet, a kind picked in the wizard (the
- * way it would go, once the map can draw it), a draft being written, the proposal selected in the
- * rail, or where a settled one went. Its words follow the legend's, so the
+ * way it would go, once the map can draw it), a draft being written, the council on Settings and the
+ * change composed there, the proposal selected in the rail, or where a settled one went. Its words follow the legend's, so the
  * caption and the lines on the map describe the same thing.
  */
 export type CaptionFacts =
@@ -9,6 +9,7 @@ export type CaptionFacts =
   | { kind: "drafting"; title: string | null }
   | { kind: "sketching"; title: string }
   | { kind: "picked"; title: string }
+  | { kind: "councilSettings"; rule: string | null }
   | { kind: "previewing"; title: string }
   | { kind: "history"; title: string }
   | { kind: "void"; title: string };
@@ -20,6 +21,8 @@ const WORDS = {
   drafting: "Drafting.",
   pickKind: "Pick an operation type.",
   history: "Mint is the path it took. It is done: the line stays only while it is selected.",
+  councilSettings: "Council settings.",
+  councilAtRest: "The council lives in the treasury account’s key, not in any contract.",
   void: "Muted dashes are the path it would have taken. It never ran.",
 } as const;
 
@@ -42,6 +45,13 @@ export function mapCaptionOf(facts: CaptionFacts, rule: string): MapCaption {
       };
     case "picked":
       return { lead: WORDS.drafting, text: `Fill in the form to see where “${facts.title}” would go.` };
+    case "councilSettings":
+      return {
+        lead: WORDS.councilSettings,
+        text: facts.rule
+          ? `Dashed violet is the council this change would create: a ${facts.rule} council.`
+          : WORDS.councilAtRest,
+      };
     case "previewing":
       return { lead: `${facts.title}.`, text: `Dashed violet is what would happen once the ${rule} council signs.` };
     case "history":
