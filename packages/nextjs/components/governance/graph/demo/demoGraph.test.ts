@@ -1,6 +1,6 @@
 import { TREASURY_OUTLINE, distanceFrom, routeOnMap } from "../geometry";
 import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR, pendingTransferTo } from "../mapFixtures";
-import { composeMap } from "../mapModel";
+import { type MapViewpoint, composeMap } from "../mapModel";
 import { DEMO_NAMES, decorateDemoMap } from "./demoGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GraphSnapshot } from "~~/services/liveMap/model/graph";
@@ -260,8 +260,8 @@ describe("decorateDemoMap's supplier", () => {
   });
 
   /** The demo map with `preview` drawn into it, and the frame the pane would show for it. */
-  function shown(preview: MapPreview, snapshot: GraphSnapshot = MAP_SNAPSHOT) {
-    const map = composeMap({ ...snapshot, previewed: preview.operation }, decorateDemoMap);
+  function shown(preview: MapPreview, snapshot: GraphSnapshot = MAP_SNAPSHOT, viewpoint: MapViewpoint = {}) {
+    const map = composeMap({ ...snapshot, previewed: preview.operation }, decorateDemoMap, viewpoint);
     return { map, frame: previewFrameOf(preview, { graph: map.graph, world: SHOWN, context: CONTEXT }) };
   }
   const nodeAt = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id);
@@ -309,12 +309,17 @@ describe("decorateDemoMap's supplier", () => {
   });
 
   it("never stands for the co-signing agent's account, which the map knows: that payment is named for the agent", () => {
-    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "0.0.4999");
-    const { map } = shown(draftTo("0.0.4999"));
+    const { map } = shown(draftTo("0.0.4999"), MAP_SNAPSHOT, { agentAccountId: "0.0.4999" });
     const agent = externalNodeId("0.0.4999");
     expect(nodeAt(map, agent)?.label).toBe(DEMO_NAMES.agent);
     expect(atSlot(map).map(node => node.id)).toEqual([RECIPIENT_STAND_IN_NODE_ID]);
     expect(map.inspector.nodes[agent]).toBeUndefined();
+  });
+
+  it("knows the agent's account only from what the map is told, never from the environment", () => {
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "0.0.4999");
+    const { map } = shown(draftTo("0.0.4999"));
+    expect(nodeAt(map, externalNodeId("0.0.4999"))?.label).toBe(DEMO_NAMES.supplier);
   });
 
   it("never stands for an account named by an alias, which may be someone the map already has", () => {

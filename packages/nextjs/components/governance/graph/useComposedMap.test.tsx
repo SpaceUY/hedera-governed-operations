@@ -4,7 +4,7 @@ import { MAP_SNAPSHOT } from "./mapFixtures";
 import { composeMap } from "./mapModel";
 import { useComposedMap, useLatestComposedMap } from "./useComposedMap";
 import { renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
@@ -46,6 +46,8 @@ beforeEach(() => {
   vi.mocked(useHederaSigner).mockReturnValue({ accountId: null } as ReturnType<typeof useHederaSigner>);
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("useComposedMap", () => {
   it("composes the map of the world it is given, for the configured deployment", () => {
     const { result } = renderHook(() => useComposedMap(CONFIG, WORLD));
@@ -76,6 +78,16 @@ describe("useComposedMap", () => {
     vi.mocked(useCoSigningAgent).mockReturnValue({ accountId: "0.0.4999", seat: "YWdlbnQ=" });
     renderHook(() => useComposedMap(CONFIG, WORLD), { wrapper });
     expect(decorate).toHaveBeenLastCalledWith(expect.objectContaining({ agentSeat: "YWdlbnQ=" }));
+  });
+
+  it("hands the configured co-signing agent's account to the decoration before its key is read", () => {
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "0.0.4999");
+    const decorate = vi.fn(() => ({ layout: { width: 1, height: 1, positions: {} } }));
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MapDecoratorProvider decorate={decorate}>{children}</MapDecoratorProvider>
+    );
+    renderHook(() => useComposedMap(CONFIG, WORLD), { wrapper });
+    expect(decorate).toHaveBeenLastCalledWith(expect.objectContaining({ agentAccountId: "0.0.4999", agentSeat: null }));
   });
 
   it("composes nothing without a world", () => {

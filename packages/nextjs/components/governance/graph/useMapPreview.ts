@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useParams, usePathname } from "next/navigation";
 import type { CaptionFacts } from "./caption";
+import { useMapEnvironment } from "./useMapEnvironment";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { proposalIdentityOf } from "~~/components/governance/rail/proposalIdentity";
 import { remainingSignatures } from "~~/components/governance/rail/proposalProgress";
@@ -12,11 +13,8 @@ import { PROPOSAL_KIND_COPY } from "~~/components/governance/wizard/copy";
 import type { WizardKind } from "~~/components/governance/wizard/kinds/wizardKinds";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
-import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import type { DraftPreview } from "~~/services/governance/drafts";
-import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
 import type { SketchContext } from "~~/services/liveMap/preview/kinds/previewKind";
 import {
   type MapPreview,
@@ -89,15 +87,10 @@ export function useMapPreview(config: GovernanceConfig) {
   );
   const { preview: draft, kind } = useProposalWizard();
   const { accountId } = useHederaSigner();
-  const { targetNetwork } = useTargetNetwork();
-  const agentSeat = useCoSigningAgent(config.network)?.seat ?? null;
+  const { entities, agentSeat } = useMapEnvironment(config);
   const sketch = useMemo<SketchContext>(
-    () => ({
-      governanceAccountId: config.governanceAccountId,
-      entities: governanceEntitiesOf(config, targetNetwork.id),
-      agentSeat,
-    }),
-    [config, targetNetwork.id, agentSeat],
+    () => ({ governanceAccountId: config.governanceAccountId, entities, agentSeat }),
+    [config.governanceAccountId, entities, agentSeat],
   );
   const { proposal } = useProposalLookup({
     scheduleId: target.kind === "schedule" ? target.scheduleId : "",

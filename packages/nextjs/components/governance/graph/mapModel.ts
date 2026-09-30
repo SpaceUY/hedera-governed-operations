@@ -44,12 +44,21 @@ export type MapContext = {
   proposers: GraphSnapshot["proposers"];
   /** The keys of the council as the ledger has it now, so a decorator can tell a seat held from one only proposed. */
   memberKeys: readonly string[];
+  /** The account of the co-signing agent the app was told about, or null when none is configured. */
+  agentAccountId: string | null;
   /** The council key of the co-signing agent the app was told about, or null: unconfigured, unread, or not one key. */
   agentSeat: string | null;
 };
 
-/** Who is looking and what the app knows outside the ledger: the connected account and the agent's seat. */
-export type MapViewpoint = { viewerAccountId?: string | null; agentSeat?: string | null };
+/**
+ * Who is looking and what the app knows outside the ledger: the connected account, and the co-signing
+ * agent's account and seat.
+ */
+export type MapViewpoint = {
+  viewerAccountId?: string | null;
+  agentAccountId?: string | null;
+  agentSeat?: string | null;
+};
 
 /**
  * What the inspector says about one layout's nodes and edges, by id, in place of what their role
@@ -136,18 +145,20 @@ export function viewerSeatOf(
 
 /**
  * `viewpoint.viewerAccountId` is the connected account, if any: the seat it holds is named "You", over
- * any name the generic labels or a decoration gave it. `viewpoint.agentSeat` reaches the decoration.
+ * any name the generic labels or a decoration gave it. `viewpoint.agentAccountId` and `agentSeat` reach
+ * the decoration.
  */
 export function composeMap(
   snapshot: GraphSnapshot,
   decorate?: MapDecorator,
-  { viewerAccountId, agentSeat = null }: MapViewpoint = {},
+  { viewerAccountId, agentAccountId = null, agentSeat = null }: MapViewpoint = {},
 ): ComposedMap {
   const { nodes } = deriveGraphState(snapshot, { ...AUTO_MAP_SIZE, positions: {} });
   const context: MapContext = {
     nodes,
     proposers: snapshot.proposers,
     memberKeys: snapshot.council.memberKeys,
+    agentAccountId,
     agentSeat,
   };
   const labels = genericLabels(context);

@@ -15,7 +15,6 @@ import {
   isIntroducedAccount,
 } from "../mapModel";
 import { isValidEntityId } from "@sh/core/mirror";
-import { getCoSigningAgentAccountId } from "~~/config/governanceConfig";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -223,7 +222,7 @@ export const decorateDemoMap: MapDecorator = context => {
   // so exactly one Supplier is drawn and it is the real one. One the map has — Alice, Bob, the
   // treasury — is paid on its own node, and the Supplier stays unlit. The co-signing agent's account
   // is paid under the agent's name, and an alias is never taken for the Supplier: it may be anyone's.
-  const agentAccountId = getCoSigningAgentAccountId();
+  const { agentAccountId } = context;
   const introduced = context.nodes.filter(node => node.role === "external" && isIntroducedAccount(node));
   const recipient = introduced.find(node => isValidEntityId(node.ref) && node.ref !== agentAccountId);
   const agentRecipient = introduced.find(node => node.ref === agentAccountId);
