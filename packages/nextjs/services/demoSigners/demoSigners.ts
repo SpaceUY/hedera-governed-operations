@@ -16,6 +16,9 @@
  *      `components/governance/rail/ProposalDetailPanel.tsx`, and with them the demo cases and the
  *      `useDemoSigners` mock in `ProposalDetailPanel.test.tsx` and the demo copy pin in
  *      `.harness/validators/static.json`.
+ * What stays behind is generic and harmless once nothing sends a `signAs` mutation: `ApproverList`'s
+ * `seatExtras`, the `signAs` mutation key, `signedAsOf` (`hooks/useRemoteApprovals.ts`), `signedAs` in
+ * `SessionWrites`, the `server-only` dependency and the tracing exclusion. `docs/GOVERNANCE_UI.md` lists them.
  */
 import type { CouncilKey, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
