@@ -143,7 +143,7 @@ packages/nextjs/
       events/mapEvents.ts   Snapshot diff: proposed / approved / executed / reverted / councilChanged, fresh ones only
       motion/               How the map moves: timings, sequences (cues as data), frame (what is lit at a cue), queue (order, dedupe, held world)
       remoteApprovals.ts    Which approvals of a read this session did not send
-      preview/              What the map previews: previewSource.ts (draft / selected proposal → MapPreview), previewFrame.ts (MapFrame for it), kinds/ (one module per kind: its "would …" words)
+      preview/              What the map previews: previewSource.ts (draft / selected proposal → MapPreview), previewFrame.ts (MapFrame for it), kinds/ (one module per kind: its "would …" words and the route it sketches before the form is filled; registry.ts lists them)
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     operatorKey.ts        Parses HEDERA_OPERATOR_PRIVATE_KEY for yarn setup and the scripts (never the app)
   utils/scaffold-hbar/    Hedera tx helpers, identity, networks, waitForMirrorIndexing
