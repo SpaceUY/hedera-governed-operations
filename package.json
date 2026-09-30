@@ -2,6 +2,15 @@
   "name": "sh",
   "version": "0.0.1",
   "private": true,
+  "author": "SpaceDev",
+  "contributors": [
+    "Aparicio de León",
+    "Clara Hardoy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SpaceUY/hedera-governed-operations.git"
+  },
   "workspaces": {
     "packages": [
       "packages/agent",
