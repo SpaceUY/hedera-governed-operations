@@ -32,6 +32,7 @@ const renderCard = (overrides: Overrides = {}) =>
       roles={ROLES}
       rolesUnreadable={false}
       council={COUNCIL}
+      councilUnreadable={false}
       config={CONFIG}
       naming={NAMING}
       {...overrides}
@@ -75,6 +76,27 @@ describe("ContractRolesCard", () => {
   it("waits quietly while the roles and the council are read", () => {
     renderCard({ roles: undefined, council: undefined });
     expect(screen.getAllByText(SETTINGS_COPY.roles.loading)).toHaveLength(3);
+  });
+
+  it("says the proposers could not be read when the council read failed, instead of reading forever", () => {
+    renderCard({ council: undefined, councilUnreadable: true });
+    const row = screen.getByText(SETTINGS_COPY.roles.proposer).closest("div");
+    if (!row) throw new Error("expected the PROPOSER_ROLE row");
+    expect(within(row).getByText(SETTINGS_COPY.roles.proposersUnreadable)).toBeTruthy();
+    expect(within(row).queryByText(SETTINGS_COPY.roles.loading)).toBeNull();
+  });
+
+  it("keeps the proposers it read when a later council read fails", () => {
+    renderCard({ councilUnreadable: true });
+    expect(screen.getByText("0.0.101, 0.0.102")).toBeTruthy();
+    expect(screen.queryByText(SETTINGS_COPY.roles.proposersUnreadable)).toBeNull();
+  });
+
+  it("says nobody holds PROPOSER_ROLE when the list read is empty", () => {
+    renderCard({ council: { ...COUNCIL, proposerAccountIds: [], proposers: [] } as CouncilQueryData });
+    const row = screen.getByText(SETTINGS_COPY.roles.proposer).closest("div");
+    if (!row) throw new Error("expected the PROPOSER_ROLE row");
+    expect(within(row).getByText(SETTINGS_COPY.roles.holders([]))).toBeTruthy();
   });
 
   it("names a proposer address no account answers for", () => {
