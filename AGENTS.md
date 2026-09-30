@@ -46,7 +46,7 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 
 | Route                      | Purpose                                                                                                                                                                          |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below under "Recent"; the selected one (`?schedule=`) opens its detail under its card; a setup notice until `yarn setup` and the deploy have run |
+| `/`                        | Live map — map pane (treasury figures, council threshold) beside a rail listing pending proposals, settled ones below under "Recent"; the selected one (`?schedule=`) opens its detail under its card; the template's published testnet instance, with a notice, until `yarn setup` writes your own ids |
 | `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)                                                |
 | `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed)                                                                  |
 
