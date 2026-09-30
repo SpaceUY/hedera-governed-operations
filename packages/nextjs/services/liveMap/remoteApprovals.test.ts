@@ -1,12 +1,19 @@
 import { type SessionWrites, remoteApprovals } from "./remoteApprovals";
 import { describe, expect, it } from "vitest";
 import type { AnimationEvent } from "~~/services/liveMap/events/mapEvents";
-import { ALICE, BOB, DAVE, TRANSFER, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
+import { ALICE, BOB, CAROL, DAVE, TRANSFER, ago, proposal, world } from "~~/services/liveMap/motion/motionFixtures";
 
 const ID = "0.0.9001";
 /** The connected account `0.0.4101` holds Alice's key, and opened the proposal. */
 const WORLD = world([proposal({ id: ID, operation: TRANSFER, creator: "0.0.4101" })]);
-const IDLE: SessionWrites = { accountId: "0.0.4101", memberKey: ALICE, signed: [], opened: [], opening: false };
+const IDLE: SessionWrites = {
+  accountId: "0.0.4101",
+  memberKey: ALICE,
+  signed: [],
+  signedAs: [],
+  opened: [],
+  opening: false,
+};
 
 const approvedBy = (memberKey: string): AnimationEvent => ({ kind: "approved", scheduleId: ID, memberKey, at: ago(2) });
 const PROPOSED: AnimationEvent = { kind: "proposed", scheduleId: ID, at: ago(3) };
@@ -51,6 +58,21 @@ describe("remoteApprovals", () => {
   it("announces nothing on a schedule it signed while the connected account's key is still being read", () => {
     const reading = { ...IDLE, memberKey: null, signed: [ID] };
     expect(remoteApprovals([approvedBy(BOB)], reading, WORLD)).toEqual([]);
+  });
+
+  it("does not announce a demo signature this session asked for, though that seat is not the connected account's", () => {
+    const asked = { ...IDLE, signedAs: [{ scheduleId: ID, memberKey: BOB }] };
+    expect(members(remoteApprovals([approvedBy(BOB), approvedBy(DAVE)], asked, WORLD))).toEqual([DAVE]);
+  });
+
+  it("announces the same member's approval on another schedule", () => {
+    const asked = { ...IDLE, signedAs: [{ scheduleId: "0.0.9002", memberKey: BOB }] };
+    expect(members(remoteApprovals([approvedBy(BOB)], asked, WORLD))).toEqual([BOB]);
+  });
+
+  it("announces the other demo member on the same schedule", () => {
+    const asked = { ...IDLE, signedAs: [{ scheduleId: ID, memberKey: BOB }] };
+    expect(members(remoteApprovals([approvedBy(CAROL)], asked, WORLD))).toEqual([CAROL]);
   });
 
   it("never announces anything that is not an approval", () => {

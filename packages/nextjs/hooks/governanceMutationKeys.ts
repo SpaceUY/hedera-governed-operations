@@ -8,4 +8,6 @@ export const GOVERNANCE_MUTATION_KEYS = {
   open: ["governance", "openProposal"],
   openRegistry: ["governance", "openProposal", "registry"],
   openNative: ["governance", "openProposal", "native"],
+  /** A signature this screen asked the server to add for a demo co-signer; its variables carry that seat's key. */
+  signAs: ["governance", "signAs"],
 } as const;

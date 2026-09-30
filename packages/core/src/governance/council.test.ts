@@ -7,6 +7,7 @@ import {
   councilHoldsKey,
   countThresholdSignatures,
   fetchCouncilKey,
+  fetchCouncilKeyBefore,
   fetchProposerAccountIds,
   isSignedByKey,
   memberKeyOfAccount,
@@ -36,6 +37,38 @@ function stubAccountKey(key: unknown) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("fetchCouncilKeyBefore", () => {
+  it("reads the governance account's key as it stood just before the timestamp", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(governanceAccount)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const council = await fetchCouncilKeyBefore("0.0.10590498", "1790721693.093999572", "testnet");
+
+    expect(council).toEqual({ threshold: 2, memberKeys: MEMBER_KEYS });
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/api/v1/accounts/0.0.10590498?transactions=false&timestamp=lt:1790721693.093999572",
+    );
+  });
+
+  it("refuses an account that held a single key then, as fetchCouncilKey does now", async () => {
+    stubAccountKey({
+      _type: "ECDSA_SECP256K1",
+      key: "03c64e5ea4478c6279f711fa877661f7a3da557cc41ed240fc3b714851d39853bb",
+    });
+
+    await expect(fetchCouncilKeyBefore("0.0.8192684", "1.0", "testnet")).rejects.toThrow("0.0.8192684");
+  });
+
+  it("asks nothing for an account id or a timestamp that is not one", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchCouncilKeyBefore("0.0.1&limit=1", "1.0", "testnet")).rejects.toThrow();
+    await expect(fetchCouncilKeyBefore("0.0.1", "1.0&order=asc", "testnet")).rejects.toThrow("timestamp");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("fetchCouncilKey", () => {

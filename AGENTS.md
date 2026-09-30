@@ -50,6 +50,7 @@ Copy `packages/nextjs/.env.example` → `packages/nextjs/.env`. Required for sig
 | `/governance/[scheduleId]` | One proposal by schedule id: decoded operation, registry state, gas and HBAR, approvals; Sign / Withdraw / Cancel (wallet-signed)                                                |
 | `/governance/new`          | Open a proposal — pick an operation, see what the council will see, register and/or schedule it (wallet-signed); the map previews the draft as it is written                                                               |
 | `/settings`                | Settings — council (threshold key, Mirror), council-change composer (wallet-signed, native), registry roles (relay, read-only)                                                   |
+| `/api/demo/signers`        | Demo only, development server on testnet: GET lists the demo co-signers this server holds keys for (never the co-signing agent's seat; empty with the reason while the agent is unknown), POST adds one's ScheduleSign to a pending proposal |
 
 Config: `packages/nextjs/config/governanceConfig.ts` (the ids `yarn setup` writes, deployed contract lookup).
 
@@ -96,17 +97,20 @@ packages/agent/           @sh/agent — one seat on the council, signing under a
   Dockerfile              Built from the repository root, since the agent shares @sh/core with the app
 packages/nextjs/
   app/                    App Router pages
+    api/demo/signers/     Demo only: sign as a demo co-signer (testnet, development server)
     (governance)/         layout.tsx: the live map — setup guard, GovernanceProvider, map pane + rail; page.tsx (/), governance/[scheduleId], governance/new
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ConnectWallet, SetupNotice, …
     governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: TreasuryStrip with AnimatedNumber figures, map) over useLiveMap (its reads, motion, node states, remote signatures, inspector, preview), RailNotice (the rail's banner), MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend), MapInspector + inspector.ts (the card for a selected node or edge), MapDecoratorProvider + useComposedMap (the host's layout, shared with the rail), MapCaptionLine + caption.ts and useMapPreview (the line over the map and the preview of the rail's draft or selected proposal); copy.ts holds its words
     governance/graph/demo/  Demo only: hand-composed layout, names, the co-signing agent — a ghost until a rotation proposes it or the council seats it (deletable)
+    governance/demo/      Demo only: Sign as Alice / Bob on the rail's council rows (deletable)
     governance/settings/  Settings: CouncilCard, CouncilChangeComposer (+ councilChange.ts, the composer's rules), ContractRolesCard (+ registryRoles.ts), copy.ts
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI
     useProposalAnimationSync.ts  The map's queue: plays each read's events one at a time on a held world
     usePrefersReducedMotion.ts   The reduced-motion setting, followed live
-    useRemoteApprovals.ts  Approvals a read reports that this session did not send (the rail's banner)
+    useRemoteApprovals.ts  Approvals a read reports that this session did not send (the rail's banner); a demo signature counts as this session's by its signAs variables
+    useDemoSigners.ts     Demo only: the demo co-signers, and a demo signature (signAs)
     governanceMutationKeys.ts  Mutation keys of the governance writes, read back with useMutationState
     mirror/               React Query hooks over @sh/core/mirror
       useSchedule.ts        Schedule + derived state + execution outcome; polls until the outcome is final
@@ -115,6 +119,7 @@ packages/nextjs/
       useProposalLookup.ts  One proposal by schedule id, listed or not; the detail page and the rail's search
       sentCancels.ts        Cancels just sent, kept reading "cancelled" until the relay catches up
       useCouncil.ts         Members, threshold and proposers; cached, since only a passed proposal changes them
+      useCouncilBefore.ts   The council just before a change ran (account history); the executed rotation's result line
       useReleaseCheck.ts    Whether a published release vouches for an upgrade's implementation (the agent's check)
       useTreasuryFigures.ts Treasury balances plus the vault's reserve
       useInboxUpdatedAt.ts  When any inbox on a network was last read, from the query cache (the header's "polled Xs ago")
@@ -150,6 +155,7 @@ packages/nextjs/
       preview/              What the map previews: previewSource.ts (draft / selected proposal → MapPreview), previewFrame.ts (MapFrame for it), kinds/ (one module per kind: its "would …" words and the route it sketches before the form is filled; registry.ts lists them)
     swap/                 SwapProvider interface + SaucerSwap V2 implementation
     operatorKey.ts        Parses HEDERA_OPERATOR_PRIVATE_KEY for yarn setup and the scripts (never the app)
+    demoSigners/          Demo only: demo co-signer rules (browser) and keys + guards (server)
   utils/scaffold-hbar/    Hedera tx helpers, identity, networks, waitForMirrorIndexing
   scaffold.config.ts      Target networks (testnet, mainnet), RPC, WalletConnect
   contracts/              deployedContracts.ts (generated by yarn hardhat:deploy), externalContracts.ts
@@ -179,6 +185,7 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 - **Wallet-signed (client)**: build the transaction with the SDK and hand it to `useHederaSigner` (`executeTransaction` / `signTransaction`); the active signer freezes it with a network `Client`. Use this for anything the user owns or pays for: opening, signing, withdrawing or cancelling a proposal. Read the payer with `requireAccountId()`, not from the wallet provider, so the code works with both signers.
 - **Test signer (burner)**: `services/web3/BurnerSignerProvider.tsx` reads `localStorage["burnerWallet.pk"]` on load, resolves the account id from the key's EVM alias through the Mirror Node (`GET /api/v1/accounts/0x…`, retried for indexing lag) and takes precedence over HashPack. `burnerSigner.ts` signs with `freezeWith(client)` + `execute(client)` / `sign(key)`; the burner is the client's operator. It only activates on testnet and, in production builds, only when `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` (`burnerSignerPolicy.ts`). The header shows the account with a "test signer" badge; "Disconnect" forgets the key. This is the burner-wallet pattern of the Hedera Harness x402 recipe ([hedera-dev/hedera-harness](https://github.com/hedera-dev/hedera-harness)), adapted to native signing since HashPack cannot be driven by Playwright. `BurnerSigner.publicKey` is the extension point for demo modes that need the ephemeral account on-chain (e.g. as a threshold-key member); a payer-only demo needs nothing beyond `chainValidation.fundingHbar`.
 - **Operator key (scripts only)**: no page or route signs with the operator. Only `yarn setup`, `yarn release:publish` and `yarn harness:council-seat` read `HEDERA_OPERATOR_*` (the key is parsed by `services/operatorKey.ts`), in Node. Never expose it to the client or prefix it with `NEXT_PUBLIC_`.
+- **Demo co-signers (server route, demo only)**: `app/api/demo/signers` signs a pending proposal's `ScheduleSign` with Alice's or Bob's key (`DEMO_COUNCIL_MEMBERS`; never the agent's, though `demoAccounts.agent` sits beside them), read from the gitignored `setup-state.json` by `services/demoSigners/demoSignerServer.ts` (`PrivateKey.fromStringDer`; the public key is derived, never read from the file). The demo account pays its own signature; the operator is not used, so "no page or route signs with the operator" still holds. It answers only on testnet (`HEDERA_NETWORK` and the app's target network), only under the development server (no opt-in), only to a JSON POST, only for a proposal `canBeSigned` would offer that still waits on that member, and never for the co-signing agent's seat (by account and by key, from `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID` and the account setup records as `demoAccounts.agent`; with neither, or with the configured account unreadable, it signs for nobody). `next.config.ts` keeps `setup-state.json` out of traced output. See `docs/GOVERNANCE_UI.md` ("Demo co-signers").
 - **Freeze before execute**: always `freeze()` / `freezeWith(client)` a transaction before signing or serialising it. A frozen transaction has its transaction id and node account ids fixed; an unfrozen one cannot be signed by an external wallet.
 - **Batch inner transactions (HIP-551)**: for an inner transaction the wallet signs and the server batches, set `setTransactionId(TransactionId.generate(payer))`, `setBatchKey(serviceKey)`, then `freeze()`. Do **not** call `setNodeAccountIds`: it locks the node list and `freeze()` can no longer pin node `0.0.0`, which a batch requires. The service adds the signed inner tx to a `BatchTransaction` and executes it with the batch key.
 - **Wallet rejections** arrive as WalletConnect JSON-RPC errors (`code` 5000–5003, EIP-1193 `4001`, or a `USER_REJECT` message); `hederaSigner.ts` maps them to `WalletRejectedError` (`isWalletRejection`) so components can show a message instead of a crash.
@@ -189,6 +196,7 @@ docs/                     ARCHITECTURE.md, RUNBOOK.md, GLOSSARY.md, GOVERNANCE_U
 
 - `DAppSigner.freezeWithSigner` (`hedera-wallet-connect` 2.1.x) does **not** set node account ids; freeze with a `Client.forTestnet()` / `forMainnet()` before `executeWithSigner` or the wallet call fails.
 - Mirror `GET /schedules?account.id=X` filters by **creator** of the schedule (`creator_account_id`), not by `payer_account_id`; querying with the payer returns an empty list. See `fetchSchedulesByCreator`.
+- **An account's key at an earlier time is one Mirror read**: `GET /api/v1/accounts/{id}?timestamp=lt:<consensus timestamp>` answers with the account as it stood just before (verified on testnet against `CRYPTOUPDATEACCOUNT` transactions; a timestamp before the account existed answers 404). `fetchCouncilKeyBefore` uses it to tell whether an executed rotation added the co-signing agent, since a proposal's progress is counted against today's council.
 - **A schedule's `m of n` is not `signatures.length`.** Mirror records a row for every key that signed anything touching the schedule, and two kinds never count toward the threshold: the row `ScheduleCreate` adds for whoever paid to open the proposal, and the row every `ScheduleSign` adds for whoever paid to submit it. Measured on testnet, an executed 2-of-3 proposal shows **four** rows ([schedule 0.0.10716564](https://hashscan.io/testnet/schedule/0.0.10716564)) — two members and the payer twice. Count **council members, not rows** (`countThresholdSignatures`): a member is in or out however many rows carry its key. Do not discard every creator signature either — when the proposer holds a seat, which is what the demo does, it counts once and legitimately.
 - **The members of a threshold key come back as an opaque blob.** Mirror returns the governance account's key as `_type: "ProtobufEncoded"`, so `fetchCouncilKey` decodes it with `@hiero-ledger/proto` — the package the Hiero SDK already depends on, so it adds nothing to the bundle (its version follows the SDK's; see **Stack**). Read it from the ledger, never from env: rotating the council is itself a proposal. Match a signature to a member in **hex**, since `public_key_prefix` is a prefix and base64 packs three bytes into four characters.
 - **Mirror has no query for "proposals of the governance account".** `GET /schedules?account.id=X` filters by creator, and a proposal is defined by its payer, so the inbox is the union of the schedules each `PROPOSER_ROLE` holder created, narrowed to the ones the governance account pays for. A native proposal needs no role, so one opened outside it is never listed — accepted, and reachable by its schedule id.

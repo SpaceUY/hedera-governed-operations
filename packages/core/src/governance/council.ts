@@ -11,11 +11,14 @@
  * it costs nothing in the bundle and its version follows the SDK's.
  */
 import {
+  type MirrorAccount,
   type MirrorKey,
   type MirrorSchedule,
   type MirrorScheduleSignature,
+  assertValidEntityId,
   compareMirrorTimestamps,
   fetchAccount,
+  mirrorRequest,
 } from "../mirror";
 import type { HederaNetworkName } from "../network";
 import { createRelayClient } from "../relayClient";
@@ -117,19 +120,54 @@ export function governanceAccountMemo(threshold: number, memberCount: number): s
 }
 
 /**
+ * The council in an account's key as Mirror serves it. A key that is not protobuf-encoded holds no
+ * members, so it throws with the message `describe` writes for the key type it found.
+ */
+function councilKeyFromMirrorKey(key: MirrorAccount["key"], describe: (keyType: string) => string): CouncilKey {
+  if (key?._type !== PROTOBUF_ENCODED) throw new Error(describe(key?._type ?? "missing"));
+  return councilKeyOf(proto.Key.decode(bytesFromUnprefixedHex(key.key)));
+}
+
+/**
  * Reads the council out of the governance account's key. Throws when the account holds a single
  * key: one signature would then be enough to move the treasury, which is the setup this whole
  * mechanism exists to avoid, so failing loudly beats showing "1 of 1".
  */
 export async function fetchCouncilKey(governanceAccountId: string, network: HederaNetworkName): Promise<CouncilKey> {
   const { key } = await fetchAccount(governanceAccountId, { network });
-  if (key?._type !== PROTOBUF_ENCODED) {
-    throw new Error(
-      `Governance account ${governanceAccountId} holds a ${key?._type ?? "missing"} key, not a threshold key. ` +
-        "Anything it pays for would run on a single signature, with no council to approve it.",
-    );
+  return councilKeyFromMirrorKey(
+    key,
+    keyType =>
+      `Governance account ${governanceAccountId} holds a ${keyType} key, not a threshold key. ` +
+      "Anything it pays for would run on a single signature, with no council to approve it.",
+  );
+}
+
+/** A consensus timestamp as Mirror writes it: seconds, a dot, up to nine digits of nanoseconds. */
+const CONSENSUS_TIMESTAMP = /^\d+\.\d{1,9}$/;
+
+/**
+ * The council as it stood just before a consensus timestamp: the governance account's key read back
+ * from the Mirror Node's account history (`timestamp=lt:`), for a screen that says what an executed
+ * council rotation changed — `fetchCouncilKey` only knows the council now. Throws, like it, when the
+ * account held a single key then; a timestamp before the account existed is Mirror's 404.
+ */
+export async function fetchCouncilKeyBefore(
+  governanceAccountId: string,
+  consensusTimestamp: string,
+  network: HederaNetworkName,
+): Promise<CouncilKey> {
+  assertValidEntityId(governanceAccountId, "account ID");
+  if (!CONSENSUS_TIMESTAMP.test(consensusTimestamp)) {
+    throw new Error(`"${consensusTimestamp}" is not a consensus timestamp (seconds.nanoseconds).`);
   }
-  return councilKeyOf(proto.Key.decode(bytesFromUnprefixedHex(key.key)));
+  const path = `/api/v1/accounts/${governanceAccountId}?transactions=false&timestamp=lt:${consensusTimestamp}`;
+  const { key } = await mirrorRequest<MirrorAccount>(path, { network });
+  return councilKeyFromMirrorKey(
+    key,
+    keyType =>
+      `Governance account ${governanceAccountId} held a ${keyType} key before ${consensusTimestamp}, not a threshold key.`,
+  );
 }
 
 /**

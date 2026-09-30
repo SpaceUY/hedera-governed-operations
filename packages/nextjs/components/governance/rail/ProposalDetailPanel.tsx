@@ -26,15 +26,16 @@ import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
 import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
+import { useDemoSeats } from "~~/components/governance/demo/useDemoSeats";
 import type { MemberName } from "~~/components/governance/graph/mapModel";
 import { gasLimitLabel } from "~~/components/governance/wizard/copy";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
+import { useRotationResultTitle } from "~~/hooks/useRotationResultTitle";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import {
   UNREACHABLE_REGISTRY_SIGN_WARNING,
-  councilChangeTitle,
   councilRuleLabel,
   executionFailureLabel,
   proposalStatusLabel,
@@ -109,6 +110,12 @@ export const ProposalDetailPanel = ({
   const sign = useSignProposal();
   const council = useCouncil({ governanceAccountId, executorContractId, network });
   const agent = useCoSigningAgent(network);
+  const demo = useDemoSeats({ proposal, council: council.data?.key, onSigned: refresh });
+  const resultTitle = useRotationResultTitle(proposal, {
+    governanceAccountId,
+    network,
+    agentSeat: agent?.seat ?? null,
+  });
   const unseatedAgentSeat = council.data ? unseatedAgentSeatOf(agent, council.data.key) : null;
   const proposers = council.data?.proposers ?? [];
   const rule = council.data ? councilRuleLabel(council.data.key) : `${proposal.progress.threshold}-of-?`;
@@ -154,6 +161,7 @@ export const ProposalDetailPanel = ({
     memberNames,
     isCollecting: isPending,
     signAction: signButton,
+    seatExtras: demo.extras,
     agent,
     headingLevel: sectionHeadingLevel,
   };
@@ -221,7 +229,11 @@ export const ProposalDetailPanel = ({
       </div>
 
       {proposal.execution.status === "succeeded" && (
-        <SucceededResult executedAt={state.executedAt} result={proposal.execution.transaction.result} />
+        <SucceededResult
+          executedAt={state.executedAt}
+          result={proposal.execution.transaction.result}
+          title={resultTitle}
+        />
       )}
       {executionFailure && (
         <p role="status" className="m-0 rounded-box border border-error bg-error/10 p-3 text-sm">
@@ -245,6 +257,7 @@ export const ProposalDetailPanel = ({
                 progress={proposal.incomingProgress}
                 {...listProps}
                 signAction={incomingSignAction}
+                seatExtras={demo.incomingExtras}
               />
             </>
           ) : (
@@ -258,12 +271,13 @@ export const ProposalDetailPanel = ({
                 <UnseatedAgentRow
                   notes={[
                     AGENT_COPY.notSeated,
-                    AGENT_COPY.howToSeat(councilChangeTitle(withSeat(council.data.key, unseatedAgentSeat))),
+                    AGENT_COPY.howToSeat(councilRuleLabel(withSeat(council.data.key, unseatedAgentSeat))),
                   ]}
                 />
               )}
             </ApproverList>
           )}
+          {demo.note && <p className="m-0 text-sm text-base-content/70">{demo.note}</p>}
         </div>
       )}
 
@@ -326,11 +340,18 @@ function signedAtOf({ schedule, progress, incomingProgress }: Proposal): Record<
   return signedAt;
 }
 
-const SucceededResult = ({ executedAt, result }: { executedAt: Date | null; result: string }) => {
+type SucceededResultProps = {
+  executedAt: Date | null;
+  result: string;
+  /** What the run did, when the screen can say more than "Executed" (a council rotation). */
+  title?: string | null;
+};
+
+const SucceededResult = ({ executedAt, result, title }: SucceededResultProps) => {
   const copy = executedResult(executedAt, result);
   return (
     <div role="status" className="flex flex-col gap-1 rounded-box border border-success bg-success/10 p-3 text-sm">
-      <p className="m-0 font-semibold">{copy.title}</p>
+      <p className="m-0 font-semibold">{title ?? copy.title}</p>
       <p className="m-0">{copy.line}</p>
       <p className="m-0 text-base-content/70">{copy.why}</p>
     </div>

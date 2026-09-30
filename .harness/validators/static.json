@@ -121,6 +121,14 @@
     {
       "file": "packages/nextjs/components/governance/rail/copy.ts",
       "contains": ["HashPack cannot sign this step", "HashPack cannot sign a schedule delete yet", "such as Kabila", "Use another wallet"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/demo/copy.ts",
+      "contains": ["Sign as ", "demo key", "server-side, testnet only"]
+    },
+    {
+      "file": "packages/nextjs/next.config.ts",
+      "contains": ["outputFileTracingExcludes", "setup-state.json"]
     }
   ]
 }

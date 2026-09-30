@@ -7,6 +7,9 @@ import type { MemberName } from "~~/components/governance/graph/mapModel";
 import type { CoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { type HederaNetworkName, getHashScanUrl } from "~~/utils/scaffold-hbar/networks";
 
+/** What a screen adds to one seat's row: a badge in place of the map's caption, an action in place of the status. */
+export type SeatExtra = { badge?: ReactNode; action?: ReactNode };
+
 export type ApproverListProps = {
   heading: string;
   council: CouncilKey;
@@ -25,6 +28,11 @@ export type ApproverListProps = {
   network?: HederaNetworkName;
   /** Put on the viewer's own row, while it has not signed. */
   signAction?: ReactNode;
+  /**
+   * What another part of the screen puts on seats that are not the viewer's, by member key. An action
+   * shows only while that seat has not signed; the viewer's own row keeps `signAction`.
+   */
+  seatExtras?: Readonly<Record<string, SeatExtra>>;
   /** The co-signing agent, when the app knows its account: the seat its key holds is named as the agent. */
   agent?: CoSigningAgent | null;
   /** Rows after the members' — the co-signing agent's, while it holds no seat. */
@@ -36,8 +44,9 @@ export type ApproverListProps = {
 /**
  * Every seat of one council, one row each: who holds it — named as the map names it, "You" for the
  * connected account's own seat — and whether it has signed. The viewer's own row carries the Sign
- * button; nobody else's does. A council rotation renders this twice — see `ProposalDetailPanel` —
- * since the schedule waits for both the current council's threshold and the incoming one's own.
+ * button; another seat carries only what `seatExtras` gives it. A council rotation renders this twice —
+ * see `ProposalDetailPanel` — since the schedule waits for both the current council's threshold and the
+ * incoming one's own.
  */
 export const ApproverList = ({
   heading,
@@ -50,6 +59,7 @@ export const ApproverList = ({
   signedAt = {},
   network,
   signAction,
+  seatExtras = {},
   agent,
   children,
   headingLevel = 2,
@@ -69,12 +79,15 @@ export const ApproverList = ({
         {council.memberKeys.map(key => {
           const seat = councilSeatOf(key, naming);
           const state = stateOf(key);
+          const extra = seatExtras[key];
+          const action = seat.isViewer ? signAction : extra?.action;
           return (
             <CouncilMemberRow
               key={key}
               {...seat}
+              badge={extra?.badge}
               state={state}
-              action={seat.isViewer && state !== "signed" ? signAction : undefined}
+              action={state === "signed" ? undefined : action}
               signature={signatureOf(key)}
             />
           );
