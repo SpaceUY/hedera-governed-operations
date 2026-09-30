@@ -97,10 +97,10 @@ export const Header = () => {
         </ul>
       </div>
       <div className="navbar-end grow mr-2 gap-3 lg:mr-0">
-        <div className="hidden md:flex">
+        <div className="hidden xl:flex">
           <MirrorPollStatus />
         </div>
-        <span className="hidden sm:inline-flex items-center rounded-full border border-base-content/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-base-content/60">
+        <span className="hidden md:inline-flex items-center rounded-full border border-base-content/10 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-base-content/60">
           {targetNetwork.name}
         </span>
         <SwitchTheme />

@@ -35,7 +35,9 @@ export const WalletConnectButton = () => {
       <details ref={menuRef}>
         <summary className="inline-flex h-10 cursor-pointer list-none items-center gap-2 rounded-full border border-base-content/10 px-4 text-sm font-semibold tabular-nums whitespace-nowrap transition-colors hover:border-base-content/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
           <span>{accountId}</span>
-          {walletName && <span className="hidden font-medium text-base-content/60 sm:inline">{walletName}</span>}
+          {walletName && (
+            <span className="hidden max-w-32 truncate font-medium text-base-content/60 md:inline">{walletName}</span>
+          )}
           {isTestSigner && <span className="badge badge-warning badge-sm">test signer</span>}
         </summary>
         <ul className="menu dropdown-content mt-2 z-[60] w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
