@@ -11,7 +11,7 @@ export type ContractRolesCardProps = {
   rolesUnreadable: boolean;
   council: CouncilQueryData | undefined;
   councilUnreadable: boolean;
-  config: GovernanceConfig;
+  config: Pick<GovernanceConfig, "governanceAccountId" | "executor">;
   naming: SeatNaming;
 };
 

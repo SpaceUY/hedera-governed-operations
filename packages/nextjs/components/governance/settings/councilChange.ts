@@ -96,6 +96,15 @@ export function councilBlockOf(change: CouncilChange, agentSeat: string | null):
   return { reason: "agentNeverSignsRotation", otherKeys };
 }
 
+/**
+ * Whether the current council needs the agent's seat to reach its own threshold. A rotation waits for
+ * both councils' thresholds and the agent never signs one, so then no change, whatever it proposes, could run.
+ */
+export function currentCouncilNeedsAgent(council: CouncilKey, agentSeat: string | null): boolean {
+  if (!agentSeat || !council.memberKeys.includes(agentSeat)) return false;
+  return council.threshold > council.memberKeys.length - 1;
+}
+
 /** The rotation to schedule, or nothing while the composition is the council the ledger already has. */
 export function draftCouncilChange(
   governanceAccountId: string,

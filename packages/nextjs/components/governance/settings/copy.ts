@@ -45,10 +45,12 @@ export const SETTINGS_COPY = {
       otherKeys === 0
         ? `The co-signing agent never signs a council rotation, so a ${rule} council of the agent alone could never approve this change: it could never run.`
         : `The co-signing agent never signs a council rotation, so the other ${otherKeys} ${otherKeys === 1 ? "key" : "keys"} can’t reach ${rule}: this change could never run.`,
+    /** The current council cannot reach its threshold without the agent's seat: no change to it could ever run. */
+    agentHoldsCouncil: (otherKeys: number, rule: string) =>
+      `The co-signing agent holds a seat on the current ${rule} council and never signs a council rotation, so the other ${otherKeys} ${otherKeys === 1 ? "key" : "keys"} can’t reach its threshold: no change to the council could run.`,
     agentNeverSigns:
       "A co-signing agent never signs a council rotation, whatever its policy says: if one holds a seat, both " +
       "thresholds have to be reached by the council's human members.",
-    note: "One transaction. The map shows the council this would create in dashed violet.",
     /** The rows that seat an account holding no seat yet; its own key becomes the seat. */
     members: {
       legend: "Accounts to add",
