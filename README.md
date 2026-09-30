@@ -47,17 +47,33 @@ Based on the `hedera-demo` template from [hedera-dev/scaffold-hbar](https://gith
 
 ## Verified on testnet
 
-Every row is a transaction this repository's code produced on Hedera testnet, through the contracts `yarn hardhat:deploy` records today — all six verified on Sourcify (exact match, chain 296). Open a link; the right-hand column says what you should see. Checked against the Mirror Node on 2026-09-29.
+Every row is a transaction this repository's code produced on Hedera testnet. Open a link; the right-hand column says what you should see. Checked against the Mirror Node on 2026-09-30.
+
+### This deployment
+
+The demo instance the app reads without a `.env`: the contracts in `packages/nextjs/contracts/deployedContracts.ts` and the ids in `DEMO_INSTANCE` (`packages/nextjs/config/governanceConfig.ts`), plus the agent's decisions topic, which only the agent's own configuration names. All six of its contracts are source-verified on Sourcify.
 
 | Claim | Proof | What you will see |
 | --- | --- | --- |
-| The council's quorum is account state, not a contract | [account 0.0.10671146](https://hashscan.io/testnet/account/0.0.10671146) | A threshold key: 2 of 3 |
-| A proposal is a schedule the governance account pays for | [schedule 0.0.10716564](https://hashscan.io/testnet/schedule/0.0.10716564) | Payer 0.0.10671146, memo "upgrade at 150000 gas" |
-| The network ran it once the threshold was met; nobody pressed "execute" | same schedule | Executed: the scheduled `CONTRACTCALL` is `SUCCESS`, and the vault proxy emitted `Upgraded` naming `AcmeVaultV2` |
+| The council's quorum is account state, not a contract | [account 0.0.10794626](https://hashscan.io/testnet/account/0.0.10794626) | A threshold key: 2 of 4 — the council account (0.0.10574825), `alice`, `bob` and the co-signing agent (0.0.10794623). The memo still reads "2-of-3", as `yarn setup` wrote it before the agent was seated |
+| A proposal is a schedule the governance account pays for | [schedule 0.0.10794949](https://hashscan.io/testnet/schedule/0.0.10794949) | Created by `alice` (0.0.10794621), payer 0.0.10794626, memo "Pay a supplier" |
+| The network ran it once the threshold was met; nobody pressed "execute" | same schedule | Two signatures, `alice`'s and `bob`'s; the scheduled `CRYPTOTRANSFER` is `SUCCESS`, 2.5 ℏ to 0.0.10794946 |
+| A treasury swap on SaucerSwap runs through an approved proposal | [schedule 0.0.10794955](https://hashscan.io/testnet/schedule/0.0.10794955) | Memo "Sell treasury HBAR for USDC"; the scheduled `CONTRACTCALL` to the executor is `SUCCESS`, and USDC (0.0.5449) reaches the governance account |
+| A scheduled call pays its whole gas limit | same schedule | 0.327 ℏ = 300,000 × 109 tinybar, while consuming 247,107 |
+| Changing who approves is itself a proposal | [schedule 0.0.10794960](https://hashscan.io/testnet/schedule/0.0.10794960) | Memo "Change the council", signed by `alice` and `bob`; the scheduled `CRYPTOUPDATEACCOUNT` is `SUCCESS`, and it is what turned the 2-of-3 key into the 2-of-4 above, seating the agent (0.0.10794623) |
+| The deployed bytecode is this repository's source | [GovernedExecutor](https://sourcify.dev/server/v2/contract/296/0xE3E24BeF0903e68e584E3a93e5F0b746959f4C7C), [AcmeVault proxy](https://sourcify.dev/server/v2/contract/296/0xeA63e5b8eF5B0eC87a6236a557bBc447E948De63), [AcmeVault implementation](https://sourcify.dev/server/v2/contract/296/0x4Dd56b18EAA0e0a18B1928b7588859e1e7B0C163), [AcmeVaultV2](https://sourcify.dev/server/v2/contract/296/0x54d742A00c50536e4FaC4a3849771A2468F12418), [SaucerSwapAdapter](https://sourcify.dev/server/v2/contract/296/0x6405578Fd89C36756C805346EBeba46e146d5202), [TokenAdmin](https://sourcify.dev/server/v2/contract/296/0x41d9344a909F0DE9135b89A1a922749874D4eACC) | `"match": "exact_match"` on chain 296: the runtime bytecode matches exactly (`runtimeMatch`); the creation bytecode has no result (`creationMatch: null`) |
+| A token the council governs but cannot sign for | [token 0.0.10794655](https://hashscan.io/testnet/token/0.0.10794655) | No admin or supply key; its pause and freeze keys are contract 0.0.10794649 (`TokenAdmin`), for good |
+| Releases and the agent's decisions have topics only their writers can post to | [topic 0.0.10794624](https://hashscan.io/testnet/topic/0.0.10794624) (releases), [topic 0.0.10794625](https://hashscan.io/testnet/topic/0.0.10794625) (the agent's decisions) | Each with a submit key; the decisions topic is the agent's because its submit key is the key of the agent account 0.0.10794623. Both are still empty: no release has been published and the agent has not run against this deployment |
+
+### An earlier deployment of the same contract code
+
+What has not been run again on the deployment above. Its governance account is [0.0.10671146](https://hashscan.io/testnet/account/0.0.10671146), a 2-of-3 threshold key. Since then `SaucerSwapAdapter` has gained comments, not code.
+
+| Claim | Proof | What you will see |
+| --- | --- | --- |
+| An upgrade is a proposal the network executes | [schedule 0.0.10716564](https://hashscan.io/testnet/schedule/0.0.10716564) | Payer 0.0.10671146, memo "upgrade at 150000 gas"; the scheduled `CONTRACTCALL` is `SUCCESS`, and the vault proxy emitted `Upgraded` naming `AcmeVaultV2`. It paid 0.1635 ℏ = 150,000 × 109 tinybar, while consuming 65,410 |
 | A proposer can withdraw a round | [schedule 0.0.10714416](https://hashscan.io/testnet/schedule/0.0.10714416) | Deleted, never executed |
 | Executed is not succeeded | [schedule 0.0.10765677](https://hashscan.io/testnet/schedule/0.0.10765677), then [0.0.10766696](https://hashscan.io/testnet/schedule/0.0.10766696) | The same treasury swap on SaucerSwap: `CONTRACT_REVERT_EXECUTED`, then `SUCCESS` once `yarn setup` associated the output token with the treasury |
-| A scheduled call pays its whole gas limit | the two successful schedules above | 0.1635 ℏ = 150,000 × 109 tinybar and 0.327 ℏ = 300,000 × 109, while consuming 65,410 and 247,047 |
-| A token the council governs but cannot sign for | [token 0.0.10671171](https://hashscan.io/testnet/token/0.0.10671171) | No admin key; its pause and freeze keys are contract 0.0.10671169 (`TokenAdmin`), for good |
 | Releases are published where only the team can write | [topic 0.0.10760100](https://hashscan.io/testnet/topic/0.0.10760100) | A submit key, and the `v2.0.0` manifest with the hash of the deployed runtime bytecode |
 | The agent's decisions are public, refusals included | [topic 0.0.10762625](https://hashscan.io/testnet/topic/0.0.10762625) | The agent's own submit key; approvals, an upgrade held `pending` until a person's code, and a refusal naming the limit it failed |
 | The agent is one seat, not the owner: its signature plus a member's runs the proposal | [schedule 0.0.10781952](https://hashscan.io/testnet/schedule/0.0.10781952) | The agent's approval as message 11 on the topic above, then a second council signature; the scheduled `CRYPTOTRANSFER` is `SUCCESS`, 0.05 ℏ to 0.0.10671142 |
@@ -65,7 +81,7 @@ Every row is a transaction this repository's code produced on Hedera testnet, th
 You do not have to trust this page — read the ledger:
 
 ```bash
-curl -s https://testnet.mirrornode.hedera.com/api/v1/schedules/0.0.10716564 \
+curl -s https://testnet.mirrornode.hedera.com/api/v1/schedules/0.0.10794955 \
   | jq '{payer_account_id, executed_timestamp, signatures: (.signatures | length)}'
 ```
 
