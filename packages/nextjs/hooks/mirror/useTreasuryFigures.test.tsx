@@ -15,7 +15,7 @@ describe("useTreasuryFigures", () => {
   it("fetches the figures for the given ids", async () => {
     vi.mocked(fetchTreasuryFigures).mockResolvedValue({
       hbarBalanceTinybar: 1,
-      acmeBalance: 2,
+      demoTokenBalance: 2,
       usdcBalance: 3,
       vaultReserveTinybar: 4n,
     });

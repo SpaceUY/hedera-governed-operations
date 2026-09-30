@@ -163,6 +163,13 @@ export type ReviewResult = {
   unreachableProposers: string[];
   /** Approved proposals whose signature failed, with the error. They are retried on the next pass. */
   failures: { scheduleId: string; error: string }[];
+  /**
+   * Approved proposals this pass did not sign: the signature failed, or the pass had no signer at
+   * all — a dry run, or a seat the council does not hold. Their record is what the caller holds
+   * back from the topic, since "approved" next to a schedule that never got this agent's signature
+   * is a record that reads as a lie.
+   */
+  unsigned: string[];
 };
 
 export async function reviewInbox(
@@ -174,6 +181,7 @@ export async function reviewInbox(
   const decisions: Decision[] = [];
   const failures: ReviewResult["failures"] = [];
   const signed: string[] = [];
+  const unsigned: string[] = [];
 
   // Sequentially: two signatures from the same account race for the same transaction id window, and
   // the second proposal is usually the one that would have to be retried anyway.
@@ -183,14 +191,19 @@ export async function reviewInbox(
     const decision = gateOnConfirmation(verified, options.confirmed);
     decisions.push(decision);
 
-    if (decision.outcome !== "approved" || sign === null) continue;
+    if (decision.outcome !== "approved") continue;
+    if (sign === null) {
+      unsigned.push(decision.scheduleId);
+      continue;
+    }
     try {
       await sign(decision.scheduleId);
       signed.push(decision.scheduleId);
     } catch (error) {
       failures.push({ scheduleId: decision.scheduleId, error: (error as Error).message });
+      unsigned.push(decision.scheduleId);
     }
   }
 
-  return { decisions, signed, unreachableProposers: inbox.unreachableProposers, failures };
+  return { decisions, signed, unsigned, unreachableProposers: inbox.unreachableProposers, failures };
 }

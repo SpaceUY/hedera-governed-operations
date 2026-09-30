@@ -1,6 +1,9 @@
-name: template-baseline-smoke
+name: governed-operations-smoke
 server:
-  command: yarn next:dev
+  # The seat runs in front of the server because this command is the only hook both harness entry
+  # points share: `validate-semantic` never reaches `chainValidation.deploy`. Without a chain signer
+  # — a plain `validate`, or a hand-run — it prints a line and stops, so this stays credential-free.
+  command: yarn harness:council-seat && yarn next:dev
   url: http://localhost:3000
   timeoutMs: 120000
 defaults:
@@ -9,7 +12,7 @@ defaults:
   minBodyTextLength: 20
   failOnConsoleError: true
 routes:
-  - name: home
+  - name: live-map
     path: /
   - name: proposal-detail
     # Any schedule id: SMOKE runs without a .env, so the page renders the setup notice rather than
@@ -18,10 +21,6 @@ routes:
   - name: new-proposal
     # SMOKE runs without a .env, so the page renders the setup notice; what it checks is that the route boots.
     path: /governance/new
-  - name: proof-wall
-    path: /proof-wall
-  - name: explorer
-    path: /explorer
 forbidden:
   visibleText:
     - Internal Server Error

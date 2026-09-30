@@ -1,63 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
 import { GovernanceGraph } from "./GovernanceGraph";
+import type { MapActivation } from "./MapItem";
 import { MAP_LABELS } from "./copy";
-import { type MapDecorator, composeMap } from "./mapModel";
-import type { GovernanceConfig } from "~~/config/governanceConfig";
-import { useProposals } from "~~/hooks/mirror/useProposals";
-import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
-import { useHederaSigner } from "~~/hooks/useHederaSigner";
-import { governanceEntitiesOf } from "~~/services/governance/graphEntities";
+import type { ComposedMap } from "./mapModel";
+import type { CouncilKey } from "@sh/core/governance/council";
+import type { MapFrame } from "~~/services/liveMap/motion/frame";
 
 export type GovernanceMapProps = {
-  /** Resolved once by the host's setup guard (`resolveGovernanceConfig`). */
-  config: GovernanceConfig;
-  /** A hand-composed layout; without one the map places every node by role (`autoLayout`). */
-  decorate?: MapDecorator;
+  /** The composed map of the world being shown (`composeMap`), or null until the council is read. */
+  map: ComposedMap | null;
+  council: CouncilKey | null;
+  frame: MapFrame;
+  /** The council's read error: without the council there is nothing to draw. */
+  error: unknown;
+  activation?: MapActivation;
 };
 
-/**
- * The governance map for the configured deployment: the council and the proposers as the ledger
- * has them, the trust chain down to the contracts, and the accounts a pending proposal would pay.
- * It reads through the same queries as the rest of the screen, so it never polls on its own, and
- * names the seat the connected account holds "You".
- */
-export function GovernanceMap({ config, decorate }: GovernanceMapProps) {
-  const { targetNetwork } = useTargetNetwork();
-  const { accountId: viewerAccountId } = useHederaSigner();
-  const { governanceAccountId, network, executor } = config;
-  const { inbox, council } = useProposals({
-    governanceAccountId,
-    executorContractId: executor.hederaContractId,
-    network,
-  });
-  const entities = useMemo(() => governanceEntitiesOf(config, targetNetwork.id), [config, targetNetwork.id]);
-
-  const composed = useMemo(() => {
-    if (!council.data) return null;
-    return composeMap(
-      {
-        governanceAccountId,
-        executor: { ref: executor.hederaContractId, evmAddress: executor.address },
-        council: council.data.key,
-        proposers: council.data.proposers,
-        entities,
-        proposals: inbox.data?.proposals ?? [],
-      },
-      decorate,
-      viewerAccountId,
-    );
-  }, [council.data, inbox.data, entities, governanceAccountId, executor, decorate, viewerAccountId]);
-
-  if (council.error) {
+/** The governance map, or what it says while it cannot be drawn. */
+export function GovernanceMap({ map, council, frame, error, activation }: GovernanceMapProps) {
+  if (error) {
     return (
       <p role="alert" className="alert alert-warning m-4">
         {MAP_LABELS.unavailable}
       </p>
     );
   }
-  if (!council.data || !composed) {
+  if (!map || !council) {
     return (
       <p className="flex h-full items-center justify-center gap-2 text-sm text-base-content/70">
         <span className="loading loading-spinner loading-sm" aria-hidden="true" />
@@ -65,5 +34,5 @@ export function GovernanceMap({ config, decorate }: GovernanceMapProps) {
       </p>
     );
   }
-  return <GovernanceGraph {...composed} council={council.data.key} />;
+  return <GovernanceGraph {...map} council={council} frame={frame} activation={activation} />;
 }

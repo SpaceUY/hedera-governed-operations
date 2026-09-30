@@ -32,6 +32,38 @@
   --text-map-caption: 11px;
 }
 
+/*
+  Colours that differ per theme beyond daisyUI's own: the governance prototype's darker ink for text in
+  the success and warning tones and for a link under the pointer, so both stay readable on a light surface.
+  `inline` makes each utility read the variable, which the theme selectors below set.
+*/
+@theme inline {
+  --color-success-ink: var(--success-ink);
+  --color-warning-ink: var(--warning-ink);
+  --color-link-hover: var(--link-hover);
+}
+
+@layer base {
+  :root,
+  [data-theme="light"] {
+    --success-ink: #0b7d59;
+    --warning-ink: #8a5a00;
+    --link-hover: #1f6fcf;
+  }
+  [data-theme="dark"] {
+    --success-ink: var(--color-success);
+    --warning-ink: var(--color-warning);
+    --link-hover: var(--color-accent);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      --success-ink: var(--color-success);
+      --warning-ink: var(--color-warning);
+      --link-hover: var(--color-accent);
+    }
+  }
+}
+
 @plugin "daisyui" {
   themes:
     light,
@@ -142,8 +174,24 @@
   text-underline-offset: 2px;
 }
 
-.link:hover {
-  opacity: 80%;
+/*
+  Text links hover to blue, never to the brand violet the primary colour is. In a layer, so a
+  utility on the link (hover:text-primary) still wins.
+*/
+@layer components {
+  .link:hover {
+    color: var(--color-link-hover);
+  }
+}
+
+/*
+  A quiet pill for a count or a time left: the grey the Hedera smoke tint gives on either theme, with
+  muted text. An urgent state swaps it for a daisyUI badge in its own tone instead.
+*/
+@layer components {
+  .chip {
+    @apply inline-flex items-center rounded-full bg-hedera-smoke/15 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-base-content/60 tabular-nums;
+  }
 }
 
 .alert-warning code {
@@ -163,4 +211,111 @@ textarea.textarea {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/*
+  The governance map's motion (components/governance/graph). The comets take their durations inline
+  from `MOTION_MS` (services/liveMap/motion/timings.ts); the flash, snap and shake below, and the ring
+  fill further down, are moments the stylesheet plays on its own. Utilities are applied with
+  `motion-safe:`, so reduced motion turns them off live.
+*/
+@theme {
+  --animate-map-comet: map-comet 1100ms cubic-bezier(0.45, 0, 0.25, 1) both;
+  --animate-map-comet-tail: map-comet-tail 1100ms cubic-bezier(0.45, 0, 0.25, 1) both;
+  --animate-map-comet-back: map-comet-back 1100ms cubic-bezier(0.45, 0, 0.25, 1) both;
+  --animate-map-ring-snap: map-ring-snap 260ms ease-out;
+  --animate-map-plate-flash: map-plate-flash 400ms ease-out;
+  --animate-map-shake: map-shake 180ms ease-in-out 3;
+
+  /* A comet on a path 100 long: a head dash of 12 from just before the start to just past the end,
+     and a faint tail of 30 whose front keeps pace with the head's. Coming back, head and tail share
+     one set of offsets, which keeps the tail behind the head going the other way. */
+  @keyframes map-comet {
+    from {
+      stroke-dashoffset: 12;
+    }
+    to {
+      stroke-dashoffset: -118;
+    }
+  }
+  @keyframes map-comet-tail {
+    from {
+      stroke-dashoffset: 30;
+    }
+    to {
+      stroke-dashoffset: -100;
+    }
+  }
+  @keyframes map-comet-back {
+    from {
+      stroke-dashoffset: -100;
+    }
+    to {
+      stroke-dashoffset: 30;
+    }
+  }
+  @keyframes map-ring-snap {
+    60% {
+      transform: scale(1.04);
+    }
+  }
+  @keyframes map-plate-flash {
+    30% {
+      stroke-width: 4;
+    }
+  }
+  @keyframes map-shake {
+    25% {
+      transform: translateX(3px);
+    }
+    75% {
+      transform: translateX(-3px);
+    }
+  }
+}
+
+/* A signature ring segment grows along its track with a spring. */
+.map-ring-fill {
+  transition:
+    stroke-dasharray 500ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    stroke 260ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-ring-fill {
+    transition: none;
+  }
+}
+
+/*
+  At rest the map holds still: nothing on it loops. It moves when a read reports something (the
+  sequences above) and under the pointer or keyboard focus, where an edge thickens from 1.6 to 2.6
+  in 180 ms. Reduced motion drops the transitions too. Animate `transform`, never the `translate`
+  property, on the SVG: Chrome repaints the whole drawing every frame for an animated `translate`.
+*/
+.map-edge-line {
+  stroke-width: 1.6;
+  /* Lighting up is quick; going back to rest is the slow relax that ends every sequence. */
+  transition:
+    stroke 150ms ease-out,
+    stroke-width 180ms ease-out;
+}
+
+.map-edge-line[data-phase="rest"] {
+  transition:
+    stroke 800ms ease-out,
+    stroke-width 180ms ease-out;
+}
+
+.group:hover .map-edge-line,
+.group:focus-visible .map-edge-line,
+.group[aria-expanded="true"] .map-edge-line {
+  stroke-width: 2.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-edge-line,
+  .map-edge-line[data-phase="rest"] {
+    transition: none;
+  }
 }

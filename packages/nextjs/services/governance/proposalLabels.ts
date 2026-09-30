@@ -3,9 +3,10 @@
  * name the data model; these name what a council member needs to know about the proposal, plus the
  * inbox headings and the status note the live map shows around those states. Wizard copy — kind
  * titles, the path a proposal takes, notices, CTAs — lives in `components/governance/wizard/copy`,
- * and the map's node, edge and legend words in `components/governance/graph/copy`.
+ * the map's node, edge and legend words in `components/governance/graph/copy`, and the rail's card,
+ * detail and Withdraw / Cancel words in `components/governance/rail/copy`.
  */
-import type { CouncilKey, ThresholdProgress } from "@sh/core/governance/council";
+import type { CouncilKey, Proposer, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { RegistryCrossCheck, RegistryEntryState } from "@sh/core/governance/registry";
 import type { ScheduleStatus } from "@sh/core/mirror";
@@ -33,8 +34,6 @@ export function registryLabel(registry: RegistryCrossCheck): string {
       return REGISTRY_ENTRY_LABELS[registry.entry.state];
     case "notApplicable":
       return "None: the network runs this operation directly";
-    case "notRead":
-      return "Not read: the proposal is no longer collecting signatures";
     case "missing":
       return "No usable entry: do not sign";
     case "unreachable":
@@ -46,21 +45,23 @@ export function registryLabel(registry: RegistryCrossCheck): string {
  * Signatures collected out of the threshold, never out of the council's size: a bare "2 of 2" beside
  * a 2-of-3 council reads as a council of two, so the count says what it is counted against.
  */
-const requiredSignaturesLabel = ({ signed, threshold }: ThresholdProgress): string =>
+export const requiredSignaturesLabel = ({ signed, threshold }: ThresholdProgress): string =>
   `${signed} of ${threshold} required signatures`;
+
+/**
+ * A council member by the account that holds its seat, or by the start of its key when no proposer
+ * holds it — the same name on the map and in a proposal's approver list. `viewerAccountId` overrides both with "You",
+ * since the connected account reads better as itself than as its own account id.
+ */
+export function memberLabel(memberKey: string, proposers: readonly Proposer[], viewerAccountId: string | null): string {
+  const proposer = proposers.find(candidate => candidate.key === memberKey);
+  if (proposer && proposer.accountId === viewerAccountId) return "You";
+  return proposer?.accountId ?? `Member ${memberKey.slice(0, 6)}…`;
+}
 
 /** The council's rule, the same on the map, the treasury strip and the wizard's preview. */
 export function councilRuleLabel(council: CouncilKey): string {
   return `${council.threshold}-of-${council.memberKeys.length}`;
-}
-
-/** A rotation is counted against both councils, since the schedule waits for each one's threshold. */
-export function approvalsLabel(progress: ThresholdProgress, incomingProgress: ThresholdProgress | null): string {
-  if (!incomingProgress) return requiredSignaturesLabel(progress);
-  return (
-    `Current council: ${requiredSignaturesLabel(progress)} · ` +
-    `Incoming council: ${requiredSignaturesLabel(incomingProgress)}`
-  );
 }
 
 /**
@@ -95,7 +96,7 @@ export function executionFailureLabel({
     `The network ran it and answered ${execution.result}: nothing changed, ` +
     "and the governance account still paid its fee.";
   if (operation.kind !== "registryCall") return `${outcome} To try again, schedule the same operation again.`;
-  if (registry.status === "unreachable" || registry.status === "notRead") {
+  if (registry.status === "unreachable") {
     return `${outcome} The registry entry could not be read, so whether it can run again is not known yet.`;
   }
   if (registry.status !== "read") {
@@ -110,14 +111,30 @@ export function executionFailureLabel({
   );
 }
 
-/** The map's status line while nothing else claims it: how a proposal ends, since no button ends it. */
-export const LIVE_MAP_STATUS_NOTE =
-  "Each proposal runs by itself the moment the council's threshold has signed it. There is no execute button " +
-  "and no reject: a proposal nobody signs in time expires, and nothing runs.";
+/**
+ * Shown next to Sign for a registry call whose entry could not be read: the app cannot confirm it is
+ * still pending, but the network is the final check, so signing goes ahead anyway.
+ */
+export const UNREACHABLE_REGISTRY_SIGN_WARNING =
+  "The registry couldn't be checked just now, so the app can't confirm this entry is still pending. " +
+  "You can still sign — if it turns out the entry no longer accepts signatures, the network will refuse it.";
 
 /** The governance home's words for the inbox, split into open approval rounds and settled ones. */
 export const INBOX_COPY = {
-  pendingHeading: "Pending proposals",
-  settledHeading: "Settled",
+  pendingHeading: "Pending operations",
+  settledHeading: "Recent",
   noPending: "No proposal is waiting for signatures.",
+  loading: "Loading proposals",
 } as const;
+
+/**
+ * Under the inbox's heading: how a proposal ends, since no button ends it. `rule` is the council's
+ * "m-of-n", or null before the council has been read; the screen sets `council` in bold.
+ */
+export function runsByItselfNote(rule: string | null) {
+  return {
+    lead: "Each one runs by itself the moment the ",
+    council: rule ? `${rule} council` : "council",
+    rest: " has signed it. There is no execute button.",
+  };
+}

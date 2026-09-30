@@ -1,16 +1,17 @@
 import { TREASURY_OUTLINE, distanceFrom, routeOnMap } from "../geometry";
 import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR, pendingTransferTo } from "../mapFixtures";
 import { composeMap } from "../mapModel";
-import { DEMO_INSPECTOR_COPY, DEMO_NAMES, decorateDemoMap } from "./demoGraph";
+import { DEMO_NAMES, decorateDemoMap } from "./demoGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  edgeId,
   externalNodeId,
   memberNodeId,
   proposerNodeId,
-} from "~~/services/governance/graph";
-import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+} from "~~/services/liveMap/model/graph";
+import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID", "0.0.4102");
@@ -21,12 +22,12 @@ afterEach(() => vi.unstubAllEnvs());
 const labelOf = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id)?.label;
 
 describe("decorateDemoMap", () => {
-  it("names Alice and Bob by the seats their demo accounts hold; the council account keeps its id", () => {
+  it("names Alice and Bob by the seats their demo accounts hold, and the remaining seat the council account", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap);
     expect(labelOf(map, memberNodeId(KEY_B))).toBe(DEMO_NAMES.alice);
     expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
-    expect(labelOf(map, memberNodeId(KEY_A))).toBe("0.0.4101");
-    expect(map.captions[memberNodeId(KEY_A)]).toBe("council account · proposer");
+    expect(labelOf(map, memberNodeId(KEY_A))).toBe(DEMO_NAMES.council);
+    expect(map.captions[memberNodeId(KEY_A)]).toBe("proposer");
   });
 
   it("names the connected account's seat You, over a demo name too", () => {
@@ -36,20 +37,42 @@ describe("decorateDemoMap", () => {
     expect(labelOf(asAlice, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
   });
 
-  it("names the one proposer without a seat the setup operator", () => {
-    const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap);
-    expect(labelOf(map, proposerNodeId("0.0.4001"))).toBe(DEMO_NAMES.operator);
+  it("leaves the proposer without a seat off the demo map, with its edge, which the generic map still draws", () => {
+    const operator = proposerNodeId("0.0.4001");
+    const touches = (edge: { from: string; to: string }) => edge.from === operator || edge.to === operator;
+
+    const demo = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap).graph;
+    expect(demo.nodes.some(node => node.id === operator)).toBe(false);
+    expect(demo.edges.some(touches)).toBe(false);
+
+    const generic = composeMap(MAP_SNAPSHOT_WITH_OPERATOR).graph;
+    expect(generic.nodes.some(node => node.id === operator)).toBe(true);
+    expect(generic.edges.some(touches)).toBe(true);
   });
 
-  it("routes every PROPOSER_ROLE arc around the treasury, Alice's and Bob's included", () => {
+  it("draws only the council account's line to the registry, not Alice's or Bob's, which the generic map keeps", () => {
+    const proposerLines = (map: ReturnType<typeof composeMap>) =>
+      map.graph.edges
+        .filter(edge => edge.to === EXECUTOR_NODE_ID && edge.from !== GOVERNANCE_ACCOUNT_NODE_ID)
+        .map(edge => edge.from);
+
+    const demo = composeMap(MAP_SNAPSHOT, decorateDemoMap);
+    expect(proposerLines(demo)).toEqual([memberNodeId(KEY_A)]);
+    expect(demo.graph.nodes.some(node => node.id === memberNodeId(KEY_B))).toBe(true);
+    expect(demo.graph.nodes.some(node => node.id === memberNodeId(KEY_C))).toBe(true);
+
+    expect(proposerLines(composeMap(MAP_SNAPSHOT)).sort()).toEqual(
+      [memberNodeId(KEY_A), memberNodeId(KEY_B), memberNodeId(KEY_C)].sort(),
+    );
+  });
+
+  it("routes the PROPOSER_ROLE arc it draws around the treasury", () => {
     const { graph } = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, decorateDemoMap);
     const nodesById = new Map(graph.nodes.map(node => [node.id, node]));
     const treasury = nodesById.get(GOVERNANCE_ACCOUNT_NODE_ID)?.position ?? { x: NaN, y: NaN };
     const arcs = graph.edges.filter(edge => edge.to === EXECUTOR_NODE_ID && edge.from !== GOVERNANCE_ACCOUNT_NODE_ID);
 
-    expect(arcs.map(arc => arc.from)).toEqual(
-      expect.arrayContaining([memberNodeId(KEY_B), memberNodeId(KEY_C), proposerNodeId("0.0.4001")]),
-    );
+    expect(arcs.map(arc => arc.from)).toEqual([memberNodeId(KEY_A)]);
     for (const arc of arcs) {
       const route = routeOnMap(arc, nodesById);
       expect(route && distanceFrom(route, treasury)).toBeGreaterThan(TREASURY_OUTLINE);
@@ -81,8 +104,28 @@ describe("decorateDemoMap", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap);
     const [agent] = map.ghosts;
     expect(agent.label).toBe(DEMO_NAMES.agent);
+    expect(agent.monogram).toBe("AG");
     expect(map.graph.nodes.some(node => node.id === agent.id)).toBe(false);
     expect(map.graph.edges.some(edge => edge.from === agent.id || edge.to === agent.id)).toBe(false);
-    expect(DEMO_INSPECTOR_COPY[agent.id]).toBeTruthy();
+    expect(map.inspector.nodes[agent.id]).toBeUndefined();
+  });
+
+  it("gives the inspector its own words for the demo's contracts, co-signers and supplier", () => {
+    const map = composeMap({ ...MAP_SNAPSHOT, proposals: [pendingTransferTo("0.0.7000")] }, decorateDemoMap);
+    expect(map.inspector.nodes[MAP_ENTITY_IDS.tokenAdmin]).toContain("ACME");
+    expect(map.inspector.edges[edgeId(EXECUTOR_NODE_ID, MAP_ENTITY_IDS.vault)]).toBe(
+      "The vault accepts upgrades only from the registry.",
+    );
+    expect(map.inspector.nodes[externalNodeId("0.0.7000")]).toContain("native scheduled transfer");
+    expect(map.inspector.edges[edgeId(memberNodeId(KEY_B), GOVERNANCE_ACCOUNT_NODE_ID)]).toBe(
+      "Alice's key is one of the treasury's threshold keys; her signatures arrive along this line.",
+    );
+  });
+
+  it("names the council's column and the contracts' row", () => {
+    expect(composeMap(MAP_SNAPSHOT, decorateDemoMap).regions.map(({ label }) => label)).toEqual([
+      "Council",
+      "Contracts",
+    ]);
   });
 });

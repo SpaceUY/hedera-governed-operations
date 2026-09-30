@@ -145,9 +145,45 @@ export async function assertReleaseTopicIsSigned(
   return assertTopicIsSigned(topicId, "release", options);
 }
 
-export type ManifestCheck = { matched: true; manifest: PublishedManifest } | { matched: false; reason: string };
+/**
+ * Why an implementation did not match, as a value a screen can word for itself. `reason` stays the
+ * sentence the agent publishes; this is the same answer without having to parse it.
+ */
+export type ManifestFailure =
+  | { failure: "noCode" }
+  | { failure: "notNamed"; searched: "topic" | "recentReleases" }
+  | { failure: "codeChanged"; versions: string[] };
+
+export type ManifestCheck =
+  | { matched: true; manifest: PublishedManifest }
+  | ({ matched: false; reason: string } & ManifestFailure);
 
 const sameAddress = (left: string, right: string): boolean => left.toLowerCase() === right.toLowerCase();
+
+/** Which of the check's two reads failed: the code at the implementation, or the release topic. */
+export type ReleaseReadSubject = "implementation" | "topic";
+
+/**
+ * A read the check could not make, saying which one. The message is the failed read's own, so a
+ * caller that only reports it (the co-signing agent) reads the same as before; a screen can name
+ * what to go and check.
+ */
+export class ReleaseReadError extends Error {
+  override readonly name = "ReleaseReadError";
+
+  constructor(
+    readonly subject: ReleaseReadSubject,
+    cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+  }
+}
+
+const tagged =
+  (subject: ReleaseReadSubject) =>
+  (error: unknown): never => {
+    throw new ReleaseReadError(subject, error);
+  };
 
 /**
  * Whether the code deployed at `implementation` is a build the topic published.
@@ -163,13 +199,17 @@ export async function checkImplementationAgainstManifest(
   options: MirrorRequestOptions = {},
 ): Promise<ManifestCheck> {
   const [contract, history] = await Promise.all([
-    fetchContract(implementation, options),
-    fetchReleaseManifests(topicId, options),
+    fetchContract(implementation, options).catch(tagged("implementation")),
+    fetchReleaseManifests(topicId, options).catch(tagged("topic")),
   ]);
 
   const runtime = contract.runtime_bytecode;
   if (!runtime || runtime === "0x") {
-    return { matched: false, reason: `${implementation} has no deployed code to check against a release` };
+    return {
+      matched: false,
+      failure: "noCode",
+      reason: `${implementation} has no deployed code to check against a release`,
+    };
   }
 
   const deployed = hashRuntimeBytecode(runtime);
@@ -180,15 +220,22 @@ export async function checkImplementationAgainstManifest(
     const searched = history.truncated
       ? `the ${history.manifests.length} most recent releases on topic ${topicId} do not name`
       : `no release on topic ${topicId} names`;
-    return { matched: false, reason: `${searched} the implementation ${implementation}` };
+    return {
+      matched: false,
+      failure: "notNamed",
+      searched: history.truncated ? "recentReleases" : "topic",
+      reason: `${searched} the implementation ${implementation}`,
+    };
   }
 
   const match = named.find(manifest => manifest.bytecodeHash === deployed);
   if (!match) {
-    const versions = [...new Set(named.map(manifest => manifest.version))].join(", ");
+    const versions = [...new Set(named.map(manifest => manifest.version))];
     return {
       matched: false,
-      reason: `the code at ${implementation} does not match the release published for ${versions} (deployed ${deployed})`,
+      failure: "codeChanged",
+      versions,
+      reason: `the code at ${implementation} does not match the release published for ${versions.join(", ")} (deployed ${deployed})`,
     };
   }
 

@@ -30,6 +30,22 @@ export function getGovernanceEntityIds(): GovernanceEntityIds {
   return { governanceAccountId, demoTokenId, seedProposalId: parsedSeedProposalId };
 }
 
+/**
+ * The HCS topic `yarn setup` creates for release manifests, or null when none is configured. Optional:
+ * only the upgrade form reads it, to say whether a release vouches for the implementation.
+ */
+export function getReleaseTopicId(): string | null {
+  return process.env.NEXT_PUBLIC_RELEASE_TOPIC_ID?.trim() || null;
+}
+
+/**
+ * The co-signing agent's account (`packages/agent`), when the app is told which one it runs as: an
+ * account id, public like every other id here. Optional — without it the council list names no agent.
+ */
+export function getCoSigningAgentAccountId(): string | null {
+  return process.env.NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID?.trim() || null;
+}
+
 /** A deployed contract as the governance screens need it: with the native id a scheduled call targets. */
 export type HederaDeployedContract = GenericContract & { hederaContractId: string };
 
@@ -74,7 +90,12 @@ export const GOVERNANCE_CONTRACTS = {
    * Only the wizard's upgrade form needs it, so it is not part of `resolveGovernanceConfig`.
    */
   vaultNextImplementation: "AcmeVaultV2",
-  /** Holds the token's pause and freeze keys; only the map needs it, so it is not part of the guard. */
+  /** The code the vault's proxy was deployed with, under the name hardhat-deploy records it by. */
+  vaultFirstImplementation: "AcmeVault_Implementation",
+  /**
+   * Holds the token's pause and freeze keys. Only the map and the wizard's token form need it, so it
+   * is not part of the guard.
+   */
   tokenAdmin: "TokenAdmin",
   /** Sells treasury HBAR on SaucerSwap; only the map needs it, so it is not part of the guard. */
   swapAdapter: "SaucerSwapAdapter",

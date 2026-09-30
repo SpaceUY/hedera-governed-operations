@@ -4,6 +4,7 @@ import {
   findDeployment,
   getDeployedContract,
   getGovernanceEntityIds,
+  getReleaseTopicId,
   resolveGovernanceConfig,
 } from "./governanceConfig";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -47,6 +48,20 @@ describe("getGovernanceEntityIds", () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "0.0.10671333");
     vi.stubEnv("NEXT_PUBLIC_SEED_PROPOSAL_ID", "three");
     expect(() => getGovernanceEntityIds()).toThrow(/must be an integer/);
+  });
+});
+
+describe("getReleaseTopicId", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("reads the release topic yarn setup writes", () => {
+    vi.stubEnv("NEXT_PUBLIC_RELEASE_TOPIC_ID", " 0.0.10671400 ");
+    expect(getReleaseTopicId()).toBe("0.0.10671400");
+  });
+
+  it("is null when no release topic is configured, which hides the release line", () => {
+    vi.stubEnv("NEXT_PUBLIC_RELEASE_TOPIC_ID", "");
+    expect(getReleaseTopicId()).toBeNull();
   });
 });
 

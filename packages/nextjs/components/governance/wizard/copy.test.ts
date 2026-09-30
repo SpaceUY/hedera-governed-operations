@@ -1,4 +1,12 @@
-import { PROPOSAL_KIND_COPY, approverLabel, expiryLabel, gasLimitLabel, openProposalCopy } from "./copy";
+import {
+  PROPOSAL_KIND_COPY,
+  approverLabel,
+  expiryLabel,
+  gasLimitLabel,
+  lateSubmissionLabel,
+  openProposalCopy,
+  walletRequestLabel,
+} from "./copy";
 import { MAX_SCHEDULE_MEMO_BYTES } from "@sh/core/governance/schedules";
 import { describe, expect, it } from "vitest";
 
@@ -30,5 +38,39 @@ describe("PROPOSAL_KIND_COPY", () => {
     for (const { title } of Object.values(PROPOSAL_KIND_COPY)) {
       expect(new TextEncoder().encode(title).length).toBeLessThanOrEqual(MAX_SCHEDULE_MEMO_BYTES);
     }
+  });
+});
+
+describe("walletRequestLabel", () => {
+  const register = { action: "register", step: 1, steps: 2, validForSeconds: 120 } as const;
+
+  it("names the step, where to approve it and how long the request stays valid", () => {
+    expect(walletRequestLabel(register, "hashpack")).toBe(
+      "Step 1 of 2: register the call in the registry. Approve it in HashPack — the request is valid for about 2 minutes.",
+    );
+    expect(walletRequestLabel({ ...register, action: "schedule", step: 2 }, "hashpack")).toMatch(
+      /^Step 2 of 2: schedule the call for the council\. Approve it in HashPack/,
+    );
+  });
+
+  it("counts a native proposal as its single step", () => {
+    expect(walletRequestLabel({ action: "schedule", step: 1, steps: 1, validForSeconds: 120 }, "hashpack")).toMatch(
+      /^Step 1 of 1: schedule/,
+    );
+  });
+
+  it("asks nothing of the test signer, which signs on its own", () => {
+    expect(walletRequestLabel(register, "burner")).toBe(
+      "Step 1 of 2: register the call in the registry. Signing with the test signer…",
+    );
+  });
+});
+
+describe("lateSubmissionLabel", () => {
+  it("names the step and the transaction the network accepted after the wizard stopped waiting", () => {
+    expect(lateSubmissionLabel({ action: "schedule", step: 2, steps: 2, transactionId: "0.0.1@1.0" })).toBe(
+      "HashPack sent step 2 of 2 after the wizard stopped waiting, and the network accepted it " +
+        "(transaction 0.0.1@1.0). The proposals are refreshed; check them before trying again.",
+    );
   });
 });

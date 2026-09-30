@@ -11,12 +11,16 @@
 import { startApprovalServer } from "./approvalServer";
 import { type ApprovalStore, createApprovalStore } from "./approvals";
 import { type AgentConfig, loadConfig } from "./config";
-import { type PublishDecision, decisionSignature, publishDecisions } from "./publish";
+import { type PublishDecision, decisionSignature, publishDecisions, publishedFromHistory } from "./publish";
 import { type Decision, type SignSchedule, type VerifyRelease, reviewInbox } from "./review";
 import { Client, TopicMessageSubmitTransaction } from "@hiero-ledger/sdk";
-import { fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
-import { assertDecisionTopicAcceptsKey, buildDecisionMessage } from "@sh/core/governance/decisionLog";
-import { fetchProposalInbox } from "@sh/core/governance/proposals";
+import { councilHoldsKey, fetchCouncilKey, fetchProposerAccountIds } from "@sh/core/governance/council";
+import {
+  assertDecisionTopicAcceptsKey,
+  buildDecisionMessage,
+  fetchLatestDecisions,
+} from "@sh/core/governance/decisionLog";
+import { type ProposalInbox, fetchProposalInbox } from "@sh/core/governance/proposals";
 import { assertReleaseTopicIsSigned, checkImplementationAgainstManifest } from "@sh/core/governance/releaseManifest";
 import { buildScheduleSign } from "@sh/core/governance/schedules";
 import type { Server } from "node:http";
@@ -118,7 +122,13 @@ async function createReleaseVerifier(config: AgentConfig): Promise<VerifyRelease
 
 /** Everything one pass carries over from the last one, and the collaborators it acts through. */
 type Pass = {
+  /** Null in a dry run. A pass withholds it as well when the council does not hold this agent's key. */
   sign: SignSchedule | null;
+  /**
+   * Whether the previous pass found this agent's key on the council, so the steady state is one log
+   * line rather than one per poll. Null until the first pass has looked.
+   */
+  seated: boolean | null;
   verifyRelease: VerifyRelease | null;
   /** Proposals this process signed but Mirror has not caught up with. */
   signedThisRun: Set<string>;
@@ -129,10 +139,13 @@ type Pass = {
   published: Reported;
   /** Null in a dry run, which costs nothing and therefore records nothing either. */
   publish: PublishDecision | null;
+  /** The last inbox read, so a registry entry already read as cancelled or executed is not read again. */
+  previous?: ProposalInbox;
 };
 
 async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
-  const { sign, verifyRelease, signedThisRun, reported, approvals } = pass;
+  const { verifyRelease, signedThisRun, reported, approvals } = pass;
+  const agentPublicKeyHex = config.agentKey.publicKey.toStringRaw();
   const lookup = {
     executorContractId: config.executorContractId,
     network: config.network,
@@ -144,6 +157,21 @@ async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
     fetchProposerAccountIds(lookup),
   ]);
 
+  // Checked every pass rather than at boot, because the seat is granted and revoked by a council
+  // rotation: the agent has to start signing when one passes, and stop when one takes the seat away,
+  // without anybody restarting it. Measured on testnet: a `ScheduleSign` from a key with no seat
+  // answers NO_NEW_VALID_SIGNATURES, costs the same fee as a signature that counted, and leaves no
+  // row on the schedule — so nothing would remember the attempt and the next pass would repeat it,
+  // for as long as the proposal stays open.
+  const seated = councilHoldsKey(council, agentPublicKeyHex);
+  if (seated !== pass.seated) {
+    pass.seated = seated;
+    const seat = { agent: config.agentAccountId, governanceAccount: config.governanceAccountId };
+    if (seated) log("seat-held", seat);
+    else log("seat-missing", { ...seat, effect: "deciding and logging, signing nothing" });
+  }
+  const sign = seated ? pass.sign : null;
+
   const inbox = await fetchProposalInbox({
     proposerAccountIds: proposers.accountIds,
     unresolvableProposers: proposers.unresolvable,
@@ -151,13 +179,15 @@ async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
     council,
     network: config.network,
     registry: { executorContractId: config.executorContractId, rpcUrl: config.rpcUrl },
+    previous: pass.previous,
   });
+  pass.previous = inbox;
 
   const result = await reviewInbox(
     inbox,
     {
       executorContractId: config.executorContractId,
-      agentPublicKeyHex: config.agentKey.publicKey.toStringRaw(),
+      agentPublicKeyHex,
       policy: config.policy,
       signedThisRun,
       confirmed: approvals.confirmed(new Date()),
@@ -181,7 +211,7 @@ async function runOnce(config: AgentConfig, pass: Pass): Promise<void> {
   if (pass.publish) {
     const failures = await publishDecisions(result.decisions, pass.publish, {
       agentAccountId: config.agentAccountId,
-      unsigned: new Set(result.failures.map(failure => failure.scheduleId)),
+      unsigned: new Set(result.unsigned),
       published: pass.published,
     });
     for (const failure of failures) log("publish-failed", failure);
@@ -220,6 +250,24 @@ function logDecision(decision: Decision, dryRun: boolean, reported: Reported): v
   });
 }
 
+/**
+ * The verdicts already on the decision topic, so a restart publishes only what changed. A topic the
+ * Mirror Node cannot read at boot is not a reason to leave the seat empty: the agent starts with
+ * nothing recalled and, at worst, pays once more for verdicts that are already there.
+ */
+async function recallPublished(config: AgentConfig): Promise<Map<string, string>> {
+  try {
+    const { latest, truncated } = await fetchLatestDecisions(config.decisionTopicId, config.agentAccountId, {
+      network: config.network,
+    });
+    log("decisions-recalled", { topic: config.decisionTopicId, proposals: latest.size, truncated });
+    return publishedFromHistory(latest);
+  } catch (error) {
+    log("decisions-not-recalled", { topic: config.decisionTopicId, error: (error as Error).message });
+    return new Map();
+  }
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const client = config.dryRun ? null : createClient(config);
@@ -251,11 +299,12 @@ async function main(): Promise<void> {
 
     const pass: Pass = {
       sign,
+      seated: null,
       verifyRelease: await createReleaseVerifier(config),
       signedThisRun: new Set<string>(),
       reported: new Map(),
       approvals: createApprovalStore(config.confirmationSecret),
-      published: new Map(),
+      published: client === null ? new Map() : await recallPublished(config),
       publish: client === null ? null : createPublisher(client, config.decisionTopicId),
     };
 

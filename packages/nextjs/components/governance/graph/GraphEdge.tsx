@@ -1,9 +1,9 @@
 "use client";
 
-import { MapItem, type MapItemRef } from "./MapItem";
+import { type MapActivation, MapItem } from "./MapItem";
 import { type EdgeRoute, routePath } from "./geometry";
 import type { RovingFocus } from "./useRovingFocus";
-import type { EdgeKind, EdgePhase } from "~~/services/governance/graph";
+import type { EdgeKind, EdgePhase } from "~~/services/liveMap/model/graph";
 
 const PHASE_STROKE: Record<EdgePhase, string> = {
   rest: "stroke-base-content/35",
@@ -31,46 +31,36 @@ type GraphEdgeProps = {
   route: EdgeRoute;
   /** The accessible name: kind, both ends and meaning. */
   label: string;
-  /** The meaning alone, shown at the midpoint on hover and focus. */
-  caption: string;
   focus: RovingFocus;
-  onActivate?: (item: MapItemRef) => void;
+  activation?: MapActivation;
 };
 
 /**
  * One edge in any phase. The phase is set by whoever draws the map — a preview, an animation — and
- * the edge only renders it; at rest it is grey, and the coloured phases are meant to pass.
+ * the edge only renders it; at rest it is grey, and the coloured phases are meant to pass. It carries
+ * no words on the map: what it means is its accessible name, and the inspector's once it is selected.
  */
-export function GraphEdge({ id, kind, phase, route, label, caption, focus, onActivate }: GraphEdgeProps) {
+export function GraphEdge({ id, kind, phase, route, label, focus, activation }: GraphEdgeProps) {
   const path = routePath(route);
-  const { middle } = route;
 
   return (
-    <MapItem item={{ kind: "edge", id }} label={label} focus={focus} onActivate={onActivate}>
+    <MapItem item={{ kind: "edge", id }} label={label} focus={focus} activation={activation}>
       <path d={path} fill="none" strokeWidth={14} className="stroke-transparent" />
       <path
         d={path}
         fill="none"
         strokeWidth={6}
-        className="stroke-primary/40 opacity-0 group-focus-visible:opacity-100"
+        className="stroke-primary/40 opacity-0 group-focus-visible:opacity-100 group-aria-expanded:opacity-100"
       />
       <path
         d={path}
         fill="none"
-        strokeWidth={1.6}
         strokeLinecap="round"
         data-phase={phase}
-        className={`${PHASE_STROKE[phase]} ${dashOf(kind, phase)}`}
+        // `map-edge-line` (globals.css): 1.6 wide, 2.6 under the pointer, keyboard focus or selection,
+        // and a quick colour change into a phase but a slow relax back to rest.
+        className={`map-edge-line ${PHASE_STROKE[phase]} ${dashOf(kind, phase)}`}
       />
-      <text
-        x={middle.x}
-        y={middle.y - 6}
-        textAnchor="middle"
-        className="fill-base-content stroke-base-200 text-map-caption opacity-0 [paint-order:stroke] group-hover:opacity-100 group-focus-visible:opacity-100"
-        strokeWidth={4}
-      >
-        {caption}
-      </text>
     </MapItem>
   );
 }

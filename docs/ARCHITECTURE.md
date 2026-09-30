@@ -4,29 +4,31 @@
 
 This template is a Next.js (App Router) app over a framework-free domain workspace, talking to Hedera through native services only:
 
-- **Hedera Consensus Service (HCS)** — topics and messages (the Proof Wall feed).
-- **Hedera Token Service (HTS)** — fungible badge tokens and airdrops.
+- **Account threshold keys** — the governance account's key is m of n over the council: who approves is account state, not a contract.
+- **Schedule Service** — a proposal is a scheduled transaction the governance account pays for; each member's `ScheduleSign` adds a signature, and the network executes it once the threshold is met.
+- **Smart Contract Service** — `GovernedExecutor` holds the registry of contract-backed proposals and who may open them; the vault, `TokenAdmin` and `SaucerSwapAdapter` are what the council governs.
+- **Hedera Token Service (HTS)** — the governed token, whose pause and freeze keys are `TokenAdmin`'s contract id.
+- **Hedera Consensus Service (HCS)** — the release manifests and the co-signing agent's decision log, each on a topic with a submit key.
 - **Mirror Node REST API** — every read: topic messages, accounts, tokens, transactions, schedules.
-- **HashPack via WalletConnect** (Reown AppKit + `@hashgraph/hedera-wallet-connect`) — every user-signed write.
+- **A WalletConnect wallet** (Reown AppKit + `@hashgraph/hedera-wallet-connect`) — every user-signed write. HashPack and Kabila both sign proposals; only Kabila signs the `ScheduleDelete` a withdrawal needs.
 - **Test signer** — a disposable ECDSA key injected by Hedera Harness (`localStorage["burnerWallet.pk"]`) that signs in place of HashPack during automated validation; same port, see [Signing port](#signing-port-hashpack-or-test-signer).
 - **Hiero SDK** (`@hiero-ledger/sdk`) — builds transactions on the client and on the server.
 
-The governance domain and the Mirror Node client live in `packages/core` (`@sh/core`), which imports no React and no `scaffold.config.ts`: the app is one consumer of it and the co-signing agent in `packages/agent` is another — see [The co-signing agent](#the-co-signing-agent). The dependency runs one way — the app imports the domain, never the reverse. Contracts live in `packages/hardhat` and reach the network through the Hedera JSON-RPC relay, not the Hiero SDK. Server-side signing happens in Next.js route handlers with an operator key read from the environment, and at deploy time with the encrypted deployer key in `packages/hardhat/.env`.
+The governance domain and the Mirror Node client live in `packages/core` (`@sh/core`), which imports no React and no `scaffold.config.ts`: the app is one consumer of it and the co-signing agent in `packages/agent` is another — see [The co-signing agent](#the-co-signing-agent). The dependency runs one way — the app imports the domain, never the reverse. Contracts live in `packages/hardhat` and reach the network through the Hedera JSON-RPC relay, not the Hiero SDK. No page or route signs server-side: the operator key read from the environment signs only in `yarn setup` and the release script, the agent signs with its own key, and the deployer signs at deploy time with the encrypted deployer key in `packages/hardhat/.env`.
 
-<!-- TODO(product): add the product-specific flow (governed operations or merchant rails) once the feature set is decided. -->
-
-_Product-specific flows: coming with the first release._
+How a proposal is listed, counted, read, withdrawn and signed by the agent is in the sections from [Governing an HTS token](#governing-an-hts-token-the-contract-as-the-tokens-key) on; the diagram below is the app's general shape.
 
 ```mermaid
 flowchart LR
   Browser["Browser (React, HashPack)"]
-  App["Next.js app<br/>pages + route handlers"]
+  App["Next.js app<br/>pages"]
+  Scripts["yarn setup<br/>release script"]
   Hedera["Hedera network<br/>HCS · HTS · Batch"]
   Mirror["Mirror Node REST"]
 
   Browser -- "wallet-signed tx" --> Hedera
   Browser -- "hooks/mirror (React Query)" --> App
-  App -- "operator-signed tx" --> Hedera
+  Scripts -- "operator-signed tx" --> Hedera
   App -- "@sh/core/mirror" --> Mirror
   Hedera -. "indexed after a few seconds" .-> Mirror
 ```
@@ -84,26 +86,6 @@ flowchart LR
 - **UI**: the header shows the burner's `0.0.x` with a "test signer" badge; "Disconnect" forgets the key. Consumers read the payer with `requireAccountId()` and never touch the wallet provider directly, so they do not care which signer is active.
 - **Extension point**: `BurnerSigner.publicKey` lets a demo mode put the ephemeral account on-chain beyond paying (for example as a member of a threshold key); a payer-only demo needs nothing beyond the HBAR the harness funds (`chainValidation.fundingHbar`).
 
-### Operator → server route → Hedera
-
-Actions the application pays for run in a route handler with the operator credentials. The client only calls the route; it never sees the key.
-
-```mermaid
-sequenceDiagram
-  participant A as Next.js client
-  participant R as Route handler (app/api/hedera/*)
-  participant H as Hedera network
-
-  A->>R: POST (validated body)
-  R->>R: hasOperatorKey()? else 503
-  R->>R: Build tx, sign with operator Client
-  R->>H: execute + getReceipt
-  H-->>R: status
-  R-->>A: JSON result (no internal errors)
-```
-
-Code: `services/hederaClient.ts`, `app/api/hedera/check-badge/route.ts`, `services/badgeService.ts`.
-
 ### Batch of inner transactions with a batch key (HIP-551)
 
 Several transactions execute atomically: either all inner transactions succeed or none do. The service holds the batch key; the user signs only their own inner transaction.
@@ -145,10 +127,8 @@ Rules that make this work (verified on testnet):
 | Proposal registry | `@sh/core/governance/registry`                                                                                                                           | `GovernedExecutor`: the entry behind a proposal, retiring one, and the id a registration returned |
 | Co-signing agent | `packages/agent/*`                                                                                                                                           | One seat on the council, signing under a written policy — see [The co-signing agent](#the-co-signing-agent) |
 | Swap provider    | `services/swap/*`                                                                                                                                            | `SwapProvider` interface and SaucerSwap V2 implementation — see [Swap provider](#swap-provider)          |
-| Operator client  | `services/hederaClient.ts`                                                                                                                                   | Server-side `Client` with the operator key; used only by route handlers                                  |
 | Setup script     | root `yarn setup`                                                                                                                                            | Idempotent testnet bootstrap: creates missing resources with the operator and writes ids to `.env.local` |
 | Harness          | `.harness/`                                                                                                                                                  | ASSERT (`validators/static.json`, `yarn.json`), SMOKE (`playwright-smoke.yaml`), EVALUATE (`eval.json`)  |
-| Demo             | `app/*`, `components/*`, `hooks/use*.ts`, `services/badgeService.ts`, `config/proofWallConfig.ts`                                                            | Proof Wall pages built on the modules above                                                              |
 
 ## Verified network constraints and decisions
 
@@ -165,7 +145,7 @@ Rules that make this work (verified on testnet):
 | **On-chain quoting for swaps**         | SaucerSwap API reserves do not reflect concentrated-liquidity prices; `amountOutMinimum` must come from `QuoterV2` or the pool's `sqrtRatioX96`                            |
 | **Test signer is testnet-only**        | The burner signs with a key stored in the browser; `burnerSignerPolicy.ts` ignores it on mainnet and, in production builds, unless `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` |
 | **Setup targets testnet only**         | `yarn setup` spends operator HBAR and creates entities; it refuses other networks so a misconfigured `.env` cannot touch mainnet                                           |
-| **Operator key stays server-side**     | Only route handlers read `HEDERA_OPERATOR_*`; the client learns whether an operator exists through `/api/hedera/operator-status`                                           |
+| **Operator key stays out of the app**  | Only `yarn setup`, `yarn release:publish` and `yarn harness:council-seat` read `HEDERA_OPERATOR_*`, in Node; no page or route handler touches it                         |
 | **`.env.example` is the env contract** | `template.json` carries no `envVars` (the CLI would write a root `.env.example` Next.js does not read); every variable is documented in `packages/nextjs/.env.example`     |
 
 ## Governing an HTS token: the contract as the token's key
@@ -243,10 +223,11 @@ back — but a deployment that needs an escape hatch gives the token an admin ke
 contract and an operation to re-point the keys, which is one more governed operation, not a
 loophole.
 
-**Cost.** Measured on testnet through the full chain, each operation consumes 65k–68k gas, refusals
-included, which puts the schedule's gas limit at 90,000. The limit is a price, not a ceiling (see
-the table above), so it belongs to the operation: a token-admin proposal is not an upgrade (99k) and
-not a swap (241k).
+**Cost.** Measured on testnet through the full chain: pause 65,128, unpause 65,084, freeze 67,734
+and unfreeze 67,789, which puts the schedule's gas limit at 90,000. The limit is a price, not a
+ceiling (see the table above), so it belongs to the operation: an upgrade runs at 150,000 and
+consumes 65,410, a treasury swap at 300,000 and consumes about 247,050. `PROPOSAL_TYPES` cites the
+transactions.
 
 ## The proposal inbox
 
@@ -310,7 +291,8 @@ read `proposal(id)` from `GovernedExecutor` through the relay and decode the cal
 
 That second read is also the cross-check. `proposal(id)` returns the target, the stored calldata and
 the state in one answer, so asking what a proposal does and asking whether it is still alive are the
-same relay call, made once per pending proposal.
+same relay call, made once per entry whose answer can still change: every registry call, whatever its
+schedule's state, and not again once an entry has read cancelled or executed.
 
 **Nothing throws on a body it does not understand.** Anyone can open a schedule the governance
 account pays for, so the inbox will meet bodies that are none of the five kinds. Every failure comes
@@ -490,12 +472,25 @@ Four design decisions are load-bearing, and all of them are about what the agent
   only one of the four the policy turns on rather than off, because the agent exists to sign inside
   written limits and a policy demanding a code for everything would have no agent in it.
 
-One trap is worth recording because it only appears against a live network. Mirror lags consensus by
+Two traps are worth recording because they only appear against a live network. The first: Mirror lags consensus by
 a few seconds and the agent polls faster than that, so a signature it has just sent is still absent
 from the schedule on the next pass and the proposal reads as pending and unsigned. Measured on
 testnet: without a memory of what this process has already signed, the agent signs the same proposal
 again and the receipt comes back `SCHEDULE_ALREADY_EXECUTED` — one wasted fee per pass until Mirror
 catches up, and a duplicate `ScheduleSign` on any proposal still short of its threshold.
+
+The second is what a signature from a key with **no seat** costs. The council grants and revokes the
+seat by rotation, so an agent can legitimately be running before it holds one — and a misconfigured
+`AGENT_ACCOUNT_ID` looks identical. Measured on testnet: such a `ScheduleSign` answers
+`NO_NEW_VALID_SIGNATURES`, is charged the same fee as a signature that counted, and **leaves no row
+on the schedule**. The missing row is what makes it a drain rather than one wasted fee: nothing
+remembers the attempt, `isSignedByKey` reads false on the next pass, and the agent tries again every
+poll for as long as the proposal stays open. It is not silent — each attempt logs `signature-failed`
+with `NO_NEW_VALID_SIGNATURES` — but nothing there names the cause: that status reads like the
+Mirror-lag race above, under a decision line that still says `approved`. So the seat is read from
+the ledger on every pass — `councilHoldsKey`, against the council the inbox was already fetched with
+— and a pass without one decides, logs and publishes its refusals, but signs nothing and holds its
+approvals back from the decision topic.
 
 ### Release manifests
 
@@ -600,6 +595,9 @@ never written. A skip says nothing about the policy. An approval whose `Schedule
 back until the signature lands, because "approved" on the topic next to a schedule the agent never
 signed is a record that reads as a lie. Each message costs a fee, so a verdict is published once and
 again only when it changes — otherwise an unchanged inbox would pay four times a minute for ever.
+What was already published is read back off the topic at boot, the agent's newest message per
+proposal, so a restart does not pay again for it; the topic is the memory, not a file beside the
+process.
 
 Custody in the demo is a private key in the environment, which is right for a testnet fixture and
 wrong for anything else. Signing is a single injected function (`SignSchedule`), so a real seat

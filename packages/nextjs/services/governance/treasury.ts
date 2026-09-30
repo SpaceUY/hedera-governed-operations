@@ -7,7 +7,7 @@ const ACME_VAULT_ABI = parseAbi(["function totalDeposits() view returns (uint256
 
 export type TreasuryFigures = {
   hbarBalanceTinybar: number;
-  acmeBalance: number;
+  demoTokenBalance: number;
   usdcBalance: number;
   /** A `uint256` read from the vault, kept as a bigint so a large reserve is not rounded. */
   vaultReserveTinybar: bigint;
@@ -47,7 +47,7 @@ export async function fetchTreasuryFigures({
 
   return {
     hbarBalanceTinybar: account.balance.balance,
-    acmeBalance: tokenBalance(account.balance.tokens, demoTokenId),
+    demoTokenBalance: tokenBalance(account.balance.tokens, demoTokenId),
     usdcBalance: tokenBalance(account.balance.tokens, usdcTokenId),
     vaultReserveTinybar: vaultReserve,
   };

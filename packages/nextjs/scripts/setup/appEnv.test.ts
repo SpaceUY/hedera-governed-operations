@@ -9,15 +9,8 @@ describe("appEnvEntries", () => {
     expect(appEnvEntries(emptyState("testnet"))).toEqual({});
   });
 
-  it("maps the topic to the Proof Wall variable", () => {
-    expect(appEnvEntries({ ...emptyState("testnet"), topicId: "0.0.7" })).toEqual({
-      NEXT_PUBLIC_PROOF_WALL_TOPIC_ID: "0.0.7",
-    });
-  });
-
-  it("keeps the release topic separate from the demo's, since the agent reads only one of them", () => {
-    expect(appEnvEntries({ ...emptyState("testnet"), topicId: "0.0.7", releaseTopicId: "0.0.9" })).toEqual({
-      NEXT_PUBLIC_PROOF_WALL_TOPIC_ID: "0.0.7",
+  it("maps the release topic to its public variable", () => {
+    expect(appEnvEntries({ ...emptyState("testnet"), releaseTopicId: "0.0.9" })).toEqual({
       NEXT_PUBLIC_RELEASE_TOPIC_ID: "0.0.9",
     });
   });

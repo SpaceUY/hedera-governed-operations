@@ -40,7 +40,6 @@ export type SeedProposal = {
 export type SetupState = {
   version: typeof STATE_VERSION;
   network: SetupNetwork;
-  topicId?: string;
   /** Topic the release manifests go to; the agent checks an upgrade proposal against it. */
   releaseTopicId?: string;
   /** Topic the agent publishes its decisions to; its submit key is the agent's, not the operator's. */

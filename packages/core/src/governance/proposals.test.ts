@@ -352,25 +352,39 @@ describe("crossing a proposal with its registry entry", () => {
     expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
   });
 
-  /** Not `notApplicable`, which a screen words as a native kind with no entry at all. */
-  it("leaves a proposal that executed successfully unread, since its entry has run", async () => {
-    const fetchMock = stubSchedulesPerProposer([
-      scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody }),
+  /** The entry is what says which operation ran, so a settled card can name it. */
+  it("reads the entry of a proposal that executed, once, and reuses it on every later poll", async () => {
+    const executed = scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody });
+    const firstPoll = stubSchedulesPerProposer([executed]);
+    stubRegistryStates(1);
+    const previous = await inboxOf([ALICE]);
+    const secondPoll = stubSchedulesPerProposer([executed]);
+
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect([previous.proposals[0].registry, relayReadsOf(firstPoll), relayReadsOf(secondPoll)]).toMatchObject([
+      { status: "read", entry: { state: "executed", operation: { kind: "upgrade" } } },
+      1,
+      0,
     ]);
-
-    const [proposal] = (await inboxOf([ALICE])).proposals;
-
-    const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
-    expect([proposal.registry.status, relayReads.length]).toEqual(["notRead", 0]);
+    expect(proposal.registry).toBe(previous.proposals[0].registry);
   });
 
-  it("leaves a withdrawn registry call unread too, since its round is over", async () => {
-    const fetchMock = stubSchedulesPerProposer([{ ...pendingRegistryProposal("0.0.1"), deleted: true }]);
+  /** The relay answers from a block or two back, so an entry that just ran can still read pending. */
+  it("reads a lagging pending entry behind an executed schedule again on the next poll", async () => {
+    const executed = scheduleOf("0.0.1", { transaction_body: recorded.registryCall.transactionBody });
+    stubSchedulesPerProposer([executed]);
+    stubRegistryStates(0);
+    const previous = await inboxOf([ALICE]);
+    const fetchMock = stubSchedulesPerProposer([executed]);
+    stubRegistryStates(1);
 
-    const [proposal] = (await inboxOf([ALICE])).proposals;
+    const [proposal] = (await inboxAfter(previous)).proposals;
 
-    const relayReads = fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL));
-    expect([proposal.state.status, proposal.registry.status, relayReads.length]).toEqual(["deleted", "notRead", 0]);
+    expect([proposal.registry, relayReadsOf(fetchMock)]).toMatchObject([
+      { status: "read", entry: { state: "executed" } },
+      1,
+    ]);
   });
 
   /** A revert leaves the entry as it was, so the council can still schedule `execute(id)` again. */
@@ -425,6 +439,155 @@ describe("crossing a proposal with its registry entry", () => {
     const [proposal] = (await inboxOf([ALICE])).proposals;
 
     expect(proposal.registry.status).toBe("unreachable");
+  });
+});
+
+/** A body that runs `execute(id)` on the executor, so a test can list several distinct entries. */
+const executeBodyFor = (proposalId: number): string =>
+  Buffer.from(
+    proto.SchedulableTransactionBody.encode({
+      contractCall: {
+        contractID: { evmAddress: hexToBytes(EXECUTOR_EVM) },
+        functionParameters: hexToBytes(`0xfe0d94c1${proposalId.toString(16).padStart(64, "0")}`),
+      },
+    }).finish(),
+  ).toString("base64");
+
+const withdrawnRegistryProposal = (scheduleId: string) => ({ ...pendingRegistryProposal(scheduleId), deleted: true });
+
+const expiredRegistryProposal = (scheduleId: string) => ({
+  ...pendingRegistryProposal(scheduleId),
+  expiration_time: "1000000000.000000000",
+});
+
+const relayReadsOf = (fetchMock: ReturnType<typeof stubSchedulesPerProposer>): number =>
+  fetchMock.mock.calls.filter(([input]) => urlOf(input).startsWith(RPC_URL)).length;
+
+/**
+ * Ending a proposal for good is withdrawing its schedule and then cancelling its entry, in that
+ * order, so the schedule reads "Withdrawn" whatever happened after. Only the entry can say it was
+ * cancelled, and it has to be read after the round is over for the inbox to say so.
+ */
+describe("the registry entry behind a round that is over", () => {
+  it("reads the entry of a withdrawn schedule, so a proposal cancelled afterwards reads cancelled", async () => {
+    const fetchMock = stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(2);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect([proposal.state.status, proposal.registry, relayReadsOf(fetchMock)]).toMatchObject([
+      "deleted",
+      { status: "read", entry: { state: "cancelled" } },
+      1,
+    ]);
+  });
+
+  it("reads the entry of an expired schedule the same way", async () => {
+    stubSchedulesPerProposer([expiredRegistryProposal("0.0.1")]);
+    stubRegistryStates(2);
+
+    const [proposal] = (await inboxOf([ALICE])).proposals;
+
+    expect([proposal.state.status, proposal.registry]).toMatchObject([
+      "expired",
+      { status: "read", entry: { state: "cancelled" } },
+    ]);
+  });
+
+  it("reuses a cancelled entry from the previous read instead of asking the relay again", async () => {
+    stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(2);
+    const previous = await inboxOf([ALICE]);
+    const fetchMock = stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect([proposal.registry, relayReadsOf(fetchMock)]).toMatchObject([
+      { status: "read", entry: { state: "cancelled" } },
+      0,
+    ]);
+  });
+
+  it("reuses a final entry for another schedule of the same entry, since the entry can never change", async () => {
+    stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(1);
+    const previous = await inboxOf([ALICE]);
+    const fetchMock = stubSchedulesPerProposer([pendingRegistryProposal("0.0.2"), withdrawnRegistryProposal("0.0.1")]);
+
+    const { proposals } = await inboxAfter(previous);
+
+    expect([proposals.map(proposal => proposal.registry), relayReadsOf(fetchMock)]).toMatchObject([
+      [
+        { status: "read", entry: { state: "executed" } },
+        { status: "read", entry: { state: "executed" } },
+      ],
+      0,
+    ]);
+  });
+
+  /** A pending entry behind a withdrawn schedule can still be cancelled, or scheduled again. */
+  it("reads a withdrawn schedule's still-pending entry again on the next poll", async () => {
+    stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(0);
+    const previous = await inboxOf([ALICE]);
+    const fetchMock = stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(2);
+
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect([previous.proposals[0].registry, proposal.registry, relayReadsOf(fetchMock)]).toMatchObject([
+      { status: "read", entry: { state: "pending" } },
+      { status: "read", entry: { state: "cancelled" } },
+      1,
+    ]);
+  });
+
+  it("keeps a withdrawn proposal listed with a warning when the relay is down", async () => {
+    stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(new Error("relay is down"));
+
+    const { proposals } = await inboxOf([ALICE]);
+
+    expect(proposals.map(proposal => [proposal.state.status, proposal.registry.status])).toEqual([
+      ["deleted", "unreachable"],
+    ]);
+  });
+
+  it("asks the relay again after an unreachable read, rather than keeping the warning", async () => {
+    stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(new Error("relay is down"));
+    const previous = await inboxOf([ALICE]);
+    stubSchedulesPerProposer([withdrawnRegistryProposal("0.0.1")]);
+    stubRegistryStates(2);
+
+    const [proposal] = (await inboxAfter(previous)).proposals;
+
+    expect(proposal.registry).toMatchObject({ status: "read", entry: { state: "cancelled" } });
+  });
+
+  /**
+   * The relay reads per poll are one per entry whose answer can still change: a final answer — the
+   * entry a round ran included — is read once and then carried.
+   */
+  it("reads each entry whose answer can still change once per poll, and final ones only once", async () => {
+    const inbox = [
+      { ...pendingRegistryProposal("0.0.5"), transaction_body: executeBodyFor(1) },
+      { ...withdrawnRegistryProposal("0.0.4"), transaction_body: executeBodyFor(2) },
+      { ...expiredRegistryProposal("0.0.3"), transaction_body: executeBodyFor(3) },
+      { ...withdrawnRegistryProposal("0.0.2"), transaction_body: executeBodyFor(1) },
+      scheduleOf("0.0.1", { transaction_body: executeBodyFor(4) }),
+    ];
+    const firstPoll = stubSchedulesPerProposer(inbox);
+    stubRegistryStates(0, 2, 0, 1);
+    const previous = await inboxOf([ALICE]);
+    const readsOnFirstPoll = relayReadsOf(firstPoll);
+    const secondPoll = stubSchedulesPerProposer(inbox);
+    stubRegistryStates(0, 0);
+
+    const { proposals } = await inboxAfter(previous);
+
+    expect([readsOnFirstPoll, relayReadsOf(secondPoll)]).toEqual([4, 2]);
+    expect(proposals.map(proposal => proposal.registry.status)).toEqual(["read", "read", "read", "read", "read"]);
   });
 });
 
