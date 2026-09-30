@@ -104,6 +104,7 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | `yarn lint` / `yarn next:lint` | ESLint                                                                               |
 | `yarn test`                    | Unit tests (Vitest)                                                                  |
 | `yarn format`                  | Prettier                                                                             |
+| `yarn gate`                    | Gate a fresh clone must pass, no credentials: secrets scan, install, lint, types, tests, build, `hedera-harness validate`. Refuses to run while a `.env` exists |
 | `yarn harness:run`             | Full Hedera Harness loop (generate, validate, repair)                                |
 | `yarn harness:council-seat`    | Seats the harness test signer on the council; run by the harness, not by hand        |
 | `yarn hardhat:compile`         | Compile the contracts under `packages/hardhat/contracts/`                            |
