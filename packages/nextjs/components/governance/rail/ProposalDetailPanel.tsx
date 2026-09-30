@@ -23,6 +23,7 @@ import {
 import { unseatedAgentSeatOf, withSeat } from "./councilSeats";
 import { expiryCountdown } from "./expiryCountdown";
 import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
+import { useRotationResultTitle } from "./rotationResult";
 import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
@@ -110,6 +111,11 @@ export const ProposalDetailPanel = ({
   const council = useCouncil({ governanceAccountId, executorContractId, network });
   const agent = useCoSigningAgent(network);
   const demo = useDemoSeats({ proposal, council: council.data?.key, onSigned: refresh });
+  const resultTitle = useRotationResultTitle(proposal, {
+    governanceAccountId,
+    network,
+    agentSeat: agent?.seat ?? null,
+  });
   const unseatedAgentSeat = council.data ? unseatedAgentSeatOf(agent, council.data.key) : null;
   const proposers = council.data?.proposers ?? [];
   const rule = council.data ? councilRuleLabel(council.data.key) : `${proposal.progress.threshold}-of-?`;
@@ -223,7 +229,11 @@ export const ProposalDetailPanel = ({
       </div>
 
       {proposal.execution.status === "succeeded" && (
-        <SucceededResult executedAt={state.executedAt} result={proposal.execution.transaction.result} />
+        <SucceededResult
+          executedAt={state.executedAt}
+          result={proposal.execution.transaction.result}
+          title={resultTitle ?? undefined}
+        />
       )}
       {executionFailure && (
         <p role="status" className="m-0 rounded-box border border-error bg-error/10 p-3 text-sm">
@@ -330,11 +340,18 @@ function signedAtOf({ schedule, progress, incomingProgress }: Proposal): Record<
   return signedAt;
 }
 
-const SucceededResult = ({ executedAt, result }: { executedAt: Date | null; result: string }) => {
+type SucceededResultProps = {
+  executedAt: Date | null;
+  result: string;
+  /** What the run did, when the screen can say more than "Executed" (a council rotation). */
+  title?: string;
+};
+
+const SucceededResult = ({ executedAt, result, title }: SucceededResultProps) => {
   const copy = executedResult(executedAt, result);
   return (
     <div role="status" className="flex flex-col gap-1 rounded-box border border-success bg-success/10 p-3 text-sm">
-      <p className="m-0 font-semibold">{copy.title}</p>
+      <p className="m-0 font-semibold">{title ?? copy.title}</p>
       <p className="m-0">{copy.line}</p>
       <p className="m-0 text-base-content/70">{copy.why}</p>
     </div>

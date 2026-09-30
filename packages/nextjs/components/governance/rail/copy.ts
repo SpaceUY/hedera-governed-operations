@@ -241,6 +241,12 @@ export function executedResult(executedAt: Date | null, result: string) {
   };
 }
 
+/** The title of an executed council rotation's result: the council it made, and whether that seated the co-signing agent. */
+export const ROTATION_RESULT_COPY = {
+  agentSeated: (rule: string) => `The co-signing agent is seated · ${rule} council`,
+  councilNow: (rule: string) => `The council is now ${rule}`,
+} as const;
+
 /** What a proposal that did not run left behind, or null while it is live or once it ran. */
 export function endNote(proposal: Pick<Proposal, "state" | "registry" | "operation">): string | null {
   const { state, registry, operation } = proposal;

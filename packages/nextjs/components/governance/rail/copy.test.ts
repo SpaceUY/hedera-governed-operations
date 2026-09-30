@@ -1,5 +1,6 @@
 import {
   AGENT_COPY,
+  ROTATION_RESULT_COPY,
   cardStatusLabel,
   endNote,
   noRejectNote,
@@ -122,5 +123,12 @@ describe("signedWhenLabel", () => {
 describe("AGENT_COPY", () => {
   it("names the add-the-agent proposal and the council it would make", () => {
     expect(AGENT_COPY.howToSeat("2-of-4")).toBe("Approve “Add the co-signing agent” to seat it (2-of-4 council).");
+  });
+});
+
+describe("ROTATION_RESULT_COPY", () => {
+  it("names the council a rotation made, and whether it seated the agent", () => {
+    expect(ROTATION_RESULT_COPY.agentSeated("2-of-4")).toBe("The co-signing agent is seated · 2-of-4 council");
+    expect(ROTATION_RESULT_COPY.councilNow("3-of-4")).toBe("The council is now 3-of-4");
   });
 });
