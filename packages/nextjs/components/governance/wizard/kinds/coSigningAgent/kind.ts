@@ -6,8 +6,8 @@ import { getCoSigningAgentAccountId } from "~~/config/governanceConfig";
 
 /**
  * Seats the co-signing agent by rewriting the governance account's own threshold key: no contract, so
- * nothing can be missing. The form starts from the agent the app is told about
- * (`NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID`), and still checks it like any typed account (`agentSeatOf`).
+ * nothing can be missing. The form starts with the configured agent account, the one Settings names too,
+ * and empty when none is configured.
  */
 export const CO_SIGNING_AGENT_KIND = defineWizardKind<CoSigningAgentTargets>({
   icon: PlusIcon,

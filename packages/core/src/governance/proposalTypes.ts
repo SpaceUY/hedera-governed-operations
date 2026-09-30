@@ -1,16 +1,7 @@
 /**
  * The five kinds of operation this template governs, and the shapes a decoded proposal comes back
- * as. Adding a sixth kind starts here — the name in `ContractProposalKind` or `NativeProposalKind`, an
- * entry in `PROPOSAL_TYPES` (with a measured `executeGas` for a contract-backed kind), its decoded
- * shape and a branch in `describe*Operation` — and goes on to an encoder (`encode.ts`), a decoder
- * branch (`decode.ts`), a draft and a wizard folder in the app (`docs/GOVERNANCE_UI.md`, "Opening
- * a proposal"), its route and preview words on the live map (`PROPOSAL_ROUTES`, `PREVIEW_KINDS`),
- * its icon on the rail's card (`OperationIcon.tsx`), and the co-signing agent: its reading
- * (`readOperation` in `packages/agent/src/operation.ts`), its rule (`reviewOperation` in `policy.ts`),
- * parsed by `parsePolicy` in `config.ts` — whose list of rule names is written out, so nothing forces
- * it — and shown in `policy.example.json`. The switches in `readOperation` and `reviewOperation` and
- * the app's `Record<ProposalKind, …>` maps fail the type check until each has its entry; a policy
- * file with no rule for the kind refuses it.
+ * as. Adding a sixth kind starts here and goes on through the encoder, the decoder, the app and the
+ * co-signing agent; the steps are in `AGENTS.md`, "How to add a proposal kind".
  *
  * Two of the five never touch a contract. A treasury transfer is a `CryptoTransfer` and a council
  * rotation is a `CryptoUpdate` on the governance account itself, so both are readable straight from
@@ -65,15 +56,18 @@ export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; execu
    */
   upgrade: { label: "Contract upgrade", executeGas: 150_000 },
   /**
-   * Measured: 247,050–247,064 over three runs — the executor, the adapter, SaucerSwap's router and
-   * the USDC/HBAR pool, single hop, output settled to an already associated treasury
-   * (`0xa5ee027700a30b404b7d0255b2a39efc376f332b4d09e682fe191308b48cea36` at a 500,000 limit,
-   * `0x4c792dedb1ce8721e80a558252c69ba8351bd4c5756b7a868bebbde4ca28afe3` at 300,000, the limit here).
+   * Measured: 247,047–247,107 over four runs — the executor, the adapter, SaucerSwap's router and
+   * the USDC/HBAR pool, single hop, output settled to an already associated treasury. Two plain
+   * calls against an earlier deployment of the same contracts (executor `0.0.10671156`):
+   * `0xa5ee027700a30b404b7d0255b2a39efc376f332b4d09e682fe191308b48cea36`, 247,063 at a 500,000
+   * limit, and `0x4c792dedb1ce8721e80a558252c69ba8351bd4c5756b7a868bebbde4ca28afe3`, 247,064 at
+   * 300,000. Two schedules at 300,000, the limit here: `0.0.10766696`, 247,047, on that deployment,
+   * and `0.0.10794955`, 247,107, on the current one. That leaves about 18% of the limit unused.
    * `treasurySwap.integration.test.ts` reproduces it and asserts this number from both sides.
    *
    * Two things are deliberately outside this number. The output token's association is paid once by
    * `yarn setup`, because an association charged to the call costs more than this whole limit and a
-   * successful scheduled call pays its limit every time. And neither run crossed an initialised
+   * successful scheduled call pays its limit every time. And none of the runs crossed an initialised
    * tick: a swap large enough to cross one does more work than this, so the figure belongs to a
    * single-hop swap of ordinary size rather than to any swap at all.
    */

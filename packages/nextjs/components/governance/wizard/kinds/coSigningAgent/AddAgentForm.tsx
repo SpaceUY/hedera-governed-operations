@@ -46,13 +46,17 @@ export const AddAgentForm = ({
       onDraftChange({ status: "empty" });
       return;
     }
-    const seat = agentSeatOf(agentInput, { account: agent.data, error: agent.error }, council);
+    const seat = agentSeatOf(
+      agentInput,
+      { account: agent.data, error: agent.error },
+      { council, configuredAgentId: suggestedAgentAccountId },
+    );
     if (seat.status !== "found") {
       onDraftChange(seat);
       return;
     }
     onDraftChange(draftAgentSeat(governanceAccountId, council, seat.key));
-  }, [agentInput, agent.data, agent.error, council, governanceAccountId, onDraftChange]);
+  }, [agentInput, agent.data, agent.error, council, suggestedAgentAccountId, governanceAccountId, onDraftChange]);
 
   const newKey = council && memberNames && CO_SIGNING_AGENT_COPY.newKey(council, seatNamesOf(council, memberNames));
 

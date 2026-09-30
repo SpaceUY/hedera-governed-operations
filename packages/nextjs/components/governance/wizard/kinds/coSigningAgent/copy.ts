@@ -49,4 +49,7 @@ export const CO_SIGNING_AGENT_COPY = {
   alreadyMember: (accountId: string) =>
     `${accountId} already holds a seat on the council, so seating it would change nothing. The agent needs an ` +
     "account of its own that is not a member yet.",
+  agentSeated: (accountId: string) =>
+    `${accountId}, the configured co-signing agent, already holds a seat on the council: there is nothing left ` +
+    "to seat.",
 } as const;
