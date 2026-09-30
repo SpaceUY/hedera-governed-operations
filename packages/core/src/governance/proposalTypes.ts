@@ -1,6 +1,13 @@
 /**
  * The five kinds of operation this template governs, and the shapes a decoded proposal comes back
- * as. Adding a sixth kind is an encoder, a branch of the decoder and an entry in `PROPOSAL_TYPES`.
+ * as. Adding a sixth kind starts here — the name in `ContractProposalKind` or `NativeProposalKind`, an
+ * entry in `PROPOSAL_TYPES` (with a measured `executeGas` for a contract-backed kind), its decoded
+ * shape and a branch in `describe*Operation` — and goes on to an encoder (`encode.ts`), a decoder
+ * branch (`decode.ts`), a draft and a wizard folder in the app (`docs/GOVERNANCE_UI.md`, "Opening
+ * a proposal"), its route, icon and preview words on the live map, and the co-signing agent's reading
+ * of it (`readOperation` in `packages/agent/src/operation.ts`) and rule (`reviewOperation` in
+ * `policy.ts`) — a policy with no rule for a kind refuses it. The app's `Record<ProposalKind, …>` maps
+ * fail the type check until each has its entry.
  *
  * Two of the five never touch a contract. A treasury transfer is a `CryptoTransfer` and a council
  * rotation is a `CryptoUpdate` on the governance account itself, so both are readable straight from
@@ -48,9 +55,10 @@ export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; execu
   Record<NativeProposalKind, { label: string; executeGas: null }> = {
   /**
    * Measured: 65,410, twice, plus one run at 60,066 — `execute` against the vault proxy at a 150,000
-   * limit (`0.0.10671156`, entries 7, 8 and 9). All three upgrade without an initializer. **An
-   * upgrade that nests an initializer has never run on testnet**; the only entry registered with one
-   * was withdrawn, so the limit covers that case by arithmetic and not by measurement.
+   * limit (executor `0.0.10671156`, an earlier deployment of the same contracts; entries 7, 8 and 9).
+   * All three upgrade without an initializer. **An upgrade that nests an initializer has never run
+   * on testnet**; the only entry registered with one was withdrawn, so the limit covers that case by
+   * arithmetic and not by measurement.
    */
   upgrade: { label: "Contract upgrade", executeGas: 150_000 },
   /**
@@ -69,12 +77,13 @@ export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; execu
   treasurySwap: { label: "Treasury swap", executeGas: 300_000 },
   /**
    * Measured: pause 65,128, unpause 65,084, freeze 67,734, unfreeze 67,789 — `execute` from the
-   * governance account through the executor and `TokenAdmin` to `0x167`, on the contracts deployed
-   * now (`0.0.10671146@1790713600.116717689`, `@1790713606.017477132`, `@1790713642.156765307`,
-   * `@1790713653.623309547`, entries 18, 19, 21 and 22). Plain `ContractExecute` at a 300,000 limit,
-   * which consumes what a schedule would. A freeze names the holder by the address the network knows
-   * it by: an account with an EVM alias named by its long-zero address is refused with
-   * `HtsRejected(15)`, `INVALID_ACCOUNT_ID` (entry 20, 64,206 consumed).
+   * governance account through the executor and `TokenAdmin` to `0x167`, on an earlier deployment of
+   * the same contracts (`0.0.10671146@1790713600.116717689`, `@1790713606.017477132`,
+   * `@1790713642.156765307`, `@1790713653.623309547`, entries 18, 19, 21 and 22). Plain
+   * `ContractExecute` at a 300,000 limit, which consumes what a schedule would. A freeze names the
+   * holder by the address the network knows it by: an account with an EVM alias named by its
+   * long-zero address is refused with `HtsRejected(15)`, `INVALID_ACCOUNT_ID` (entry 20, 64,206
+   * consumed).
    */
   tokenAdmin: { label: "Token administration", executeGas: 90_000 },
   treasuryTransfer: { label: "Treasury transfer", executeGas: null },
