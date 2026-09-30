@@ -82,10 +82,14 @@ export const ProposalWizardProvider = ({ executorContractId, onSubmitted, childr
       // the hand-over to finish, because until the route moves the map still reads this draft, and an
       // empty one would leave it blank while the inbox is read again.
       onSuccess: scheduleId => {
-        void Promise.resolve(onSubmitted(scheduleId)).finally(() => {
-          setDraft(EMPTY_DRAFT);
-          reset();
-        });
+        // A hand-over that fails still ends the submission: the proposal is on the ledger either way.
+        void Promise.resolve()
+          .then(() => onSubmitted(scheduleId))
+          .catch(() => undefined)
+          .then(() => {
+            setDraft(EMPTY_DRAFT);
+            reset();
+          });
       },
     });
   }, [draft, mutate, reset, onSubmitted]);

@@ -171,11 +171,17 @@ export const decorateDemoMap: MapDecorator = context => {
     if (MEMBER_SLOTS[slot]) positions[nodeId] = MEMBER_SLOTS[slot];
   });
   const monograms: Partial<Record<string, string>> = {};
+  const unseated: string[] = [];
   // The agent's seat, held or proposed, takes the place its ghost waits in, and the ghost steps aside.
   if (seats.agent) {
     positions[seats.agent] = AGENT.position;
     labels[seats.agent] = DEMO_NAMES.agent;
     monograms[seats.agent] = AGENT.monogram;
+    // A proposed seat is not a member yet: it keeps the ghost's slot and look until the council holds it.
+    if (context.agentSeat === null || !context.memberKeys.includes(context.agentSeat)) {
+      unseated.push(seats.agent);
+      captions[seats.agent] = AGENT.caption;
+    }
   }
   if (seats.council) {
     labels[seats.council] = DEMO_NAMES.council;
@@ -214,6 +220,7 @@ export const decorateDemoMap: MapDecorator = context => {
     layout: { ...SIZE, positions, labels },
     captions,
     monograms,
+    unseated,
     ghosts: seats.agent ? [] : [AGENT],
     regions: REGIONS,
     inspector,

@@ -173,6 +173,31 @@ describe("decorateDemoMap with the co-signing agent's key", () => {
     expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
   });
 
+  it("draws a proposed agent in the ghost's tone captioned as not a member yet, and a seated one as a member", () => {
+    const proposed = composeMap(
+      { ...MAP_SNAPSHOT, previewed: rotationTo([KEY_A, KEY_B, KEY_C, AGENT_KEY]) },
+      decorateDemoMap,
+      { agentSeat: AGENT_KEY },
+    );
+    const id = memberNodeId(AGENT_KEY);
+    expect(proposed.unseated).toEqual([id]);
+    expect(proposed.captions[id]).toBe("not a member yet");
+    expect(labelOf(proposed, id)).toBe(DEMO_NAMES.agent);
+
+    const held = composeMap(seated([KEY_A, KEY_B, KEY_C, AGENT_KEY]), decorateDemoMap, { agentSeat: AGENT_KEY });
+    expect(held.unseated).toEqual([]);
+    expect(held.captions[id]).toBeUndefined();
+  });
+
+  it('names the seat the agent holds "You" without the agent\'s letters when the viewer is its account', () => {
+    const snapshot = seated([KEY_A, KEY_B, KEY_C, AGENT_KEY]);
+    const withAgent = { ...snapshot, proposers: [...snapshot.proposers, { accountId: "0.0.4200", key: AGENT_KEY }] };
+    const map = composeMap(withAgent, decorateDemoMap, { agentSeat: AGENT_KEY, viewerAccountId: "0.0.4200" });
+    const id = memberNodeId(AGENT_KEY);
+    expect(labelOf(map, id)).toBe("You");
+    expect(map.monograms[id]).toBeUndefined();
+  });
+
   it("puts the seated agent at the ghost's slot instead of the autoLayout, and Bob and the council account keep theirs", () => {
     const map = composeMap(seated([KEY_A, KEY_B, KEY_C, AGENT_KEY]), decorateDemoMap, { agentSeat: AGENT_KEY });
     const id = memberNodeId(AGENT_KEY);

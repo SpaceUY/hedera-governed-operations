@@ -42,6 +42,8 @@ export type MapRegion = { label: string; position: Point; orientation: "horizont
 export type MapContext = {
   nodes: readonly GraphNode[];
   proposers: GraphSnapshot["proposers"];
+  /** The keys of the council as the ledger has it now, so a decorator can tell a seat held from one only proposed. */
+  memberKeys: readonly string[];
   /** The council key of the co-signing agent the app was told about, or null: unconfigured, unread, or not one key. */
   agentSeat: string | null;
 };
@@ -61,6 +63,8 @@ export type MapDecoration = {
   captions?: Partial<Record<string, string>>;
   /** The letters in a node's circle, by node id, where its name's first letter is not what it should say. */
   monograms?: Partial<Record<string, string>>;
+  /** Member nodes a proposal would seat but the ledger does not: drawn in the ghost's tone, like a ghost. */
+  unseated?: readonly string[];
   ghosts?: GhostNode[];
   regions?: MapRegion[];
   inspector?: InspectorCopy;
@@ -81,6 +85,7 @@ export type ComposedMap = {
   graph: GovernanceGraph;
   captions: Partial<Record<string, string>>;
   monograms: Partial<Record<string, string>>;
+  unseated: readonly string[];
   ghosts: GhostNode[];
   regions: MapRegion[];
   inspector: InspectorCopy;
@@ -133,18 +138,28 @@ export function composeMap(
   { viewerAccountId, agentSeat = null }: MapViewpoint = {},
 ): ComposedMap {
   const { nodes } = deriveGraphState(snapshot, { ...AUTO_MAP_SIZE, positions: {} });
-  const context: MapContext = { nodes, proposers: snapshot.proposers, agentSeat };
+  const context: MapContext = {
+    nodes,
+    proposers: snapshot.proposers,
+    memberKeys: snapshot.council.memberKeys,
+    agentSeat,
+  };
   const labels = genericLabels(context);
   const decoration = decorate?.(context);
   const layout = decoration?.layout ?? { ...AUTO_MAP_SIZE, positions: {} };
   const viewerSeat = viewerAccountId ? viewerSeatOf(context, viewerAccountId) : undefined;
   const viewerLabel = viewerSeat ? { [viewerSeat]: MAP_LABELS.you } : {};
 
+  // "You" is not the letters a decoration chose for whoever it named otherwise.
+  const monograms = { ...decoration?.monograms };
+  if (viewerSeat) delete monograms[viewerSeat];
+
   const graph = deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } });
   return {
     graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
-    monograms: decoration?.monograms ?? {},
+    monograms,
+    unseated: decoration?.unseated ?? [],
     ghosts: decoration?.ghosts ?? [],
     regions: decoration?.regions ?? [],
     inspector: decoration?.inspector ?? { nodes: {}, edges: {} },

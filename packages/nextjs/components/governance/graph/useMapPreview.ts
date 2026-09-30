@@ -76,6 +76,7 @@ export function useMapPreview(config: GovernanceConfig) {
     return {
       preview: shown.preview,
       caption: captionFactsOf(target, shown.preview, shown.title),
+      bareCaption: captionFactsOf(target, null, null),
       targetKey: previewTargetKey(target),
     };
   }, [target, draft, accountId, proposal]);

@@ -16,6 +16,8 @@ import {
   ALICE,
   BOB,
   CAROL,
+  DAVE,
+  ROTATION,
   SUCCEEDED,
   SUPPLIER,
   TRANSFER,
@@ -69,6 +71,19 @@ describe("previewFrameOf", () => {
     expect(frame.scope?.edgeIds).not.toContain(ALICE_ARC);
     expect(frame.labels).toEqual({ [externalNodeId(SUPPLIER)]: "would receive 40 ℏ" });
     expect(frame.ring).toBeNull();
+  });
+
+  it("dims the seat another pending rotation would add: it decides nothing until the council holds it", () => {
+    const rotation = proposal({ id: "0.0.9003", operation: ROTATION, signatures: [] });
+    const shown = world([pendingUpgrade, rotation]);
+    const graph = graphOf(shown);
+    const incoming = memberNodeId(DAVE);
+    expect(graph.nodes.some(node => node.id === incoming)).toBe(true);
+
+    const frame = previewFrameOf(upgradePreview, { graph, world: shown, context: CONTEXT });
+    expect(frame.scope?.nodeIds).not.toContain(incoming);
+    expect(frame.scope?.edgeIds).not.toContain(edgeId(incoming, GOVERNANCE_ACCOUNT_NODE_ID));
+    expect(frame.scope?.nodeIds).toEqual(expect.arrayContaining([memberNodeId(ALICE), memberNodeId(BOB)]));
   });
 
   it("draws nothing and dims nothing when the drawn graph cannot complete the route", () => {

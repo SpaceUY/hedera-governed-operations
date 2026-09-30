@@ -32,9 +32,14 @@ const PHASE_OF: Record<PreviewMode, EdgePhase> = { live: "preview", history: "co
 
 const unique = (ids: readonly string[]): string[] => [...new Set(ids)];
 
-/** The seats and their lines into the treasury: they decide every operation, so they are never dimmed. */
-function councilOf(graph: GovernanceGraph) {
-  const seats = new Set(graph.nodes.filter(node => node.role === "member").map(node => node.id));
+/**
+ * The seats and their lines into the treasury: they decide every operation, so they are never dimmed.
+ * Only the council as the ledger has it: a seat another pending rotation would add decides nothing yet.
+ */
+function councilOf(graph: GovernanceGraph, council: CouncilKey) {
+  const seats = new Set(
+    graph.nodes.filter(node => node.role === "member" && council.memberKeys.includes(node.ref)).map(node => node.id),
+  );
   const lines = graph.edges.filter(edge => edge.to === GOVERNANCE_ACCOUNT_NODE_ID && seats.has(edge.from));
   return { nodeIds: [GOVERNANCE_ACCOUNT_NODE_ID, ...seats], edgeIds: lines.map(edge => edge.id) };
 }
@@ -60,7 +65,7 @@ export function previewFrameOf(preview: MapPreview | null, { graph, world, conte
   const scope = scopeOf(graph, preview.operation);
   if (!scope) return REST_FRAME;
 
-  const council = councilOf(graph);
+  const council = councilOf(graph, world.council);
   const arcId =
     isContractProposalKind(preview.operation.kind) && preview.proposerAccountId
       ? proposerArc(graph, world, preview.proposerAccountId)

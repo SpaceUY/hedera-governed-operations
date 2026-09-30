@@ -6,11 +6,25 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ProposalWizardProvider } from "~~/components/governance/wizard/ProposalWizardProvider";
 import { SUBMITTED_NOTICE } from "~~/components/governance/wizard/copy";
 import { GOVERNANCE_ROUTES, type GovernanceConfig } from "~~/config/governanceConfig";
+import { DEFAULT_PENDING_POLL_MS } from "~~/hooks/mirror/mirrorQuery";
 import { proposalInboxQueryKey } from "~~/hooks/mirror/useProposals";
 
 const GovernanceConfigContext = createContext<GovernanceConfig | null>(null);
 
 type OpenSubmittedOptions = { network: GovernanceConfig["network"]; onNotice: (text: string) => void };
+
+/** Waits for `pending`, but no longer than `ms`: a read that never answers must not hold a page back. */
+async function settleWithin(pending: Promise<unknown>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<void>(resolve => {
+    timer = setTimeout(resolve, ms);
+  });
+  try {
+    await Promise.race([pending, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * What happens once the wallet has sent a proposal: the rail says so, the inbox is read again, and
@@ -23,7 +37,10 @@ export function useOpenSubmitted({ network, onNotice }: OpenSubmittedOptions) {
   return useCallback(
     async (scheduleId: string) => {
       onNotice(SUBMITTED_NOTICE);
-      await queryClient.refetchQueries({ queryKey: proposalInboxQueryKey(network) });
+      await settleWithin(
+        queryClient.refetchQueries({ queryKey: proposalInboxQueryKey(network) }),
+        DEFAULT_PENDING_POLL_MS,
+      );
       router.push(GOVERNANCE_ROUTES.selected(scheduleId));
     },
     [network, onNotice, queryClient, router],

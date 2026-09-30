@@ -72,7 +72,12 @@ beforeEach(() => {
 });
 
 function previewing(targetKey: string) {
-  vi.mocked(useMapPreview).mockReturnValue({ preview: null, caption: { kind: "idle" }, targetKey });
+  vi.mocked(useMapPreview).mockReturnValue({
+    preview: null,
+    caption: { kind: "idle" },
+    bareCaption: { kind: "idle" },
+    targetKey,
+  });
 }
 
 describe("LiveMapPane", () => {

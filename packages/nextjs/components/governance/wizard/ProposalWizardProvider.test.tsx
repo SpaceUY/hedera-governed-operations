@@ -148,6 +148,23 @@ describe("ProposalWizardProvider", () => {
     await waitFor(() => expect(screen.getByText("no preview")).toBeTruthy());
   });
 
+  it("clears the draft and leaves nothing unhandled when the hand-over fails", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    const onSubmitted = vi.fn(() => Promise.reject(new Error("read failed")));
+    renderHost(onSubmitted);
+
+    fireEvent.click(screen.getByText("fill"));
+    fireEvent.click(screen.getByText("submit"));
+    await waitFor(() => expect(wallet.resolve).not.toBeNull());
+    await act(async () => wallet.resolve?.("0.0.904"));
+
+    await waitFor(() => expect(screen.getByText("no preview")).toBeTruthy());
+    await new Promise(resolve => setTimeout(resolve, 0));
+    process.off("unhandledRejection", unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
   it("does not re-render its consumers when only the host re-renders", () => {
     const renders = vi.fn();
     const MapStandIn = memo(function MapStandIn() {

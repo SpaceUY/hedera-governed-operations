@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import type { TokenReading } from "~~/components/governance/TreasuryStrip";
-import { type CaptionFacts, mapCaptionOf } from "~~/components/governance/graph/caption";
+import { mapCaptionOf } from "~~/components/governance/graph/caption";
 import { inspectorContentOf } from "~~/components/governance/graph/inspector";
 import { nodeStateCaptions, releaseOf } from "~~/components/governance/graph/nodeStates";
 import { remoteSignatureNotice } from "~~/components/governance/graph/remoteSignatureNotice";
@@ -33,8 +33,6 @@ function tokenReadingOf(query: ReturnType<typeof useToken>): TokenReading {
   if (query.data) return query.data;
   return query.isError ? "unreadable" : null;
 }
-
-const IDLE_CAPTION: CaptionFacts = { kind: "idle" };
 
 type TokenSource = { id: string | null | undefined; data: TokenQueryData | undefined };
 
@@ -76,8 +74,6 @@ export function useLiveMap({ config, onRemoteSignature }: LiveMapOptions) {
   const mapPreview = useMapPreview(config);
   const previewed = playing ? null : (mapPreview.preview?.operation ?? null);
   const composedWorld = useMemo(() => world && { ...world, previewed }, [world, previewed]);
-  // The caption says what the map shows: while a sequence plays the preview waits, so it says nothing of it.
-  const captionFacts = playing ? IDLE_CAPTION : mapPreview.caption;
   const map = useComposedMap(config, composedWorld);
   const nodeStates = nodeStatesShown(playing, world);
   const vaultReleases = useMemo(
@@ -106,6 +102,10 @@ export function useLiveMap({ config, onRemoteSignature }: LiveMapOptions) {
         : REST_FRAME,
     [map, world, previewContext, playing, mapPreview.preview],
   );
+  // The caption says what the map shows, never half a path: while a sequence plays the preview waits,
+  // and a preview the map cannot route draws nothing, so both say what a target with no preview says (`bareCaption`).
+  const previewDrawn = !playing && frame.scope !== null;
+  const captionFacts = previewDrawn ? mapPreview.caption : mapPreview.bareCaption;
   // The vault's and the token's state lines change with the figures: when a run lands, not before.
   const shownMap = useMemo(
     () => map && { ...map, captions: { ...map.captions, ...nodeStateCaptions(nodeStates, vaultReleases) } },

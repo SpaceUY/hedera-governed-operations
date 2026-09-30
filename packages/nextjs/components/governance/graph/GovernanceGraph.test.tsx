@@ -174,6 +174,13 @@ describe("GovernanceGraph", () => {
     expect(screen.getAllByText("AG")).toHaveLength(1);
   });
 
+  it("draws a seat the council does not hold yet in the ghost's tone, dashed and faded", () => {
+    const seat = memberNodeId(KEY_A);
+    const { container } = renderGraph({ unseated: [seat] });
+    const item = container.querySelector(`[data-node-id="${seat}"]`) ?? container;
+    expect(item.querySelector(".opacity-50")).not.toBeNull();
+  });
+
   it("sends a comet along an edge the frame names, and none along an edge the map does not have", () => {
     const { container } = renderGraph({
       frame: {
