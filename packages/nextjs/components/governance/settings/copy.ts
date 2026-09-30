@@ -61,8 +61,6 @@ export const SETTINGS_COPY = {
       alreadyOffered: (accountId: string) =>
         `${accountId} already holds a seat listed above, so this row adds nothing: tick or untick that seat instead.`,
     },
-    /** Until the map previews a draft on this screen, the note says only what is true. */
-    noteWithoutPreview: "One transaction — a native schedule. No registry entry is created.",
   },
   roles: {
     heading: "Contract roles · EVM · proposal registry",

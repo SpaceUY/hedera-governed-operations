@@ -151,10 +151,9 @@ describe("CouncilChangeComposer", () => {
     expect(preview.scheduled.council).toEqual({ threshold: 2, memberKeys: [seat(you), seat(alice)] });
   });
 
-  it("says under the button only what is true until the map draws the draft", () => {
+  it("says under the button that the map shows the council the change would create", () => {
     renderComposer();
-    expect(screen.getByText(SETTINGS_COPY.composer.noteWithoutPreview)).toBeTruthy();
-    expect(screen.queryByText(SETTINGS_COPY.composer.note)).toBeNull();
+    expect(screen.getByText(SETTINGS_COPY.composer.note)).toBeTruthy();
   });
 
   it("offers the co-signing agent unticked while the council does not seat it, and ticking it proposes 2-of-4", () => {

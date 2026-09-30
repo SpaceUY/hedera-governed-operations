@@ -15,6 +15,7 @@ import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposalLookup } from "~~/hooks/mirror/useProposalLookup";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import type { DraftPreview } from "~~/services/governance/drafts";
+import { councilRuleLabel } from "~~/services/governance/proposalLabels";
 import type { SketchContext } from "~~/services/liveMap/preview/kinds/previewKind";
 import {
   type MapPreview,
@@ -44,6 +45,13 @@ const NOTHING: Shown = { preview: null, title: null };
  * a kind the map cannot draw yet by asking for the form. Only with no kind picked does it ask for one.
  */
 export function captionFactsOf(target: PreviewTarget, preview: MapPreview | null, title: string | null): CaptionFacts {
+  if (target.kind === "councilSettings") {
+    const operation = preview?.operation;
+    return {
+      kind: "councilSettings",
+      rule: operation?.kind === "councilRotation" ? councilRuleLabel(operation.council) : null,
+    };
+  }
   if (target.kind === "draft") {
     if (!title) return { kind: "drafting", title: null };
     if (!preview) return { kind: "picked", title };
@@ -59,6 +67,10 @@ function shownFor(target: PreviewTarget, { draft, kind, sketch, accountId, propo
     const preview = draft ? draftPreviewOf(draft, accountId) : sketchPreviewOf(kind, sketch, accountId);
     return { preview, title: PROPOSAL_KIND_COPY[draft?.kind ?? kind].title };
   }
+  if (target.kind === "councilSettings") {
+    // Only a council change is drawn here, so a wizard draft left over from another kind never shows on Settings.
+    return draft?.kind === "councilRotation" ? { preview: draftPreviewOf(draft, accountId), title: null } : NOTHING;
+  }
   if (target.kind === "schedule" && proposal) {
     return {
       preview: selectedPreviewOf(proposal, remainingSignatures(proposal)),
@@ -71,7 +83,8 @@ function shownFor(target: PreviewTarget, { draft, kind, sketch, accountId, propo
 /**
  * What the map previews, read from what the rail shows: the wizard's draft on `/governance/new` — or,
  * until its form holds one, the picked kind's way through the configured contracts — the proposal
- * `/governance/[scheduleId]` or `?schedule=` names. The proposal comes from the same lookup
+ * `/governance/[scheduleId]` or `?schedule=` names. On `/settings` it is the council change composed
+ * there, the layout's one draft, when that draft is a council rotation. The proposal comes from the same lookup
  * the rail's detail reads, so the map adds no polling of its own. It returns the target and the title
  * too, and leaves the caption to `useLiveMap`: only once the frame is drawn does the pane know which
  * one `captionFactsOf` should say.
