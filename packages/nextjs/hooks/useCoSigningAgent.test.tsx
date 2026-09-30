@@ -18,6 +18,10 @@ afterEach(() => {
 
 describe("useCoSigningAgent", () => {
   it("is null without a configured agent, and reads no account", () => {
+    // The app's own ids, so the demo instance's agent does not stand in for the missing one.
+    vi.stubEnv("NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID", "0.0.20000001");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_TOKEN_ID", "0.0.20000002");
+    vi.stubEnv("NEXT_PUBLIC_SEED_PROPOSAL_ID", "0");
     vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "");
     readAccount(undefined);
     const { result } = renderHook(() => useCoSigningAgent("testnet"));
