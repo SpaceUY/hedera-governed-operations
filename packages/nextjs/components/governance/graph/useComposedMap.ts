@@ -10,8 +10,11 @@ import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import type { GraphSnapshot } from "~~/services/liveMap/model/graph";
 import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
 
-/** What of a read the map is drawn from: who sits on the council, who proposes, what is proposed. */
-export type MapWorld = Pick<GraphSnapshot, "council" | "proposers" | "proposals">;
+/**
+ * What of a read the map is drawn from: who sits on the council, who proposes, what is proposed, and
+ * the one operation being previewed, if any.
+ */
+export type MapWorld = Pick<GraphSnapshot, "council" | "proposers" | "proposals" | "previewed">;
 
 /**
  * The map as composed for the configured deployment — its graph, names and captions — from `world`,
@@ -36,6 +39,7 @@ export function useComposedMap(config: GovernanceConfig, world: MapWorld | null)
         proposers: world.proposers,
         entities,
         proposals: world.proposals,
+        previewed: world.previewed,
       },
       decorate,
       viewerAccountId,

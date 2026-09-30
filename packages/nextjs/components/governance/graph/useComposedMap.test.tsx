@@ -7,6 +7,7 @@ import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
+import type { DecodedOperation } from "~~/services/liveMap/model/proposalRoutes";
 
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
@@ -44,6 +45,19 @@ describe("useComposedMap", () => {
   it("composes the map of the world it is given, for the configured deployment", () => {
     const { result } = renderHook(() => useComposedMap(CONFIG, WORLD));
     expect(result.current).toEqual(expectedMap());
+  });
+
+  it("draws the operation the world previews", () => {
+    const previewed: DecodedOperation = {
+      kind: "treasuryTransfer",
+      hbar: [
+        { accountId: CONFIG.governanceAccountId, tinybars: -100n },
+        { accountId: "0.0.7100", tinybars: 100n },
+      ],
+      tokens: [],
+    };
+    const { result } = renderHook(() => useComposedMap(CONFIG, { ...WORLD, previewed }));
+    expect(result.current?.graph.nodes.length).toBeGreaterThan(expectedMap().graph.nodes.length);
   });
 
   it("composes nothing without a world", () => {

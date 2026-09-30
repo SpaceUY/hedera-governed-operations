@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAP_NODE_STATES } from "~~/components/governance/graph/copy";
 import { MAP_SNAPSHOT } from "~~/components/governance/graph/mapFixtures";
-import { useSelectedSchedule } from "~~/components/governance/rail/useSelectedSchedule";
+import { useMapPreview } from "~~/components/governance/graph/useMapPreview";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useToken } from "~~/hooks/mirror/useToken";
@@ -13,12 +13,13 @@ import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/liveMap/model/graph";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 import { REST_FRAME } from "~~/services/liveMap/motion/frame";
+import type { MapPreview } from "~~/services/liveMap/preview/previewSource";
 
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
-vi.mock("~~/components/governance/rail/useSelectedSchedule", () => ({ useSelectedSchedule: vi.fn() }));
+vi.mock("~~/components/governance/graph/useMapPreview", () => ({ useMapPreview: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({ contracts: {} }));
 
@@ -46,8 +47,8 @@ function read(snapshot: GovernanceSnapshot | null) {
   vi.mocked(useMapSnapshot).mockReturnValue({ snapshot, previous: null, events: [], error: null } as never);
 }
 
-function selectOnRail(scheduleId: string | null) {
-  vi.mocked(useSelectedSchedule).mockReturnValue({ selectedScheduleId: scheduleId, select: vi.fn() });
+function previewing(targetKey: string, preview: MapPreview | null = null) {
+  vi.mocked(useMapPreview).mockReturnValue({ preview, caption: { kind: "idle" }, targetKey });
 }
 
 beforeEach(() => {
@@ -57,7 +58,7 @@ beforeEach(() => {
   );
   vi.mocked(useHederaSigner).mockReturnValue({ accountId: null } as ReturnType<typeof useHederaSigner>);
   vi.mocked(useRemoteApprovals).mockReset();
-  selectOnRail(null);
+  previewing("none");
 });
 
 describe("useLiveMap", () => {
@@ -85,14 +86,38 @@ describe("useLiveMap", () => {
     expect(result.current).toMatchObject({ treasury: null, council: null, map: null, frame: REST_FRAME });
   });
 
-  it("explains a selected item, and lets it go when a proposal is selected on the rail", () => {
+  it("explains a selected item, and lets it go when the map starts showing something else", () => {
     const { result, rerender } = renderHook(() => useLiveMap({ config: CONFIG }));
     act(() => result.current.selection.activation.onActivate({ kind: "node", id: GOVERNANCE_ACCOUNT_NODE_ID }));
     expect(result.current.inspector).not.toBeNull();
 
-    selectOnRail("0.0.7001");
+    previewing("schedule:0.0.7001");
     rerender();
     expect(result.current.inspector).toBeNull();
+  });
+
+  it("says the idle caption with the council's rule once there is a world", () => {
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    expect(result.current.caption?.lead).toBe("Nothing moves until the 2-of-3 council signs.");
+  });
+
+  it("draws the previewed operation's route into the map and the frame, and its caption follows the preview", () => {
+    previewing("draft", {
+      key: "draft:treasuryTransfer",
+      operation: {
+        kind: "treasuryTransfer",
+        hbar: [
+          { accountId: CONFIG.governanceAccountId, tinybars: -100n },
+          { accountId: "0.0.7100", tinybars: 100n },
+        ],
+        tokens: [],
+      },
+      mode: "live",
+      proposerAccountId: null,
+      progress: null,
+    });
+    const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
+    expect(result.current.frame.drawKey).toBe("draft:treasuryTransfer");
   });
 
   it("announces a signature this session did not send through the host", () => {
