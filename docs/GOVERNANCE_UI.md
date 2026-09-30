@@ -214,7 +214,7 @@ The wizard's one council rotation seats the co-signing agent. Its form asks for 
 - Only for a JSON POST naming a `0.0.x` schedule and a demo member whose key it holds.
 - Only for a schedule the governance account pays for, still pending, whose body the decoder understands, whose registry entry (for a call to this executor) is still pending, and which still waits on that member's key on a council it needs (both councils, for a rotation).
 - It re-asks `canBeSigned`, and a registry it cannot read is a 502 rather than a warning.
-- **Never for the co-signing agent's seat:** a demo member is excluded when its account or its key is the agent's, known from `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID` (whose key is read from the Mirror Node) and from the agent account `yarn setup` records in `setup-state.json` when it records one. While neither exists, or the configured account cannot be read, it signs for nobody, and GET says why (`unavailableReason`), since the agent could still be sitting on a demo seat.
+- **Never for the co-signing agent's seat:** a demo member is excluded when its account or its key is the agent's, known from `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID` (whose key is read from the Mirror Node) and from the agent's own account `yarn setup` records in `setup-state.json` (`demoAccounts.agent`, beside Alice's and Bob's; the server only ever loads the council members' keys, `DEMO_COUNCIL_MEMBERS`, and refuses `agent` as a member). While neither exists, or the configured account cannot be read, it signs for nobody, and GET says why (`unavailableReason`), since the agent could still be sitting on a demo seat.
 - Responses carry only public fields and fixed messages.
 - `next.config.ts` keeps `setup-state.json` out of traced server output.
 

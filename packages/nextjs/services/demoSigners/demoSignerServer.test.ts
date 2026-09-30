@@ -58,7 +58,7 @@ afterEach(() => {
 
 describe("loadDemoSigners", () => {
   it("loads each demo member setup wrote, with the account setup recorded for the agent", () => {
-    writeState({ demoAccounts: { alice: accountOf("0.0.11", alice) }, agentAccount: accountOf("0.0.99", agent) });
+    writeState({ demoAccounts: { alice: accountOf("0.0.11", alice), agent: accountOf("0.0.99", agent) } });
     const demo = loadDemoSigners(environment);
     expect(demo.status).toBe("available");
     if (demo.status !== "available") return;
@@ -68,10 +68,30 @@ describe("loadDemoSigners", () => {
     expect(demo.recordedAgent?.accountId).toBe("0.0.99");
   });
 
+  it("never loads the agent's key as a signer, however many demo accounts setup wrote", () => {
+    const bob = PrivateKey.generateECDSA();
+    writeState({
+      demoAccounts: {
+        alice: accountOf("0.0.11", alice),
+        bob: accountOf("0.0.12", bob),
+        agent: accountOf("0.0.99", agent),
+      },
+    });
+    const demo = loadDemoSigners(environment);
+    if (demo.status !== "available") throw new Error("Alice and Bob should load");
+    expect(demo.signers.map(({ member }) => member.name)).toEqual(["alice", "bob"]);
+    expect(demo.signers.some(({ privateKey }) => privateKey.toStringDer() === agent.toStringDer())).toBe(false);
+  });
+
+  it("is unavailable when the only demo account setup wrote is the agent's", () => {
+    writeState({ demoAccounts: { agent: accountOf("0.0.99", agent) } });
+    expect(loadDemoSigners(environment)).toEqual({ status: "unavailable" });
+  });
+
   it("records no agent when setup wrote none, or something that names no agent", () => {
     const signers = { alice: accountOf("0.0.11", alice) };
     const recordedFor = (agentAccount: unknown) => {
-      writeState({ demoAccounts: signers, ...(agentAccount === undefined ? {} : { agentAccount }) });
+      writeState({ demoAccounts: { ...signers, ...(agentAccount === undefined ? {} : { agent: agentAccount }) } });
       const demo = loadDemoSigners(environment);
       return demo.status === "available" ? demo.recordedAgent : "unavailable";
     };
@@ -80,16 +100,22 @@ describe("loadDemoSigners", () => {
     }
   });
 
+  it("does not take a field outside the demo accounts for the agent's record", () => {
+    writeState({ demoAccounts: { alice: accountOf("0.0.11", alice) }, agentAccount: accountOf("0.0.99", agent) });
+    const demo = loadDemoSigners(environment);
+    expect(demo.status === "available" && demo.recordedAgent).toBeNull();
+  });
+
   it("keeps an agent record that names the agent by one half only", () => {
-    const signers = { alice: accountOf("0.0.11", alice) };
-    writeState({ demoAccounts: signers, agentAccount: { privateKey: agent.toStringDer() } });
+    const alicesAccount = accountOf("0.0.11", alice);
+    writeState({ demoAccounts: { alice: alicesAccount, agent: { privateKey: agent.toStringDer() } } });
     const byKey = loadDemoSigners(environment);
     expect(byKey.status === "available" && byKey.recordedAgent).toEqual({
       accountId: "",
       privateKey: agent.toStringDer(),
     });
 
-    writeState({ demoAccounts: signers, agentAccount: { accountId: " 0.0.99 " } });
+    writeState({ demoAccounts: { alice: alicesAccount, agent: { accountId: " 0.0.99 " } } });
     const byAccount = loadDemoSigners(environment);
     expect(byAccount.status === "available" && byAccount.recordedAgent).toEqual({
       accountId: "0.0.99",

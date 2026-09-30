@@ -23,7 +23,13 @@ import { deriveScheduleState, fetchAccount, fetchSchedule, isMirrorNotFound, isV
 import { join } from "node:path";
 import { hederaTestnet } from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
-import { DEMO_ACCOUNT_NAMES, type DemoAccount, loadState } from "~~/scripts/setup/state";
+import {
+  AGENT_ACCOUNT,
+  DEMO_COUNCIL_MEMBERS,
+  type DemoAccount,
+  type SetupState,
+  loadState,
+} from "~~/scripts/setup/state";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import { createBurnerSigner } from "~~/services/web3/burnerSigner";
 import { getHederaRpcUrl } from "~~/utils/scaffold-hbar/networks";
@@ -46,10 +52,12 @@ export const DEMO_SIGNER_REFUSALS = {
 export type DemoSigner = { member: DemoMember; privateKey: PrivateKey };
 
 /**
- * The co-signing agent's account as `yarn setup` may have recorded it in the state file: only what the
- * exclusion reads. It is parsed here rather than typed by `SetupState`, because the file is data this
- * server must not trust to be shaped as expected, and because an exclusion built on a field that is
- * missing or malformed has to fail closed (`unknown`), not throw.
+ * The co-signing agent's account as `yarn setup` recorded it in the state file (the demo account named
+ * `AGENT_ACCOUNT`): only what the exclusion reads. Its key sits beside Alice's and Bob's, so it is
+ * never loaded as a signer; it is read only to know which seat not to sign for. It is parsed here
+ * rather than trusted to match `SetupState`, because the file is data this server must not trust to be
+ * shaped as expected, and an exclusion built on a field that is missing or malformed has to fail
+ * closed (`unknown`), not throw.
  */
 export type RecordedAgent = Pick<DemoAccount, "accountId" | "privateKey">;
 
@@ -102,8 +110,8 @@ function demoSignerOf(name: DemoMemberName, account: DemoAccount): DemoSigner | 
     : null;
 }
 
-function recordedAgentOf(state: object): RecordedAgent | null {
-  const agent = "agentAccount" in state ? state.agentAccount : undefined;
+function recordedAgentOf(demoAccounts: SetupState["demoAccounts"]): RecordedAgent | null {
+  const agent: unknown = demoAccounts[AGENT_ACCOUNT];
   if (typeof agent !== "object" || agent === null) return null;
   const { accountId, privateKey } = agent as Partial<Record<keyof RecordedAgent, unknown>>;
   const recorded = {
@@ -114,12 +122,12 @@ function recordedAgentOf(state: object): RecordedAgent | null {
   return recorded.accountId || recorded.privateKey ? recorded : null;
 }
 
-type SetupKeys = { demoAccounts: Partial<Record<DemoMemberName, DemoAccount>>; recordedAgent: RecordedAgent | null };
+type SetupKeys = { demoAccounts: SetupState["demoAccounts"]; recordedAgent: RecordedAgent | null };
 
 function readSetupKeys(stateFile: string): SetupKeys {
   try {
-    const state = loadState(stateFile, DEMO_NETWORK);
-    return { demoAccounts: state.demoAccounts ?? {}, recordedAgent: recordedAgentOf(state) };
+    const demoAccounts = loadState(stateFile, DEMO_NETWORK).demoAccounts ?? {};
+    return { demoAccounts, recordedAgent: recordedAgentOf(demoAccounts) };
   } catch {
     // A state file from another version or network, or one that does not parse: no signers.
     return { demoAccounts: {}, recordedAgent: null };
@@ -133,7 +141,8 @@ export function loadDemoSigners({ stateFile, nodeEnv, network, appChainId }: Dem
   if (nodeEnv !== "development" && nodeEnv !== "test") return { status: "unavailable" };
 
   const { demoAccounts, recordedAgent } = readSetupKeys(stateFile);
-  const signers = DEMO_ACCOUNT_NAMES.flatMap(name => {
+  // Only the council's demo members: the agent's account is a demo account too, and must never sign here.
+  const signers = DEMO_COUNCIL_MEMBERS.flatMap(name => {
     const account = demoAccounts[name];
     const signer = account ? demoSignerOf(name, account) : null;
     return signer ? [signer] : [];
@@ -186,7 +195,7 @@ export function isAgentSeat(member: DemoMember, agents: readonly AgentIdentity[]
 }
 
 function isDemoMemberName(value: unknown): value is DemoMemberName {
-  return DEMO_ACCOUNT_NAMES.some(name => name === value);
+  return DEMO_COUNCIL_MEMBERS.some(name => name === value);
 }
 
 /** The body of a sign request, or null when it is not one: a `0.0.x` schedule id and an allowed member. */

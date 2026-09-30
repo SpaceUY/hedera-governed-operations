@@ -53,6 +53,8 @@ const FAR_FUTURE = "9999999999.000000000";
 type Name = keyof typeof ACCOUNT_IDS;
 const keys: Record<Name, PrivateKey> = { alice: PrivateKey.generateECDSA(), bob: PrivateKey.generateECDSA() };
 const unrelatedAgentKey = PrivateKey.generateECDSA();
+/** The key `yarn setup` records for the agent's own account, beside Alice's and Bob's. */
+const recordedAgentKey = PrivateKey.generateECDSA();
 const rawOf = (key: PrivateKey) => Buffer.from(key.publicKey.toBytesRaw()).toString("base64");
 const accountKeyOf = (key: PrivateKey) => ({ key: { _type: "ECDSA_SECP256K1", key: key.publicKey.toStringRaw() } });
 const council: CouncilKey = { threshold: 2, memberKeys: [OTHER_MEMBER, rawOf(keys.alice), rawOf(keys.bob)] };
@@ -106,7 +108,11 @@ function writeState(names: readonly Name[] = ["alice", "bob"], agentAccount?: Re
   const demoAccounts = Object.fromEntries(names.map(name => [name, accountOf(ACCOUNT_IDS[name], keys[name])]));
   writeFileSync(
     join(workDir, "setup-state.json"),
-    JSON.stringify({ version: 1, network: "testnet", demoAccounts, ...(agentAccount ? { agentAccount } : {}) }),
+    JSON.stringify({
+      version: 1,
+      network: "testnet",
+      demoAccounts: { ...demoAccounts, ...(agentAccount ? { agent: agentAccount } : {}) },
+    }),
   );
 }
 
@@ -180,7 +186,7 @@ beforeEach(() => {
 
 afterEach(() => {
   for (const text of answered.splice(0)) {
-    for (const key of Object.values(keys)) {
+    for (const key of [...Object.values(keys), recordedAgentKey]) {
       expect(text).not.toContain(key.toStringDer());
       expect(text).not.toContain(key.toStringRaw());
     }
@@ -239,6 +245,15 @@ describe("GET /api/demo/signers", () => {
     writeState(["alice", "bob"], accountOf(ACCOUNT_IDS.bob, keys.bob));
     const { members } = await (await get()).json();
     expect(members.map(({ name }: { name: string }) => name)).toEqual(["alice"]);
+    expect(fetchAccount).not.toHaveBeenCalled();
+  });
+
+  it("offers Alice and Bob, never the agent, when setup recorded the agent's own account and no variable names it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "");
+    writeState(["alice", "bob"], accountOf(AGENT_ACCOUNT_ID, recordedAgentKey));
+    const { members } = await (await get()).json();
+    expect(members.map(({ name }: { name: string }) => name)).toEqual(["alice", "bob"]);
+    expect(JSON.stringify(members)).not.toContain(rawOf(recordedAgentKey));
     expect(fetchAccount).not.toHaveBeenCalled();
   });
 
@@ -302,6 +317,15 @@ describe("POST /api/demo/signers", () => {
   ])("answers 400 for %s", async (_, body) => {
     writeState();
     expect((await post(body)).status).toBe(400);
+    expect(fetchSchedule).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("answers 400 for the agent even with its key on disk, and never signs with it", async () => {
+    writeState(["alice", "bob"], accountOf(AGENT_ACCOUNT_ID, recordedAgentKey));
+    expect((await post({ scheduleId: SCHEDULE_ID, member: "agent" })).status).toBe(400);
+    vi.stubEnv("NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID", "");
+    expect((await post({ scheduleId: SCHEDULE_ID, member: "agent" })).status).toBe(400);
     expect(fetchSchedule).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalled();
   });

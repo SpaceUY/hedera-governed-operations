@@ -1,7 +1,7 @@
 /**
- * Demo only: "Sign as Alice" / "Sign as Bob". `yarn setup` creates two demo accounts, seats their keys
- * in the treasury account's threshold key and keeps the private keys in the gitignored
- * `setup-state.json`. The rail offers a button on each demo member's row while the proposal still
+ * Demo only: "Sign as Alice" / "Sign as Bob". `yarn setup` creates the demo accounts, seats Alice's and
+ * Bob's keys in the treasury account's threshold key (the third demo account is the co-signing
+ * agent's, outside the council) and keeps the private keys in the gitignored `setup-state.json`. The rail offers a button on each demo member's row while the proposal still
  * waits on that member, and the server route `/api/demo/signers` signs the `ScheduleSign` with that
  * member's key, so one person with one wallet can watch a threshold complete. The keys never leave
  * the server, and the server never signs for the co-signing agent's seat.
@@ -19,12 +19,13 @@
  */
 import type { CouncilKey, ThresholdProgress } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
-import type { DemoAccountName } from "~~/scripts/setup/state";
+import type { DEMO_COUNCIL_MEMBERS } from "~~/scripts/setup/state";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 
 export const DEMO_SIGNERS_ROUTE = "/api/demo/signers";
 
-export type DemoMemberName = DemoAccountName;
+/** The demo accounts that sit on the council: never the co-signing agent's, which is a demo account too. */
+export type DemoMemberName = (typeof DEMO_COUNCIL_MEMBERS)[number];
 
 /** A demo member as the browser sees it: everything public, nothing that signs. */
 export type DemoMember = {
