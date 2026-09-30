@@ -50,7 +50,7 @@ Based on the `hedera-demo` template from [hedera-dev/scaffold-hbar](https://gith
 1. [Verified on testnet](#verified-on-testnet) — the claims above, as transactions
 2. [Eight traps](#eight-traps-and-what-each-one-costs-you) — and where the code handles each
 3. [Quick start](#quick-start) — scaffold, set up, deploy, run
-4. [What's inside](#whats-inside) — starters compared, routes, modules
+4. [What's inside](#whats-inside) — starters compared, routes
 5. [Use cases and customization](#use-cases-and-customization) — councils and what you change
 6. [Scripts](#scripts)
 7. [Validate with Hedera Harness](#validate-with-hedera-harness) — what each stage needs
@@ -99,18 +99,18 @@ curl -s https://testnet.mirrornode.hedera.com/api/v1/schedules/0.0.10794955 \
 
 ## Eight traps, and what each one costs you
 
-The costliest of the [verified traps in `AGENTS.md`](AGENTS.md#verified-traps), which has the rest and the measurements.
+The costliest of the [verified traps in `AGENTS.md`](AGENTS.md#verified-traps), which has the rest and the measurements. Only trap 1 links the deployment above; the other links come from an earlier deployment of the same contracts or from proof-of-concept runs, and what they show does not depend on the deployment.
 
 | # | Trap | What you'd write | What actually happens | Where it's handled |
 | --- | --- | --- | --- | --- |
-| 1 | Gas is a price | A generous limit on a scheduled call | A successful one pays its whole limit: 0.327 ℏ for 300,000, 247,107 consumed ([0.0.10794955](https://hashscan.io/testnet/schedule/0.0.10794955)) | One measured limit per kind, `PROPOSAL_TYPES` |
-| 2 | Association charged as gas | Rely on automatic associations for a swap's output token | The association is billed to the call, the payout runs short: `TransferFail(21)` ([0.0.10765677](https://hashscan.io/testnet/schedule/0.0.10765677); associated: [0.0.10766696](https://hashscan.io/testnet/schedule/0.0.10766696)) | `yarn setup` associates it first (`scripts/setup/treasuryAssociation.ts`) |
-| 3 | m-of-n ≠ `signatures.length` | `signatures.length >= threshold` | Payers get rows too: an executed 2-of-3 shows four ([0.0.10716564](https://hashscan.io/testnet/schedule/0.0.10716564)) | `countThresholdSignatures` counts members |
-| 4 | Token key = contract id | A scheduled `TokenPause` | `SCHEDULED_TRANSACTION_NOT_IN_WHITELIST` ([tx](https://hashscan.io/testnet/transaction/1789669916.603630104)) | Pause and freeze keys are `TokenAdmin`'s id (`scripts/setup/hederaGovernance.ts`) |
-| 5 | Executed ≠ succeeded | `executed_timestamp` means it worked | Reverts execute too ([0.0.10670585](https://hashscan.io/testnet/schedule/0.0.10670585): `CONTRACT_REVERT_EXECUTED`) | `fetchScheduleExecution` reads the scheduled row |
-| 6 | Aliased holder | Freeze by long-zero address | `INVALID_ACCOUNT_ID` ([tx](https://hashscan.io/testnet/transaction/1790713623.226064483)) | `draftTokenAdmin` uses Mirror's `evm_address` |
-| 7 | No admin key | `ScheduleCreate` without `setAdminKey` | Withdraw fails with `SCHEDULE_IS_IMMUTABLE` ([tx](https://hashscan.io/testnet/transaction/1790341670.244801104)); only expiry ends it | The proposer's key is the admin key (`useCreateProposal`) |
-| 8 | Empty `bytecode` | Hash `bytecode` from `GET /contracts/{id}` | Relay deploys report `"0x"`; the code is in `runtime_bytecode` | `yarn release:publish` and `checkImplementationAgainstManifest` |
+| 1 | Gas is a price | A generous limit on a scheduled call | You pay the whole limit, used or not: 0.327 ℏ for 300,000, 247,107 consumed ([0.0.10794955](https://hashscan.io/testnet/schedule/0.0.10794955)) | One measured limit per kind, `PROPOSAL_TYPES` |
+| 2 | Association charged as gas | Rely on automatic associations for a swap's output token | The swap reverts with `TransferFail(21)`: fee paid, and the council signs again ([0.0.10765677](https://hashscan.io/testnet/schedule/0.0.10765677); associated: [0.0.10766696](https://hashscan.io/testnet/schedule/0.0.10766696)) | `yarn setup` associates it first (`packages/nextjs/scripts/setup/treasuryAssociation.ts`) |
+| 3 | m-of-n ≠ `signatures.length` | `signatures.length >= threshold` | Wrong progress shown: payers get rows, so an executed 2-of-3 shows four ([0.0.10716564](https://hashscan.io/testnet/schedule/0.0.10716564)) | `countThresholdSignatures` counts members |
+| 4 | Token key = contract id | A scheduled `TokenPause` | The council cannot govern the token: `SCHEDULED_TRANSACTION_NOT_IN_WHITELIST` ([tx](https://hashscan.io/testnet/transaction/1789669916.603630104)) | Pause and freeze keys are `TokenAdmin`'s id (`packages/nextjs/scripts/setup/hederaGovernance.ts`) |
+| 5 | Executed ≠ succeeded | `executed_timestamp` means it worked | A failed proposal shown as done: reverts execute too ([0.0.10670585](https://hashscan.io/testnet/schedule/0.0.10670585): `CONTRACT_REVERT_EXECUTED`) | `fetchScheduleExecution` reads the scheduled row |
+| 6 | Aliased holder | Freeze by long-zero address | Fee paid, nothing frozen: reverts with `HtsRejected(15)`, HTS's `INVALID_ACCOUNT_ID` ([tx](https://hashscan.io/testnet/transaction/1790713623.226064483)) | `draftTokenAdmin` uses Mirror's `evm_address` |
+| 7 | No admin key | `ScheduleCreate` without `setAdminKey` | A proposal nobody can withdraw: `SCHEDULE_IS_IMMUTABLE` ([tx](https://hashscan.io/testnet/transaction/1790341670.244801104)); it waits out its expiry | The proposer's key is the admin key (`useCreateProposal`) |
+| 8 | Empty `bytecode` | Hash `bytecode` from `GET /contracts/{id}` | A release check that proves nothing: relay deploys report `"0x"`; the code is in `runtime_bytecode` | `yarn release:publish` and `checkImplementationAgainstManifest` |
 
 ## Quick start
 
@@ -140,8 +140,6 @@ yarn next:dev                                # http://localhost:3000
 ```
 
 `yarn setup` creates the agent's release and decision HCS topics, three funded ECDSA demo accounts associated with testnet USDC (`0.0.5449`) — `alice` and `bob`, and `agent` for the co-signing agent — and the governance account: a 2-of-3 threshold key over your own account (`HEDERA_COUNCIL_ACCOUNT_ID`), `alice` and `bob`. The agent starts outside the council; seating it is a proposal the council approves ("Add the co-signing agent"). Every id lands in `packages/nextjs/.env.local`.
-
-To look around first, `yarn install && yarn next:dev` needs no `.env`, wallet or funded account: until `yarn setup` has written its ids, the app reads the template's public demo instance on testnet (live Mirror Node data) and says so on screen.
 
 It runs on either side of the deploy because the dependency is circular: the contracts are deployed against the governance account, so it has to exist first, and the demo token's pause and freeze keys are `TokenAdmin`'s contract id, which a token created without an admin key can never change — so the contract has to exist before the token. The first run hands the deploy the two values it needs through `packages/hardhat/.env`; the second creates the token and leaves one proposal pending for the council to approve. [The runbook](docs/RUNBOOK.md) walks all three steps.
 
@@ -190,17 +188,6 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | `/governance/[scheduleId]` | One proposal: the decoded operation, its approvals, and Sign / Withdraw / Cancel (wallet-signed)          |
 | `/governance/new`          | Open a proposal: pick an operation, preview what the council will see, submit it (wallet-signed)          |
 
-### Modules
-
-| Module             | Path (under `packages/nextjs/`)                             | What it gives you                                                                                           |
-| ------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Wallet signer      | `services/web3/hederaSigner.ts`, `hooks/useHederaSigner.ts` | HashPack session via WalletConnect, sign-and-execute, sign-only and HIP-551 batch inner-transaction helpers |
-| Mirror Node client | `hooks/mirror/*` (client: `@sh/core/mirror`)                | Typed REST client and React Query hooks for topics, accounts, tokens and transactions                       |
-| Swap provider      | `services/swap/*`                                           | `SwapProvider` interface with a SaucerSwap V2 implementation and on-chain quoting                           |
-| Setup script       | `yarn setup`                                                | Idempotent testnet bootstrap that writes `.env.local`                                                       |
-| Harness recipe     | `.harness/`                                                 | Static, command, smoke and semantic checks for the template                                                 |
-| Contracts          | `packages/hardhat/`                                         | Hardhat on the Hedera JSON-RPC relay, deploys that regenerate `contracts/deployedContracts.ts`, Sourcify verification |
-
 ## Use cases and customization
 
 | Use case | What the template gives you | Typical customization |
@@ -208,9 +195,9 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | Protocol treasury (founders plus an independent member) | Transfer and SaucerSwap swap forms; the governance account is the treasury | Another DEX behind `SwapProvider`; recipient and amount limits in the agent's policy |
 | Contract upgrades (engineering plus security) | UUPS upgrades, checked against a release manifest on HCS | Your proxy in `packages/hardhat/contracts/`; `yarn release:publish` in your release pipeline |
 | HTS token administration (issuer plus compliance) | Pause and freeze through `TokenAdmin`, which holds the token's keys | Wipe or KYC: a `TokenAdmin` function, that key set at token creation, a proposal kind |
-| Signer rotation | Council rotation as an `AccountUpdate` both councils sign | Threshold and seats: `GOVERNANCE_THRESHOLD`, `DEMO_COUNCIL_MEMBERS` |
+| Signer rotation | Council rotation as an `AccountUpdate` both councils sign | The key list at setup (`createGovernanceAccount` in `packages/nextjs/scripts/setup/hederaGovernance.ts`); a rotation proposal afterwards |
 | An AI agent under human control | One seat, a written policy, a code before upgrades, decisions on HCS. It signs; it never proposes or acts alone | `packages/agent/policy.example.json`; `SignSchedule` behind an HSM |
-| A small DAO or fund | Five operations, no governance contract to deploy | A sixth kind ([how](AGENTS.md#how-to-add-an-operation)) |
+| A small DAO or fund | Five operations, no multisig contract to deploy | A sixth kind ([how](AGENTS.md#how-to-add-an-operation)) |
 
 ## Scripts
 
@@ -228,9 +215,6 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | `yarn harness:council-seat`    | Seats the harness test signer on the council; run by the harness, not by hand        |
 | `yarn hardhat:compile`         | Compile the contracts under `packages/hardhat/contracts/`                            |
 | `yarn hardhat:test`            | Contract tests                                                                       |
-| `yarn hardhat:account:generate`| Create an encrypted deployer key in `packages/hardhat/.env`                          |
-| `yarn hardhat:deploy`          | Deploy and regenerate `packages/nextjs/contracts/deployedContracts.ts`               |
-| `yarn hardhat:verify:testnet`  | Verify the testnet deployments on Sourcify and print their HashScan links            |
 
 ## Validate with Hedera Harness
 
@@ -256,11 +240,7 @@ export HEDERA_OPERATOR_PRIVATE_KEY=<ECDSA private key>   # bare value: an inline
 npx hedera-harness validate-semantic
 ```
 
-The CHAIN stage provisions a funded, disposable testnet account and hands its key to the app as `localStorage["burnerWallet.pk"]`, so wallet-gated assertions run end to end. The app treats that key as a **test signer** (`packages/nextjs/services/web3/burnerSigner.ts`): testnet only, active in dev builds, opt-in for production with `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true`. Without the key, HashPack is used as usual.
-
-Paying for a transaction is not the same as approving one, though. A `ScheduleSign` only counts towards the threshold if the key sits in the governance account's threshold key, so `yarn harness:council-seat` runs in front of the dev server and gives that run's signer a seat — rebuilding the key from the three configured members plus the signer (and the co-signing agent, if the council has seated it), so seats never accumulate. That is what lets the last assertion grade an approval reaching the ledger instead of a button being enabled.
-
-[The runbook](docs/RUNBOOK.md#6-validate-with-hedera-harness) has the rest: why the seat lives in the server command rather than in `chainValidation.deploy`, what a run leaves behind on testnet and how to undo it, and a troubleshooting table.
+The CHAIN stage hands a funded, disposable testnet key to the app as `localStorage["burnerWallet.pk"]`, which the app treats as a **test signer** (`packages/nextjs/services/web3/burnerSigner.ts`: testnet only, opt-in for production with `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true`), and `yarn harness:council-seat` seats that signer on the council before the dev server starts, so the last assertion grades an approval reaching the ledger rather than a button being enabled. [The runbook](docs/RUNBOOK.md#6-validate-with-hedera-harness) has the rest: why the seat lives in the server command, what a run leaves behind on testnet and how to undo it, and a troubleshooting table.
 
 ## What this does not do
 
@@ -268,17 +248,18 @@ Paying for a transaction is not the same as approving one, though. A `ScheduleSi
 - **The agent's key is an env var** (`AGENT_PRIVATE_KEY`); a production seat belongs behind an HSM ([custody](packages/agent/README.md#custody)).
 - **The inbox lists only schedules `PROPOSER_ROLE` holders created**: Mirror filters by creator. A native proposal opened by anyone else is not listed, though it opens by schedule id (`packages/core/src/governance/proposals.ts`).
 - **Proposals expire after 7 days** (`PROPOSAL_EXPIRY_SECONDS`; HIP-423 allows 62).
-- **No hosted demo**: without a `.env` the app browses the testnet demo instance (`DEMO_INSTANCE`).
+- **No hosted demo.** To look around first, `yarn install && yarn next:dev` needs no `.env`, wallet or funded account: until `yarn setup` writes its ids, the app reads the testnet demo instance (`DEMO_INSTANCE`, live Mirror Node data) and says so on screen.
 
 ### Wallets
 
 | Transaction      | HashPack | Kabila |
 | ---------------- | -------- | ------ |
+| `ContractCall`   | signs    | signs  |
 | `ScheduleCreate` | signs    | signs  |
 | `ScheduleSign`   | signs    | signs  |
 | `ScheduleDelete` | refuses ("Unsupported Transaction Type", Reject only) | signs |
 
-The dapp sees that refusal as a plain rejection, so it names the wallet from the WalletConnect session (`services/web3/walletCapabilities.ts`) and, before Withdraw or a delete-first Cancel, shows "HashPack cannot sign this step" and offers another wallet.
+The dapp sees that refusal as a plain rejection, so it names the wallet from the WalletConnect session (`packages/nextjs/services/web3/walletCapabilities.ts`) and, before Withdraw or a delete-first Cancel, shows "HashPack cannot sign this step" and offers another wallet.
 
 ## Docs
 
