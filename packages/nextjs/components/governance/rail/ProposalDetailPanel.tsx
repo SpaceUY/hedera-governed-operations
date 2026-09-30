@@ -23,7 +23,6 @@ import {
 import { unseatedAgentSeatOf, withSeat } from "./councilSeats";
 import { expiryCountdown } from "./expiryCountdown";
 import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
-import { useRotationResultTitle } from "./rotationResult";
 import { memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
@@ -32,6 +31,7 @@ import type { MemberName } from "~~/components/governance/graph/mapModel";
 import { gasLimitLabel } from "~~/components/governance/wizard/copy";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
+import { useRotationResultTitle } from "~~/hooks/useRotationResultTitle";
 import { useSignProposal } from "~~/hooks/useSignProposal";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import {
@@ -232,7 +232,7 @@ export const ProposalDetailPanel = ({
         <SucceededResult
           executedAt={state.executedAt}
           result={proposal.execution.transaction.result}
-          title={resultTitle ?? undefined}
+          title={resultTitle}
         />
       )}
       {executionFailure && (
@@ -344,7 +344,7 @@ type SucceededResultProps = {
   executedAt: Date | null;
   result: string;
   /** What the run did, when the screen can say more than "Executed" (a council rotation). */
-  title?: string;
+  title?: string | null;
 };
 
 const SucceededResult = ({ executedAt, result, title }: SucceededResultProps) => {

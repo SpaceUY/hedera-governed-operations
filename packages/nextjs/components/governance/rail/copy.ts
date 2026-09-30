@@ -6,6 +6,7 @@
  */
 import { type ProposalStage, remainingSignatures } from "./proposalProgress";
 import type { Proposal } from "@sh/core/governance/proposals";
+import { CO_SIGNING_AGENT_COPY } from "~~/components/governance/wizard/kinds/coSigningAgent/copy";
 import { proposalStatusLabel, signaturesWord } from "~~/services/governance/proposalLabels";
 
 export type ProposalFamily = "contract" | "native";
@@ -177,10 +178,10 @@ export const AGENT_COPY = {
   notMember: "not a member",
   notSeated: "not seated",
   /**
-   * Names the proposal the viewer would open (the wizard's "Add the co-signing agent") and `rule`, the
-   * council the agent's seat would make: the current threshold over one more member.
+   * Names the proposal the viewer would open, by the wizard's own title, and `rule`, the council the
+   * agent's seat would make: the current threshold over one more member.
    */
-  howToSeat: (rule: string) => `Approve “Add the co-signing agent” to seat it (${rule} council).`,
+  howToSeat: (rule: string) => `Approve “${CO_SIGNING_AGENT_COPY.title}” to seat it (${rule} council).`,
 } as const;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
