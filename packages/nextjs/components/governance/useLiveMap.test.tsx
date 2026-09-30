@@ -1,10 +1,9 @@
 import { useLiveMap } from "./useLiveMap";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CaptionFacts } from "~~/components/governance/graph/caption";
 import { MAP_NODE_STATES } from "~~/components/governance/graph/copy";
 import { MAP_SNAPSHOT } from "~~/components/governance/graph/mapFixtures";
-import { captionFactsOf, useMapPreview } from "~~/components/governance/graph/useMapPreview";
+import { useMapPreview } from "~~/components/governance/graph/useMapPreview";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
 import { useToken } from "~~/hooks/mirror/useToken";
@@ -57,12 +56,14 @@ function read(snapshot: GovernanceSnapshot | null) {
   vi.mocked(useMapSnapshot).mockReturnValue({ snapshot, previous: null, events: [], error: null } as never);
 }
 
-function previewing(targetKey: string, preview: MapPreview | null = null, caption: CaptionFacts = { kind: "idle" }) {
-  const target: PreviewTarget = targetKey.startsWith("schedule:")
-    ? { kind: "schedule", scheduleId: targetKey.slice("schedule:".length) }
-    : { kind: targetKey === "draft" ? "draft" : "none" };
-  const bareCaption = captionFactsOf(target, null, "title" in caption ? caption.title : null);
-  vi.mocked(useMapPreview).mockReturnValue({ preview, caption, bareCaption, targetKey });
+const NO_TARGET = { target: { kind: "none" }, targetKey: "none" } as const;
+const DRAFT = { target: { kind: "draft" }, targetKey: "draft" } as const;
+const SELECTED = { target: { kind: "schedule", scheduleId: "0.0.7001" }, targetKey: "schedule:0.0.7001" } as const;
+
+type Shown = { target: PreviewTarget; targetKey: string };
+
+function previewing(shown: Shown, preview: MapPreview | null = null, title: string | null = null) {
+  vi.mocked(useMapPreview).mockReturnValue({ ...shown, preview, title });
 }
 
 const TRANSFER_PREVIEW = (key: string, payerAccountId: string): MapPreview => ({
@@ -87,7 +88,7 @@ beforeEach(() => {
   );
   vi.mocked(useHederaSigner).mockReturnValue({ accountId: null } as ReturnType<typeof useHederaSigner>);
   vi.mocked(useRemoteApprovals).mockReset();
-  previewing("none");
+  previewing(NO_TARGET);
 });
 
 describe("useLiveMap", () => {
@@ -120,7 +121,7 @@ describe("useLiveMap", () => {
     act(() => result.current.selection.activation.onActivate({ kind: "node", id: GOVERNANCE_ACCOUNT_NODE_ID }));
     expect(result.current.inspector).not.toBeNull();
 
-    previewing("schedule:0.0.7001");
+    previewing(SELECTED);
     rerender();
     expect(result.current.inspector).toBeNull();
   });
@@ -131,24 +132,7 @@ describe("useLiveMap", () => {
   });
 
   it("draws the previewed operation's route into the map and the frame, and its caption follows the preview", () => {
-    previewing(
-      "draft",
-      {
-        key: "draft:treasuryTransfer",
-        operation: {
-          kind: "treasuryTransfer",
-          hbar: [
-            { accountId: CONFIG.governanceAccountId, tinybars: -100n },
-            { accountId: "0.0.7100", tinybars: 100n },
-          ],
-          tokens: [],
-        },
-        mode: "live",
-        proposerAccountId: null,
-        progress: null,
-      },
-      { kind: "drafting", title: "Pay a supplier" },
-    );
+    previewing(DRAFT, TRANSFER_PREVIEW("draft:treasuryTransfer", CONFIG.governanceAccountId), "Pay a supplier");
     const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
     expect(result.current.frame.drawKey).toBe("draft:treasuryTransfer");
     expect(result.current.caption?.lead).toBe("Drafting.");
@@ -165,24 +149,7 @@ describe("useLiveMap", () => {
 
     it("holds the preview back: the map and frame are the sequence's, and the caption is the draft's without a path", () => {
       const rest = renderHook(() => useLiveMap({ config: CONFIG })).result.current;
-      previewing(
-        "draft",
-        {
-          key: "draft:treasuryTransfer",
-          operation: {
-            kind: "treasuryTransfer",
-            hbar: [
-              { accountId: CONFIG.governanceAccountId, tinybars: -100n },
-              { accountId: "0.0.7100", tinybars: 100n },
-            ],
-            tokens: [],
-          },
-          mode: "live",
-          proposerAccountId: null,
-          progress: null,
-        },
-        { kind: "drafting", title: "Pay a supplier" },
-      );
+      previewing(DRAFT, TRANSFER_PREVIEW("draft:treasuryTransfer", CONFIG.governanceAccountId), "Pay a supplier");
       vi.mocked(useProposalAnimationSync).mockReturnValue({ world: WORLD, playing: PLAYING } as never);
 
       const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
@@ -196,10 +163,7 @@ describe("useLiveMap", () => {
     });
 
     it("says the idle caption for a selected proposal while a sequence plays", () => {
-      previewing("schedule:0.0.7001", TRANSFER_PREVIEW("schedule:0.0.7001", CONFIG.governanceAccountId), {
-        kind: "previewing",
-        title: "Pay a supplier",
-      });
+      previewing(SELECTED, TRANSFER_PREVIEW("schedule:0.0.7001", CONFIG.governanceAccountId), "Pay a supplier");
       vi.mocked(useProposalAnimationSync).mockReturnValue({ world: WORLD, playing: PLAYING } as never);
       const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
       expect(result.current.caption?.lead).toBe("Nothing moves until the 2-of-3 council signs.");
@@ -207,17 +171,14 @@ describe("useLiveMap", () => {
   });
 
   it("says the idle caption when the previewed operation's route cannot be drawn, so no words describe a missing path", () => {
-    previewing("schedule:0.0.7001", TRANSFER_PREVIEW("schedule:0.0.7001", "0.0.9999"), {
-      kind: "previewing",
-      title: "Pay a supplier",
-    });
+    previewing(SELECTED, TRANSFER_PREVIEW("schedule:0.0.7001", "0.0.9999"), "Pay a supplier");
     const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
     expect(result.current.frame).toBe(REST_FRAME);
     expect(result.current.caption?.lead).toBe("Nothing moves until the 2-of-3 council signs.");
   });
 
   it("says the draft's caption without a path when the drafted operation's route cannot be drawn", () => {
-    previewing("draft", TRANSFER_PREVIEW("draft", "0.0.9999"), { kind: "drafting", title: "Pay a supplier" });
+    previewing(DRAFT, TRANSFER_PREVIEW("draft", "0.0.9999"), "Pay a supplier");
     const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
     expect(result.current.frame).toBe(REST_FRAME);
     expect(result.current.caption).toEqual({
@@ -232,7 +193,7 @@ describe("useLiveMap", () => {
       { governanceAccountId: CONFIG.governanceAccountId, entities: governanceEntitiesOf(CONFIG, 296), agentSeat: null },
       null,
     );
-    previewing("draft", sketch, { kind: "sketching", title: "Upgrade the vault to v2" });
+    previewing(DRAFT, sketch, "Upgrade the vault to v2");
     const { result } = renderHook(() => useLiveMap({ config: CONFIG }));
     expect(result.current.frame.drawKey).toBe("draft:upgrade");
     expect(result.current.frame.labels).toEqual({ [MAP_ENTITY_IDS.vault]: "would be upgraded" });

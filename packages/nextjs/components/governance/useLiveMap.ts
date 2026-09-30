@@ -7,7 +7,7 @@ import { inspectorContentOf } from "~~/components/governance/graph/inspector";
 import { nodeStateCaptions, releaseOf } from "~~/components/governance/graph/nodeStates";
 import { remoteSignatureNotice } from "~~/components/governance/graph/remoteSignatureNotice";
 import { useComposedMap } from "~~/components/governance/graph/useComposedMap";
-import { useMapPreview } from "~~/components/governance/graph/useMapPreview";
+import { captionFactsOf, useMapPreview } from "~~/components/governance/graph/useMapPreview";
 import { useMapSelection } from "~~/components/governance/graph/useMapSelection";
 import { GOVERNANCE_CONTRACTS, type GovernanceConfig, findDeployment } from "~~/config/governanceConfig";
 import { useMapSnapshot } from "~~/hooks/mirror/useMapSnapshot";
@@ -103,9 +103,9 @@ export function useLiveMap({ config, onRemoteSignature }: LiveMapOptions) {
     [map, world, previewContext, playing, mapPreview.preview],
   );
   // The caption says what the map shows, never half a path: while a sequence plays the preview waits,
-  // and a preview the map cannot route draws nothing, so both say what a target with no preview says (`bareCaption`).
+  // and a preview the map cannot route draws nothing, so both say what a target with no preview says.
   const previewDrawn = !playing && frame.scope !== null;
-  const captionFacts = previewDrawn ? mapPreview.caption : mapPreview.bareCaption;
+  const captionFacts = captionFactsOf(mapPreview.target, previewDrawn ? mapPreview.preview : null, mapPreview.title);
   // The vault's and the token's state lines change with the figures: when a run lands, not before.
   const shownMap = useMemo(
     () => map && { ...map, captions: { ...map.captions, ...nodeStateCaptions(nodeStates, vaultReleases) } },

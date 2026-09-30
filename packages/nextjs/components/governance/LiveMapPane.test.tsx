@@ -13,13 +13,17 @@ import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { useRemoteApprovals } from "~~/hooks/useRemoteApprovals";
 import type { GovernanceSnapshot } from "~~/services/liveMap/events/mapEvents";
 import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/liveMap/model/graph";
+import type { PreviewTarget } from "~~/services/liveMap/preview/previewSource";
 
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
 vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: () => null }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
-vi.mock("~~/components/governance/graph/useMapPreview", () => ({ useMapPreview: vi.fn() }));
+vi.mock("~~/components/governance/graph/useMapPreview", async importOriginal => ({
+  ...(await importOriginal<typeof import("~~/components/governance/graph/useMapPreview")>()),
+  useMapPreview: vi.fn(),
+}));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({
   contracts: { 296: { SaucerSwapAdapter: { address: "0x5aF0000000000000000000000000000000000003", abi: [] } } },
@@ -71,11 +75,11 @@ beforeEach(() => {
   previewing("none");
 });
 
-function previewing(targetKey: string) {
+function previewing(targetKey: string, target: PreviewTarget = { kind: "none" }) {
   vi.mocked(useMapPreview).mockReturnValue({
     preview: null,
-    caption: { kind: "idle" },
-    bareCaption: { kind: "idle" },
+    target,
+    title: null,
     targetKey,
   });
 }
@@ -165,7 +169,7 @@ describe("LiveMapPane", () => {
 
     const elsewhere = document.body.appendChild(document.createElement("button"));
     elsewhere.focus();
-    previewing("schedule:0.0.7001");
+    previewing("schedule:0.0.7001", { kind: "schedule", scheduleId: "0.0.7001" });
     rerender(<LiveMapPane config={CONFIG} />);
     expect(screen.queryByRole("region", { name: "Inspector" })).toBeNull();
     expect(document.activeElement).toBe(elsewhere);

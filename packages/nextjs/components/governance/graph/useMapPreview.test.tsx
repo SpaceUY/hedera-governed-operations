@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { draftTreasuryTransfer, previewDraft } from "~~/services/governance/drafts";
 import { GOVERNANCE, SUPPLIER, UPGRADE_CALL, proposal } from "~~/services/liveMap/motion/motionFixtures";
-import { selectedPreviewOf } from "~~/services/liveMap/preview/previewSource";
+import { draftPreviewOf, selectedPreviewOf, sketchPreviewOf } from "~~/services/liveMap/preview/previewSource";
 
 const route = vi.hoisted(() => ({
   pathname: "/",
@@ -55,7 +55,8 @@ describe("useMapPreview", () => {
     const { result } = renderHook(() => useMapPreview(CONFIG));
     expect(lookup.scheduleIds.at(-1)).toBe("0.0.9001");
     expect(result.current.preview?.mode).toBe("live");
-    expect(result.current.caption).toEqual({ kind: "previewing", title: "Upgrade the vault to v2" });
+    expect(result.current.target).toEqual({ kind: "schedule", scheduleId: "0.0.9001" });
+    expect(result.current.title).toBe("Upgrade the vault to v2");
     expect(result.current.targetKey).toBe("schedule:0.0.9001");
   });
 
@@ -63,9 +64,10 @@ describe("useMapPreview", () => {
     route.pathname = "/governance/new";
     wizard.preview = previewDraft(draftTreasuryTransfer(GOVERNANCE, { recipientAccountId: SUPPLIER, amount: "40" }));
     const { result } = renderHook(() => useMapPreview(CONFIG));
-    expect(lookup.scheduleIds.at(-1)).toBe("");
+    expect(lookup.scheduleIds.filter(Boolean)).toEqual([]);
     expect(result.current.preview?.key).toBe("draft:treasuryTransfer");
-    expect(result.current.caption).toEqual({ kind: "drafting", title: "Pay a supplier" });
+    expect(result.current.target).toEqual({ kind: "draft" });
+    expect(result.current.title).toBe("Pay a supplier");
   });
 
   it("sketches the picked kind's way through the configured vault until the form holds a draft", () => {
@@ -77,8 +79,7 @@ describe("useMapPreview", () => {
       of: "upgrade",
       refs: { subject: ["0.0.5001"] },
     });
-    expect(result.current.caption).toEqual({ kind: "sketching", title: "Upgrade the vault to v2" });
-    expect(result.current.bareCaption).toEqual({ kind: "picked", title: "Upgrade the vault to v2" });
+    expect(result.current.title).toBe("Upgrade the vault to v2");
   });
 
   it("draws no preview for a draft the decoders cannot describe, and only asks for the form", () => {
@@ -87,18 +88,34 @@ describe("useMapPreview", () => {
     wizard.preview = { kind: "treasuryTransfer", path: "native", scheduled: { kind: "unrecognized", reason: "test" } };
     const { result } = renderHook(() => useMapPreview(CONFIG));
     expect(result.current.preview).toBeNull();
-    expect(result.current.caption).toEqual({ kind: "picked", title: "Pay a supplier" });
+    expect(result.current.title).toBe("Pay a supplier");
   });
 
   it("shows nothing for a selection it could not read", () => {
     route.selected = "0.0.404";
     const { result } = renderHook(() => useMapPreview(CONFIG));
     expect(result.current.preview).toBeNull();
-    expect(result.current.caption).toEqual({ kind: "idle" });
+    expect(result.current.title).toBeNull();
   });
 });
 
 describe("captionFactsOf", () => {
+  it("tells a drawn draft from a drawn sketch of the picked kind", () => {
+    const draft = draftPreviewOf(
+      previewDraft(draftTreasuryTransfer(GOVERNANCE, { recipientAccountId: SUPPLIER, amount: "40" })),
+      null,
+    );
+    const sketch = sketchPreviewOf("upgrade", { governanceAccountId: GOVERNANCE, entities: [], agentSeat: null }, null);
+    expect(captionFactsOf({ kind: "draft" }, draft, "Pay a supplier")).toEqual({
+      kind: "drafting",
+      title: "Pay a supplier",
+    });
+    expect(captionFactsOf({ kind: "draft" }, sketch, "Upgrade the vault to v2")).toEqual({
+      kind: "sketching",
+      title: "Upgrade the vault to v2",
+    });
+  });
+
   it("asks for a kind only before one is picked, for the form once one is, and falls back to idle for an undescribable selection", () => {
     expect(captionFactsOf({ kind: "draft" }, null, null)).toEqual({ kind: "drafting", title: null });
     expect(captionFactsOf({ kind: "draft" }, null, "Pay a supplier")).toEqual({
@@ -106,6 +123,11 @@ describe("captionFactsOf", () => {
       title: "Pay a supplier",
     });
     expect(captionFactsOf({ kind: "schedule", scheduleId: "0.0.1" }, null, "Run entry 3")).toEqual({ kind: "idle" });
+    const selected = selectedPreviewOf(proposal({ id: "0.0.2", operation: UPGRADE_CALL }), 1);
+    expect(captionFactsOf({ kind: "schedule", scheduleId: "0.0.2" }, selected, "Upgrade the vault to v2")).toEqual({
+      kind: "previewing",
+      title: "Upgrade the vault to v2",
+    });
     const executed = selectedPreviewOf(proposal({ id: "0.0.2", operation: UPGRADE_CALL }), 0);
     expect(
       captionFactsOf(

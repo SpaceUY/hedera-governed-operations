@@ -74,7 +74,9 @@ function shownFor(target: PreviewTarget, { draft, kind, sketch, accountId, propo
  * What the map previews, read from what the rail shows: the wizard's draft on `/governance/new` — or,
  * until its form holds one, the picked kind's way through the configured contracts — the proposal
  * `/governance/[scheduleId]` or `?schedule=` names. The proposal comes from the same lookup
- * the rail's detail reads, so the map adds no polling of its own.
+ * the rail's detail reads, so the map adds no polling of its own. It returns the target and the title
+ * too, and leaves the caption to `useLiveMap`: only once the frame is drawn does the pane know which
+ * one `captionFactsOf` should say.
  */
 export function useMapPreview(config: GovernanceConfig) {
   const pathname = usePathname();
@@ -106,11 +108,6 @@ export function useMapPreview(config: GovernanceConfig) {
 
   return useMemo(() => {
     const shown = shownFor(target, { draft, kind, sketch, accountId: accountId ?? null, proposal });
-    return {
-      preview: shown.preview,
-      caption: captionFactsOf(target, shown.preview, shown.title),
-      bareCaption: captionFactsOf(target, null, shown.title),
-      targetKey: previewTargetKey(target),
-    };
+    return { ...shown, target, targetKey: previewTargetKey(target) };
   }, [target, draft, kind, sketch, accountId, proposal]);
 }
