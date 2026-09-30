@@ -6,7 +6,7 @@
  * `reconcile`) and persist any new ids through `ctx.saveState`.
  */
 import { reconcileDemoToken } from "./demoToken";
-import { readGovernanceDeployment } from "./deployments";
+import { type OwnDeploymentLookup, readOwnDeployment } from "./deployments";
 import type { SetupEnv } from "./env";
 import { upsertEnvFile } from "./envFile";
 import { reconcileGovernance } from "./governance";
@@ -77,9 +77,9 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
   );
   console.log(formatSteps([step, association]).join("\n"));
 
-  const deployment = readGovernanceDeployment(deployedContracts);
+  const deployment = await readOwnDeployment(deployedContracts, governance.evmAddress, services.lookups);
   if (!deployment.ready) {
-    console.log(deployNextMessage(deployment.missing).join("\n"));
+    console.log(deployNextMessage(deployment, governance.accountId).join("\n"));
     return;
   }
 
@@ -140,10 +140,17 @@ function agentAccountPublicKey(state: SetupState): string {
   return agent.publicKey;
 }
 
-function deployNextMessage(missing: string[]): string[] {
+/** Why there is nothing to build on yet, and the two commands that fix it. */
+function deployNextMessage(deployment: Exclude<OwnDeploymentLookup, { ready: true }>, governanceAccountId: string) {
+  const reason =
+    "missing" in deployment
+      ? `  Not deployed yet: ${deployment.missing.join(", ")}. The demo token and the first proposal need them.`
+      : `  The contracts in deployedContracts.ts do not answer to ${governanceAccountId}: their executor ` +
+        `${deployment.foreignExecutorContractId} was deployed for another governance account, such as the ` +
+        "template's demo instance. The demo token and the first proposal need contracts deployed for this one.";
   return [
     "",
-    `  Not deployed yet: ${missing.join(", ")}. The demo token and the first proposal need them.`,
+    reason,
     "  Deploy the contracts, then run this again:",
     "",
     "      yarn hardhat:deploy --network hederaTestnet",
