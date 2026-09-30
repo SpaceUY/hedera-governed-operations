@@ -140,11 +140,13 @@ function demoAccountIds(): { alice?: string; bob?: string } {
  * given (`HEDERA_COUNCIL_ACCOUNT_ID`), named "Council account" — "You" once it is the one connected.
  * The co-signing agent's seat, when the council holds it or a rotation proposes it, is none of these.
  */
-function demoSeats({ nodes, proposers, agentSeat }: MapContext): {
+function demoSeats({ nodes, proposers, memberKeys, agentSeat }: MapContext): {
   council?: string;
   alice?: string;
   bob?: string;
   agent?: string;
+  /** Whether the council holds the agent's seat, rather than a rotation only proposing it. */
+  agentHeld: boolean;
 } {
   const ids = demoAccountIds();
   const seatOf = (accountId: string | undefined) => {
@@ -154,13 +156,15 @@ function demoSeats({ nodes, proposers, agentSeat }: MapContext): {
   const alice = seatOf(ids.alice);
   const bob = seatOf(ids.bob);
   // The agent has a seat of its own: whichever of Alice's and Bob's keys it was configured with, theirs stay theirs.
-  const agent = nodes.find(
+  const agentNode = nodes.find(
     node => node.role === "member" && node.ref === agentSeat && node.id !== alice && node.id !== bob,
-  )?.id;
+  );
+  const agent = agentNode?.id;
   const others = nodes.filter(
     node => node.role === "member" && node.id !== alice && node.id !== bob && node.id !== agent,
   );
-  return { council: others.length === 1 ? others[0].id : undefined, alice, bob, agent };
+  const agentHeld = agentNode !== undefined && memberKeys.includes(agentNode.ref);
+  return { council: others.length === 1 ? others[0].id : undefined, alice, bob, agent, agentHeld };
 }
 
 export const decorateDemoMap: MapDecorator = context => {
@@ -187,7 +191,7 @@ export const decorateDemoMap: MapDecorator = context => {
     labels[seats.agent] = DEMO_NAMES.agent;
     monograms[seats.agent] = AGENT.monogram;
     // A proposed seat is not a member yet: it keeps the ghost's slot and look until the council holds it.
-    if (context.agentSeat === null || !context.memberKeys.includes(context.agentSeat)) {
+    if (!seats.agentHeld) {
       unseated.push(seats.agent);
       captions[seats.agent] = AGENT.caption;
     }
