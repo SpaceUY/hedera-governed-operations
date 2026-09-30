@@ -228,7 +228,7 @@ Experimental software: not audited, testnet first. Review every module before us
 
 ## Authors
 
-Built by Aparicio de León and Clara Hardoy at SpaceDev.
+Built by SpaceDev.
 
 ## Licence
 
