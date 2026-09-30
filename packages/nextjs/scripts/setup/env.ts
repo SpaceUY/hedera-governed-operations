@@ -1,6 +1,5 @@
 /**
- * Validated operator configuration for the setup script.
- * Mirrors what `services/hederaClient.ts` reads, but fails fast and never allows mainnet:
+ * Validated operator configuration for the setup script. It fails fast and never allows mainnet:
  * the script funds accounts and creates entities, so it must only ever run against testnet.
  */
 export type SetupNetwork = "testnet";

@@ -9,9 +9,8 @@ vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetw
 vi.mock("~~/hooks/useSubmitProposalDraft", () => ({
   useSubmitProposalDraft: () => ({ mutate: vi.fn(), reset: vi.fn(), status: "idle", error: null }),
 }));
-vi.mock("~~/components/governance/TreasuryStrip", () => ({ TreasuryStrip: () => <div>treasury strip</div> }));
-vi.mock("~~/components/governance/graph/GovernanceMap", () => ({
-  GovernanceMap: ({ config }: { config: GovernanceConfig }) => <div>map of {config.governanceAccountId}</div>,
+vi.mock("~~/components/governance/LiveMapPane", () => ({
+  LiveMapPane: ({ config }: { config: GovernanceConfig }) => <div>map pane of {config.governanceAccountId}</div>,
 }));
 vi.mock("~~/config/governanceConfig", async importOriginal => ({
   ...(await importOriginal<typeof import("~~/config/governanceConfig")>()),
@@ -55,8 +54,7 @@ describe("GovernanceLayout", () => {
     expect(screen.getByText("Governance is not set up yet")).toBeTruthy();
     expect(screen.getByText("Run `yarn setup`")).toBeTruthy();
     expect(screen.queryByText(/rail page/)).toBeNull();
-    expect(screen.queryByText("treasury strip")).toBeNull();
-    expect(screen.queryByText(/map of/)).toBeNull();
+    expect(screen.queryByText(/map pane of/)).toBeNull();
   });
 
   it("renders the map pane beside the route's page and hands the page the resolved config", () => {
@@ -69,9 +67,8 @@ describe("GovernanceLayout", () => {
     );
 
     const mapPane = screen.getByRole("region", { name: "Live map" });
-    expect(mapPane.textContent).toContain("treasury strip");
+    expect(mapPane.textContent).toContain("map pane of 0.0.10671146");
     expect(mapPane.textContent).not.toContain("execute button");
-    expect(mapPane.textContent).toContain("map of 0.0.10671146");
     expect(screen.getByText("rail page for 0.0.10671146")).toBeTruthy();
     expect(mapPane.contains(screen.getByText(/rail page/))).toBe(false);
     expect(resolveGovernanceConfig).toHaveBeenCalledWith(296);

@@ -1,16 +1,17 @@
 import { TREASURY_OUTLINE, distanceFrom, routeOnMap } from "../geometry";
 import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR, pendingTransferTo } from "../mapFixtures";
 import { composeMap } from "../mapModel";
-import { DEMO_INSPECTOR_COPY, DEMO_NAMES, decorateDemoMap } from "./demoGraph";
+import { DEMO_NAMES, decorateDemoMap } from "./demoGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  edgeId,
   externalNodeId,
   memberNodeId,
   proposerNodeId,
-} from "~~/services/governance/graph";
-import { MAP_ENTITY_IDS } from "~~/services/governance/graphEntities";
+} from "~~/services/liveMap/model/graph";
+import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID", "0.0.4102");
@@ -106,6 +107,25 @@ describe("decorateDemoMap", () => {
     expect(agent.monogram).toBe("AG");
     expect(map.graph.nodes.some(node => node.id === agent.id)).toBe(false);
     expect(map.graph.edges.some(edge => edge.from === agent.id || edge.to === agent.id)).toBe(false);
-    expect(DEMO_INSPECTOR_COPY[agent.id]).toBeTruthy();
+    expect(map.inspector.nodes[agent.id]).toBeUndefined();
+  });
+
+  it("gives the inspector its own words for the demo's contracts, co-signers and supplier", () => {
+    const map = composeMap({ ...MAP_SNAPSHOT, proposals: [pendingTransferTo("0.0.7000")] }, decorateDemoMap);
+    expect(map.inspector.nodes[MAP_ENTITY_IDS.tokenAdmin]).toContain("ACME");
+    expect(map.inspector.edges[edgeId(EXECUTOR_NODE_ID, MAP_ENTITY_IDS.vault)]).toBe(
+      "The vault accepts upgrades only from the registry.",
+    );
+    expect(map.inspector.nodes[externalNodeId("0.0.7000")]).toContain("native scheduled transfer");
+    expect(map.inspector.edges[edgeId(memberNodeId(KEY_B), GOVERNANCE_ACCOUNT_NODE_ID)]).toBe(
+      "Alice's key is one of the treasury's threshold keys; her signatures arrive along this line.",
+    );
+  });
+
+  it("names the council's column and the contracts' row", () => {
+    expect(composeMap(MAP_SNAPSHOT, decorateDemoMap).regions.map(({ label }) => label)).toEqual([
+      "Council",
+      "Contracts",
+    ]);
   });
 });

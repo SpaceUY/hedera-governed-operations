@@ -25,7 +25,6 @@ describe("loadState", () => {
   it("round-trips what saveState wrote", () => {
     const state = {
       ...emptyState("testnet"),
-      topicId: "0.0.7",
       demoAccounts: { alice: { accountId: "0.0.8", privateKey: "k", publicKey: "p", evmAddress: "0xa" } },
     };
     saveState(file, state);

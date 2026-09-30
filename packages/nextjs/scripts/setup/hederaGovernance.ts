@@ -220,10 +220,6 @@ const RELEASE_TOPIC_MEMO = "governed-operations release manifests";
 const DECISION_TOPIC_MEMO = "governed-operations agent decisions";
 
 /**
- * A topic of its own rather than the demo's. Anyone can read either, but mixing release records
- * into a feed the demo also writes to would leave the agent's check filtering someone else's
- * messages out of the answer to "what did this team publish".
- *
  * **The submit key is the whole point of the topic.** Without one the network accepts a message
  * from any account, and a manifest read off it proves only that somebody published those bytes —
  * an attacker could name their own implementation and the agent's check would pass. The operator

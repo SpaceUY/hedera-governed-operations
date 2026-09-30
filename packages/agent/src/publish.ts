@@ -7,7 +7,7 @@
  * may stop a council seat from voting.
  */
 import type { Decision } from "./review";
-import type { AgentDecision } from "@sh/core/governance/decisionLog";
+import { type AgentDecision, decisionRecordSignature } from "@sh/core/governance/decisionLog";
 
 /**
  * Publishes one decision. Like `SignSchedule` it returns nothing and throws, so a record that did
@@ -15,7 +15,7 @@ import type { AgentDecision } from "@sh/core/governance/decisionLog";
  */
 export type PublishDecision = (decision: AgentDecision) => Promise<void>;
 
-/** What makes a decision the same decision, for the log and for the topic alike. */
+/** What makes a decision the same decision in the agent's own log. The topic compares records instead. */
 export const decisionSignature = (decision: Decision): string =>
   `${decision.outcome}:${decision.confirmation}:${decision.reason}`;
 
@@ -49,7 +49,8 @@ export type PublishOptions = {
    *
    * This is what keeps the cost proportional to decisions rather than to passes. Each message is a
    * fee the agent pays out of the account it signs with, and at the default interval an unchanged
-   * inbox would otherwise be four messages a minute, for ever.
+   * inbox would otherwise be four messages a minute, for ever. It starts from the topic itself
+   * (`publishedFromHistory`), so a restart does not pay again for what an earlier run published.
    */
   published: Map<string, string>;
 };
@@ -71,7 +72,7 @@ export async function publishDecisions(
     if (!record) continue;
     if (record.outcome === "approved" && options.unsigned.has(decision.scheduleId)) continue;
 
-    const signature = decisionSignature(decision);
+    const signature = decisionRecordSignature(record);
     if (options.published.get(decision.scheduleId) === signature) continue;
 
     try {
@@ -85,4 +86,9 @@ export async function publishDecisions(
   }
 
   return failures;
+}
+
+/** What the topic already holds, as the `published` map a pass compares against. */
+export function publishedFromHistory(latest: ReadonlyMap<string, AgentDecision>): Map<string, string> {
+  return new Map([...latest].map(([scheduleId, record]) => [scheduleId, decisionRecordSignature(record)]));
 }

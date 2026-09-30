@@ -1,33 +1,32 @@
 "use client";
 
 import { GovernanceGraph } from "./GovernanceGraph";
+import type { MapActivation } from "./MapItem";
 import { MAP_LABELS } from "./copy";
-import { useComposedMap } from "./useComposedMap";
-import type { GovernanceConfig } from "~~/config/governanceConfig";
+import type { ComposedMap } from "./mapModel";
+import type { CouncilKey } from "@sh/core/governance/council";
+import type { MapFrame } from "~~/services/liveMap/motion/frame";
 
 export type GovernanceMapProps = {
-  /** Resolved once by the host's setup guard (`resolveGovernanceConfig`). */
-  config: GovernanceConfig;
+  /** The composed map of the world being shown (`composeMap`), or null until the council is read. */
+  map: ComposedMap | null;
+  council: CouncilKey | null;
+  frame: MapFrame;
+  /** The council's read error: without the council there is nothing to draw. */
+  error: unknown;
+  activation?: MapActivation;
 };
 
-/**
- * The governance map for the configured deployment: the council and the proposers as the ledger
- * has them, the trust chain down to the contracts, and the accounts a pending proposal would pay.
- * It reads through the same queries as the rest of the screen, so it never polls on its own, and
- * names the seat the connected account holds "You". A hand-composed layout comes from the host's
- * `MapDecoratorProvider`; without one every node is placed by role (`autoLayout`).
- */
-export function GovernanceMap({ config }: GovernanceMapProps) {
-  const { composed, council } = useComposedMap(config);
-
-  if (council.error) {
+/** The governance map, or what it says while it cannot be drawn. */
+export function GovernanceMap({ map, council, frame, error, activation }: GovernanceMapProps) {
+  if (error) {
     return (
       <p role="alert" className="alert alert-warning m-4">
         {MAP_LABELS.unavailable}
       </p>
     );
   }
-  if (!council.data || !composed) {
+  if (!map || !council) {
     return (
       <p className="flex h-full items-center justify-center gap-2 text-sm text-base-content/70">
         <span className="loading loading-spinner loading-sm" aria-hidden="true" />
@@ -35,5 +34,5 @@ export function GovernanceMap({ config }: GovernanceMapProps) {
       </p>
     );
   }
-  return <GovernanceGraph {...composed} council={council.data.key} />;
+  return <GovernanceGraph {...map} council={council} frame={frame} activation={activation} />;
 }

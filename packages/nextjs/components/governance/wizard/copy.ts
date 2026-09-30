@@ -1,19 +1,24 @@
 /**
- * The words the proposal wizard uses: what a kind is called, the path it takes, the CTA and notices
- * around the form, and the recipient lookup. Proposal-state copy — what a proposal's status, registry
- * entry or approvals are called once it exists — lives in `services/governance/proposalLabels`.
+ * The words the proposal wizard uses across kinds: what a kind is called, the path it takes, the CTA
+ * and notices around the form, and the account lookup the forms share. A kind's own words live in its
+ * folder under `kinds/`. Proposal-state copy — what a proposal's status, registry entry or approvals
+ * are called once it exists — lives in `services/governance/proposalLabels`.
  */
 import type { CouncilKey } from "@sh/core/governance/council";
 import { type ProposalKind, isContractProposalKind } from "@sh/core/governance/proposalTypes";
+import type { LateSubmission, WalletRequest } from "~~/hooks/useWalletRequest";
 import { councilRuleLabel } from "~~/services/governance/proposalLabels";
+import type { UnscheduledEntry } from "~~/services/governance/unscheduledEntry";
+import { validityWindowLabel } from "~~/services/web3/hederaSigner";
+import type { HederaSignerKind } from "~~/services/web3/hederaSignerPort";
 
 /** The title a proposal of each kind goes by, and the short hint beside it in the picker. */
 export const PROPOSAL_KIND_COPY: Record<ProposalKind, { title: string; hint: string }> = {
   upgrade: { title: "Upgrade the vault to v2", hint: "unlocks withdrawals" },
   treasurySwap: { title: "Sell treasury HBAR for USDC", hint: "with a floor" },
-  tokenAdmin: { title: "Pause, unpause or freeze ACME", hint: "token keys" },
+  tokenAdmin: { title: "Pause, unpause or freeze the token", hint: "token keys" },
   treasuryTransfer: { title: "Pay a supplier", hint: "direct transfer" },
-  councilRotation: { title: "Change the council", hint: "rewrites the treasury key" },
+  councilRotation: { title: "Add the co-signing agent", hint: "one more seat on the council" },
 };
 
 export const PROPOSAL_FAMILY_HEADINGS = {
@@ -25,7 +30,7 @@ export const PROPOSAL_FAMILY_HEADINGS = {
 export const PROPOSAL_PATH_CHIPS: Record<ProposalKind, string[]> = {
   upgrade: ["Treasury", "Registry", "Vault"],
   treasurySwap: ["Treasury", "Registry", "Swap adapter", "SaucerSwap", "Treasury"],
-  tokenAdmin: ["Treasury", "Registry", "Token admin", "ACME"],
+  tokenAdmin: ["Treasury", "Registry", "Token admin", "Token"],
   treasuryTransfer: ["Treasury", "Recipient"],
   councilRotation: ["Treasury", "its own key"],
 };
@@ -53,6 +58,15 @@ export function approverLabel(kind: ProposalKind, council: CouncilKey): string {
   return isContractProposalKind(kind) ? `${rule} Registering the proposal is not an approval.` : rule;
 }
 
+/**
+ * A rotation is approved by two councils, since the schedule waits for the current council's threshold
+ * and for the proposed one's; the preview names both, the proposed one as the decoder read it back.
+ */
+export function rotationApproverLabel(current: CouncilKey | undefined, proposed: CouncilKey): string {
+  const outgoing = current ? `The current ${councilRuleLabel(current)} council` : "The current council";
+  return `${outgoing} and the proposed ${councilRuleLabel(proposed)} council, each to its own threshold.`;
+}
+
 export function openProposalCopy(kind: ProposalKind): { cta: string; note: string } {
   if (isContractProposalKind(kind)) {
     return {
@@ -66,17 +80,48 @@ export function openProposalCopy(kind: ProposalKind): { cta: string; note: strin
   };
 }
 
+/** The CTA once this exact call is registered already, and only its schedule is left to create. */
+export function scheduleRegisteredEntryCopy(entry: UnscheduledEntry): { cta: string; note: string } {
+  const name = entry.registryProposalId === null ? "the registered entry" : `entry ${entry.registryProposalId}`;
+  return {
+    cta: `Schedule ${name} with your wallet`,
+    note:
+      `This call is already registered (transaction ${entry.registrationTransactionId}); the last attempt stopped ` +
+      `before its schedule. One transaction: it schedules ${name} and does not register the call again.`,
+  };
+}
+
+const WALLET_REQUEST_ACTIONS: Record<WalletRequest["action"], string> = {
+  register: "register the call in the registry",
+  schedule: "schedule the call for the council",
+};
+
+/**
+ * Where to act while the submit waits on a signature. The test signer signs on its own, so only
+ * HashPack is named, with the window after which the network would refuse the transaction.
+ */
+export function walletRequestLabel(request: WalletRequest, signerKind: HederaSignerKind): string {
+  const step = `Step ${request.step} of ${request.steps}: ${WALLET_REQUEST_ACTIONS[request.action]}.`;
+  if (signerKind === "burner") return `${step} Signing with the test signer…`;
+  return `${step} Approve it in HashPack — the request is valid for ${validityWindowLabel(request.validForSeconds)}.`;
+}
+
+/**
+ * A step the wizard stopped waiting for and the network accepted anyway — possible only when this
+ * computer's clock runs ahead of the network's. Said rather than dropped, since it created something.
+ */
+export function lateSubmissionLabel(late: LateSubmission): string {
+  return (
+    `HashPack sent step ${late.step} of ${late.steps} after the wizard stopped waiting, and the network accepted it ` +
+    `(transaction ${late.transactionId}). The proposals are refreshed; check them before trying again.`
+  );
+}
+
 /** What the wizard says about who may open a proposal, around the form rather than inside it. */
 export const OPEN_PROPOSAL_NOTICES = {
   connectWallet: "Connect a wallet to propose. The proposal is opened and paid for by your account.",
   proposersLoading: "Reading who holds PROPOSER_ROLE on the registry…",
   proposersUnreadable: "Could not read who holds PROPOSER_ROLE right now, so this proposal cannot be registered yet.",
-  upgradeTargetMissing:
-    "The vault's next implementation is not deployed on this network, so a vault upgrade cannot be proposed yet. " +
-    "Run `yarn hardhat:deploy --network hederaTestnet` to deploy it; paying a supplier works without it.",
-  swapAdapterMissing:
-    "The swap adapter is not deployed on this network, so a treasury swap cannot be proposed yet. " +
-    "Run `yarn hardhat:deploy --network hederaTestnet` to deploy it; the other operations work without it.",
 } as const;
 
 export function missingProposerRoleLabel(accountId: string): string {
@@ -86,29 +131,14 @@ export function missingProposerRoleLabel(accountId: string): string {
   );
 }
 
-/**
- * The words the swap form uses. The floor gets a sentence of its own because it is the one input a
- * council actually votes on, and the reason it is a limit rather than a slippage tolerance is not
- * something a proposer can be expected to infer from the field.
- */
-export const SWAP_FORM_LABELS = {
-  amount: "HBAR to sell",
-  floor: (symbol: string) => `Floor (${symbol})`,
-  floorHint: "The least the treasury accepts. This is what the council approves, not the quote.",
-  quote: (amount: string, symbol: string) => `SaucerSwap would pay ${amount} ${symbol} right now`,
-  quoteLoading: "Asking SaucerSwap what that HBAR is worth…",
-  quoteUnavailable: "No quote right now — the pool may have no liquidity for this size.",
-  staleFloorNote:
-    "The swap runs when the last signature lands, hours or days from now. The pool's price then is " +
-    "nobody's to predict, which is why the floor is a limit order and not a tolerance around today's quote.",
-  tokenUnreadable: (tokenId: string) =>
-    `Could not read ${tokenId} on the Mirror Node, so the floor has no scale to be read in. Try again.`,
-} as const;
-
-/** Why a typed recipient is not yet an account the transfer can name. */
-export const RECIPIENT_LOOKUP_LABELS = {
+/** Why a typed account — a recipient, the holder to freeze — is not yet one the proposal can name. */
+export const ACCOUNT_LOOKUP_LABELS = {
   malformed: (input: string) => `${input} is not an account id (0.0.x) or an EVM address`,
   loading: (input: string) => `Looking up ${input} on the Mirror Node…`,
   notFound: (input: string) => `No account found for ${input}`,
   unreachable: (input: string) => `Could not look up ${input} right now. Try again.`,
 } as const satisfies Record<string, (input: string) => string>;
+
+export function tokenUnreadableLabel(tokenId: string): string {
+  return `Could not read token ${tokenId} on the Mirror Node right now.`;
+}

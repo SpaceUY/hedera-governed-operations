@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { DEFAULT_PENDING_POLL_MS, registryEntryQueryKey } from "./mirrorQuery";
+import { DEFAULT_PENDING_POLL_MS, mirrorQueryKey, registryEntryQueryKey } from "./mirrorQuery";
 import { councilQueryKey } from "./useCouncil";
 import { type SettleScope, useRefreshOnSettle } from "./useRefreshOnSettle";
 import { treasuryFiguresQueryKey } from "./useTreasuryFigures";
+import { vaultImplementationQueryKey } from "./useVaultImplementation";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { ScheduleStatus } from "@sh/core/mirror";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -91,7 +92,13 @@ describe("useRefreshOnSettle", () => {
 
     rerender({ proposals: [registryCall("executed")] });
 
-    expect(invalidatedKeys()).toEqual([TREASURY_KEY, registryEntryQueryKey("testnet", "0.0.200", 7)]);
+    // With the vault's code and the tokens, which only a registry call (an upgrade, a pause) changes.
+    expect(invalidatedKeys()).toEqual([
+      TREASURY_KEY,
+      registryEntryQueryKey("testnet", "0.0.200", 7),
+      ["mirror", "testnet", "vault-implementation"],
+      ["mirror", "testnet", "token"],
+    ]);
   });
 
   it("clears the delayed read when it unmounts first", () => {
@@ -111,6 +118,21 @@ describe("useRefreshOnSettle", () => {
     const { rerender } = render([proposal("0.0.1", "pending", "councilRotation")]);
 
     rerender({ proposals: [proposal("0.0.1", "executed", "councilRotation")] });
+
+    const queries = queryClient.getQueryCache().findAll();
+    expect(queries).toHaveLength(2);
+    expect(queries.every(query => query.state.isInvalidated)).toBe(true);
+  });
+
+  it("matches the queries the vault-implementation and token hooks actually use", () => {
+    vi.mocked(queryClient.invalidateQueries).mockRestore();
+    queryClient.setQueryData(vaultImplementationQueryKey("testnet", "0.0.300"), "0x");
+    queryClient.setQueryData(mirrorQueryKey("testnet", "token", "0.0.400"), {});
+    const registryCall = (status: ScheduleStatus) =>
+      ({ ...proposal("0.0.1", status), operation: { kind: "registryCall", proposalId: 7 } }) as unknown as Proposal;
+    const { rerender } = render([registryCall("pending")]);
+
+    rerender({ proposals: [registryCall("executed")] });
 
     const queries = queryClient.getQueryCache().findAll();
     expect(queries).toHaveLength(2);

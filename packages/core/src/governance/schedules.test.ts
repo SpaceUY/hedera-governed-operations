@@ -11,6 +11,7 @@ import {
   buildScheduleSign,
   fetchAccountPublicKey,
   scheduleIdFromTransaction,
+  singlePublicKey,
 } from "./schedules";
 import { PrivateKey } from "@hiero-ledger/sdk";
 import { encodeFunctionData, parseAbi } from "viem";
@@ -168,5 +169,19 @@ describe("fetchAccountPublicKey", () => {
     mockedFetchAccount.mockResolvedValue(mirrorAccountWith({ _type: "ProtobufEncoded", key: "0a05" }));
 
     await expect(fetchAccountPublicKey("0.0.10671146", "testnet")).rejects.toThrow(/could never be withdrawn/);
+  });
+});
+
+describe("singlePublicKey", () => {
+  it("reads an ECDSA or ED25519 key and nothing else", () => {
+    const ed25519 = PrivateKey.generateED25519().publicKey;
+    expect(singlePublicKey({ _type: "ED25519", key: ed25519.toStringRaw() })?.toStringRaw()).toBe(
+      ed25519.toStringRaw(),
+    );
+    expect(singlePublicKey({ _type: "ECDSA_SECP256K1", key: proposerKey.toStringRaw() })?.toStringRaw()).toBe(
+      proposerKey.toStringRaw(),
+    );
+    expect(singlePublicKey({ _type: "ProtobufEncoded", key: "0a05" })).toBeNull();
+    expect(singlePublicKey(null)).toBeNull();
   });
 });

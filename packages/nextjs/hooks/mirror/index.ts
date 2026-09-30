@@ -4,6 +4,7 @@ export * from "./useInboxUpdatedAt";
 export * from "./useProposalLookup";
 export * from "./useProposals";
 export * from "./useRefreshOnSettle";
+export * from "./useReleaseCheck";
 export * from "./useSchedule";
 export * from "./useToken";
 export * from "./useTokenRelationship";
