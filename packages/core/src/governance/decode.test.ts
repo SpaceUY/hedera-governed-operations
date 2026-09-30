@@ -232,6 +232,17 @@ describe("decodeScheduledOperation on bodies it cannot describe", () => {
     expect(reasonOf(body)).toContain("does not name the council");
   });
 
+  /** The agent publishes the reason, so text the proposer chose must not reach it. */
+  it("keeps the proposer's memo out of the reason it gives", () => {
+    const memo = "x".repeat(100);
+
+    expect(reasonOf(scheduledBodyOf(rotationOf().setAccountMemo(memo)))).not.toContain(memo);
+  });
+
+  it("refuses a rotation that clears the account's memo", () => {
+    expect(reasonOf(scheduledBodyOf(rotationOf().setAccountMemo("")))).toContain("does not name the council");
+  });
+
   it("still reads a rotation that changes nothing but the key", () => {
     expect(decodeScheduledOperation(scheduledBodyOf(rotationOf()))).toMatchObject({
       kind: "councilRotation",

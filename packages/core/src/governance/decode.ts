@@ -213,9 +213,10 @@ function decodeAccountUpdate(update: proto.ICryptoUpdateTransactionBody): Schedu
     return unrecognized(`the proposed key is not a council: ${(error as Error).message}`);
   }
   if (!memoFollowsCouncil(update.memo, council)) {
+    // The memo is left out of the reason on purpose: it is text whoever opened the proposal chose, and the
+    // co-signing agent copies the reason into the decision it publishes.
     return unrecognized(
-      `the account update also sets the account's memo to "${update.memo?.value ?? ""}", which does not name the ` +
-        "council it proposes",
+      "the account update also sets the account's memo to text that does not name the council it proposes",
     );
   }
 
