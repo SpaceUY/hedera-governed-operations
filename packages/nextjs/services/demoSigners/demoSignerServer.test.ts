@@ -160,6 +160,11 @@ describe("loadDemoSigners", () => {
     expect(loadDemoSigners({ ...environment, network: "mainnet" })).toEqual({ status: "wrongNetwork" });
   });
 
+  it("refuses a server whose network is not set, rather than assuming testnet", () => {
+    writeState({ demoAccounts: { alice: accountOf("0.0.11", alice) } });
+    expect(loadDemoSigners({ ...environment, network: "" })).toEqual({ status: "wrongNetwork" });
+  });
+
   it("refuses an app that targets another network, whatever the server says", () => {
     writeState({ demoAccounts: { alice: accountOf("0.0.11", alice) } });
     expect(loadDemoSigners({ ...environment, appChainId: hedera.id })).toEqual({ status: "wrongNetwork" });
@@ -188,11 +193,11 @@ describe("loadDemoSigners", () => {
 });
 
 describe("demoSignerEnvironment", () => {
-  it("reads the app's target network from the scaffold config and defaults the server's to testnet", () => {
-    vi.stubEnv("HEDERA_NETWORK", "");
+  it("reads the app's target network from the scaffold config and never assumes the server's", () => {
+    vi.stubEnv("HEDERA_NETWORK", undefined);
     const read = demoSignerEnvironment();
     expect(read.appChainId).toBe(scaffoldConfig.targetNetworks[0].id);
-    expect(read.network).toBe("testnet");
+    expect(read.network).toBe("");
     expect(read.stateFile.endsWith("setup-state.json")).toBe(true);
   });
 

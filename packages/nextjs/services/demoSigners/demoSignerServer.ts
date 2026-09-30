@@ -21,6 +21,7 @@ import { type RegistryCrossCheck, fetchRegistryEntries } from "@sh/core/governan
 import { buildScheduleSign } from "@sh/core/governance/schedules";
 import { deriveScheduleState, fetchAccount, fetchSchedule, isMirrorNotFound, isValidEntityId } from "@sh/core/mirror";
 import { join } from "node:path";
+import "server-only";
 import { hederaTestnet } from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
 import {
@@ -70,7 +71,7 @@ export type DemoSignerEnvironment = {
   /** Absolute path of `setup-state.json`. */
   stateFile: string;
   nodeEnv: string | undefined;
-  /** The server's `HEDERA_NETWORK`, lower-cased. */
+  /** The server's `HEDERA_NETWORK`, lower-cased; empty when unset, which no network matches. */
   network: string;
   /** The chain the app targets (`scaffold.config.ts`): a mainnet-targeted app never lists demo members. */
   appChainId: number;
@@ -84,7 +85,7 @@ export function demoSignerEnvironment(): DemoSignerEnvironment {
   return {
     stateFile: join(process.cwd(), STATE_FILE_NAME),
     nodeEnv: process.env.NODE_ENV,
-    network: (process.env.HEDERA_NETWORK || DEMO_NETWORK).toLowerCase(),
+    network: (process.env.HEDERA_NETWORK ?? "").toLowerCase(),
     appChainId: scaffoldConfig.targetNetworks[0].id,
   };
 }

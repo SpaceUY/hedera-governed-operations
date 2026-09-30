@@ -124,26 +124,19 @@ async function read(response: Promise<Response>): Promise<Response> {
   return settled;
 }
 const get = () => read(GET());
-const post = (body: unknown, contentType = "application/json") =>
+/** A POST as the app sends it from the development server, unless a header says otherwise. */
+const postRaw = (body: string, headers: Record<string, string> = {}) =>
   read(
     POST(
       new Request("http://localhost/api/demo/signers", {
         method: "POST",
-        headers: { "content-type": contentType },
-        body: JSON.stringify(body),
-      }),
-    ),
-  );
-const postRaw = (body: string) =>
-  read(
-    POST(
-      new Request("http://localhost/api/demo/signers", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { host: "localhost:3000", "content-type": "application/json", ...headers },
         body,
       }),
     ),
   );
+const post = (body: unknown, contentType = "application/json") =>
+  postRaw(JSON.stringify(body), { "content-type": contentType });
 const signAs = (member: Name) => post({ scheduleId: SCHEDULE_ID, member });
 
 /** A refusal is only one if nothing was sent to the network. */
@@ -283,6 +276,25 @@ describe("GET /api/demo/signers", () => {
 });
 
 describe("POST /api/demo/signers", () => {
+  it.each(["localhost:3000", "127.0.0.1:3000", "[::1]:3000", "LOCALHOST"])(
+    "accepts a request addressed to %s",
+    async host => {
+      writeState();
+      expect((await postRaw(JSON.stringify({ scheduleId: SCHEDULE_ID, member: "alice" }), { host })).status).toBe(200);
+    },
+  );
+
+  it.each(["192.168.1.20:3000", "rebound.example:3000", "localhost.example", ""])(
+    "answers 403 for a request addressed to %j, before reading any key",
+    async host => {
+      writeState();
+      const response = await postRaw(JSON.stringify({ scheduleId: SCHEDULE_ID, member: "alice" }), { host });
+      expect(response.status).toBe(403);
+      expect(fetchSchedule).not.toHaveBeenCalled();
+      expect(execute).not.toHaveBeenCalled();
+    },
+  );
+
   it("refuses mainnet with 403", async () => {
     writeState();
     vi.stubEnv("HEDERA_NETWORK", "mainnet");

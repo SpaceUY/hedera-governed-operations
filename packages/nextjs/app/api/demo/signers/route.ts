@@ -4,8 +4,8 @@
  *
  * `GET` answers 200 with an empty list when the signers are unavailable, rather than an error, so a page
  * asking whether to show the buttons never logs a failed request; when the reason is the co-signing
- * agent (unknown or unreadable), it says so in `unavailableReason`. `POST` refuses: 403 off testnet or
- * for the agent's seat, 503 without demo keys, in a production build, without a deployment or without a
+ * agent (unknown or unreadable), it says so in `unavailableReason`. `POST` refuses: 403 for a request
+ * not addressed to localhost, off testnet or for the agent's seat, 503 without demo keys, in a production build, without a deployment or without a
  * known agent, 415 for a body not sent as JSON, 400 for a malformed request, 404/409 for a schedule that
  * is not a proposal waiting on that member, 502 when the Mirror Node, the relay or the network could not
  * be reached. Responses carry only what the ledger already makes public; keys and internal errors never leave.
@@ -41,6 +41,18 @@ export const dynamic = "force-dynamic";
 const isJsonRequest = (req: Request): boolean =>
   req.headers.get("content-type")?.split(";")[0].trim().toLowerCase() === "application/json";
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * Whether the request names this machine in its `Host`, port aside. A page on a rebound domain names
+ * that domain, so this stops DNS rebinding. It is not a network boundary: `next dev` listens on every
+ * interface and anyone on the network can send `Host: localhost` themselves.
+ */
+function isAddressedToLocalhost(req: Request): boolean {
+  const hostname = (req.headers.get("host") ?? "").replace(/:\d+$/, "");
+  return LOOPBACK_HOSTNAMES.has(hostname.toLowerCase());
+}
+
 const failure = (status: number, error: string) => NextResponse.json<DemoSignErrorResponse>({ error }, { status });
 
 /** The demo accounts only exist on testnet, so the executor is the one deployed there. */
@@ -74,8 +86,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!isAddressedToLocalhost(req)) return failure(403, "Demo signatures are only served on localhost.");
   const demo = loadDemoSigners(demoSignerEnvironment());
-  if (demo.status === "wrongNetwork") return failure(403, "Demo signers only run on testnet.");
+  if (demo.status === "wrongNetwork") return failure(403, "Demo signers only run on testnet (HEDERA_NETWORK=testnet).");
   const governanceIds = governanceIdsOrNull();
   if (demo.status === "unavailable" || !governanceIds) {
     return failure(503, "Demo signers are not available: run `yarn setup` and use the development server.");
