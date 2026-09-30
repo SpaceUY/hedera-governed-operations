@@ -1,0 +1,39 @@
+"use client";
+
+/**
+ * Demo only: see `services/demoSigners/demoSigners.ts` for the feature and the two steps that remove it.
+ */
+import { GOVERNANCE_MUTATION_KEYS } from "./governanceMutationKeys";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  type DemoSignRequest,
+  type DemoSignResponse,
+  fetchDemoMembers,
+  requestDemoSignature,
+} from "~~/services/demoSigners/demoSigners";
+
+export const DEMO_SIGNERS_QUERY_KEY = ["demo", "signers"] as const;
+
+/** Which demo members this server can sign for. Asked once: it only changes when `yarn setup` runs. */
+export function useDemoSigners() {
+  return useQuery({ queryKey: DEMO_SIGNERS_QUERY_KEY, queryFn: fetchDemoMembers, staleTime: Infinity, retry: false });
+}
+
+/**
+ * What a demo signature is called with: the request, plus the member's key, so the signature banner
+ * can tell this screen's approval from one sent elsewhere as soon as the mutation starts. The key is
+ * not sent; the server derives it from the member's private key.
+ */
+export type DemoSignVariables = DemoSignRequest & { memberKey: string };
+
+/**
+ * One demo member's approval, signed on the server. Success only means the network took the
+ * transaction: the signature shows once Mirror indexes it, so callers refresh the proposal and render
+ * what the next read returns.
+ */
+export function useDemoSign() {
+  return useMutation<DemoSignResponse, Error, DemoSignVariables>({
+    mutationKey: GOVERNANCE_MUTATION_KEYS.signAs,
+    mutationFn: ({ scheduleId, member }) => requestDemoSignature({ scheduleId, member }),
+  });
+}
