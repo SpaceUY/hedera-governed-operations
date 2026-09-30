@@ -9,15 +9,13 @@ import type { ProposalKind, RegistryOperation, ScheduledOperation } from "@sh/co
 import type { GraphEntity } from "~~/services/liveMap/model/graph";
 import type { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 import type { OperationSketch, RouteRefs, RouteRole } from "~~/services/liveMap/model/proposalRoutes";
+import type { VaultRelease } from "~~/services/liveMap/model/vaultRelease";
 
 /** A decoded operation of kind `K`, whichever layer of a proposal it was read from. */
 export type OperationOf<K extends ProposalKind> = Extract<RegistryOperation | ScheduledOperation, { kind: K }>;
 
 /** Any operation the decoders fully understood; an unrecognized body never gets words. */
 export type KnownOperation = OperationOf<ProposalKind>;
-
-/** Which of the vault's two implementations this template deploys an address is. */
-export type VaultRelease = "first" | "next";
 
 /** What the words depend on that the operation does not say itself. */
 export type PreviewContext = {

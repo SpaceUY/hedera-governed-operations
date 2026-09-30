@@ -1,20 +1,7 @@
 import { MAP_NODE_STATES } from "./copy";
 import type { NodeStates } from "~~/services/liveMap/events/mapEvents";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
-import type { VaultRelease } from "~~/services/liveMap/preview/kinds/previewKind";
-
-/** The addresses of the vault's two implementations on this deployment, when it recorded them. */
-export type VaultReleases = { first?: string; next?: string };
-
-const sameAddress = (left: string, right: string | undefined): boolean =>
-  right !== undefined && left.toLowerCase() === right.toLowerCase();
-
-/** Which of the vault's two releases `implementation` is, or null for any other code. */
-export function releaseOf(implementation: string, releases: VaultReleases): VaultRelease | null {
-  if (sameAddress(implementation, releases.first)) return "first";
-  if (sameAddress(implementation, releases.next)) return "next";
-  return null;
-}
+import { type VaultReleases, releaseOf } from "~~/services/liveMap/model/vaultRelease";
 
 function vaultCaption(implementation: string | null, releases: VaultReleases): string | undefined {
   if (implementation === null) return undefined;

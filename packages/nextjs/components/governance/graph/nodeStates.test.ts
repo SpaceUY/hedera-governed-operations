@@ -1,5 +1,5 @@
 import { MAP_NODE_STATES } from "./copy";
-import { nodeStateCaptions, releaseOf } from "./nodeStates";
+import { nodeStateCaptions } from "./nodeStates";
 import { describe, expect, it } from "vitest";
 import type { NodeStates } from "~~/services/liveMap/events/mapEvents";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
@@ -37,14 +37,5 @@ describe("nodeStateCaptions", () => {
     expect(nodeStateCaptions(states(null, true), RELEASES)).toEqual({ [MAP_ENTITY_IDS.token]: "Paused" });
     expect(nodeStateCaptions(states(NEXT, null), RELEASES)).toEqual({ [MAP_ENTITY_IDS.vault]: "v2 · withdrawals on" });
     expect(nodeStateCaptions(null, RELEASES)).toEqual({});
-  });
-});
-
-describe("releaseOf", () => {
-  it("names which release an address is, in any casing, and null for any other code", () => {
-    expect(releaseOf(FIRST.toLowerCase(), RELEASES)).toBe("first");
-    expect(releaseOf(NEXT, RELEASES)).toBe("next");
-    expect(releaseOf("0x0000000000000000000000000000000000000001", RELEASES)).toBeNull();
-    expect(releaseOf(NEXT, {})).toBeNull();
   });
 });
