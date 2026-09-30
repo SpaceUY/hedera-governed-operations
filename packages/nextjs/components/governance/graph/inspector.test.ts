@@ -6,6 +6,8 @@ import type { GraphSnapshot } from "~~/services/liveMap/model/graph";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  RECIPIENT_STAND_IN_NODE_ID,
+  deriveGraphState,
   edgeId,
   externalNodeId,
   memberNodeId,
@@ -102,6 +104,13 @@ describe("inspectorContentOf — nodes", () => {
     expect(content?.kicker).toBe("Account");
     expect(content?.body).toContain("would pay");
     expect(content?.rows[0]?.href).toBe(`${EXPLORER}/account/0.0.7000`);
+  });
+
+  it("shows a recipient's stand-in as an account with no id, since nobody is named yet", () => {
+    const graph = deriveGraphState({ ...MAP_SNAPSHOT, recipientStandIn: true });
+    const content = node(RECIPIENT_STAND_IN_NODE_ID, contextOf(MAP_SNAPSHOT, { graph }));
+    expect(content?.kicker).toBe("Account");
+    expect(content?.rows).toEqual([]);
   });
 
   it("prefers the layout's own words for a node over its role's", () => {

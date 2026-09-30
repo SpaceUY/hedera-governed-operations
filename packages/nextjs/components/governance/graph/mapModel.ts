@@ -15,6 +15,7 @@ import {
   type GraphNode,
   type GraphSnapshot,
   type Point,
+  RECIPIENT_STAND_IN_NODE_ID,
   deriveGraphState,
   externalNodeId,
   scopeOf,
@@ -74,6 +75,12 @@ export type MapDecoration = {
    * what is drawn changes; nothing is read differently.
    */
   hidden?: HiddenParts;
+  /**
+   * Draw a node for a payment's recipient before anyone is named (`RECIPIENT_STAND_IN_NODE_ID`), placed,
+   * named and explained through the layout like any node: a payment picked in the wizard reaches it.
+   * Without it a recipient appears only once a proposal or a draft names one.
+   */
+  recipientStandIn?: boolean;
 };
 
 export type HiddenParts = { nodes?: readonly string[]; edges?: readonly string[] };
@@ -154,7 +161,10 @@ export function composeMap(
   const monograms = { ...decoration?.monograms };
   if (viewerSeat) delete monograms[viewerSeat];
 
-  const graph = deriveGraphState(snapshot, { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } });
+  const graph = deriveGraphState(
+    { ...snapshot, recipientStandIn: decoration?.recipientStandIn },
+    { ...layout, labels: { ...labels, ...layout.labels, ...viewerLabel } },
+  );
   return {
     graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
@@ -168,10 +178,11 @@ export function composeMap(
 
 /**
  * An `external` node is either a contract the configuration names, which the system calls, or an
- * account a pending proposal introduced — a transfer's recipient — whose id is built from its ref.
+ * account a pending proposal introduced — a transfer's recipient — whose id is built from its ref,
+ * or the stand-in a layout draws for that recipient before anyone is named.
  */
 export function isIntroducedAccount(node: Pick<GraphNode, "id" | "ref">): boolean {
-  return node.id === externalNodeId(node.ref);
+  return node.id === externalNodeId(node.ref) || node.id === RECIPIENT_STAND_IN_NODE_ID;
 }
 
 function withoutHidden(graph: GovernanceGraph, { nodes = [], edges = [] }: HiddenParts): GovernanceGraph {

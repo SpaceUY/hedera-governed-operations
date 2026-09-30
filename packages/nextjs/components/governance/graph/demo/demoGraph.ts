@@ -1,16 +1,24 @@
 /**
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
  * node sits, the names "Council account", Alice and Bob, the co-signing agent that is not a member
- * yet — or, once a rotation proposes its key or the council holds it, seated at the same slot — and
- * the inspector's words for them. The seat of whoever is connected is named "You" by the
+ * yet — or, once a rotation proposes its key or the council holds it, seated at the same slot — the
+ * Supplier every transfer pays, and the inspector's words for them. The seat of whoever is connected is named "You" by the
  * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
  */
-import type { GhostNode, InspectorCopy, MapContext, MapDecorator, MapRegion } from "../mapModel";
+import {
+  type GhostNode,
+  type InspectorCopy,
+  type MapContext,
+  type MapDecorator,
+  type MapRegion,
+  isIntroducedAccount,
+} from "../mapModel";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
   type Point,
+  RECIPIENT_STAND_IN_NODE_ID,
   edgeId,
   memberNodeId,
 } from "~~/services/liveMap/model/graph";
@@ -208,12 +216,18 @@ export const decorateDemoMap: MapDecorator = context => {
   // account's line to the registry is drawn.
   const hiddenEdges = coSigners.flatMap(([nodeId]) => (nodeId ? [edgeId(nodeId, EXECUTOR_NODE_ID)] : []));
 
-  // The demo's only transfer pays the supplier, so the account a pending transfer names is it.
-  const recipient = context.nodes.find(node => node.role === "external" && node.id !== MAP_ENTITY_IDS.router);
+  // The Supplier is always drawn, as the stand-in for whoever a transfer pays. An account a proposal or
+  // the draft pays that the map has no node for takes its place, name and words, with its id underneath,
+  // so exactly one Supplier is drawn and it is the real one. One the map has — Alice, Bob, the
+  // treasury — is paid on its own node, and the Supplier stays unlit.
+  const recipient = context.nodes.find(node => node.role === "external" && isIntroducedAccount(node));
+  const supplier = recipient?.id ?? RECIPIENT_STAND_IN_NODE_ID;
+  positions[supplier] = SUPPLIER_SLOT;
+  labels[supplier] = DEMO_NAMES.supplier;
+  inspector.nodes[supplier] = SUPPLIER_COPY;
   if (recipient) {
-    positions[recipient.id] = SUPPLIER_SLOT;
-    labels[recipient.id] = DEMO_NAMES.supplier;
-    inspector.nodes[recipient.id] = SUPPLIER_COPY;
+    captions[recipient.id] = recipient.ref;
+    hiddenNodes.push(RECIPIENT_STAND_IN_NODE_ID);
   }
 
   return {
@@ -225,5 +239,6 @@ export const decorateDemoMap: MapDecorator = context => {
     regions: REGIONS,
     inspector,
     hidden: { nodes: hiddenNodes, edges: hiddenEdges },
+    recipientStandIn: true,
   };
 };

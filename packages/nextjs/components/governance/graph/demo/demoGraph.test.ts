@@ -3,15 +3,21 @@ import { KEY_A, KEY_B, KEY_C, MAP_SNAPSHOT, MAP_SNAPSHOT_WITH_OPERATOR, pendingT
 import { composeMap } from "../mapModel";
 import { DEMO_NAMES, decorateDemoMap } from "./demoGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { GraphSnapshot } from "~~/services/liveMap/model/graph";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
+  RECIPIENT_STAND_IN_NODE_ID,
   edgeId,
   externalNodeId,
   memberNodeId,
   proposerNodeId,
 } from "~~/services/liveMap/model/graph";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
+import { world } from "~~/services/liveMap/motion/motionFixtures";
+import type { PreviewContext } from "~~/services/liveMap/preview/kinds/previewKind";
+import { previewFrameOf } from "~~/services/liveMap/preview/previewFrame";
+import { type MapPreview, selectedPreviewOf, sketchPreviewOf } from "~~/services/liveMap/preview/previewSource";
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID", "0.0.4102");
@@ -232,5 +238,82 @@ describe("decorateDemoMap with the co-signing agent's key", () => {
     const map = composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: KEY_C });
     expect(labelOf(map, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
     expect(positionOf(map, memberNodeId(KEY_C))).toEqual({ x: 90, y: 480 });
+  });
+});
+
+describe("decorateDemoMap's supplier", () => {
+  const SUPPLIER_SLOT = { x: 300, y: 590 };
+  const ALICE_ACCOUNT = "0.0.4102";
+  const CONTEXT: PreviewContext = {
+    council: MAP_SNAPSHOT.council,
+    vaultReleaseOf: () => null,
+    tokenOf: () => null,
+  };
+  const SHOWN = { ...world([], MAP_SNAPSHOT.council), proposers: MAP_SNAPSHOT.proposers };
+  const payment = (recipient: string) => pendingTransferTo(recipient);
+  const draftTo = (recipient: string): MapPreview => ({
+    key: "draft:treasuryTransfer",
+    operation: payment(recipient).operation as MapPreview["operation"],
+    mode: "live",
+    proposerAccountId: null,
+    progress: null,
+  });
+
+  /** The demo map with `preview` drawn into it, and the frame the pane would show for it. */
+  function shown(preview: MapPreview, snapshot: GraphSnapshot = MAP_SNAPSHOT) {
+    const map = composeMap({ ...snapshot, previewed: preview.operation }, decorateDemoMap);
+    return { map, frame: previewFrameOf(preview, { graph: map.graph, world: SHOWN, context: CONTEXT }) };
+  }
+  const nodeAt = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id);
+  const atSlot = (map: ReturnType<typeof composeMap>) =>
+    map.graph.nodes.filter(node => node.position.x === SUPPLIER_SLOT.x && node.position.y === SUPPLIER_SLOT.y);
+
+  it("is always drawn at its slot, named and explained like the other nodes, and nothing reaches it at rest", () => {
+    const map = composeMap(MAP_SNAPSHOT, decorateDemoMap);
+    expect(nodeAt(map, RECIPIENT_STAND_IN_NODE_ID)).toMatchObject({
+      label: DEMO_NAMES.supplier,
+      position: SUPPLIER_SLOT,
+    });
+    expect(map.inspector.nodes[RECIPIENT_STAND_IN_NODE_ID]).toContain("native scheduled transfer");
+    expect(map.graph.edges.some(edge => edge.to === RECIPIENT_STAND_IN_NODE_ID)).toBe(false);
+  });
+
+  it("lights up for a picked payment, which would receive a payment", () => {
+    const sketch = sketchPreviewOf(
+      "treasuryTransfer",
+      { governanceAccountId: MAP_SNAPSHOT.governanceAccountId, entities: MAP_SNAPSHOT.entities, agentSeat: null },
+      null,
+    );
+    const { frame } = shown(sketch);
+    expect(frame.phases).toEqual({ [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID)]: "preview" });
+    expect(frame.labels).toEqual({ [RECIPIENT_STAND_IN_NODE_ID]: "would receive a payment" });
+  });
+
+  it("stands for an account the map does not have, and shows its id", () => {
+    const { map, frame } = shown(draftTo("0.0.7000"));
+    const recipient = externalNodeId("0.0.7000");
+    expect(atSlot(map).map(node => node.id)).toEqual([recipient]);
+    expect(nodeAt(map, recipient)?.label).toBe(DEMO_NAMES.supplier);
+    expect(map.captions[recipient]).toBe("0.0.7000");
+    expect(frame.labels).toEqual({ [recipient]: "would receive 40 ℏ" });
+  });
+
+  it("stays unlit when the payment goes to someone already on the map: that node is lit instead", () => {
+    const { map, frame } = shown(draftTo(ALICE_ACCOUNT));
+    const alice = memberNodeId(KEY_B);
+    expect(nodeAt(map, alice)?.label).toBe(DEMO_NAMES.alice);
+    expect(map.graph.nodes.some(node => node.id === externalNodeId(ALICE_ACCOUNT))).toBe(false);
+    expect(frame.phases).toEqual({ [edgeId(GOVERNANCE_ACCOUNT_NODE_ID, alice)]: "preview" });
+    expect(frame.labels).toEqual({ [alice]: "would receive 40 ℏ" });
+    expect(frame.scope?.nodeIds).not.toContain(RECIPIENT_STAND_IN_NODE_ID);
+  });
+
+  it("stays unlit for a selected pending payment to someone on the map", () => {
+    const pending = payment(ALICE_ACCOUNT);
+    const selected = selectedPreviewOf(pending, 2) as MapPreview;
+    const { map, frame } = shown(selected, { ...MAP_SNAPSHOT, proposals: [pending] });
+    expect(nodeAt(map, RECIPIENT_STAND_IN_NODE_ID)?.label).toBe(DEMO_NAMES.supplier);
+    expect(frame.labels).toEqual({ [memberNodeId(KEY_B)]: "would receive 40 ℏ" });
+    expect(frame.scope?.nodeIds).not.toContain(RECIPIENT_STAND_IN_NODE_ID);
   });
 });
