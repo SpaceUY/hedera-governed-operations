@@ -13,6 +13,7 @@ import {
   type MapRegion,
   agentSeatNodeOf,
 } from "../mapModel";
+import { getDemoAccountIds } from "~~/config/governanceConfig";
 import {
   EXECUTOR_NODE_ID,
   GOVERNANCE_ACCOUNT_NODE_ID,
@@ -126,14 +127,6 @@ const AGENT_SEAT_COPY =
 const SUPPLIER_COPY =
   "An outside account. The treasury pays it with a native scheduled transfer: same threshold, but no contract, no registry entry and no event.";
 
-/** The demo accounts `yarn setup` writes; literal member expressions so Next.js inlines them. */
-function demoAccountIds(): { alice?: string; bob?: string } {
-  return {
-    alice: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID || undefined,
-    bob: process.env.NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID || undefined,
-  };
-}
-
 /**
  * The seats in the order the council column shows them. Alice and Bob are proposers too, so their
  * keys come with the proposer list; the one remaining seat is the council account `yarn setup` was
@@ -141,7 +134,7 @@ function demoAccountIds(): { alice?: string; bob?: string } {
  */
 function demoSeats(context: MapContext): { council?: string; alice?: string; bob?: string; agent?: string } {
   const { nodes, proposers } = context;
-  const ids = demoAccountIds();
+  const ids = getDemoAccountIds();
   const seatOf = (accountId: string | undefined) => {
     const key = proposers.find(proposer => proposer.accountId === accountId)?.key;
     return key && nodes.some(node => node.id === memberNodeId(key)) ? memberNodeId(key) : undefined;
