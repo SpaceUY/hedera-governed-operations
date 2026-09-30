@@ -34,13 +34,15 @@
 
 /*
   Colours that differ per theme beyond daisyUI's own: the governance prototype's darker ink for text in
-  the success and warning tones and for a link under the pointer, so both stay readable on a light surface.
+  the success and warning tones and for a link under the pointer, so both stay readable on a light surface,
+  and the violet ink of the map's "would ..." words, lighter in dark and deeper in light.
   `inline` makes each utility read the variable, which the theme selectors below set.
 */
 @theme inline {
   --color-success-ink: var(--success-ink);
   --color-warning-ink: var(--warning-ink);
   --color-link-hover: var(--link-hover);
+  --color-map-preview-ink: var(--map-preview-ink);
 }
 
 @layer base {
@@ -49,17 +51,20 @@
     --success-ink: #0b7d59;
     --warning-ink: #8a5a00;
     --link-hover: #1f6fcf;
+    --map-preview-ink: #6a3fe0;
   }
   [data-theme="dark"] {
     --success-ink: var(--color-success);
     --warning-ink: var(--color-warning);
     --link-hover: var(--color-accent);
+    --map-preview-ink: #b39cf7;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
       --success-ink: var(--color-success);
       --warning-ink: var(--color-warning);
       --link-hover: var(--color-accent);
+      --map-preview-ink: #b39cf7;
     }
   }
 }
@@ -226,6 +231,23 @@ textarea.textarea {
   --animate-map-ring-snap: map-ring-snap 260ms ease-out;
   --animate-map-plate-flash: map-plate-flash 400ms ease-out;
   --animate-map-shake: map-shake 180ms ease-in-out 3;
+  --animate-map-draw: map-draw 600ms ease-out both;
+  --animate-map-fade-in: map-fade-in 320ms ease both;
+
+  /* A preview's path draws itself from its start: a mask path 100 long whose dash slides into view. */
+  @keyframes map-draw {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes map-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
 
   /* A comet on a path 100 long: a head dash of 12 from just before the start to just past the end,
      and a faint tail of 30 whose front keeps pace with the head's. Coming back, head and tail share
@@ -316,6 +338,42 @@ textarea.textarea {
 @media (prefers-reduced-motion: reduce) {
   .map-edge-line,
   .map-edge-line[data-phase="rest"] {
+    transition: none;
+  }
+}
+
+/*
+  Previewing an operation: what it does not touch fades to 35% in 320 ms, its path draws in over
+  600 ms (`animate-map-draw` on the mask, full at once under reduced motion since the mask's dash
+  covers the whole path at rest), and the target's caption crossfades to what would happen in 320 ms.
+*/
+.map-scope {
+  transition: opacity 320ms ease;
+}
+
+.map-scope[data-dimmed="true"] {
+  opacity: 0.35;
+}
+
+.map-crossfade {
+  transition: opacity 320ms ease;
+}
+
+.map-draw {
+  stroke-dasharray: 100 100;
+}
+
+.map-edge-line[data-phase="preview"] {
+  stroke-width: 2.2;
+}
+
+.map-edge-line[data-phase="void"] {
+  stroke-width: 1.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-scope,
+  .map-crossfade {
     transition: none;
   }
 }

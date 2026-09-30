@@ -1,8 +1,9 @@
 "use client";
 
 import { MapItem } from "./MapItem";
+import { NodeCaption } from "./NodeCaption";
 import { ACCOUNT_RADIUS, FOCUS_GAP, monogramOf } from "./geometry";
-import { FOCUS_RING_CLASS, type NodeProps, plateStrokeClass, translate } from "./nodeProps";
+import { FOCUS_RING_CLASS, type NodeProps, nodeAccessibleName, plateStrokeClass, translate } from "./nodeProps";
 
 /** `ghost`: an account the map shows although the ledger connects it to nothing yet. */
 export type AccountTone = "account" | "ghost";
@@ -16,7 +17,7 @@ export function AccountNode({
   return (
     <MapItem
       item={{ kind: "node", id: node.id }}
-      label={`${node.label}, ${node.caption}`}
+      label={nodeAccessibleName(node)}
       focus={node.focus}
       activation={node.activation}
       transform={translate(node.position)}
@@ -34,9 +35,7 @@ export function AccountNode({
         <text y={ACCOUNT_RADIUS + 22} textAnchor="middle" className="fill-base-content text-map-label font-semibold">
           {node.label}
         </text>
-        <text y={ACCOUNT_RADIUS + 39} textAnchor="middle" className="fill-base-content/60 text-map-caption">
-          {node.caption}
-        </text>
+        <NodeCaption y={ACCOUNT_RADIUS + 39} caption={node.caption} preview={node.preview} drawKey={node.drawKey} />
       </g>
     </MapItem>
   );

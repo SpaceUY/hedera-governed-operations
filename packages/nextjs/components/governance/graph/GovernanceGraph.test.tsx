@@ -244,3 +244,70 @@ describe("GovernanceGraph", () => {
     expect(glow?.querySelector("circle")?.getAttribute("class")).toBe("fill-primary/2 dark:fill-primary/4");
   });
 });
+
+describe("a preview", () => {
+  const previewFrame = {
+    ...REST_FRAME,
+    phases: { [TRANSFER_EDGE]: "preview" as const },
+    scope: { nodeIds: [GOVERNANCE_ACCOUNT_NODE_ID, externalNodeId(RECIPIENT)], edgeIds: [TRANSFER_EDGE] },
+    labels: { [externalNodeId(RECIPIENT)]: "would receive 40 ℏ" },
+    drawKey: "schedule:0.0.9000",
+  };
+
+  it("dims every node and edge outside its scope, and nothing inside", () => {
+    const { container } = renderGraph({ frame: previewFrame });
+    const dimmed = (id: string) => nodeElement(container, id)?.closest("[data-dimmed]")?.getAttribute("data-dimmed");
+    expect(dimmed(MAP_ENTITY_IDS.vault)).toBe("true");
+    expect(dimmed(GOVERNANCE_ACCOUNT_NODE_ID)).toBe("false");
+    expect(dimmed(externalNodeId(RECIPIENT))).toBe("false");
+  });
+
+  it("dims nothing at rest", () => {
+    const { container } = renderGraph();
+    expect(container.querySelectorAll('[data-dimmed="true"]')).toHaveLength(0);
+  });
+
+  it("draws its dashed line through a mask that only animates when motion is allowed", () => {
+    const { container } = renderGraph({ frame: previewFrame });
+    const line = container.querySelector('[data-phase="preview"]');
+    const maskUrl = line?.getAttribute("mask");
+    expect(maskUrl).toMatch(/^url\(#map-draw-[\w-]+\)$/);
+    const draw = container.querySelector(".map-draw");
+    expect(draw?.getAttribute("pathLength")).toBe("100");
+    expect(draw?.getAttribute("class")).toContain("motion-safe:animate-map-draw");
+    expect(draw?.getAttribute("class")).not.toMatch(/(^|\s)animate-map-draw/);
+  });
+
+  it("restarts the drawing for a new preview and not for the same one", () => {
+    const { container, rerender } = renderGraph({ frame: previewFrame });
+    const first = container.querySelector(".map-draw");
+    const composed = composeMap({ ...MAP_SNAPSHOT, proposals: [pendingTransferTo(RECIPIENT)] });
+    rerender(<GovernanceGraph {...composed} council={MAP_SNAPSHOT.council} frame={{ ...previewFrame }} />);
+    expect(container.querySelector(".map-draw")).toBe(first);
+    rerender(
+      <GovernanceGraph
+        {...composed}
+        council={MAP_SNAPSHOT.council}
+        frame={{ ...previewFrame, drawKey: "draft:treasuryTransfer" }}
+      />,
+    );
+    expect(container.querySelector(".map-draw")).not.toBe(first);
+  });
+
+  it("puts the words on the target, fades its caption out, and says them to a screen reader", () => {
+    const { container } = renderGraph({ frame: previewFrame });
+    const target = nodeElement(container, externalNodeId(RECIPIENT));
+    expect(target?.querySelector("[data-preview-label]")?.textContent).toBe("would receive 40 ℏ");
+    expect(target?.getAttribute("aria-label")).toMatch(/, would receive 40 ℏ$/);
+    expect(target?.querySelector(".map-crossfade")?.getAttribute("class")).toContain("opacity-0");
+  });
+
+  it("draws a path never taken as static muted dashes", () => {
+    const { container } = renderGraph({
+      frame: { ...previewFrame, phases: { [TRANSFER_EDGE]: "void" }, drawKey: null },
+    });
+    const line = container.querySelector('[data-phase="void"]');
+    expect(line?.getAttribute("class")).toContain("stroke-base-content/60");
+    expect(line?.getAttribute("mask")).toBeNull();
+  });
+});

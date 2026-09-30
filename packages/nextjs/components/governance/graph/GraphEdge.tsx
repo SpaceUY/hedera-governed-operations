@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { type MapActivation, MapItem } from "./MapItem";
 import { type EdgeRoute, routePath } from "./geometry";
 import type { RovingFocus } from "./useRovingFocus";
@@ -24,6 +25,9 @@ function dashOf(kind: EdgeKind, phase: EdgePhase): string {
   return "";
 }
 
+/** Wide enough to cover the line under the pointer (2.6) with the round caps. */
+const DRAW_MASK_WIDTH = 8;
+
 type GraphEdgeProps = {
   id: string;
   kind: EdgeKind;
@@ -34,6 +38,8 @@ type GraphEdgeProps = {
   label: string;
   focus: RovingFocus;
   activation?: MapActivation;
+  /** Changes when a new preview starts: the dashed line draws itself again. */
+  drawKey?: string | null;
 };
 
 /**
@@ -41,8 +47,11 @@ type GraphEdgeProps = {
  * the edge only renders it; at rest it is grey, and the coloured phases are meant to pass. It carries
  * no words on the map: what it means is its accessible name, and the inspector's once it is selected.
  */
-export function GraphEdge({ id, kind, phase, route, label, focus, activation }: GraphEdgeProps) {
+export function GraphEdge({ id, kind, phase, route, label, focus, activation, drawKey = null }: GraphEdgeProps) {
   const path = routePath(route);
+  // useId returns characters a url(#...) reference would need escaped.
+  const maskId = `map-draw-${useId().replace(/[^\w-]/g, "")}`;
+  const drawing = phase === "preview";
 
   return (
     <MapItem item={{ kind: "edge", id }} label={label} focus={focus} activation={activation}>
@@ -53,11 +62,27 @@ export function GraphEdge({ id, kind, phase, route, label, focus, activation }: 
         strokeWidth={6}
         className="stroke-primary/40 opacity-0 group-focus-visible:opacity-100 group-aria-expanded:opacity-100"
       />
+      {drawing && (
+        // User-space units: a horizontal edge has a bounding box of zero height, which would hide it.
+        <mask id={maskId} maskUnits="userSpaceOnUse">
+          {/* White is the mask's luminance, not a colour anyone sees. */}
+          <path
+            key={drawKey ?? "preview"}
+            d={path}
+            fill="none"
+            pathLength={100}
+            strokeWidth={DRAW_MASK_WIDTH}
+            strokeLinecap="round"
+            className="map-draw stroke-white motion-safe:animate-map-draw"
+          />
+        </mask>
+      )}
       <path
         d={path}
         fill="none"
         strokeLinecap="round"
         data-phase={phase}
+        mask={drawing ? `url(#${maskId})` : undefined}
         // `map-edge-line` (globals.css): 1.6 wide, 2.6 under the pointer, keyboard focus or selection,
         // and a quick colour change into a phase but a slow relax back to rest.
         className={`map-edge-line ${PHASE_STROKE[phase]} ${dashOf(kind, phase)}`}

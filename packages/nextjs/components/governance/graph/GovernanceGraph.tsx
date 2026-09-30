@@ -75,7 +75,11 @@ export function GovernanceGraph({
     focus,
     activation,
     highlight: frame.highlights[node.id],
+    preview: frame.labels[node.id],
+    drawKey: frame.drawKey,
   });
+
+  const isDimmed = (ids: readonly string[], id: string): boolean => frame.scope !== null && !ids.includes(id);
 
   const drawNode = (node: GraphNode) => {
     switch (node.role) {
@@ -150,20 +154,26 @@ export function GovernanceGraph({
           const route = routeOnMap(edge, nodesById);
           if (!from || !to || !route) return null;
           return (
-            <GraphEdge
+            <g
               key={edge.id}
-              id={edge.id}
-              kind={edge.kind}
-              phase={phases[edge.id] ?? "rest"}
-              route={route}
-              label={mapEdgeLabel(
-                edge.kind,
-                { from: from.label, to: to.label },
-                mapEdgeCaption(edge.kind, from.role, to.role),
-              )}
-              focus={focus}
-              activation={activation}
-            />
+              className="map-scope"
+              data-dimmed={isDimmed(frame.scope?.edgeIds ?? [], edge.id) ? "true" : "false"}
+            >
+              <GraphEdge
+                id={edge.id}
+                kind={edge.kind}
+                phase={phases[edge.id] ?? "rest"}
+                route={route}
+                label={mapEdgeLabel(
+                  edge.kind,
+                  { from: from.label, to: to.label },
+                  mapEdgeCaption(edge.kind, from.role, to.role),
+                )}
+                focus={focus}
+                activation={activation}
+                drawKey={frame.drawKey}
+              />
+            </g>
           );
         })}
         {frame.comets.map(comet => {
@@ -174,12 +184,18 @@ export function GovernanceGraph({
         {graph.nodes.map(node => (
           // A node that failed to take an operation shakes; the group keeps the shake off the node's
           // own position, which is an SVG transform.
-          <g key={node.id} className={frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : undefined}>
+          <g
+            key={node.id}
+            data-dimmed={isDimmed(frame.scope?.nodeIds ?? [], node.id) ? "true" : "false"}
+            className={`map-scope ${frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : ""}`}
+          >
             {drawNode(node)}
           </g>
         ))}
         {ghosts.map(ghost => (
-          <AccountNode key={ghost.id} {...ghost} focus={focus} activation={activation} tone="ghost" />
+          <g key={ghost.id} className="map-scope" data-dimmed={frame.scope !== null ? "true" : "false"}>
+            <AccountNode {...ghost} focus={focus} activation={activation} tone="ghost" />
+          </g>
         ))}
       </svg>
       <Legend />
