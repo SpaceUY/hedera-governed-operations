@@ -19,6 +19,7 @@ const signerState = (overrides: Partial<ReturnType<typeof useHederaSigner>>) =>
     isInitializing: false,
     isBusy: false,
     signerKind: "hashpack",
+    walletName: null,
     disconnect: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }) as ReturnType<typeof useHederaSigner>;
@@ -43,12 +44,13 @@ describe("WalletConnectButton", () => {
     expect(open).toHaveBeenCalledWith({ view: "Connect", namespace: hederaNamespace });
   });
 
-  it("shows the full account id of a HashPack session without a badge", () => {
-    mockedUseHederaSigner.mockReturnValue(connected());
+  it("shows the full account id and the wallet's name of a HashPack session without a badge", () => {
+    mockedUseHederaSigner.mockReturnValue(connected({ walletName: "HashPack" }));
 
     render(<WalletConnectButton />);
 
     expect(screen.getByText(ACCOUNT_ID)).toBeDefined();
+    expect(screen.getByText("HashPack")).toBeDefined();
     expect(screen.queryByText("test signer")).toBeNull();
   });
 
