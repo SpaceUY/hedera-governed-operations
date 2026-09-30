@@ -90,6 +90,42 @@ describe("awaitsSignatureFrom", () => {
     const facts = { council, operation: TRANSFER, progress: progressOf([]), incomingProgress: null };
     expect(awaitsSignatureFrom(CAROL, facts)).toBe(false);
   });
+
+  it("no longer waits on a leaving member once the current council has met its threshold", () => {
+    const leaving = { threshold: 2, memberKeys: [OWNER, CAROL] };
+    const facts = {
+      council: { threshold: 2, memberKeys: [OWNER, ALICE, BOB] },
+      operation: { ...rotation, council: leaving },
+      progress: progressOf([OWNER, ALICE]),
+      incomingProgress: progressOf([OWNER]),
+    };
+    expect(awaitsSignatureFrom(BOB, facts)).toBe(false);
+  });
+
+  it("still waits on a member of both councils while the other council needs signatures", () => {
+    const facts = {
+      council: { threshold: 2, memberKeys: [OWNER, ALICE, BOB] },
+      operation: rotation,
+      progress: progressOf([OWNER, ALICE]),
+      incomingProgress: progressOf([OWNER]),
+    };
+    expect(awaitsSignatureFrom(BOB, facts)).toBe(true);
+  });
+
+  it("no longer waits on a joining member once the incoming council has met its threshold", () => {
+    const facts = {
+      council: { threshold: 2, memberKeys: [OWNER, ALICE] },
+      operation: rotation,
+      progress: progressOf([OWNER]),
+      incomingProgress: progressOf([OWNER, BOB]),
+    };
+    expect(awaitsSignatureFrom(CAROL, facts)).toBe(false);
+  });
+
+  it("waits on nobody while a proposal whose threshold is met waits for the network to run it", () => {
+    const facts = { council, operation: TRANSFER, progress: progressOf([OWNER, ALICE]), incomingProgress: null };
+    expect(awaitsSignatureFrom(BOB, facts)).toBe(false);
+  });
 });
 
 describe("demoSeatPlan", () => {

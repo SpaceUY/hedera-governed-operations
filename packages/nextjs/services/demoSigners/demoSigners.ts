@@ -64,12 +64,17 @@ function councilSides({ council, progress, incomingProgress, operation }: Signat
 
 /**
  * Whether a signature by this key would still count: the key holds a seat on a council the proposal
- * waits for, and that council has not seen it yet. Counting members rather than rows is what
- * `countThresholdSignatures` already did to produce `signedBy`.
+ * still waits for — one short of its threshold — and that council has not seen it yet. A council that
+ * has met its threshold needs nothing more, so a member only it seats would pay for a signature that
+ * changes nothing, including while the network has yet to run a proposal whose threshold is met.
+ * Counting members rather than rows is what `countThresholdSignatures` already did to produce `signedBy`.
  */
 export function awaitsSignatureFrom(publicKey: string, facts: SignatureFacts): boolean {
   return councilSides(facts).some(
-    ({ council, progress }) => council.memberKeys.includes(publicKey) && !progress.signedBy.includes(publicKey),
+    ({ council, progress }) =>
+      progress.signed < progress.threshold &&
+      council.memberKeys.includes(publicKey) &&
+      !progress.signedBy.includes(publicKey),
   );
 }
 

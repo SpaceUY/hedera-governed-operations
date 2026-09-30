@@ -479,6 +479,20 @@ describe("POST /api/demo/signers", () => {
     await refusal("alice", 409);
   });
 
+  it("refuses a member whose council has met its threshold while the network has yet to run it", async () => {
+    writeState();
+    const signedBy = (key: string) => ({
+      consensus_timestamp: "1.0",
+      public_key_prefix: key,
+      signature: "…",
+      type: "ECDSA_SECP256K1",
+    });
+    vi.mocked(fetchSchedule).mockResolvedValue(
+      pendingProposal({ signatures: [signedBy(OTHER_MEMBER), signedBy(rawOf(keys.alice))] }),
+    );
+    await refusal("bob", 409);
+  });
+
   it("refuses when the member no longer holds a seat", async () => {
     writeState();
     vi.mocked(fetchCouncilKey).mockResolvedValue({ threshold: 1, memberKeys: [OTHER_MEMBER] });
