@@ -18,7 +18,7 @@
  * bodies that carry more than one operation are checked by re-encoding what was understood and
  * comparing it to what arrived.
  */
-import { councilKeyOf } from "./council";
+import { type CouncilKey, councilKeyOf, governanceAccountMemo } from "./council";
 import type {
   HbarTransfer,
   RegistryOperation,
@@ -168,19 +168,30 @@ function decodeTransfer(transfer: proto.ICryptoTransferTransactionBody): Schedul
 }
 
 /**
- * True when the update changes nothing beyond the account it names and its key. `CryptoUpdate`
- * carries around twenty fields — the account's own expiry, its automatic association slots, whether
- * it requires a receiver signature, its staking — and a rotation that quietly also set one of those
- * would be approved as "changes who approves". Re-encoding the two fields that were read and
- * comparing the bytes catches every one of them, including any the protocol adds later.
+ * True when the update changes nothing beyond the account it names, its key and its memo.
+ * `CryptoUpdate` carries around twenty fields — the account's own expiry, its automatic association
+ * slots, whether it requires a receiver signature, its staking — and a rotation that quietly also set
+ * one of those would be approved as "changes who approves". Re-encoding the three fields that were
+ * read and comparing the bytes catches every one of them, including any the protocol adds later.
  */
-function changesOnlyTheKey(update: proto.ICryptoUpdateTransactionBody): boolean {
+function changesOnlyTheCouncil(update: proto.ICryptoUpdateTransactionBody): boolean {
   const arrived = proto.CryptoUpdateTransactionBody.encode(update).finish();
   const understood = proto.CryptoUpdateTransactionBody.encode({
     accountIDToUpdate: update.accountIDToUpdate,
     key: update.key,
+    memo: update.memo,
   }).finish();
   return Buffer.from(arrived).equals(Buffer.from(understood));
+}
+
+/**
+ * A rotation may rewrite the account's memo, and `buildCouncilRotation` does, but only to the rule
+ * of the council it proposes: any other text would be a rename riding along with the key. A rotation
+ * that leaves the memo alone — one scheduled before rotations rewrote it — is still a rotation.
+ */
+function memoFollowsCouncil(memo: proto.ICryptoUpdateTransactionBody["memo"], council: CouncilKey): boolean {
+  if (memo == null) return true;
+  return memo.value === governanceAccountMemo(council.threshold, council.memberKeys.length);
 }
 
 function decodeAccountUpdate(update: proto.ICryptoUpdateTransactionBody): ScheduledOperation {
@@ -188,22 +199,27 @@ function decodeAccountUpdate(update: proto.ICryptoUpdateTransactionBody): Schedu
   if (!update.key) {
     return unrecognized("the account update changes something other than the key, so it rotates no council");
   }
-  if (!changesOnlyTheKey(update)) {
+  if (!changesOnlyTheCouncil(update)) {
     return unrecognized(
       "the account update changes the key and something else about the account as well, so describing it as a " +
         "council rotation would hide the rest",
     );
   }
 
+  let council: CouncilKey;
   try {
-    return {
-      kind: "councilRotation",
-      accountId: accountId(update.accountIDToUpdate),
-      council: councilKeyOf(update.key),
-    };
+    council = councilKeyOf(update.key);
   } catch (error) {
     return unrecognized(`the proposed key is not a council: ${(error as Error).message}`);
   }
+  if (!memoFollowsCouncil(update.memo, council)) {
+    return unrecognized(
+      `the account update also sets the account's memo to "${update.memo?.value ?? ""}", which does not name the ` +
+        "council it proposes",
+    );
+  }
+
+  return { kind: "councilRotation", accountId: accountId(update.accountIDToUpdate), council };
 }
 
 /**

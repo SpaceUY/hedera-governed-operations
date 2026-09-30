@@ -220,6 +220,18 @@ describe("decodeScheduledOperation on bodies it cannot describe", () => {
     expect(reasonOf(body)).toContain("something else about the account");
   });
 
+  it("reads a rotation whose memo names the council it proposes", () => {
+    const body = scheduledBodyOf(rotationOf().setAccountMemo("scaffold-hbar governance 2-of-2"));
+
+    expect(decodeScheduledOperation(body)).toMatchObject({ kind: "councilRotation", council: { threshold: 2 } });
+  });
+
+  it("refuses a rotation that also renames the account to something else", () => {
+    const body = scheduledBodyOf(rotationOf().setAccountMemo("scaffold-hbar governance 1-of-2"));
+
+    expect(reasonOf(body)).toContain("does not name the council");
+  });
+
   it("still reads a rotation that changes nothing but the key", () => {
     expect(decodeScheduledOperation(scheduledBodyOf(rotationOf()))).toMatchObject({
       kind: "councilRotation",

@@ -35,7 +35,7 @@ import { createClient } from "./setup/hedera";
 import { accountIdentity } from "./setup/hederaGovernance";
 import { AGENT_ACCOUNT, type DemoAccount, loadState } from "./setup/state";
 import { AccountId, AccountUpdateTransaction, KeyList, PrivateKey, PublicKey } from "@hiero-ledger/sdk";
-import { councilHoldsKey, fetchCouncilKey } from "@sh/core/governance/council";
+import { councilHoldsKey, fetchCouncilKey, governanceAccountMemo } from "@sh/core/governance/council";
 import { isMirrorNotFound } from "@sh/core/mirror";
 import { config as loadDotenv } from "dotenv";
 import { existsSync, readFileSync } from "node:fs";
@@ -123,6 +123,7 @@ async function main(): Promise<void> {
     const update = await new AccountUpdateTransaction()
       .setAccountId(AccountId.fromString(state.governance.accountId))
       .setKey(seated)
+      .setAccountMemo(governanceAccountMemo(GOVERNANCE_THRESHOLD, memberKeys.length))
       .freezeWith(client);
     for (const member of [alice, bob]) await update.sign(PrivateKey.fromStringDer(member.privateKey));
 

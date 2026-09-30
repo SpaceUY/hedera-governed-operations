@@ -107,6 +107,16 @@ export function councilKeyOf(key: proto.IKey): CouncilKey {
 }
 
 /**
+ * The governance account's memo, which names its council's rule for whoever finds the account on
+ * HashScan. `yarn setup` writes it when it creates the account and every rotation rewrites it in the
+ * same update that replaces the key; a memo written once would keep naming the first council after
+ * the ledger had moved on.
+ */
+export function governanceAccountMemo(threshold: number, memberCount: number): string {
+  return `scaffold-hbar governance ${threshold}-of-${memberCount}`;
+}
+
+/**
  * Reads the council out of the governance account's key. Throws when the account holds a single
  * key: one signature would then be enough to move the treasury, which is the setup this whole
  * mechanism exists to avoid, so failing loudly beats showing "1 of 1".
