@@ -26,6 +26,13 @@ export function useUnseatedAgent(
   const account = useAccount(accountId, { network });
   return useMemo(() => {
     if (!seat || !accountId || !council) return null;
-    return { seat, check: agentSeatOf(accountId, { account: account.data, error: account.error }, council) };
+    return {
+      seat,
+      check: agentSeatOf(
+        accountId,
+        { account: account.data, error: account.error },
+        { council, configuredAgentId: accountId },
+      ),
+    };
   }, [seat, accountId, council, account.data, account.error]);
 }

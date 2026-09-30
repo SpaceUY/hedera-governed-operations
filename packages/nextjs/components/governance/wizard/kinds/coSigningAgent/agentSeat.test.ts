@@ -17,6 +17,7 @@ const seatOf = (publicKey: PublicKey) => memberKeyOfAccount(ecdsaKey(publicKey))
 const members = [PrivateKey.generateECDSA().publicKey, PrivateKey.generateECDSA().publicKey];
 const COUNCIL: CouncilKey = { threshold: 2, memberKeys: [...members.map(seatOf)] };
 const agentKey = PrivateKey.generateECDSA().publicKey;
+const SEATING = { council: COUNCIL, configuredAgentId: null };
 
 const found = (key: { _type: string; key: string } | null) => ({
   account: { account: AGENT, key } as MirrorAccount,
@@ -25,34 +26,42 @@ const found = (key: { _type: string; key: string } | null) => ({
 
 describe("agentSeatOf", () => {
   it("seats an existing ECDSA account that holds no seat yet", () => {
-    const seat = agentSeatOf(AGENT, found(ecdsaKey(agentKey)), COUNCIL);
+    const seat = agentSeatOf(AGENT, found(ecdsaKey(agentKey)), SEATING);
     if (seat.status !== "found") throw new Error("expected a seat");
     expect(seat.key.toStringRaw()).toBe(agentKey.toStringRaw());
   });
 
   it("refuses an account that is a council member already", () => {
-    expect(agentSeatOf(AGENT, found(ecdsaKey(members[1])), COUNCIL)).toEqual({
+    expect(agentSeatOf(AGENT, found(ecdsaKey(members[1])), SEATING)).toEqual({
       status: "invalid",
       message: CO_SIGNING_AGENT_COPY.alreadyMember(AGENT),
     });
   });
 
+  it("says the configured agent is seated already rather than asking for another account", () => {
+    const seating = { council: COUNCIL, configuredAgentId: AGENT };
+    expect(agentSeatOf(AGENT, found(ecdsaKey(members[1])), seating)).toEqual({
+      status: "invalid",
+      message: CO_SIGNING_AGENT_COPY.agentSeated(AGENT),
+    });
+  });
+
   it("refuses an account whose key the agent could not sign with", () => {
     const ed25519 = { _type: "ED25519", key: PrivateKey.generateED25519().publicKey.toStringRaw() };
-    expect(agentSeatOf(AGENT, found(ed25519), COUNCIL)).toEqual({
+    expect(agentSeatOf(AGENT, found(ed25519), SEATING)).toEqual({
       status: "invalid",
       message: CO_SIGNING_AGENT_COPY.notEcdsa(AGENT, "ED25519"),
     });
-    expect(agentSeatOf(AGENT, found({ _type: "ProtobufEncoded", key: "0a05" }), COUNCIL)).toEqual({
+    expect(agentSeatOf(AGENT, found({ _type: "ProtobufEncoded", key: "0a05" }), SEATING)).toEqual({
       status: "invalid",
       message: CO_SIGNING_AGENT_COPY.notSingleKey(AGENT, "ProtobufEncoded"),
     });
   });
 
   it("waits on an empty or unread account and says when the input is not one", () => {
-    expect(agentSeatOf("", { account: undefined, error: null }, COUNCIL)).toEqual({ status: "empty" });
-    expect(agentSeatOf(AGENT, { account: undefined, error: null }, COUNCIL)).toEqual({ status: "empty" });
-    expect(agentSeatOf("agent", { account: undefined, error: null }, COUNCIL)).toEqual({
+    expect(agentSeatOf("", { account: undefined, error: null }, SEATING)).toEqual({ status: "empty" });
+    expect(agentSeatOf(AGENT, { account: undefined, error: null }, SEATING)).toEqual({ status: "empty" });
+    expect(agentSeatOf("agent", { account: undefined, error: null }, SEATING)).toEqual({
       status: "invalid",
       message: ACCOUNT_LOOKUP_LABELS.malformed("agent"),
     });

@@ -90,13 +90,13 @@ describe("AddAgentForm", () => {
     expect(result).toMatchObject({ status: "ready", draft: { kind: "councilRotation", path: "native" } });
   });
 
-  it("refuses a council member, with the reason", () => {
+  it("says the configured agent holds a seat already", () => {
     vi.mocked(useAccount).mockReturnValue({ data: { account: AGENT, key: bob }, error: null } as never);
     const onDraftChange = renderForm(AGENT);
 
     expect(onDraftChange.mock.lastCall?.[0]).toEqual({
       status: "invalid",
-      message: CO_SIGNING_AGENT_COPY.alreadyMember(AGENT),
+      message: CO_SIGNING_AGENT_COPY.agentSeated(AGENT),
     });
   });
 

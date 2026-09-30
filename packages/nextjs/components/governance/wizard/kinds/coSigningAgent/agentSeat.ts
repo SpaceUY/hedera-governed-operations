@@ -16,11 +16,18 @@ export type AgentSeat = { status: "found"; key: PublicKey } | Exclude<DraftResul
 
 type AgentAccountRead = { account: MirrorAccount | undefined; error: Error | null };
 
+/** The council the agent would join, and the agent account the configuration names, if any. */
+type SeatingContext = { council: CouncilKey; configuredAgentId: string | null };
+
 /**
  * The key the typed account would seat, or why it cannot be the agent's seat: not an account yet, not
- * one single ECDSA key, or a member of the council already.
+ * one single ECDSA key, or a member of the council already — said as such when it is the configured agent.
  */
-export function agentSeatOf(input: string, read: AgentAccountRead, council: CouncilKey): AgentSeat {
+export function agentSeatOf(
+  input: string,
+  read: AgentAccountRead,
+  { council, configuredAgentId }: SeatingContext,
+): AgentSeat {
   const lookup = accountLookup(input, { accountId: read.account?.account, error: read.error });
   if (lookup.status !== "found") return lookup;
 
@@ -33,7 +40,11 @@ export function agentSeatOf(input: string, read: AgentAccountRead, council: Coun
   }
   const seat = memberKeyOfAccount(accountKey);
   if (seat && council.memberKeys.includes(seat)) {
-    return { status: "invalid", message: CO_SIGNING_AGENT_COPY.alreadyMember(lookup.accountId) };
+    const message =
+      lookup.accountId === configuredAgentId
+        ? CO_SIGNING_AGENT_COPY.agentSeated(lookup.accountId)
+        : CO_SIGNING_AGENT_COPY.alreadyMember(lookup.accountId);
+    return { status: "invalid", message };
   }
   return { status: "found", key };
 }
