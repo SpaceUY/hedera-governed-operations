@@ -76,14 +76,14 @@ describe("composeMap with a connected account", () => {
     map.graph.nodes.find(node => node.id === id)?.label;
 
   it("names the seat whose key the connected proposer holds You, and no other", () => {
-    const map = composeMap(MAP_SNAPSHOT, undefined, "0.0.4102");
+    const map = composeMap(MAP_SNAPSHOT, undefined, { viewerAccountId: "0.0.4102" });
     expect(labelOf(map, memberNodeId(KEY_B))).toBe("You");
     expect(labelOf(map, memberNodeId(KEY_A))).toBe("0.0.4101");
   });
 
   it("names nobody You without a wallet, or for an account that holds no seat", () => {
     for (const viewer of [undefined, null, "0.0.9999", "0.0.4001"]) {
-      const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, undefined, viewer);
+      const map = composeMap(MAP_SNAPSHOT_WITH_OPERATOR, undefined, { viewerAccountId: viewer });
       expect(map.graph.nodes.some(node => node.label === "You")).toBe(false);
     }
   });
@@ -106,7 +106,7 @@ describe("memberNamesOf", () => {
       layout: { width: 400, height: 300, positions: {}, labels: { [memberNodeId(KEY_B)]: "Bob" } },
       captions: { [memberNodeId(KEY_B)]: "demo co-signer" },
     });
-    const names = memberNamesOf(composeMap(MAP_SNAPSHOT, decorate, "0.0.4101"));
+    const names = memberNamesOf(composeMap(MAP_SNAPSHOT, decorate, { viewerAccountId: "0.0.4101" }));
     expect(names[KEY_A]).toEqual({ name: "You", caption: undefined });
     expect(names[KEY_B]).toEqual({ name: "Bob", caption: "demo co-signer" });
     expect(names[KEY_C]).toEqual({ name: "0.0.4103", caption: undefined });

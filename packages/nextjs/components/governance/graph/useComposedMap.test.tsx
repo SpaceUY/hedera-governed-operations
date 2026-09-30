@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import { MapDecoratorProvider } from "./MapDecoratorContext";
 import { MAP_SNAPSHOT } from "./mapFixtures";
 import { composeMap } from "./mapModel";
 import { useComposedMap, useLatestComposedMap } from "./useComposedMap";
@@ -5,11 +7,13 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
+import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
 import type { DecodedOperation } from "~~/services/liveMap/model/proposalRoutes";
 
 vi.mock("~~/hooks/mirror/useProposals", () => ({ useProposals: vi.fn() }));
+vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: vi.fn() }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/scaffold-hbar", () => ({ useTargetNetwork: () => ({ targetNetwork: { id: 296 } }) }));
 vi.mock("~~/utils/scaffold-hbar/contract", () => ({ contracts: {} }));
@@ -34,10 +38,11 @@ const expectedMap = () =>
       ...WORLD,
     },
     undefined,
-    null,
+    { viewerAccountId: null },
   );
 
 beforeEach(() => {
+  vi.mocked(useCoSigningAgent).mockReturnValue(null);
   vi.mocked(useHederaSigner).mockReturnValue({ accountId: null } as ReturnType<typeof useHederaSigner>);
 });
 
@@ -58,6 +63,19 @@ describe("useComposedMap", () => {
     };
     const { result } = renderHook(() => useComposedMap(CONFIG, { ...WORLD, previewed }));
     expect(result.current?.graph.nodes.length).toBeGreaterThan(expectedMap().graph.nodes.length);
+  });
+
+  it("hands the co-signing agent's seat to the decoration, and none while the agent is unknown", () => {
+    const decorate = vi.fn(() => ({ layout: { width: 1, height: 1, positions: {} } }));
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MapDecoratorProvider decorate={decorate}>{children}</MapDecoratorProvider>
+    );
+    renderHook(() => useComposedMap(CONFIG, WORLD), { wrapper });
+    expect(decorate).toHaveBeenLastCalledWith(expect.objectContaining({ agentSeat: null }));
+
+    vi.mocked(useCoSigningAgent).mockReturnValue({ accountId: "0.0.4999", seat: "YWdlbnQ=" });
+    renderHook(() => useComposedMap(CONFIG, WORLD), { wrapper });
+    expect(decorate).toHaveBeenLastCalledWith(expect.objectContaining({ agentSeat: "YWdlbnQ=" }));
   });
 
   it("composes nothing without a world", () => {

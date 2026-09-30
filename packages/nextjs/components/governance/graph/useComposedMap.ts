@@ -6,6 +6,7 @@ import { type ComposedMap, composeMap } from "./mapModel";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { useTargetNetwork } from "~~/hooks/scaffold-hbar";
+import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
 import type { GraphSnapshot } from "~~/services/liveMap/model/graph";
 import { governanceEntitiesOf } from "~~/services/liveMap/model/graphEntities";
@@ -26,6 +27,7 @@ export function useComposedMap(config: GovernanceConfig, world: MapWorld | null)
   const decorate = useMapDecorator();
   const { targetNetwork } = useTargetNetwork();
   const { accountId: viewerAccountId } = useHederaSigner();
+  const agentSeat = useCoSigningAgent(config.network)?.seat ?? null;
   const { governanceAccountId, executor } = config;
   const entities = useMemo(() => governanceEntitiesOf(config, targetNetwork.id), [config, targetNetwork.id]);
 
@@ -42,9 +44,9 @@ export function useComposedMap(config: GovernanceConfig, world: MapWorld | null)
         previewed: world.previewed,
       },
       decorate,
-      viewerAccountId,
+      { viewerAccountId, agentSeat },
     );
-  }, [world, entities, governanceAccountId, executor, decorate, viewerAccountId]);
+  }, [world, entities, governanceAccountId, executor, decorate, viewerAccountId, agentSeat]);
 }
 
 /**

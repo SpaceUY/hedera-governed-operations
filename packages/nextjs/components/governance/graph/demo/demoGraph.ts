@@ -1,7 +1,8 @@
 /**
  * Demo only: the hand-composed Live Map of the ACME treasury that `yarn setup` creates — where each
  * node sits, the names "Council account", Alice and Bob, the co-signing agent that is not a member
- * yet, and the inspector's words for them. The seat of whoever is connected is named "You" by the
+ * yet — or, once a rotation proposes its key or the council holds it, seated at the same slot — and
+ * the inspector's words for them. The seat of whoever is connected is named "You" by the
  * map itself, not here. Delete this folder and the `decorate={decorateDemoMap}`
  * prop that passes it: the map falls back to placing nodes by role and naming them by id.
  */
@@ -128,8 +129,14 @@ function demoAccountIds(): { alice?: string; bob?: string } {
  * The seats in the order the council column shows them. Alice and Bob are proposers too, so their
  * keys come with the proposer list; the one remaining seat is the council account `yarn setup` was
  * given (`HEDERA_COUNCIL_ACCOUNT_ID`), named "Council account" — "You" once it is the one connected.
+ * The co-signing agent's seat, when the council holds it or a rotation proposes it, is none of these.
  */
-function demoSeats({ nodes, proposers }: MapContext): { council?: string; alice?: string; bob?: string } {
+function demoSeats({ nodes, proposers, agentSeat }: MapContext): {
+  council?: string;
+  alice?: string;
+  bob?: string;
+  agent?: string;
+} {
   const ids = demoAccountIds();
   const seatOf = (accountId: string | undefined) => {
     const key = proposers.find(proposer => proposer.accountId === accountId)?.key;
@@ -137,8 +144,14 @@ function demoSeats({ nodes, proposers }: MapContext): { council?: string; alice?
   };
   const alice = seatOf(ids.alice);
   const bob = seatOf(ids.bob);
-  const others = nodes.filter(node => node.role === "member" && node.id !== alice && node.id !== bob);
-  return { council: others.length === 1 ? others[0].id : undefined, alice, bob };
+  // The agent has a seat of its own: whichever of Alice's and Bob's keys it was configured with, theirs stay theirs.
+  const agent = nodes.find(
+    node => node.role === "member" && node.ref === agentSeat && node.id !== alice && node.id !== bob,
+  )?.id;
+  const others = nodes.filter(
+    node => node.role === "member" && node.id !== alice && node.id !== bob && node.id !== agent,
+  );
+  return { council: others.length === 1 ? others[0].id : undefined, alice, bob, agent };
 }
 
 export const decorateDemoMap: MapDecorator = context => {
@@ -151,10 +164,19 @@ export const decorateDemoMap: MapDecorator = context => {
 
   const seats = demoSeats(context);
   const known = [seats.council, seats.alice, seats.bob].flatMap(nodeId => (nodeId ? [nodeId] : []));
-  const others = context.nodes.filter(node => node.role === "member" && !known.includes(node.id));
+  const others = context.nodes.filter(
+    node => node.role === "member" && !known.includes(node.id) && node.id !== seats.agent,
+  );
   [...known, ...others.map(node => node.id)].forEach((nodeId, slot) => {
     if (MEMBER_SLOTS[slot]) positions[nodeId] = MEMBER_SLOTS[slot];
   });
+  const monograms: Partial<Record<string, string>> = {};
+  // The agent's seat, held or proposed, takes the place its ghost waits in, and the ghost steps aside.
+  if (seats.agent) {
+    positions[seats.agent] = AGENT.position;
+    labels[seats.agent] = DEMO_NAMES.agent;
+    monograms[seats.agent] = AGENT.monogram;
+  }
   if (seats.council) {
     labels[seats.council] = DEMO_NAMES.council;
     captions[seats.council] = "proposer";
@@ -191,7 +213,8 @@ export const decorateDemoMap: MapDecorator = context => {
   return {
     layout: { ...SIZE, positions, labels },
     captions,
-    ghosts: [AGENT],
+    monograms,
+    ghosts: seats.agent ? [] : [AGENT],
     regions: REGIONS,
     inspector,
     hidden: { nodes: hiddenNodes, edges: hiddenEdges },

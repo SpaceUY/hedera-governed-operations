@@ -27,6 +27,7 @@ export type GovernanceGraphProps = {
   graph: Graph;
   council: CouncilKey;
   captions?: Partial<Record<string, string>>;
+  monograms?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
   regions?: MapRegion[];
   /**
@@ -55,6 +56,7 @@ export function GovernanceGraph({
   graph,
   council,
   captions = {},
+  monograms = {},
   ghosts = [],
   regions = [],
   frame = REST_FRAME,
@@ -111,7 +113,7 @@ export function GovernanceGraph({
         return <TokenNode {...propsOf(node)} />;
       case "member":
       case "proposer":
-        return <AccountNode {...propsOf(node)} />;
+        return <AccountNode {...propsOf(node)} monogram={monograms[node.id]} />;
     }
   };
 

@@ -1,9 +1,15 @@
 import { GovernanceGraph } from "./GovernanceGraph";
-import { MAP_SNAPSHOT, pendingTransferTo } from "./mapFixtures";
+import { KEY_A, MAP_SNAPSHOT, pendingTransferTo } from "./mapFixtures";
 import { composeMap } from "./mapModel";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { EXECUTOR_NODE_ID, GOVERNANCE_ACCOUNT_NODE_ID, edgeId, externalNodeId } from "~~/services/liveMap/model/graph";
+import {
+  EXECUTOR_NODE_ID,
+  GOVERNANCE_ACCOUNT_NODE_ID,
+  edgeId,
+  externalNodeId,
+  memberNodeId,
+} from "~~/services/liveMap/model/graph";
 import { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
 import { REST_FRAME } from "~~/services/liveMap/motion/frame";
 
@@ -160,6 +166,12 @@ describe("GovernanceGraph", () => {
       element.getAttribute("data-edge-id"),
     );
     expect(edgeIds.some(id => id?.includes("ghost"))).toBe(false);
+  });
+
+  it("draws a member's circle with the letters the map gives it instead of its name's first letter", () => {
+    const seat = memberNodeId(KEY_A);
+    renderGraph({ monograms: { [seat]: "AG" } });
+    expect(screen.getAllByText("AG")).toHaveLength(1);
   });
 
   it("sends a comet along an edge the frame names, and none along an edge the map does not have", () => {

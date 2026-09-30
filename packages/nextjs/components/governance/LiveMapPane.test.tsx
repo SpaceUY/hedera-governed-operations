@@ -16,6 +16,7 @@ import { GOVERNANCE_ACCOUNT_NODE_ID } from "~~/services/liveMap/model/graph";
 
 vi.mock("~~/hooks/mirror/useMapSnapshot", () => ({ useMapSnapshot: vi.fn() }));
 vi.mock("~~/hooks/mirror/useToken", () => ({ useToken: vi.fn() }));
+vi.mock("~~/hooks/useCoSigningAgent", () => ({ useCoSigningAgent: () => null }));
 vi.mock("~~/hooks/useHederaSigner", () => ({ useHederaSigner: vi.fn() }));
 vi.mock("~~/hooks/useRemoteApprovals", () => ({ useRemoteApprovals: vi.fn() }));
 vi.mock("~~/components/governance/graph/useMapPreview", () => ({ useMapPreview: vi.fn() }));

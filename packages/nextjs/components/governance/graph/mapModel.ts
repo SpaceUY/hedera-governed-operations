@@ -39,7 +39,15 @@ export type GhostNode = {
 /** A name for an area of a hand-composed layout, such as the column the council sits in. */
 export type MapRegion = { label: string; position: Point; orientation: "horizontal" | "vertical" };
 
-export type MapContext = { nodes: readonly GraphNode[]; proposers: GraphSnapshot["proposers"] };
+export type MapContext = {
+  nodes: readonly GraphNode[];
+  proposers: GraphSnapshot["proposers"];
+  /** The council key of the co-signing agent the app was told about, or null: unconfigured, unread, or not one key. */
+  agentSeat: string | null;
+};
+
+/** Who is looking and what the app knows outside the ledger: the connected account and the agent's seat. */
+export type MapViewpoint = { viewerAccountId?: string | null; agentSeat?: string | null };
 
 /**
  * What the inspector says about one layout's nodes and edges, by id, in place of what their role
@@ -51,6 +59,8 @@ export type MapDecoration = {
   layout: GraphLayout;
   /** A line under a node's name, by node id; a node without one gets its role's caption. */
   captions?: Partial<Record<string, string>>;
+  /** The letters in a node's circle, by node id, where its name's first letter is not what it should say. */
+  monograms?: Partial<Record<string, string>>;
   ghosts?: GhostNode[];
   regions?: MapRegion[];
   inspector?: InspectorCopy;
@@ -70,6 +80,7 @@ export type MapDecorator = (context: MapContext) => MapDecoration;
 export type ComposedMap = {
   graph: GovernanceGraph;
   captions: Partial<Record<string, string>>;
+  monograms: Partial<Record<string, string>>;
   ghosts: GhostNode[];
   regions: MapRegion[];
   inspector: InspectorCopy;
@@ -90,7 +101,7 @@ const FIXED_LABELS: Record<string, string> = {
  * Names that need no demo: the fixed points by role, and a member by the account whose key holds the
  * seat when that account is a proposer (the only accounts whose keys the map reads), else by its key.
  */
-export function genericLabels({ nodes, proposers }: MapContext): Record<string, string> {
+export function genericLabels({ nodes, proposers }: Pick<MapContext, "nodes" | "proposers">): Record<string, string> {
   const labels: Record<string, string> = { ...FIXED_LABELS };
   for (const node of nodes) {
     if (node.role !== "member") continue;
@@ -104,22 +115,25 @@ export function genericLabels({ nodes, proposers }: MapContext): Record<string, 
  * proposer list — the only accounts whose keys the map reads — so a seat whose holder is not a
  * proposer is never taken for the viewer's.
  */
-export function viewerSeatOf({ nodes, proposers }: MapContext, viewerAccountId: string): string | undefined {
+export function viewerSeatOf(
+  { nodes, proposers }: Pick<MapContext, "nodes" | "proposers">,
+  viewerAccountId: string,
+): string | undefined {
   const key = proposers.find(proposer => proposer.accountId === viewerAccountId)?.key;
   return nodes.find(node => node.role === "member" && node.ref === key)?.id;
 }
 
 /**
- * `viewerAccountId` is the connected account, if any: the seat it holds is named "You", over any name
- * the generic labels or a decoration gave it.
+ * `viewpoint.viewerAccountId` is the connected account, if any: the seat it holds is named "You", over
+ * any name the generic labels or a decoration gave it. `viewpoint.agentSeat` reaches the decoration.
  */
 export function composeMap(
   snapshot: GraphSnapshot,
   decorate?: MapDecorator,
-  viewerAccountId?: string | null,
+  { viewerAccountId, agentSeat = null }: MapViewpoint = {},
 ): ComposedMap {
   const { nodes } = deriveGraphState(snapshot, { ...AUTO_MAP_SIZE, positions: {} });
-  const context: MapContext = { nodes, proposers: snapshot.proposers };
+  const context: MapContext = { nodes, proposers: snapshot.proposers, agentSeat };
   const labels = genericLabels(context);
   const decoration = decorate?.(context);
   const layout = decoration?.layout ?? { ...AUTO_MAP_SIZE, positions: {} };
@@ -130,6 +144,7 @@ export function composeMap(
   return {
     graph: withoutHidden(graph, decoration?.hidden ?? {}),
     captions: decoration?.captions ?? {},
+    monograms: decoration?.monograms ?? {},
     ghosts: decoration?.ghosts ?? [],
     regions: decoration?.regions ?? [],
     inspector: decoration?.inspector ?? { nodes: {}, edges: {} },
