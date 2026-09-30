@@ -4,6 +4,7 @@ import {
   type GovernanceGraph,
   type GraphLayout,
   type GraphSnapshot,
+  RECIPIENT_STAND_IN_NODE_ID,
   autoLayout,
   deriveGraphState,
   edgeId,
@@ -11,9 +12,10 @@ import {
   memberNodeId,
   nodeIdOfRef,
   proposerNodeId,
+  roleNodesOf,
   scopeOf,
 } from "./graph";
-import type { DecodedOperation } from "./proposalRoutes";
+import type { DecodedOperation, OperationSketch } from "./proposalRoutes";
 import type { RegistryOperation, ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { Proposal } from "@sh/core/governance/proposals";
 import type { RegistryCrossCheck } from "@sh/core/governance/registry";
@@ -448,5 +450,67 @@ describe("nodeIdOfRef", () => {
   it("finds a council seat by its key, and nothing for an entity the graph lacks", () => {
     expect(nodeIdOfRef(graph, ALICE)).toBe(memberNodeId(ALICE));
     expect(nodeIdOfRef(graph, "0.0.99999")).toBeUndefined();
+  });
+});
+
+describe("a sketched kind", () => {
+  const upgrade: OperationSketch = { kind: "sketch", of: "upgrade", refs: { subject: ["0.0.5001"] } };
+  const payment: OperationSketch = { kind: "sketch", of: "treasuryTransfer", refs: {} };
+  const withStandIn: GraphSnapshot = { ...SNAPSHOT, recipientStandIn: true };
+
+  it("goes the kind's way through the configured entity it names", () => {
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: upgrade });
+    expect(scopeOf(graph, upgrade)?.nodeIds).toEqual([GOVERNANCE_ACCOUNT_NODE_ID, EXECUTOR_NODE_ID, "vault"]);
+  });
+
+  it("has no route for a payment whose recipient nobody named, on a graph with no stand-in for one", () => {
+    const graph = deriveGraphState({ ...SNAPSHOT, previewed: payment });
+    expect(graph).toEqual(deriveGraphState(SNAPSHOT));
+    expect(scopeOf(graph, payment)).toBeNull();
+  });
+
+  it("draws the recipient's stand-in with no edge until a payment with no recipient named reaches it", () => {
+    const rest = deriveGraphState(withStandIn);
+    expect(rest.nodes.find(node => node.id === RECIPIENT_STAND_IN_NODE_ID)).toMatchObject({
+      role: "external",
+      ref: "",
+    });
+    expect(rest.edges.some(edge => edge.to === RECIPIENT_STAND_IN_NODE_ID)).toBe(false);
+
+    const graph = deriveGraphState({ ...withStandIn, previewed: payment });
+    const toStandIn = edgeId(GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID);
+    expect(edgeOf(graph, GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID)?.kind).toBe("intent");
+    expect(scopeOf(graph, payment)).toEqual({
+      nodeIds: [GOVERNANCE_ACCOUNT_NODE_ID, RECIPIENT_STAND_IN_NODE_ID],
+      edgeIds: [toStandIn],
+      hops: [[toStandIn]],
+    });
+  });
+
+  it("never sends a named recipient to the stand-in", () => {
+    const transfer = transferTo("0.0.9999");
+    const graph = deriveGraphState({ ...withStandIn, previewed: transfer });
+    expect(scopeOf(graph, transfer)?.nodeIds).toEqual([GOVERNANCE_ACCOUNT_NODE_ID, externalNodeId("0.0.9999")]);
+  });
+
+  it("says which nodes each role of the route reached", () => {
+    const graph = deriveGraphState({ ...withStandIn, previewed: payment });
+    expect(roleNodesOf(graph, payment)).toEqual({
+      governanceAccount: [GOVERNANCE_ACCOUNT_NODE_ID],
+      recipient: [RECIPIENT_STAND_IN_NODE_ID],
+    });
+    expect(roleNodesOf(graph, { kind: "unrecognized", reason: "a blob" })).toEqual({});
+  });
+});
+
+describe("a payment to an account whose key holds a seat", () => {
+  const seated: GraphSnapshot = { ...SNAPSHOT, proposers: [{ accountId: "0.0.4101", key: ALICE }] };
+
+  it("reaches that seat rather than a new node, so the map never pays someone else in its place", () => {
+    const transfer = transferTo("0.0.4101");
+    const graph = deriveGraphState({ ...seated, recipientStandIn: true, previewed: transfer });
+    expect(graph.nodes.some(node => node.id === externalNodeId("0.0.4101"))).toBe(false);
+    expect(scopeOf(graph, transfer)?.nodeIds).toEqual([GOVERNANCE_ACCOUNT_NODE_ID, memberNodeId(ALICE)]);
+    expect(nodeIdOfRef(graph, "0.0.4101")).toBe(memberNodeId(ALICE));
   });
 });
