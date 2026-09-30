@@ -66,7 +66,7 @@ The demo instance the app reads without a `.env`: the contracts in `packages/nex
 
 ### An earlier deployment of the same contract code
 
-What has not been run again on the deployment above. Since then `SaucerSwapAdapter` has gained comments, not code. Its governance account is [0.0.10671146](https://hashscan.io/testnet/account/0.0.10671146), a 2-of-3 threshold key.
+What has not been run again on the deployment above. Its governance account is [0.0.10671146](https://hashscan.io/testnet/account/0.0.10671146), a 2-of-3 threshold key. Since then `SaucerSwapAdapter` has gained comments, not code.
 
 | Claim | Proof | What you will see |
 | --- | --- | --- |
