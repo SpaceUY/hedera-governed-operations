@@ -302,6 +302,21 @@ export const CANCEL_COPY = {
   checking: "Checking who can cancel",
 } as const;
 
+/**
+ * The dialog shown instead of the wallet prompt when an action would send a `ScheduleDelete` and the
+ * connected wallet is known to refuse one (`signsScheduleDelete`): the refusal would otherwise arrive
+ * as an ordinary rejection, as if the person had pressed Reject.
+ */
+export const WALLET_LIMIT_COPY = {
+  title: "HashPack cannot sign this step",
+  withdraw:
+    "Withdrawing deletes this schedule, and HashPack cannot sign a schedule delete yet. Connect a wallet that supports it, such as Kabila, to withdraw this round.",
+  cancelLive:
+    "Cancelling deletes the open schedule first, and HashPack cannot sign that step yet. Connect a wallet that supports it, such as Kabila, to cancel this proposal.",
+  useAnotherWallet: "Use another wallet",
+  close: "Close",
+} as const;
+
 export const DETAIL_COPY = {
   loading: "Loading proposal",
   notFound: "Proposal not found.",
@@ -325,4 +340,11 @@ export const DETAIL_COPY = {
   noEntry: "None — native, the network runs it directly",
   executeCall: (proposalId: number) => `execute(${proposalId}) on the registry`,
   nativeCall: "None — a native transaction, no contract call",
+} as const;
+
+/** Said at the top of the rail while the app reads the published testnet instance instead of its own. */
+export const DEMO_INSTANCE_COPY = {
+  title: "You are viewing the demo instance on testnet",
+  body: "Every figure and proposal here is live, read from the Mirror Node. To deploy your own, run",
+  command: "yarn setup",
 } as const;

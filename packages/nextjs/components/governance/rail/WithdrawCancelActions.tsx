@@ -2,6 +2,7 @@
 
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { type WalletLimitAction, WalletLimitDialog } from "./WalletLimitDialog";
 import { CANCEL_COPY, WITHDRAW_COPY } from "./copy";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
@@ -17,11 +18,14 @@ import {
   cancelPlanOf,
   otherOpenScheduleOf,
 } from "~~/services/governance/proposalActions";
+import { signsScheduleDelete } from "~~/services/web3/walletCapabilities";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
 
 export type WithdrawCancelActionsProps = {
   proposal: Proposal;
   accountId: string | null;
+  /** The connected WalletConnect wallet's name (`useHederaSigner`), null for the test signer. */
+  walletName: string | null;
   executorContractId: string;
   governanceAccountId: string;
   network: HederaNetworkName;
@@ -152,10 +156,15 @@ const CancelCardBody = ({
  * is only offered to whoever `GovernedExecutor.cancel` would accept — the entry's own proposer, or the
  * governance account — with the reason spelled out for everyone else, and never while another
  * schedule for the same entry could still reach its threshold.
+ *
+ * With a wallet known to refuse `ScheduleDelete` (`signsScheduleDelete`), Withdraw and a Cancel that
+ * deletes first open `WalletLimitDialog` instead of the wallet prompt, offering another wallet. A cancel
+ * with no live schedule is a plain contract call any wallet signs, so it goes ahead as usual.
  */
 export const WithdrawCancelActions = ({
   proposal,
   accountId,
+  walletName,
   executorContractId,
   governanceAccountId,
   network,
@@ -163,6 +172,7 @@ export const WithdrawCancelActions = ({
   onCancelled,
 }: WithdrawCancelActionsProps) => {
   const [confirming, setConfirming] = useState(false);
+  const [walletLimit, setWalletLimit] = useState<WalletLimitAction | null>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
   const withdraw = useWithdrawProposal();
@@ -171,6 +181,7 @@ export const WithdrawCancelActions = ({
   const isContract = proposal.operation.kind === "registryCall";
   const entryId = openEntryIdOf(proposal);
   const plan = cancelPlanOf(proposal, accountId);
+  const walletSignsDelete = signsScheduleDelete(walletName);
   // Once this schedule is gone but Mirror still shows it live, `cancelPlanOf` has no plan: resuming
   // at step 2 cancels the open entry alone.
   const cancelTarget = plan ?? (entryId === null ? null : { registryProposalId: entryId, withdrawFirst: false });
@@ -212,6 +223,16 @@ export const WithdrawCancelActions = ({
   }, [confirming]);
 
   if (!showWithdraw && !showCancel) return null;
+
+  const askToWithdraw = () => {
+    if (!walletSignsDelete) return setWalletLimit("withdraw");
+    withdraw.mutate(scheduleId, { onSuccess: onWithdrawn });
+  };
+
+  const askToCancel = () => {
+    if (plan?.withdrawFirst && !walletSignsDelete) return setWalletLimit("cancelLive");
+    setConfirming(true);
+  };
 
   const start = () => {
     setConfirming(false);
@@ -256,12 +277,7 @@ export const WithdrawCancelActions = ({
       <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2">
         {showWithdraw && (
           <ActionCard tone="neutral">
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => withdraw.mutate(scheduleId, { onSuccess: onWithdrawn })}
-              disabled={busy}
-            >
+            <button type="button" className="btn btn-outline btn-sm" onClick={askToWithdraw} disabled={busy}>
               {WITHDRAW_COPY.button}
             </button>
             <Note>{isContract ? WITHDRAW_COPY.why.contract : WITHDRAW_COPY.why.native}</Note>
@@ -280,7 +296,7 @@ export const WithdrawCancelActions = ({
               plan={plan}
               busy={busy}
               cancelButton={cancelButton}
-              onAskToConfirm={() => setConfirming(true)}
+              onAskToConfirm={askToCancel}
               onResume={start}
             />
             <MutationError error={flow.error} />
@@ -288,6 +304,7 @@ export const WithdrawCancelActions = ({
         )}
       </div>
       {showWithdraw && !isContract && <Note>{WITHDRAW_COPY.nativeNoCancel}</Note>}
+      <WalletLimitDialog action={walletLimit} onClose={() => setWalletLimit(null)} />
     </div>
   );
 };
