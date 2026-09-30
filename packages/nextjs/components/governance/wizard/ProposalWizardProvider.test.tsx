@@ -148,10 +148,12 @@ describe("ProposalWizardProvider", () => {
     await waitFor(() => expect(screen.getByText("no preview")).toBeTruthy());
   });
 
-  it("clears the draft and leaves nothing unhandled when the hand-over fails", async () => {
+  it("clears the draft, reports the error and leaves nothing unhandled when the hand-over fails", async () => {
     const unhandled = vi.fn();
     process.on("unhandledRejection", unhandled);
-    const onSubmitted = vi.fn(() => Promise.reject(new Error("read failed")));
+    const reported = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failure = new Error("read failed");
+    const onSubmitted = vi.fn(() => Promise.reject(failure));
     renderHost(onSubmitted);
 
     fireEvent.click(screen.getByText("fill"));
@@ -163,6 +165,8 @@ describe("ProposalWizardProvider", () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     process.off("unhandledRejection", unhandled);
     expect(unhandled).not.toHaveBeenCalled();
+    expect(reported).toHaveBeenCalledWith(expect.any(String), failure);
+    reported.mockRestore();
   });
 
   it("does not re-render its consumers when only the host re-renders", () => {
