@@ -8,7 +8,7 @@ import type { CouncilKey } from "@sh/core/governance/council";
 import type { ProposalKind, RegistryOperation, ScheduledOperation } from "@sh/core/governance/proposalTypes";
 import type { GraphEntity } from "~~/services/liveMap/model/graph";
 import type { MAP_ENTITY_IDS } from "~~/services/liveMap/model/graphEntities";
-import type { OperationSketch, RouteRefs, RouteRole } from "~~/services/liveMap/model/proposalRoutes";
+import type { OperationSketch, RouteRole } from "~~/services/liveMap/model/proposalRoutes";
 import type { VaultRelease } from "~~/services/liveMap/model/vaultRelease";
 
 /** A decoded operation of kind `K`, whichever layer of a proposal it was read from. */
@@ -40,11 +40,14 @@ export type SketchContext = {
 /** Words for whoever fills a role of the route, for a kind whose form has not named the entity yet. */
 export type RoleWords = Array<{ role: RouteRole; text: string }>;
 
-/** A picked kind's route through what the configuration names, and the words it can say without an amount. */
-export type KindSketch = { refs: RouteRefs; words: RoleWords };
-
 /** A sketched kind as the map previews it: the graph routes it, the frame puts its words on the roles. */
 export type PreviewSketch = OperationSketch & { words: RoleWords };
+
+/**
+ * What a kind's module sketches: its route through what the configuration names, and the words it can
+ * say without an amount — a `PreviewSketch` before `sketchOf` says which kind it is.
+ */
+export type KindSketch = Omit<PreviewSketch, "kind" | "of">;
 
 export type PreviewKind<K extends ProposalKind> = {
   labels: (operation: OperationOf<K>, context: PreviewContext) => PreviewLabel[];
