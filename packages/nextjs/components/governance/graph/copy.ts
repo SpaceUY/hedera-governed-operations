@@ -3,6 +3,7 @@
  * are named for what exists on the ledger, never for an action: an operation is something that
  * travels along the edges and then switches off.
  */
+import { signaturesWord } from "~~/services/governance/proposalLabels";
 import type { EdgeKind, NodeRole } from "~~/services/liveMap/model/graph";
 import type { NodeTone } from "~~/services/liveMap/motion/frame";
 
@@ -27,7 +28,7 @@ export const MAP_LABELS = {
 
 /** How many approvals the selected proposal still needs, as the treasury's accessible name says it. */
 export function moreNeededLabel(need: number): string {
-  return `${need} more ${need === 1 ? "signature" : "signatures"} needed`;
+  return `${need} more ${signaturesWord(need)} needed`;
 }
 
 /** The line under the treasury's rule: how the run ended once the ring has run, else the node's caption. */

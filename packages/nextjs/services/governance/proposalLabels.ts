@@ -41,6 +41,9 @@ export function registryLabel(registry: RegistryCrossCheck): string {
   }
 }
 
+/** "signature" or "signatures", for a count that reads "N more … needed". */
+export const signaturesWord = (count: number): string => (count === 1 ? "signature" : "signatures");
+
 /**
  * Signatures collected out of the threshold, never out of the council's size: a bare "2 of 2" beside
  * a 2-of-3 council reads as a council of two, so the count says what it is counted against.
