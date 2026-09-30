@@ -87,7 +87,7 @@ afterEach(() => {
 describe("useProposalAnimationSync", () => {
   it("shows the latest read while nothing plays", () => {
     const { result, rerender } = renderSync({ snapshot: OPEN, previous: null, events: [] });
-    expect(result.current).toEqual({ world: OPEN, playing: null });
+    expect(result.current).toEqual({ world: OPEN, playing: null, busy: [] });
     rerender({ snapshot: SIGNED, previous: OPEN, events: [] });
     expect(result.current.world).toBe(SIGNED);
   });
@@ -113,7 +113,7 @@ describe("useProposalAnimationSync", () => {
       ["hold", 2990],
       ["relax", 5190],
     ]);
-    expect(result.current).toEqual({ world: RAN, playing: null });
+    expect(result.current).toEqual({ world: RAN, playing: null, busy: [] });
   });
 
   it("holds the world it started from until the sequence lands, even for the render before it is queued", () => {
@@ -147,6 +147,27 @@ describe("useProposalAnimationSync", () => {
     rerender({ snapshot: SIGNED, previous: OPEN, events: [BOB_SIGNED] });
     expect(drawn.length).toBeGreaterThan(0);
     expect(drawn.every(shown => shown === OPEN)).toBe(true);
+  });
+
+  it("says which proposal it is still playing, from the render that brings its read until the run lands", () => {
+    const busy: Array<readonly string[]> = [];
+    const { result, rerender } = renderHook(
+      (input: AnimationSyncInput) => {
+        const synced = useProposalAnimationSync(input);
+        busy.push(synced.busy);
+        return synced;
+      },
+      { initialProps: { snapshot: OPEN, previous: null, events: [] } as AnimationSyncInput, wrapper },
+    );
+    expect(result.current.busy).toEqual([]);
+    busy.length = 0;
+    rerender({ snapshot: SIGNED, previous: OPEN, events: [BOB_SIGNED] });
+    expect(busy.every(ids => ids.length === 1 && ids[0] === ID)).toBe(true);
+    expect(result.current.world).toBe(OPEN);
+
+    playToEnd(result);
+    expect(result.current.busy).toEqual([]);
+    expect(result.current.world).toBe(SIGNED);
   });
 
   it("plays a signature read from another device exactly like one sent from here", () => {

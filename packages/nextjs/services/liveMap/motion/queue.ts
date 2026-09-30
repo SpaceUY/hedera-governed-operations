@@ -130,6 +130,16 @@ export function councilShown({ queue, parked }: AnimationQueue): CouncilKey | un
   return [...waiting, ...parked].find(entry => entry.councilBefore)?.councilBefore;
 }
 
+/**
+ * The proposals the map is still playing or has waiting, the playing one first. The rail shows each
+ * of them as the map draws it until its run lands, so both panes change together. What the queue
+ * dropped is never named, so nothing is held once the map has given up replaying it.
+ */
+export function busyScheduleIds({ queue, parked }: AnimationQueue): string[] {
+  const ids = [...queue, ...parked].map(({ event }) => event.scheduleId);
+  return [...new Set(ids.filter((id): id is string => id !== null))];
+}
+
 export function animationQueueReducer(state: AnimationQueue, action: QueueAction): AnimationQueue {
   switch (action.type) {
     case "read":
