@@ -51,7 +51,7 @@ Every row is a transaction this repository's code produced on Hedera testnet. Op
 
 ### This deployment
 
-The demo instance the app reads without a `.env`: the contracts in `packages/nextjs/contracts/deployedContracts.ts` and the ids in `DEMO_INSTANCE` (`packages/nextjs/config/governanceConfig.ts`), plus the agent's decisions topic, which only the agent's own configuration names. Its sources are not verified on Sourcify yet.
+The demo instance the app reads without a `.env`: the contracts in `packages/nextjs/contracts/deployedContracts.ts` and the ids in `DEMO_INSTANCE` (`packages/nextjs/config/governanceConfig.ts`), plus the agent's decisions topic, which only the agent's own configuration names. All six of its contracts are source-verified on Sourcify.
 
 | Claim | Proof | What you will see |
 | --- | --- | --- |
@@ -61,6 +61,7 @@ The demo instance the app reads without a `.env`: the contracts in `packages/nex
 | A treasury swap on SaucerSwap runs through an approved proposal | [schedule 0.0.10794955](https://hashscan.io/testnet/schedule/0.0.10794955) | Memo "Sell treasury HBAR for USDC"; the scheduled `CONTRACTCALL` to the executor is `SUCCESS`, and USDC (0.0.5449) reaches the governance account |
 | A scheduled call pays its whole gas limit | same schedule | 0.327 ℏ = 300,000 × 109 tinybar, while consuming 247,107 |
 | Changing who approves is itself a proposal | [schedule 0.0.10794960](https://hashscan.io/testnet/schedule/0.0.10794960) | Memo "Change the council", signed by `alice` and `bob`; the scheduled `CRYPTOUPDATEACCOUNT` is `SUCCESS`, and it is what turned the 2-of-3 key into the 2-of-4 above, seating the agent (0.0.10794623) |
+| The deployed bytecode is this repository's source | [GovernedExecutor](https://sourcify.dev/server/v2/contract/296/0xE3E24BeF0903e68e584E3a93e5F0b746959f4C7C), [AcmeVault proxy](https://sourcify.dev/server/v2/contract/296/0xeA63e5b8eF5B0eC87a6236a557bBc447E948De63), [AcmeVault implementation](https://sourcify.dev/server/v2/contract/296/0x4Dd56b18EAA0e0a18B1928b7588859e1e7B0C163), [AcmeVaultV2](https://sourcify.dev/server/v2/contract/296/0x54d742A00c50536e4FaC4a3849771A2468F12418), [SaucerSwapAdapter](https://sourcify.dev/server/v2/contract/296/0x6405578Fd89C36756C805346EBeba46e146d5202), [TokenAdmin](https://sourcify.dev/server/v2/contract/296/0x41d9344a909F0DE9135b89A1a922749874D4eACC) | `"match": "exact_match"` on chain 296: the runtime bytecode matches exactly (`runtimeMatch`); the creation bytecode has no result (`creationMatch: null`) |
 | A token the council governs but cannot sign for | [token 0.0.10794655](https://hashscan.io/testnet/token/0.0.10794655) | No admin or supply key; its pause and freeze keys are contract 0.0.10794649 (`TokenAdmin`), for good |
 | Releases and the agent's decisions have topics only their writers can post to | [topic 0.0.10794624](https://hashscan.io/testnet/topic/0.0.10794624) (releases), [topic 0.0.10794625](https://hashscan.io/testnet/topic/0.0.10794625) (the agent's decisions) | Each with a submit key; the decisions topic is the agent's because its submit key is the key of the agent account 0.0.10794623. Both are still empty: no release has been published and the agent has not run against this deployment |
 
