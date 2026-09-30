@@ -28,6 +28,9 @@ export type NodeTone = "progress" | "success" | "error";
 /** A dash travelling along an edge, `back` from its end to its start. */
 export type Comet = { edgeId: string; ms: number; delayMs: number; direction: "forward" | "back" };
 
+/** The nodes and edges an operation touches; everything outside them is dimmed while it is shown. */
+export type FrameScope = { nodeIds: string[]; edgeIds: string[] };
+
 /** What the map shows at one moment on top of the graph at rest. */
 export type MapFrame = {
   /** Phase per edge id; an intent edge is drawn only while a frame names it. */
@@ -36,14 +39,30 @@ export type MapFrame = {
   /**
    * The approvals the treasury's ring shows, whether it snaps, and the colour of its filled segments:
    * amber while a signature arrives, mint once the threshold has run, coral when the run reverted,
-   * and the primary colour (null) otherwise. A null ring is empty.
+   * and the primary colour (null) otherwise. `need` is how many signatures the previewed proposal
+   * still needs, written under the rule. A null ring is empty.
    */
-  ring: { signed: number; snap: boolean; tone: NodeTone | null } | null;
+  ring: { signed: number; snap: boolean; tone: NodeTone | null; need?: number } | null;
   highlights: Partial<Record<string, NodeTone>>;
   shaking: string[];
+  /** What a preview touches; null when nothing is previewed and nothing is dimmed. */
+  scope: FrameScope | null;
+  /** Preview words under a node's name, by node id: "would become v2". */
+  labels: Partial<Record<string, string>>;
+  /** Changes when a new preview starts, which draws its dashed path again; null when none is drawn. */
+  drawKey: string | null;
 };
 
-export const REST_FRAME: MapFrame = { phases: {}, comets: [], ring: null, highlights: {}, shaking: [] };
+export const REST_FRAME: MapFrame = {
+  phases: {},
+  comets: [],
+  ring: null,
+  highlights: {},
+  shaking: [],
+  scope: null,
+  labels: {},
+  drawKey: null,
+};
 
 /** The event being played, the cue it is at, and the snapshot it was read in. */
 export type PlayingEvent = { event: AnimationEvent; cue: Cue; world: GovernanceSnapshot };
@@ -65,11 +84,17 @@ function approvalsBy(proposal: Proposal, at: string, bound: "before" | "upTo"): 
 }
 
 /** The PROPOSER_ROLE arc of the account that opened a proposal: from its seat, or from its own node. */
-function proposerArc(graph: GovernanceGraph, world: GovernanceSnapshot, accountId: string): string | undefined {
+export function proposerArc(graph: GovernanceGraph, world: GovernanceSnapshot, accountId: string): string | undefined {
   const key = world.proposers.find(proposer => proposer.accountId === accountId)?.key;
   const seat = key ? memberNodeId(key) : undefined;
   const nodeIds = graph.nodes.filter(({ id, ref }) => id === seat || ref === accountId).map(({ id }) => id);
   return graph.edges.find(edge => edge.to === EXECUTOR_NODE_ID && nodeIds.includes(edge.from))?.id;
+}
+
+/** The nodes an operation ends at: the far ends of the last hop of its route. */
+export function targetsOf(graph: GovernanceGraph, hops: readonly string[][]): string[] {
+  const lastHop = hops.at(-1) ?? [];
+  return graph.edges.filter(edge => lastHop.includes(edge.id)).map(edge => edge.to);
 }
 
 type Worlds = { graph: GovernanceGraph; shown: GovernanceSnapshot };
@@ -122,8 +147,7 @@ function runFrame({ cue, event, world }: PlayingEvent, { graph, shown }: Worlds)
   const proposal = proposalIn(shown, event.scheduleId) ?? proposalIn(world, event.scheduleId);
   const hops = (proposal && scopeOf(graph, decodedOperationOf(proposal))?.hops) || [];
   const path = hops.flat();
-  const lastHop = hops.at(-1) ?? [];
-  const targets = graph.edges.filter(edge => lastHop.includes(edge.id)).map(edge => edge.to);
+  const targets = targetsOf(graph, hops);
   const ended: EdgePhase = event.kind === "reverted" ? "failed" : "complete";
   const full = { signed: shown.council.threshold, snap: false, tone: null };
   // From the snap on, the ring says how the run ended.

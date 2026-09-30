@@ -121,8 +121,52 @@ describe("ProposalWizardProvider", () => {
     await act(async () => wallet.resolve?.("0.0.902"));
 
     await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith("0.0.902"));
-    expect(screen.getByText("status: idle")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("status: idle")).toBeTruthy());
     expect(screen.getByText("no preview")).toBeTruthy();
+  });
+
+  it("keeps the draft until the hand-over has finished, so the map is not blank while the route is about to move", async () => {
+    let finishHandOver: () => void = () => undefined;
+    const onSubmitted = vi.fn(() => new Promise<void>(resolve => (finishHandOver = resolve)));
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ProposalWizardProvider executorContractId="0.0.4242" onSubmitted={onSubmitted}>
+          <FakeWizard />
+        </ProposalWizardProvider>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByText("fill"));
+    fireEvent.click(screen.getByText("submit"));
+    await waitFor(() => expect(wallet.resolve).not.toBeNull());
+    await act(async () => wallet.resolve?.("0.0.903"));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith("0.0.903"));
+    expect(screen.queryByText("no preview")).toBeNull();
+
+    await act(async () => finishHandOver());
+    await waitFor(() => expect(screen.getByText("no preview")).toBeTruthy());
+  });
+
+  it("clears the draft, reports the error and leaves nothing unhandled when the hand-over fails", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    const reported = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failure = new Error("read failed");
+    const onSubmitted = vi.fn(() => Promise.reject(failure));
+    renderHost(onSubmitted);
+
+    fireEvent.click(screen.getByText("fill"));
+    fireEvent.click(screen.getByText("submit"));
+    await waitFor(() => expect(wallet.resolve).not.toBeNull());
+    await act(async () => wallet.resolve?.("0.0.904"));
+
+    await waitFor(() => expect(screen.getByText("no preview")).toBeTruthy());
+    await new Promise(resolve => setTimeout(resolve, 0));
+    process.off("unhandledRejection", unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+    expect(reported).toHaveBeenCalledWith(expect.any(String), failure);
+    reported.mockRestore();
   });
 
   it("does not re-render its consumers when only the host re-renders", () => {

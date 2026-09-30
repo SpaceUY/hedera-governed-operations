@@ -2,21 +2,14 @@
 
 import { CouncilPreviewPanel, type HeadingLevel } from "./CouncilPreviewPanel";
 import { OperationTypePicker } from "./OperationTypePicker";
+import { ProposalSubmitFooter } from "./ProposalSubmitFooter";
 import { useProposalWizard } from "./ProposalWizardProvider";
-import {
-  OPEN_PROPOSAL_NOTICES,
-  lateSubmissionLabel,
-  missingProposerRoleLabel,
-  openProposalCopy,
-  scheduleRegisteredEntryCopy,
-  walletRequestLabel,
-} from "./copy";
+import { OPEN_PROPOSAL_NOTICES, missingProposerRoleLabel, openProposalCopy, scheduleRegisteredEntryCopy } from "./copy";
 import { WIZARD_KIND_ENTRIES } from "./kinds/registry";
 import type { WizardKind } from "./kinds/wizardKinds";
 import { isContractProposalKind } from "@sh/core/governance/proposalTypes";
 import type { Chain } from "viem";
 import { ConnectWallet } from "~~/components/ConnectWallet";
-import { MutationError } from "~~/components/governance/MutationError";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useHederaSigner } from "~~/hooks/useHederaSigner";
@@ -53,21 +46,9 @@ function proposerNotice(
  */
 export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardProps) => {
   const { network, governanceAccountId } = config;
-  const { accountId, isConnected, signerKind } = useHederaSigner();
+  const { accountId, isConnected } = useHederaSigner();
   const council = useCouncil({ governanceAccountId, executorContractId: config.executor.hederaContractId, network });
-  const {
-    kind,
-    chooseKind,
-    draft,
-    setDraft,
-    preview,
-    submitStatus,
-    submitError,
-    walletRequest,
-    lateSubmission,
-    submit,
-    resumableEntry,
-  } = useProposalWizard();
+  const { kind, chooseKind, draft, setDraft, preview, submitStatus, resumableEntry } = useProposalWizard();
   const submitting = submitStatus === "pending";
 
   // A kind that cannot be proposed here says why in place of its form, before anything about roles.
@@ -115,26 +96,7 @@ export const ProposalWizard = ({ config, chain, headingLevel }: ProposalWizardPr
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t border-base-300 bg-base-100 px-6 pt-4 pb-5">
-        <button className="btn btn-primary btn-block min-h-12" onClick={submit} disabled={!canSubmit}>
-          {submitting ? (
-            <span className="loading loading-spinner loading-sm" aria-label="Waiting for the wallet" />
-          ) : (
-            copy.cta
-          )}
-        </button>
-        {walletRequest ? (
-          <p role="status" className="m-0 text-sm text-info leading-normal">
-            {walletRequestLabel(walletRequest, signerKind)}
-          </p>
-        ) : (
-          <p className="m-0 text-sm text-base-content/60 leading-normal">{copy.note}</p>
-        )}
-        <MutationError error={submitError} />
-        {lateSubmission && (
-          <p role="status" className="m-0 text-sm text-info leading-normal">
-            {lateSubmissionLabel(lateSubmission)}
-          </p>
-        )}
+        <ProposalSubmitFooter canSubmit={canSubmit} cta={copy.cta} note={copy.note} />
       </div>
     </div>
   );

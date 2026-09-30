@@ -106,7 +106,7 @@ sequenceDiagram
   H-->>S: Batch receipt (all-or-nothing)
 ```
 
-Rules that make this work (verified on testnet):
+Rules that make this work (verified on testnet in a proof of concept: [batch](https://hashscan.io/testnet/transaction/1789672360.349990104) whose inner transfer HashPack signed with the service's batch key):
 
 - Build the inner transaction with `setTransactionId(TransactionId.generate(payer))`, `setBatchKey(serviceKey)`, then `freeze()`.
 - Do **not** call `setNodeAccountIds` on an inner transaction: it locks the node list and `freeze()` can no longer pin node `0.0.0`, which batches require.
@@ -155,7 +155,7 @@ threshold key cannot perform one directly. Two obvious routes fail, each with it
 and the one that works reads like a detour until you see why the other two do not.
 
 **A scheduled `TokenPause` is rejected outright.** Scheduled transactions are limited to a whitelist
-set by the network's configuration, and the token operations are not on it:
+set by the network's configuration, and the token operations are not on it ([tx](https://hashscan.io/testnet/transaction/1789669916.603630104)):
 
 ```
 SCHEDULED_TRANSACTION_NOT_IN_WHITELIST
@@ -164,7 +164,7 @@ SCHEDULED_TRANSACTION_NOT_IN_WHITELIST
 **A scheduled contract call with the key on the governance account is rejected by the system
 contract.** The obvious repair is to wrap the operation in a contract call, which *is* schedulable,
 and leave the token's pause key on the governance account. The schedule collects the m signatures,
-executes, and the call reaches HTS at `0x167` — which refuses it:
+executes, and the call reaches HTS at `0x167` — which refuses it ([schedule 0.0.10590524](https://hashscan.io/testnet/schedule/0.0.10590524), an early proof-of-concept deployment):
 
 ```
 INVALID_FULL_PREFIX_SIGNATURE_FOR_PRECOMPILE
@@ -197,7 +197,7 @@ would present the *calling* contract instead, and the key would have to be decla
 `delegatableContractId` for that to be accepted.
 
 **Freezing acts on a relationship, not on a token.** `freeze` names a token *and* an account, and
-the two must already be associated. Freezing an account that never associated the token answers:
+the two must already be associated. Freezing an account that never associated the token answers ([schedule 0.0.10670585](https://hashscan.io/testnet/schedule/0.0.10670585)):
 
 ```
 TOKEN_NOT_ASSOCIATED_TO_ACCOUNT  (184)
@@ -223,10 +223,12 @@ back — but a deployment that needs an escape hatch gives the token an admin ke
 contract and an operation to re-point the keys, which is one more governed operation, not a
 loophole.
 
-**Cost.** Measured on testnet through the full chain: pause 65,128, unpause 65,084, freeze 67,734
-and unfreeze 67,789, which puts the schedule's gas limit at 90,000. The limit is a price, not a
+**Cost.** Measured on testnet through the full chain, as plain `ContractExecute` calls from the
+governance account: [pause](https://hashscan.io/testnet/transaction/1790713605.639168721) 65,128, [unpause](https://hashscan.io/testnet/transaction/1790713612.767008908) 65,084, [freeze](https://hashscan.io/testnet/transaction/1790713650.494400104) 67,734
+and [unfreeze](https://hashscan.io/testnet/transaction/1790713661.606658104) 67,789, which puts the schedule's gas limit at 90,000. The limit is a price, not a
 ceiling (see the table above), so it belongs to the operation: an upgrade runs at 150,000 and
-consumes 65,410, a treasury swap at 300,000 and consumes about 247,050. `PROPOSAL_TYPES` cites the
+consumes 65,410 ([schedule 0.0.10716564](https://hashscan.io/testnet/schedule/0.0.10716564)), a treasury swap at 300,000 and consumes 247,047
+([schedule 0.0.10766696](https://hashscan.io/testnet/schedule/0.0.10766696)). `PROPOSAL_TYPES` cites the
 transactions.
 
 ## The proposal inbox
@@ -257,7 +259,7 @@ empty screen: with several proposers, a transient failure on one should not hide
 signed any transaction touching the schedule, and two kinds of row never count toward the threshold:
 the one `ScheduleCreate` adds for whoever paid to open the proposal, and the one every
 `ScheduleSign` adds for whoever paid to submit it. Measured on testnet, an executed 2-of-3 proposal
-shows **four** rows — two council members, and the payer twice.
+shows **four** rows — two council members, and the payer twice ([schedule 0.0.10716564](https://hashscan.io/testnet/schedule/0.0.10716564)).
 
 The rule that survives this is to count **council members, not rows**: a member is in or out however
 many rows carry its key. It also gets right the case the demo runs on, where the same person opens a
@@ -328,7 +330,8 @@ Changing who approves is itself a proposal, and it is the one kind whose progres
 `m of n`. Measured on testnet: a scheduled `AccountUpdate` that replaces a threshold key does not run
 on the outgoing council's threshold alone — the schedule stays pending — and runs once the incoming
 key's own threshold is also met. Each side needs its own threshold rather than all of its members,
-so a 2-of-3 council rotating to another 2-of-3 needs four signatures in total, two from each.
+so a 2-of-3 council rotating to another 2-of-3 needs four signatures in total, two from each
+([schedule 0.0.10716509](https://hashscan.io/testnet/schedule/0.0.10716509), on a throwaway account).
 
 The incoming council comes out of the decoded body in the same shape `fetchCouncilKey` returns for
 the current one, so `countThresholdSignatures` runs over both: a rotation's row carries `progress`
@@ -341,9 +344,9 @@ A pending proposal exists twice — as an entry in `GovernedExecutor` and as the
 the council signs — and each one is retracted differently.
 
 **The schedule.** Hedera deletes a schedule only through an admin key fixed when the schedule is
-created; without one, `ScheduleDelete` comes back `SCHEDULE_IS_IMMUTABLE` and the only way out is
+created; without one, `ScheduleDelete` comes back `SCHEDULE_IS_IMMUTABLE` ([tx](https://hashscan.io/testnet/transaction/1790341670.244801104)) and the only way out is
 waiting for the expiry. And naming a key that does not sign the `ScheduleCreate` fails with
-`INVALID_SIGNATURE`, which settles whose key it is: the governance account's threshold key in that
+`INVALID_SIGNATURE` ([tx](https://hashscan.io/testnet/transaction/1790341662.457864222)), which settles whose key it is: the governance account's threshold key in that
 slot would make opening a proposal an m-of-n vote of its own, so the admin key is the proposer's own
 key, read from the Mirror Node at creation time (`fetchAccountPublicKey`). Deleting ends **one round
 of approval**: the registry entry stays pending and anyone may schedule `execute(id)` again.
@@ -476,13 +479,13 @@ Two traps are worth recording because they only appear against a live network. T
 a few seconds and the agent polls faster than that, so a signature it has just sent is still absent
 from the schedule on the next pass and the proposal reads as pending and unsigned. Measured on
 testnet: without a memory of what this process has already signed, the agent signs the same proposal
-again and the receipt comes back `SCHEDULE_ALREADY_EXECUTED` — one wasted fee per pass until Mirror
+again and the receipt comes back `SCHEDULE_ALREADY_EXECUTED` ([tx](https://hashscan.io/testnet/transaction/1790372802.314179234)) — one wasted fee per pass until Mirror
 catches up, and a duplicate `ScheduleSign` on any proposal still short of its threshold.
 
 The second is what a signature from a key with **no seat** costs. The council grants and revokes the
 seat by rotation, so an agent can legitimately be running before it holds one — and a misconfigured
-`AGENT_ACCOUNT_ID` looks identical. Measured on testnet: such a `ScheduleSign` answers
-`NO_NEW_VALID_SIGNATURES`, is charged the same fee as a signature that counted, and **leaves no row
+`AGENT_ACCOUNT_ID` looks identical. Measured on testnet with a throwaway account ([tx](https://hashscan.io/testnet/transaction/1790689829.352430104) on
+[schedule 0.0.10777487](https://hashscan.io/testnet/schedule/0.0.10777487)): such a `ScheduleSign` answers `NO_NEW_VALID_SIGNATURES`, is charged the same fee as a signature that counted, and **leaves no row
 on the schedule**. The missing row is what makes it a drain rather than one wasted fee: nothing
 remembers the attempt, `isSignedByKey` reads false on the next pass, and the agent tries again every
 poll for as long as the proposal stays open. It is not silent — each attempt logs `signature-failed`
@@ -504,7 +507,9 @@ A release manifest closes that. At release time `yarn release:publish` submits, 
 publishedAt}`; the hash is keccak256 of the **runtime bytecode the Mirror Node reports** for that
 address. Before signing an upgrade the agent fetches the deployed code for the proposed
 implementation, hashes it the same way, and looks for a manifest that names the address *and*
-matches the hash. Three outcomes, all verified on testnet:
+matches the hash. Three outcomes, all verified on testnet against an earlier release topic
+([topic 0.0.10720712](https://hashscan.io/testnet/topic/0.0.10720712)): [schedule 0.0.10720729](https://hashscan.io/testnet/schedule/0.0.10720729) was signed, [schedule 0.0.10720730](https://hashscan.io/testnet/schedule/0.0.10720730) refused, and the mismatch
+was produced with a deliberately tampered manifest on [topic 0.0.10720804](https://hashscan.io/testnet/topic/0.0.10720804):
 
 | | |
 | --- | --- |
@@ -585,8 +590,9 @@ manifest, and a refusal names the limit it failed.
 **The submit key is the agent's own**, and that is the difference from the release topic. A manifest
 claims "this team published this build", so the publisher is the team; a decision claims "this agent
 approved this proposal", so the publisher is the agent. A log the operator could also write to would
-be a log of what somebody said the agent did. `yarn setup` creates it with the seat's key and keeps
-the admin key on the operator so it can be rotated when the seat changes hands, and the agent refuses
+be a log of what somebody said the agent did. `yarn setup` creates it with the key of the agent's own account
+— which the council does not hold until it seats it — and keeps the admin key on the operator so it
+can be rotated when the agent's key changes hands, and the agent refuses
 to start on a topic anyone can publish to or one whose single submit key is not its own.
 
 Publishing is a record of what happened, never a step the agent waits on: it runs after deciding and

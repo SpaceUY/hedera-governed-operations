@@ -23,6 +23,7 @@
       "packages/hardhat/contracts/GovernedExecutor.sol",
       "packages/hardhat/.env.example",
       "packages/nextjs/app/(governance)/layout.tsx",
+      "packages/nextjs/app/(governance)/settings/page.tsx",
       ".harness/spec.yaml",
       ".harness/prd.md"
     ],
@@ -35,7 +36,7 @@
     },
     {
       "file": "packages/nextjs/components/Header.tsx",
-      "contains": ["Governed Operations", "Live map", "MirrorPollStatus"]
+      "contains": ["Governed Operations", "Live map", "Settings", "MirrorPollStatus"]
     },
     {
       "file": "packages/nextjs/components/MirrorPollStatus.tsx",
@@ -52,6 +53,10 @@
     {
       "file": "packages/nextjs/components/SetupNotice.tsx",
       "contains": ["Governance is not set up yet"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["You are viewing the demo instance on testnet", "yarn setup"]
     },
     {
       "file": "packages/hardhat/hardhat.config.ts",
@@ -88,6 +93,34 @@
     {
       "file": "packages/nextjs/components/governance/rail/copy.ts",
       "contains": ["Find a proposal by schedule id", "Show fewer", "Expiring now"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/graph/caption.ts",
+      "contains": ["Nothing moves until the", "Drafting.", "Dashed violet is what would happen once the", "Fill in the form to see exactly what it would do."]
+    },
+    {
+      "file": "packages/nextjs/services/liveMap/preview/kinds/upgrade.ts",
+      "contains": ["would become v2"]
+    },
+    {
+      "file": "packages/nextjs/services/liveMap/preview/kinds/registry.ts",
+      "contains": ["PREVIEW_KINDS"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/wizard/copy.ts",
+      "contains": ["Sent with your wallet."]
+    },
+    {
+      "file": "packages/nextjs/components/governance/settings/copy.ts",
+      "contains": ["Council · native Hedera", "signatures move the treasury", "These approvers don’t exist in any contract", "Propose a council change · native", "Signatures required", "Add a member", "Contract roles · EVM · proposal registry", "the only holder", "The registry itself", "changing who may propose is itself a proposal the council approves"]
+    },
+    {
+      "file": "packages/core/src/governance/roles.ts",
+      "contains": ["EXECUTOR_ROLE", "getRoleAdmin"]
+    },
+    {
+      "file": "packages/nextjs/components/governance/rail/copy.ts",
+      "contains": ["HashPack cannot sign this step", "HashPack cannot sign a schedule delete yet", "such as Kabila", "Use another wallet"]
     }
   ]
 }

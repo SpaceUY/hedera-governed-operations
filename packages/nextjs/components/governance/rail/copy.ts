@@ -6,7 +6,7 @@
  */
 import { type ProposalStage, remainingSignatures } from "./proposalProgress";
 import type { Proposal } from "@sh/core/governance/proposals";
-import { proposalStatusLabel } from "~~/services/governance/proposalLabels";
+import { proposalStatusLabel, signaturesWord } from "~~/services/governance/proposalLabels";
 
 export type ProposalFamily = "contract" | "native";
 
@@ -49,8 +49,6 @@ export const FAMILY_COPY: Record<ProposalFamily, { card: string; detail: string 
   contract: { card: "contract · via registry", detail: "Contract operation · goes through the registry" },
   native: { card: "native · no registry", detail: "Native operation · no registry entry, no event" },
 };
-
-const signaturesWord = (count: number) => (count === 1 ? "signature" : "signatures");
 
 function isEntryCancelled({ registry }: Pick<Proposal, "registry">): boolean {
   return registry.status === "read" && registry.entry.state === "cancelled";
@@ -178,8 +176,8 @@ export const AGENT_COPY = {
   monogram: "AG",
   notMember: "not a member",
   notSeated: "not seated",
-  /** `rule` is the council the agent's seat would make, the current threshold over one more member. */
-  howToSeat: (rule: string) => `Approve “Add the co-signing agent” to seat it (${rule} council).`,
+  /** `title` is the rotation's title (`councilChangeTitle`) for the council the agent's seat would make. */
+  howToSeat: (title: string) => `Approve “${title}” to seat it.`,
 } as const;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -302,6 +300,21 @@ export const CANCEL_COPY = {
   checking: "Checking who can cancel",
 } as const;
 
+/**
+ * The dialog shown instead of the wallet prompt when an action would send a `ScheduleDelete` and the
+ * connected wallet is known to refuse one (`signsScheduleDelete`): the refusal would otherwise arrive
+ * as an ordinary rejection, as if the person had pressed Reject.
+ */
+export const WALLET_LIMIT_COPY = {
+  title: "HashPack cannot sign this step",
+  withdraw:
+    "Withdrawing deletes this schedule, and HashPack cannot sign a schedule delete yet. Connect a wallet that supports it, such as Kabila, to withdraw this round.",
+  cancelLive:
+    "Cancelling deletes the open schedule first, and HashPack cannot sign that step yet. Connect a wallet that supports it, such as Kabila, to cancel this proposal.",
+  useAnotherWallet: "Use another wallet",
+  close: "Close",
+} as const;
+
 export const DETAIL_COPY = {
   loading: "Loading proposal",
   notFound: "Proposal not found.",
@@ -325,4 +338,13 @@ export const DETAIL_COPY = {
   noEntry: "None — native, the network runs it directly",
   executeCall: (proposalId: number) => `execute(${proposalId}) on the registry`,
   nativeCall: "None — a native transaction, no contract call",
+} as const;
+
+export const RAIL_NOTICE = { dismiss: "Dismiss" } as const;
+
+/** Said at the top of the rail while the app reads the published testnet instance instead of its own. */
+export const DEMO_INSTANCE_COPY = {
+  title: "You are viewing the demo instance on testnet",
+  body: "Every figure and proposal here is live, read from the Mirror Node. To deploy your own, run",
+  command: "yarn setup",
 } as const;

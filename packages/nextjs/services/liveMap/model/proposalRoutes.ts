@@ -106,8 +106,21 @@ function refsOf(operation: Exclude<DecodedOperation, { kind: "unrecognized" }>):
   }
 }
 
+/**
+ * A kind picked before its form holds an operation: the kind's route through the entities the
+ * configuration already names for it (the vault an upgrade reaches, the treasury a swap pays back),
+ * and nothing the form has not said yet — no amount, no recipient.
+ */
+export type OperationSketch = { kind: "sketch"; of: ProposalKind; refs: RouteRefs };
+
+/** What a route can be drawn for: a decoded operation, or a sketch of one. */
+export type RoutableOperation = DecodedOperation | OperationSketch;
+
 /** The route an operation takes and what it names along it; null for a body nobody can describe. */
-export function routeOf(operation: DecodedOperation): OperationRoute | null {
+export function routeOf(operation: RoutableOperation): OperationRoute | null {
   if (operation.kind === "unrecognized") return null;
+  if (operation.kind === "sketch") {
+    return { kind: operation.of, steps: PROPOSAL_ROUTES[operation.of], refs: operation.refs };
+  }
   return { kind: operation.kind, steps: PROPOSAL_ROUTES[operation.kind], refs: refsOf(operation) };
 }

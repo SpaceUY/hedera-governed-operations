@@ -1,19 +1,19 @@
-import { RemoteSignatureBanner, useRemoteSignatureNotice } from "./RemoteSignatureBanner";
+import { RailNotice, useRailNotice } from "./RailNotice";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let show: (text: string) => void = () => undefined;
 
 function Host() {
-  const notice = useRemoteSignatureNotice();
+  const notice = useRailNotice();
   show = notice.show;
-  return <RemoteSignatureBanner notice={notice.notice} onDismiss={notice.dismiss} />;
+  return <RailNotice notice={notice.notice} onDismiss={notice.dismiss} />;
 }
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-describe("RemoteSignatureBanner", () => {
+describe("RailNotice", () => {
   it("keeps an empty polite status until a signature from elsewhere is read, then says it", () => {
     render(<Host />);
     expect(screen.getByRole("status").textContent).toBe("");

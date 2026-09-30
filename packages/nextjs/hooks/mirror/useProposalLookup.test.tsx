@@ -72,6 +72,23 @@ const lookup = (executorContractId = EXECUTOR_CONTRACT_ID) =>
   );
 
 describe("useProposalLookup", () => {
+  it("reads nothing while the schedule id is empty or malformed", async () => {
+    for (const scheduleId of ["", "abc", "0.0."]) {
+      const { result } = renderHook(
+        () =>
+          useProposalLookup({
+            governanceAccountId: GOVERNANCE_ACCOUNT_ID,
+            executorContractId: EXECUTOR_CONTRACT_ID,
+            scheduleId,
+          }),
+        { wrapper: createQueryWrapper() },
+      );
+      expect(result.current.proposal).toBeUndefined();
+    }
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(fetchSchedule).not.toHaveBeenCalled();
+  });
+
   it("decodes an unrecognized body without crashing, with no registry check attempted", async () => {
     vi.mocked(fetchAccount).mockResolvedValue({
       key: { _type: "ProtobufEncoded", key: RECORDED_THRESHOLD_KEY_HEX },

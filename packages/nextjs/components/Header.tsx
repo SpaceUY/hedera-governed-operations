@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bars3Icon, MapIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, Cog6ToothIcon, MapIcon } from "@heroicons/react/24/outline";
 import { MirrorPollStatus } from "~~/components/MirrorPollStatus";
 import { SwitchTheme } from "~~/components/SwitchTheme";
 import { WalletConnectButton } from "~~/components/scaffold-hbar";
@@ -22,6 +22,11 @@ export const menuLinks: HeaderMenuLink[] = [
     label: "Live map",
     href: GOVERNANCE_ROUTES.home,
     icon: <MapIcon className="h-4 w-4" />,
+  },
+  {
+    label: "Settings",
+    href: GOVERNANCE_ROUTES.settings,
+    icon: <Cog6ToothIcon className="h-4 w-4" />,
   },
 ];
 

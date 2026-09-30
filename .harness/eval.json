@@ -5,14 +5,15 @@
   "version": 2,
   "routes": [
     "/",
-    "/governance/new"
+    "/governance/new",
+    "/settings"
   ],
   "evaluationRules": {
     "posture": "adversarial",
     "failOnUncertainty": "If an assertion cannot be positively verified from the running app, mark it FAILED. Absence of evidence is a failure.",
     "credentials": "The app must load and be browsable without any .env, private keys or funded account.",
     "walletGatedFlows": "Without a Test Signer, walletRequired assertions stay affordance-only: verify the control is visible and the app explains a wallet is needed.",
-    "setupNotice": "Without a .env or a deployment every governance route renders the \"Governance is not set up yet\" notice instead of its content. That is the expected state, not a failure: verify the notice and the header, and stop there.",
+    "setupNotice": "Without a .env the app reads the template's public demo instance on testnet, and the rail opens with the note \"You are viewing the demo instance on testnet\" naming `yarn setup`: that is the expected state, and the assertions are verified against its live data. A setup that stopped halfway (some of the ids `yarn setup` writes but not all) or a missing deployment renders the \"Governance is not set up yet\" notice on every governance route instead of its content. That is not a failure either: verify the notice and the header, and stop there.",
     "evidence": "Every issue cites route, element and console output."
   },
   "assertions": [
@@ -24,7 +25,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "The home route renders the live map without a wallet, without a .env file and without browser console errors.",
-      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the expected state without a .env or a deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, the governed token labelled with its symbol from the Mirror Node, USDC, Council threshold); and beside it a rail headed \"Pending operations\" with a \"New proposal\" link and, under that heading, the line \"Each one runs by itself the moment the N-of-M council has signed it. There is no execute button.\" (N-of-M is the council's threshold, e.g. 2-of-3). The map pane does not repeat that line. No crash banner is shown and the console has no errors."
+      "howToVerify": "Navigate to /. Confirm either the \"Governance is not set up yet\" notice whose message names `yarn setup` or `yarn hardhat:deploy` (the state of a half-written setup or a missing deployment), or the live map: the header reads \"Governed Operations\"; a map pane with the treasury figures (HBAR, Vault reserve, the governed token labelled with its symbol from the Mirror Node, USDC, Council threshold); and beside it a rail headed \"Pending operations\" with a \"New proposal\" link and, under that heading, the line \"Each one runs by itself the moment the N-of-M council has signed it. There is no execute button.\" (N-of-M is the council's threshold, e.g. 2-of-3). The map pane does not repeat that line. Without a .env the rail opens with the note \"You are viewing the demo instance on testnet\", which names `yarn setup`. No crash banner is shown and the console has no errors."
     },
     {
       "id": "E6",
@@ -34,7 +35,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "The live map is one fold on a desktop screen: the page does not scroll, the rail lists only proposals still collecting signatures under \"Pending operations\", and the header shows the navigation, the network and how fresh the Mirror Node read is.",
-      "howToVerify": "Without a .env or a deployment / shows the \"Governance is not set up yet\" notice instead: then confirm only the header (\"Live map\" active, a \"Hedera Testnet\" badge) and no console errors. Otherwise, at a 1440×900 viewport navigate to /: document.documentElement.scrollHeight equals window.innerHeight (the page does not scroll; only the rail may). The header shows the \"Live map\" link (active), a \"Hedera Testnet\" badge and, within ~10 s, \"Mirror Node · polled Ns ago\" whose number increases every second. Every proposal listed directly under \"Pending operations\" reads \"N more needed\" (or \"Threshold reached\") with a time-left chip; executed, withdrawn or expired ones appear only under \"Recent\", reading how they ended (\"Executed\", \"Withdrawn\", \"Expired\"). Opening /governance/new keeps the treasury figures in place and shows \"← Map\" with the \"New proposal\" heading in the rail. Console has no errors."
+      "howToVerify": "If / shows the \"Governance is not set up yet\" notice instead (a half-written setup or no deployment), then confirm only the header (\"Live map\" active, a \"Hedera Testnet\" badge) and no console errors. Otherwise, at a 1440×900 viewport navigate to /: document.documentElement.scrollHeight equals window.innerHeight (the page does not scroll; only the rail may). The header shows the \"Live map\" link (active), a \"Hedera Testnet\" badge and, within ~10 s, \"Mirror Node · polled Ns ago\" whose number increases every second. Every proposal listed directly under \"Pending operations\" reads \"N more needed\" (or \"Threshold reached\") with a time-left chip; executed, withdrawn or expired ones appear only under \"Recent\", reading how they ended (\"Executed\", \"Withdrawn\", \"Expired\"). Opening /governance/new keeps the treasury figures in place and shows \"← Map\" with the \"New proposal\" heading in the rail. Console has no errors."
     },
     {
       "id": "E5",
@@ -44,7 +45,7 @@
       "walletRequired": true,
       "verifiableWithoutCredentials": true,
       "statement": "The new-proposal route offers the operation kinds as one radio choice in two groups and explains that a connected wallet is required, without crashing.",
-      "howToVerify": "Navigate to /governance/new without connecting. Confirm either the \"Governance is not set up yet\" notice (no .env or deployment), or: the \"New proposal\" heading; radio buttons grouped under \"Contract calls · through the registry\" and \"Native · no contract, no registry entry\", with \"Upgrade the vault to v2\" checked; the message \"Connect a wallet to propose. The proposal is opened and paid for by your account.\"; and the \"Register and schedule with your wallet\" button disabled. Pressing the down arrow on the focused radio moves the choice to the next kind, \"Sell treasury HBAR for USDC\", and the button still reads \"Register and schedule with your wallet\"; choosing \"Pay a supplier\" makes it read \"Schedule with your wallet\". Console has no errors."
+      "howToVerify": "Navigate to /governance/new without connecting. Confirm either the \"Governance is not set up yet\" notice (a half-written setup or no deployment), or: the \"New proposal\" heading; radio buttons grouped under \"Contract calls · through the registry\" and \"Native · no contract, no registry entry\", with \"Upgrade the vault to v2\" checked; the message \"Connect a wallet to propose. The proposal is opened and paid for by your account.\"; and the \"Register and schedule with your wallet\" button disabled. Pressing the down arrow on the focused radio moves the choice to the next kind, \"Sell treasury HBAR for USDC\", and the button still reads \"Register and schedule with your wallet\"; choosing \"Pay a supplier\" makes it read \"Schedule with your wallet\". Console has no errors."
     },
     {
       "id": "E8",
@@ -54,7 +55,7 @@
       "walletRequired": false,
       "verifiableWithoutCredentials": true,
       "statement": "A proposal's detail page says what the operation would do, how far it is from the threshold and when it expires, read from the Mirror Node without a wallet.",
-      "howToVerify": "Without a .env or a deployment the route renders the \"Governance is not set up yet\" notice: confirm that and stop. Otherwise navigate to / and click the first card under \"Pending operations\" (it reads \"N more needed\" with a time-left chip); its detail opens under the card. Confirm a sentence describing the operation (for example \"Swap 10 ℏ for at least …\"); the steps \"Create\", \"Sign\" and \"Executed\", the last reading \"Runs by itself at the Nth signature. No execute button.\"; the headline \"N more signature(s) needed · M-of-N council · K signed\" with a time-left chip (\"6d 21h left\"); a \"Council\" list naming each member with \"Signed … ago\" or \"Not yet\"; and the line starting \"There is no reject button.\" that says when the schedule expires on its own. Then open /governance/{scheduleId} for the same schedule (its id is under \"On HashScan\", as \"Schedule 0.0.x\") and confirm the same detail under \"Proposal 0.0.x\" with a \"← Map\" link. No wallet is connected and the console has no errors."
+      "howToVerify": "If the route renders the \"Governance is not set up yet\" notice (a half-written setup or no deployment), confirm that and stop. Otherwise navigate to / and click the first card under \"Pending operations\" (it reads \"N more needed\" with a time-left chip); its detail opens under the card. Confirm a sentence describing the operation (for example \"Swap 10 ℏ for at least …\"); the steps \"Create\", \"Sign\" and \"Executed\", the last reading \"Runs by itself at the Nth signature. No execute button.\"; the headline \"N more signature(s) needed · M-of-N council · K signed\" with a time-left chip (\"6d 21h left\"); a \"Council\" list naming each member with \"Signed … ago\" or \"Not yet\"; and the line starting \"There is no reject button.\" that says when the schedule expires on its own. Then open /governance/{scheduleId} for the same schedule (its id is under \"On HashScan\", as \"Schedule 0.0.x\") and confirm the same detail under \"Proposal 0.0.x\" with a \"← Map\" link. No wallet is connected and the console has no errors."
     },
     {
       "id": "E9",
@@ -66,6 +67,36 @@
       "executableWithTestSigner": true,
       "statement": "With the harness test signer seated on the council, signing a pending proposal from the app adds that signature to the scheduled transaction on the testnet Mirror Node.",
       "howToVerify": "The dev server command runs `yarn harness:council-seat` first, which adds this run's test signer to the governance account's threshold key; without that seat the network answers INVALID_SIGNATURE and this assertion fails. Store the test signer key under localStorage[\"burnerWallet.pk\"] and reload /. Do not open any wallet modal: the header must show the signer's 0.0.x account id with a \"test signer\" badge (allow ~20 s for the account to resolve from the Mirror Node). Click a card under \"Pending operations\" that reads \"N more needed\"; in its detail note the schedule id (under \"On HashScan\", as \"Schedule 0.0.x\") and the \"K signed\" count in the headline. GET https://testnet.mirrornode.hedera.com/api/v1/schedules/{scheduleId} and note signatures.length. Click \"Sign with the test signer\" on the signer's own row in the \"Council\" list and wait for \"K signed\" to rise by one. Then GET the same Mirror Node URL again (poll up to 30 s) and confirm signatures.length has risen by one. Console has no errors."
+    },
+    {
+      "id": "E10",
+      "journey": "Browse without a wallet",
+      "route": "/settings",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": true,
+      "statement": "Settings shows the council read from the treasury account's key and the registry's roles read from the chain, beside the live map, without a way to grant a role and without the registry's proposal count.",
+      "howToVerify": "Without a .env the app reads the template's demo instance on testnet, and with one it reads that deployment; either way, navigate to /settings at 1440×900. The header's Settings link is highlighted and Live map is not. The map pane is present. The rail is headed \"Settings\" with a \"← Map\" link to /. A section headed \"Council · native Hedera\" reads \"<rule> signatures move the treasury\" where <rule> equals the treasury strip's council threshold (e.g. \"2-of-3\"), states \"These approvers don’t exist in any contract…\", and lists one row per seat of that rule's n, plus one dashed \"not a member\" row when a co-signing agent is configured and not seated. A section headed \"Propose a council change · native\" has one checked checkbox per seat (plus one unticked checkbox when a configured co-signing agent is not seated and could sign), \"Signatures required\" with − and + around the rule, an \"Add a member\" button, and a \"Schedule with your wallet\" button that is disabled while nothing has changed; after a change it enables only with a connected wallet, and without one the section says \"Connect a wallet to propose\" and the button stays disabled. A section headed \"Contract roles · EVM · proposal registry\" lists PROPOSER_ROLE holders, EXECUTOR_ROLE as \"Treasury account <governance account id> — the only holder\", Role admin \"The registry itself\", and the sentence that changing who may propose is itself a proposal the council approves; that section contains no text input and no button. No number of registered proposals appears anywhere on the page. At 400 px wide there is no horizontal scroll. Console has no errors."
+    },
+    {
+      "id": "E11",
+      "journey": "Browse without a wallet",
+      "route": "/",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": false,
+      "statement": "Selecting a pending proposal previews on the map what it would do: what it does not touch is dimmed, its path is dashed violet, the node it changes says what would happen, and the caption names it.",
+      "howToVerify": "With the testnet .env of a deployment that has a pending proposal, navigate to / at 1440×900. Click a pending card whose proposal decodes (not an 'unrecognized' one). The URL gains ?schedule=<id>; within a second the map shows elements with data-dimmed=\"true\" at computed opacity 0.35, at least one edge with data-phase=\"preview\", a node text in violet starting with \"would \" (e.g. \"would become v2\"), and the caption above the map reads \"<the card's title>. Dashed violet is what would happen once the 2-of-3 council signs.\" (the rule as the ledger has it). Deselecting the card restores the caption \"Nothing moves until the 2-of-3 council signs.\" and removes every data-dimmed=\"true\". Console has no errors."
+    },
+    {
+      "id": "E12",
+      "journey": "Wallet-gated actions",
+      "route": "/governance/new",
+      "severity": "major",
+      "walletRequired": false,
+      "verifiableWithoutCredentials": false,
+      "statement": "While a proposal is drafted in the rail, the map previews it as dashed violet and the caption says it is drafting.",
+      "howToVerify": "With the testnet .env of a deployment, navigate to /governance/new. The wizard opens with \"Upgrade the vault to v2\" picked and its form empty: the caption above the map reads \"Drafting. Dashed violet is the way “Upgrade the vault to v2” would go. Fill in the form to see exactly what it would do.\", the Treasury → Proposal registry → Vault edges already carry data-phase=\"preview\" and the Vault's caption reads \"would be upgraded\". Pick \"Pay a supplier\": the dashed line runs from the Treasury to the Supplier, whose caption reads \"would receive a payment\". Pick \"Upgrade the vault to v2\" again and enter a withdrawal limit of 2: the caption becomes \"Drafting. Dashed violet is what “Upgrade the vault to v2” would do once the 2-of-3 council signs.\", the Treasury → Proposal registry → Vault edges carry data-phase=\"preview\", and the Vault's caption reads \"would become v2\". Console has no errors."
     }
   ]
 }
