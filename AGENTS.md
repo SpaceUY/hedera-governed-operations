@@ -100,7 +100,7 @@ packages/nextjs/
   components/             Header (nav, MirrorPollStatus, network, theme, wallet), ConnectWallet, SetupNotice, …
     governance/           GovernanceProvider (config + wizard draft for the live map), LiveMapPane (the map pane: TreasuryStrip with AnimatedNumber figures, map) over useLiveMap (its reads, motion, node states, remote signatures, inspector), RemoteSignatureBanner, MutationError, the proposal wizard (ProposalWizardProvider + ProposalWizard, picker, preview; one folder per kind under wizard/kinds/, listed in kinds/registry.ts) and rail/ (pending list, operation cards, search, proposal detail)
     governance/graph/     GovernanceMap → GovernanceGraph: the SVG governance map (nodes, edges, comets, ring, legend), MapInspector + inspector.ts (the card for a selected node or edge), MapDecoratorProvider + useComposedMap (the host's layout, shared with the rail); copy.ts holds its words
-    governance/graph/demo/  Demo only: hand-composed layout, names, ghost co-signing agent (deletable)
+    governance/graph/demo/  Demo only: hand-composed layout, names, the co-signing agent — a ghost until the council seats it (deletable)
     governance/settings/  Settings: CouncilCard, CouncilChangeComposer (+ councilChange.ts, the composer's rules), ContractRolesCard (+ registryRoles.ts), copy.ts
   hooks/
     useHederaSigner.ts    Wallet session + Hedera account identity for the UI

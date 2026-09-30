@@ -31,8 +31,10 @@ describe("decorateDemoMap", () => {
   });
 
   it("names the connected account's seat You, over a demo name too", () => {
-    expect(labelOf(composeMap(MAP_SNAPSHOT, decorateDemoMap, "0.0.4101"), memberNodeId(KEY_A))).toBe("You");
-    const asAlice = composeMap(MAP_SNAPSHOT, decorateDemoMap, "0.0.4102");
+    expect(
+      labelOf(composeMap(MAP_SNAPSHOT, decorateDemoMap, { viewerAccountId: "0.0.4101" }), memberNodeId(KEY_A)),
+    ).toBe("You");
+    const asAlice = composeMap(MAP_SNAPSHOT, decorateDemoMap, { viewerAccountId: "0.0.4102" });
     expect(labelOf(asAlice, memberNodeId(KEY_B))).toBe("You");
     expect(labelOf(asAlice, memberNodeId(KEY_C))).toBe(DEMO_NAMES.bob);
   });
@@ -127,5 +129,43 @@ describe("decorateDemoMap", () => {
       "Council",
       "Contracts",
     ]);
+  });
+});
+
+describe("decorateDemoMap with the co-signing agent", () => {
+  const AGENT_SEAT = "YWdlbnQ=";
+  const seated = {
+    ...MAP_SNAPSHOT,
+    council: { threshold: 2, memberKeys: [...MAP_SNAPSHOT.council.memberKeys, AGENT_SEAT] },
+  };
+  const nodeOf = (map: ReturnType<typeof composeMap>, id: string) => map.graph.nodes.find(node => node.id === id);
+
+  it("draws the agent as a ghost while the council does not hold its key", () => {
+    expect(composeMap(MAP_SNAPSHOT, decorateDemoMap).ghosts.map(ghost => ghost.label)).toEqual([DEMO_NAMES.agent]);
+    const unseated = composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: AGENT_SEAT });
+    expect(unseated.ghosts.map(ghost => ghost.label)).toEqual([DEMO_NAMES.agent]);
+  });
+
+  it("puts the seated agent where its ghost was, and drops the ghost", () => {
+    const unseated = composeMap(MAP_SNAPSHOT, decorateDemoMap);
+    const map = composeMap(seated, decorateDemoMap, { agentSeat: AGENT_SEAT });
+    expect(map.ghosts).toEqual([]);
+    expect(nodeOf(map, memberNodeId(AGENT_SEAT))).toMatchObject({
+      label: DEMO_NAMES.agent,
+      position: unseated.ghosts[0].position,
+    });
+  });
+
+  it("still names the council account once the agent holds a seat beside it", () => {
+    const map = composeMap(seated, decorateDemoMap, { agentSeat: AGENT_SEAT });
+    expect(nodeOf(map, memberNodeId(KEY_A))?.label).toBe(DEMO_NAMES.council);
+    expect(nodeOf(map, memberNodeId(KEY_B))?.label).toBe(DEMO_NAMES.alice);
+    expect(nodeOf(map, memberNodeId(KEY_C))?.label).toBe(DEMO_NAMES.bob);
+  });
+
+  it("keeps Bob's name when the agent runs on Bob's key, and draws no ghost", () => {
+    const map = composeMap(MAP_SNAPSHOT, decorateDemoMap, { agentSeat: KEY_C });
+    expect(nodeOf(map, memberNodeId(KEY_C))?.label).toBe(DEMO_NAMES.bob);
+    expect(map.ghosts).toEqual([]);
   });
 });
