@@ -37,7 +37,7 @@ const ProposalWizardContext = createContext<ProposalWizardState | null>(null);
 type ProposalWizardProviderProps = {
   executorContractId: string;
   /** Called with the new schedule id once the proposal is opened and indexed, if the provider is still mounted. */
-  onSubmitted: (scheduleId: string) => void;
+  onSubmitted: (scheduleId: string) => void | Promise<void>;
   children: ReactNode;
 };
 
@@ -78,11 +78,14 @@ export const ProposalWizardProvider = ({ executorContractId, onSubmitted, childr
     if (draft.status !== "ready") return;
     mutate(draft.draft, {
       // The provider outlives the wizard's route, so a finished submission is cleared once handed
-      // over: the next proposal starts from an empty draft and an idle submit.
+      // over: the next proposal starts from an empty draft and an idle submit. The clearing waits for
+      // the hand-over to finish, because until the route moves the map still reads this draft, and an
+      // empty one would leave it blank while the inbox is read again.
       onSuccess: scheduleId => {
-        onSubmitted(scheduleId);
-        setDraft(EMPTY_DRAFT);
-        reset();
+        void Promise.resolve(onSubmitted(scheduleId)).finally(() => {
+          setDraft(EMPTY_DRAFT);
+          reset();
+        });
       },
     });
   }, [draft, mutate, reset, onSubmitted]);

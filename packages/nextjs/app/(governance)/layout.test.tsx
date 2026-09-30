@@ -1,5 +1,7 @@
+import type { ReactElement } from "react";
 import GovernanceLayout from "./layout";
-import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, render as renderPlain, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
 import { type GovernanceConfig, resolveGovernanceConfig } from "~~/config/governanceConfig";
@@ -31,6 +33,9 @@ const CONFIG: GovernanceConfig = {
   executor: DEPLOYED,
   vault: DEPLOYED,
 };
+
+const render = (ui: ReactElement) =>
+  renderPlain(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 
 const RailPage = () => <p>rail page for {useGovernanceConfig().governanceAccountId}</p>;
 

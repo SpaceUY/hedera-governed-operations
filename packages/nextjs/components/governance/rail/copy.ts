@@ -326,3 +326,5 @@ export const DETAIL_COPY = {
   executeCall: (proposalId: number) => `execute(${proposalId}) on the registry`,
   nativeCall: "None — a native transaction, no contract call",
 } as const;
+
+export const RAIL_NOTICE = { dismiss: "Dismiss" } as const;

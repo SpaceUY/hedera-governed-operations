@@ -142,3 +142,7 @@ export const ACCOUNT_LOOKUP_LABELS = {
 export function tokenUnreadableLabel(tokenId: string): string {
   return `Could not read token ${tokenId} on the Mirror Node right now.`;
 }
+
+/** Said in the rail once the wallet has sent a proposal; the map opens it as soon as the inbox lists it. */
+export const SUBMITTED_NOTICE =
+  "Sent with your wallet. It appears here when the next Mirror Node poll confirms it — nothing on screen changes until then.";

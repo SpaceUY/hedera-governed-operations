@@ -103,8 +103,6 @@ export function remoteSignatureMessage(member: string | undefined, proposal: str
   return `${member ?? "A council member"} signed “${proposal}” from their own device. Nobody on this screen pressed anything — the poll saw it.`;
 }
 
-export const REMOTE_SIGNATURE_BANNER = { dismiss: "Dismiss" } as const;
-
 /**
  * The inspector: the card that explains the node or edge someone clicked. Its kickers use the
  * legend's words, so the card and the legend describe a line the same way.
