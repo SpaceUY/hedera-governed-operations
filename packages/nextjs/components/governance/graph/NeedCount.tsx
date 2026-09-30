@@ -1,5 +1,5 @@
-import { useId } from "react";
 import { MAP_LABELS } from "./copy";
+import { useSvgId } from "./useSvgId";
 
 /** One digit's line, in viewBox units; the column moves by this much per signature. */
 const ROLL_STEP = 20;
@@ -13,7 +13,7 @@ const WORDS_X = -34;
  * from screen readers.
  */
 export function NeedCount({ need, y }: { need: number; y: number }) {
-  const clipId = `map-need-${useId().replace(/[^\w-]/g, "")}`;
+  const clipId = useSvgId("map-need");
   const digits = Array.from({ length: Math.max(need, 9) + 1 }, (_unused, digit) => digit);
 
   return (

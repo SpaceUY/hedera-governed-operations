@@ -1,9 +1,9 @@
 "use client";
 
-import { useId } from "react";
 import { type MapActivation, MapItem } from "./MapItem";
 import { type EdgeRoute, routePath } from "./geometry";
 import type { RovingFocus } from "./useRovingFocus";
+import { useSvgId } from "./useSvgId";
 import type { EdgeKind, EdgePhase } from "~~/services/liveMap/model/graph";
 
 const PHASE_STROKE: Record<EdgePhase, string> = {
@@ -49,8 +49,7 @@ type GraphEdgeProps = {
  */
 export function GraphEdge({ id, kind, phase, route, label, focus, activation, drawKey = null }: GraphEdgeProps) {
   const path = routePath(route);
-  // useId returns characters a url(#...) reference would need escaped.
-  const maskId = `map-draw-${useId().replace(/[^\w-]/g, "")}`;
+  const maskId = useSvgId("map-draw");
   const drawing = phase === "preview";
 
   return (
