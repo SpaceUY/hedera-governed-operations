@@ -22,7 +22,7 @@ export function AccountNode({
       activation={node.activation}
       transform={translate(node.position)}
     >
-      <g className={tone === "ghost" ? "opacity-50" : undefined}>
+      <g className={tone === "ghost" ? "opacity-50" : undefined} data-tone={tone}>
         <circle r={ACCOUNT_RADIUS + FOCUS_GAP} className={FOCUS_RING_CLASS} strokeWidth={2} />
         <circle
           r={ACCOUNT_RADIUS}
