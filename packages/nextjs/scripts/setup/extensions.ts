@@ -16,7 +16,7 @@ import type { MirrorLookups } from "./reconcile";
 import { formatSteps } from "./report";
 import { reconcileSeedProposal } from "./seedProposal";
 import { AGENT_ACCOUNT, type SetupState } from "./state";
-import { reconcileTreasuryAssociation } from "./treasuryAssociation";
+import { associateFreshTreasury, reconcileTreasuryAssociation } from "./treasuryAssociation";
 import type { Client } from "@hiero-ledger/sdk";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { SAUCERSWAP_V2_CONFIG } from "~~/services/swap/saucerSwapConfig";
@@ -70,11 +70,11 @@ export async function setupGovernance(ctx: SetupContext): Promise<void> {
 
   // Before the deployment gate on purpose: the association needs the account and no contract, so a
   // first pass settles it even when the contracts are not deployed yet.
-  const association = await reconcileTreasuryAssociation(
-    withGovernance,
-    SAUCERSWAP_V2_CONFIG[env.network].usdcToken,
-    services,
-  );
+  const usdcToken = SAUCERSWAP_V2_CONFIG[env.network].usdcToken;
+  const association =
+    step.outcome === "created"
+      ? await associateFreshTreasury(withGovernance, usdcToken, services.actions)
+      : await reconcileTreasuryAssociation(withGovernance, usdcToken, services);
   console.log(formatSteps([step, association]).join("\n"));
 
   const deployment = await readOwnDeployment(deployedContracts, governance.evmAddress, services.lookups);

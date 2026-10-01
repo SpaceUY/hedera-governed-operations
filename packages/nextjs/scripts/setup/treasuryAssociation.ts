@@ -51,16 +51,32 @@ function councilSigners(state: SetupState): DemoAccount[] {
   return demoCouncilMembers(state).slice(0, GOVERNANCE_THRESHOLD);
 }
 
+const associationLabel = (tokenId: string) => `Treasury association for token ${tokenId}`;
+
 export async function reconcileTreasuryAssociation(
   state: SetupState,
   tokenId: string,
   services: TreasuryAssociationServices,
 ): Promise<SetupStep> {
   const governance = requireGovernanceAccount(state);
-  const label = `Treasury association for token ${tokenId}`;
+  if (await services.lookups.accountHasToken(governance.accountId, tokenId)) {
+    return { label: associationLabel(tokenId), outcome: "reused" };
+  }
+  return associateFreshTreasury(state, tokenId, services.actions);
+}
 
-  if (await services.lookups.accountHasToken(governance.accountId, tokenId)) return { label, outcome: "reused" };
-
-  await services.actions.associateGovernanceToken(governance.accountId, tokenId, councilSigners(state));
-  return { label, outcome: "created" };
+/**
+ * A governance account created in this same run is not on the Mirror Node yet — its token list
+ * answers 404 for a few seconds — so the association is made without looking it up. Only an
+ * account found in the state goes through `reconcileTreasuryAssociation`, where a 404 means
+ * something is wrong rather than late.
+ */
+export async function associateFreshTreasury(
+  state: SetupState,
+  tokenId: string,
+  actions: TreasuryAssociationActions,
+): Promise<SetupStep> {
+  const governance = requireGovernanceAccount(state);
+  await actions.associateGovernanceToken(governance.accountId, tokenId, councilSigners(state));
+  return { label: associationLabel(tokenId), outcome: "created" };
 }
