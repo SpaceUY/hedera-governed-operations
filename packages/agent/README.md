@@ -85,6 +85,10 @@ reads, since a limit its author believes is in force and nothing enforces is the
 | `tokenAdmin`       | `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens`                                                 |
 | `treasuryTransfer` | `maxTinybars`, `recipients`, and `tokens` for HTS transfers                                                       |
 
+The app's upgrade form always sets the vault's withdrawal limit in the same call, as an initializer,
+so without `allowInitializer` the agent refuses every upgrade proposed from the app — which is why
+`policy.example.json` turns it on. Leave it off only if your upgrades never run code as they land.
+
 Every rule also takes `requireConfirmation`, which is not a limit but an escalation: see below.
 
 Three properties are worth more than the individual limits:
@@ -128,7 +132,7 @@ A check that could not be run is a refusal too. Not run is not passed. So is a s
 pages before it ran out of topic: the refusal then says it read the N most recent releases rather than
 claiming the topic holds none.
 
-Publishing is `yarn release:publish --contract AcmeVault --version v2.0.0`, which reads the
+Publishing is `yarn release:publish --contract AcmeVaultV2 --version v2.0.0`, which reads the
 implementation address `yarn hardhat:deploy` recorded, hashes the runtime bytecode the Mirror Node
 reports for it, and submits the manifest to the topic `yarn setup` created. Anyone can repeat the
 check from HashScan: read the topic, take the `bytecodeHash`, and compare it against
