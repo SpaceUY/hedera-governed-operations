@@ -199,7 +199,7 @@ export function GovernanceGraph({
           <g
             key={node.id}
             data-dimmed={isDimmed(frame.scope?.nodeIds ?? [], node.id) ? "true" : "false"}
-            className={`map-scope ${frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : ""}`}
+            className={`map-scope-node ${frame.shaking.includes(node.id) ? "motion-safe:animate-map-shake" : ""}`}
           >
             {drawNode(node)}
           </g>

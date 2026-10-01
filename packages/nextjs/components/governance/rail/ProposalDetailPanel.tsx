@@ -1,6 +1,7 @@
 "use client";
 
 import { ApproverList } from "./ApproverList";
+import { ConfirmingLine } from "./ConfirmingLine";
 import { HashScanLinks } from "./HashScanLinks";
 import { OperationMeta } from "./OperationMeta";
 import { ProposalStages } from "./ProposalStages";
@@ -23,7 +24,7 @@ import {
 import { unseatedAgentSeatOf, withSeat } from "./councilSeats";
 import { expiryCountdown } from "./expiryCountdown";
 import { operationSummaryOf, proposalIdentityOf } from "./proposalIdentity";
-import { memberSignedAt } from "@sh/core/governance/council";
+import { type CouncilKey, memberSignedAt } from "@sh/core/governance/council";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { MutationError } from "~~/components/governance/MutationError";
 import { useDemoSeats } from "~~/components/governance/demo/useDemoSeats";
@@ -32,7 +33,7 @@ import { gasLimitLabel } from "~~/components/governance/wizard/copy";
 import { useCouncil } from "~~/hooks/mirror/useCouncil";
 import { useCoSigningAgent } from "~~/hooks/useCoSigningAgent";
 import { useRotationResultTitle } from "~~/hooks/useRotationResultTitle";
-import { useSignProposal } from "~~/hooks/useSignProposal";
+import { useSignProposal, useSignatureInFlight } from "~~/hooks/useSignProposal";
 import { canBeSigned } from "~~/services/governance/proposalActions";
 import {
   UNREACHABLE_REGISTRY_SIGN_WARNING,
@@ -78,6 +79,13 @@ export type ProposalDetailPanelProps = {
   /** After Cancel: marks the entry cancelled without waiting on the relay. See `useProposalLookup`. */
   markRegistryEntryCancelled: () => void;
   variant?: PanelVariant;
+  /**
+   * The map is still playing this proposal: the panel says it is confirming on the network, and
+   * `proposal` is the copy the map draws (`useShownProposal`).
+   */
+  isPlaying?: boolean;
+  /** While the map plays this proposal, the council it draws, which a rotation changes only once its run lands. */
+  councilShown?: CouncilKey;
 };
 
 /**
@@ -101,6 +109,8 @@ export const ProposalDetailPanel = ({
   refresh,
   markRegistryEntryCancelled,
   variant = "page",
+  isPlaying = false,
+  councilShown,
 }: ProposalDetailPanelProps) => {
   const { operation, registry, schedule, state } = proposal;
   const identity = proposalIdentityOf(proposal);
@@ -108,17 +118,23 @@ export const ProposalDetailPanel = ({
   const executionFailure = executionFailureLabel(proposal);
   const registryUnreachable = operation.kind === "registryCall" && registry.status === "unreachable";
   const sign = useSignProposal();
+  // Read from the mutation cache: a Sign pressed before the panel was closed and opened again is still on its way.
+  const signing = useSignatureInFlight(schedule.schedule_id);
   const council = useCouncil({ governanceAccountId, executorContractId, network });
   const agent = useCoSigningAgent(network);
-  const demo = useDemoSeats({ proposal, council: council.data?.key, onSigned: refresh });
+  // The council rows follow the map: a rotation's new seats appear when its run has played.
+  const councilKey = council.data && (councilShown ?? council.data.key);
+  const demo = useDemoSeats({ proposal, council: councilKey, onSigned: refresh });
+  // From the wallet's answer (or a demo member's press) until the map's run for it lands.
+  const confirming = sign.isConfirming || demo.confirming || isPlaying;
   const resultTitle = useRotationResultTitle(proposal, {
     governanceAccountId,
     network,
     agentSeat: agent?.seat ?? null,
   });
-  const unseatedAgentSeat = council.data ? unseatedAgentSeatOf(agent, council.data.key) : null;
+  const unseatedAgentSeat = councilKey ? unseatedAgentSeatOf(agent, councilKey) : null;
   const proposers = council.data?.proposers ?? [];
-  const rule = council.data ? councilRuleLabel(council.data.key) : `${proposal.progress.threshold}-of-?`;
+  const rule = councilKey ? councilRuleLabel(councilKey) : `${proposal.progress.threshold}-of-?`;
   const { Title, sectionHeadingLevel, container, title } = VARIANT_LAYOUT[variant];
 
   // Sign goes on the viewer's own row. An account the proposer list does not know may still hold a
@@ -131,7 +147,8 @@ export const ProposalDetailPanel = ({
       type="button"
       className="btn btn-primary btn-sm shrink-0"
       onClick={() => sign.mutate(schedule.schedule_id, { onSuccess: refresh })}
-      disabled={sign.isPending}
+      // While the map plays a signature the panel shows the proposal as it was before it, seat unsigned.
+      disabled={sign.isPending || signing || confirming}
     >
       {SIGN_LABELS[signerKind]}
     </button>
@@ -146,7 +163,7 @@ export const ProposalDetailPanel = ({
   // A member of both councils signs once, and that signature counts toward both thresholds, so the
   // button goes on the current council's row only and the incoming row says so.
   const viewerKey = proposers.find(proposer => proposer.accountId === accountId)?.key ?? null;
-  const viewerSitsNow = viewerKey !== null && (council.data?.key.memberKeys.includes(viewerKey) ?? false);
+  const viewerSitsNow = viewerKey !== null && (councilKey?.memberKeys.includes(viewerKey) ?? false);
   const incomingSignAction =
     signButton && viewerSitsNow ? (
       <span className="shrink-0 text-xs text-base-content/60">{ROTATION_ONE_SIGNATURE}</span>
@@ -227,6 +244,7 @@ export const ProposalDetailPanel = ({
           </span>
         )}
       </div>
+      {confirming && <ConfirmingLine />}
 
       {proposal.execution.status === "succeeded" && (
         <SucceededResult
@@ -241,13 +259,13 @@ export const ProposalDetailPanel = ({
         </p>
       )}
 
-      {council.data && (
+      {councilKey && (
         <div className="flex flex-col gap-4">
           {operation.kind === "councilRotation" && proposal.incomingProgress ? (
             <>
               <ApproverList
                 heading={`${COUNCIL_HEADINGS.current} · ${requiredSignaturesLabel(proposal.progress)}`}
-                council={council.data.key}
+                council={councilKey}
                 progress={proposal.progress}
                 {...listProps}
               />
@@ -263,7 +281,7 @@ export const ProposalDetailPanel = ({
           ) : (
             <ApproverList
               heading={COUNCIL_HEADINGS.single}
-              council={council.data.key}
+              council={councilKey}
               progress={proposal.progress}
               {...listProps}
             >
@@ -271,7 +289,7 @@ export const ProposalDetailPanel = ({
                 <UnseatedAgentRow
                   notes={[
                     AGENT_COPY.notSeated,
-                    AGENT_COPY.howToSeat(councilRuleLabel(withSeat(council.data.key, unseatedAgentSeat))),
+                    AGENT_COPY.howToSeat(councilRuleLabel(withSeat(councilKey, unseatedAgentSeat))),
                   ]}
                 />
               )}

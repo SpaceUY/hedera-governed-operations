@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useReducer } from "react";
 import { type AnimationEvent, type GovernanceSnapshot, animationEventKey } from "~~/services/liveMap/events/mapEvents";
 import type { PlayingEvent } from "~~/services/liveMap/motion/frame";
-import { EMPTY_QUEUE, animationQueueReducer, councilShown } from "~~/services/liveMap/motion/queue";
+import { EMPTY_QUEUE, animationQueueReducer, busyScheduleIds, councilShown } from "~~/services/liveMap/motion/queue";
 import { sequenceOf } from "~~/services/liveMap/motion/sequences";
 import { proposalIn } from "~~/services/liveMap/motion/world";
 
@@ -23,7 +23,8 @@ export type AnimationSyncInput = {
 /**
  * Plays what changed on the ledger, one event at a time: poll → diff → play. It returns the world the
  * map should draw — the held one while a sequence plays, the latest read otherwise — and the event
- * being played with the cue it is at (`frameOf` turns that into what the map shows).
+ * being played with the cue it is at (`frameOf` turns that into what the map shows), and which
+ * proposals it is still playing (`busy`), so the rail can show them as the map draws them.
  *
  * Nothing here is a copy of server state: the queue holds events and the snapshots they were read in,
  * and every frame is derived from them. The one timer lives in one effect, keyed on the step it ends,
@@ -67,8 +68,13 @@ export function useProposalAnimationSync({ snapshot, previous, events, readAt }:
   }, [current, state.step, step, isLastStep]);
 
   // Between a read arriving and its events being queued there is one render; it still shows the
-  // world before them, so the new state is never drawn before the sequence that leads to it.
-  const hasUnqueued = events.some(event => !state.seen.includes(animationEventKey(event)));
+  // world before them, so the new state is never drawn before the sequence that leads to it, and it
+  // already counts their proposals as busy, so the rail does not show that state either.
+  const unqueued = useMemo(
+    () => events.filter(event => !state.seen.includes(animationEventKey(event))),
+    [events, state.seen],
+  );
+  const hasUnqueued = unqueued.length > 0;
   const base = current ? state.held : hasUnqueued ? previous : snapshot;
   // A council change that has not played yet leaves the council it replaces on the map.
   const council = councilShown(state);
@@ -76,5 +82,10 @@ export function useProposalAnimationSync({ snapshot, previous, events, readAt }:
   const playing: PlayingEvent | null =
     current && step ? { event: current.event, cue: step.cue, world: current.world } : null;
 
-  return { world, playing };
+  const busy = useMemo(
+    () => [...new Set([...busyScheduleIds(state), ...unqueued.flatMap(({ scheduleId }) => scheduleId ?? [])])],
+    [state, unqueued],
+  );
+
+  return { world, playing, busy };
 }

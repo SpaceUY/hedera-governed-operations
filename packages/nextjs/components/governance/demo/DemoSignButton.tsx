@@ -9,7 +9,7 @@ import { type DemoMember, demoMemberLabel } from "~~/services/demoSigners/demoSi
 type DemoSignButtonProps = {
   scheduleId: string;
   member: DemoMember;
-  /** Re-reads the proposal once the network took the signature; the button never marks the seat signed itself. */
+  /** Re-reads the proposal once Mirror lists the signature; the button never marks the seat signed itself. */
   onSigned: () => void;
 };
 
@@ -24,7 +24,7 @@ const BUTTON_TEXT: Record<DemoSignatureState, (name: string) => string> = {
  * as one never resets the other's state. Once a signature was sent it stays disabled until the member
  * drops out of the list, which happens when Mirror lists the signature: enabling it earlier would invite
  * a second, pointless `ScheduleSign`. Meanwhile it says where the request stands: "Signing as …" while
- * the server has it, "Sent as …" once the network took it. The mutation cache reaches the button a
+ * the server has it or Mirror does not list it yet, "Sent as …" once Mirror does. The mutation cache reaches the button a
  * render late, so a quick second press is stopped by a latch that opens again only when the server refused.
  */
 export const DemoSignButton = ({ scheduleId, member, onSigned }: DemoSignButtonProps) => {

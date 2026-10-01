@@ -355,6 +355,27 @@ textarea.textarea {
   opacity: 0.35;
 }
 
+/*
+  A node fades its ink, not its plate: edges run from centre to centre and the plate's opaque fill is
+  what hides them, so a node faded as a whole would show the lines crossing it. `fill-opacity` and
+  `stroke-opacity` are inherited and multiply with each element's own opacity (the caption crossfade,
+  the focus ring), which `opacity` set on every element would overwrite.
+*/
+.map-scope-node {
+  transition:
+    fill-opacity 320ms ease,
+    stroke-opacity 320ms ease;
+}
+
+.map-scope-node[data-dimmed="true"] {
+  fill-opacity: 0.35;
+  stroke-opacity: 0.35;
+}
+
+.map-scope-node .map-plate {
+  fill-opacity: 1;
+}
+
 .map-crossfade {
   transition: opacity 320ms ease;
 }
@@ -378,6 +399,7 @@ textarea.textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .map-scope,
+  .map-scope-node,
   .map-crossfade,
   .map-roll {
     transition: none;

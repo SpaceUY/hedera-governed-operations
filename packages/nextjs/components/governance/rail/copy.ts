@@ -350,6 +350,9 @@ export const DETAIL_COPY = {
   nativeCall: "None — a native transaction, no contract call",
 } as const;
 
+/** While a signature is on its way: from the wallet's answer until the map has drawn what it did. */
+export const CONFIRMING_COPY = { line: "Confirming on the network" } as const;
+
 export const RAIL_NOTICE = { dismiss: "Dismiss" } as const;
 
 /** Said at the top of the rail while the app reads the published testnet instance instead of its own. */

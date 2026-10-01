@@ -1,7 +1,8 @@
 "use client";
 
-import { type PanelVariant, ProposalDetailPanel } from "./ProposalDetailPanel";
+import { type PanelVariant, ProposalDetailPanel, type ProposalDetailPanelProps } from "./ProposalDetailPanel";
 import { DETAIL_COPY } from "./copy";
+import { useShownProposal } from "~~/components/governance/MapPlaybackProvider";
 import { memberNamesOf, routeNamesOf } from "~~/components/governance/graph/mapModel";
 import { useLatestComposedMap } from "~~/components/governance/graph/useComposedMap";
 import type { GovernanceConfig } from "~~/config/governanceConfig";
@@ -54,7 +55,7 @@ export const ProposalDetail = ({ config, scheduleId, variant }: ProposalDetailPr
   if (!proposal) return <p className="m-0 px-4 py-4 text-sm">{DETAIL_COPY.notFound}</p>;
 
   return (
-    <ProposalDetailPanel
+    <ShownProposalDetail
       proposal={proposal}
       accountId={accountId}
       signerKind={signerKind}
@@ -69,4 +70,13 @@ export const ProposalDetail = ({ config, scheduleId, variant }: ProposalDetailPr
       variant={variant}
     />
   );
+};
+
+/**
+ * The panel for the proposal as the map shows it: while the map still plays it, or this session's
+ * signature on it is on its way, the copy the map draws rather than the one just read.
+ */
+const ShownProposalDetail = (props: Omit<ProposalDetailPanelProps, "isPlaying" | "councilShown">) => {
+  const { proposal, isPlaying, council } = useShownProposal(props.proposal);
+  return <ProposalDetailPanel {...props} proposal={proposal} isPlaying={isPlaying} councilShown={council} />;
 };

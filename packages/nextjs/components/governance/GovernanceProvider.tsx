@@ -3,6 +3,7 @@
 import { type ReactNode, createContext, useCallback, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { MapPlaybackProvider } from "~~/components/governance/MapPlaybackProvider";
 import { ProposalWizardProvider } from "~~/components/governance/wizard/ProposalWizardProvider";
 import { SUBMITTED_NOTICE } from "~~/components/governance/wizard/copy";
 import { GOVERNANCE_ROUTES, type GovernanceConfig } from "~~/config/governanceConfig";
@@ -51,9 +52,10 @@ type GovernanceProviderProps = { config: GovernanceConfig; onNotice: (text: stri
 
 /**
  * What every governance screen shares, provided once by the governance layout: the resolved
- * configuration, and the wizard's draft and submit, so the map beside the rail can draw the proposal
- * being drafted and a submission survives the rail changing route. A layout cannot pass props to the
- * page it renders, which is why this is a context rather than props.
+ * configuration; the wizard's draft and submit, so the map beside the rail can draw the proposal
+ * being drafted and a submission survives the rail changing route; and the map's playback, so the
+ * rail can hold what the map is still playing. A layout cannot pass props to the page it renders,
+ * which is why this is a context rather than props.
  */
 export const GovernanceProvider = ({ config, onNotice, children }: GovernanceProviderProps) => {
   const openSubmitted = useOpenSubmitted({ network: config.network, onNotice });
@@ -61,7 +63,7 @@ export const GovernanceProvider = ({ config, onNotice, children }: GovernancePro
   return (
     <GovernanceConfigContext.Provider value={config}>
       <ProposalWizardProvider executorContractId={config.executor.hederaContractId} onSubmitted={openSubmitted}>
-        {children}
+        <MapPlaybackProvider config={config}>{children}</MapPlaybackProvider>
       </ProposalWizardProvider>
     </GovernanceConfigContext.Provider>
   );

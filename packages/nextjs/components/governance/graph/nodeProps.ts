@@ -49,5 +49,5 @@ export function plateStrokeClass(highlight: NodeTone | undefined): string {
   const stroke = highlight
     ? `${TONE_STROKE[highlight]} motion-safe:animate-map-plate-flash`
     : "stroke-base-content/40 group-hover:stroke-base-content/80 group-focus-visible:stroke-base-content/80 group-aria-expanded:stroke-primary group-aria-expanded:stroke-2";
-  return `fill-base-100 transition-colors duration-180 motion-reduce:transition-none ${stroke}`;
+  return `map-plate fill-base-100 transition-colors duration-180 motion-reduce:transition-none ${stroke}`;
 }
