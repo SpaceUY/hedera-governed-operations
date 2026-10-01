@@ -31,7 +31,7 @@ function readCouncilAccountId(source: EnvSource): string {
   if (!value) {
     throw new Error(
       "HEDERA_COUNCIL_ACCOUNT_ID is required in packages/nextjs/.env: the governance account needs your own " +
-        "Hedera account as one of its three keys, and it is the account you will approve proposals with",
+        "Hedera account as one of its keys, and it is the account you will approve proposals with",
     );
   }
   return value;

@@ -30,6 +30,7 @@ import {
   TopicCreateTransaction,
   TransferTransaction,
 } from "@hiero-ledger/sdk";
+import { governanceAccountMemo } from "@sh/core/governance/council";
 import { EXECUTOR_ROLE } from "@sh/core/governance/roles";
 import { type MirrorAccount, fetchAccount, fetchTopic, hasSubmitKey, isMirrorNotFound } from "@sh/core/mirror";
 import { createPublicClient, http, parseAbi } from "viem";
@@ -101,7 +102,7 @@ async function createGovernanceAccount(client: Client, memberPublicKeys: string[
     .setKeyWithoutAlias(new KeyList(members, GOVERNANCE_THRESHOLD))
     .setInitialBalance(new Hbar(GOVERNANCE_INITIAL_HBAR))
     .setMaxAutomaticTokenAssociations(-1)
-    .setAccountMemo(`scaffold-hbar governance ${GOVERNANCE_THRESHOLD}-of-${members.length}`)
+    .setAccountMemo(governanceAccountMemo(GOVERNANCE_THRESHOLD, members.length))
     .execute(client);
 
   const { accountId } = await response.getReceipt(client);

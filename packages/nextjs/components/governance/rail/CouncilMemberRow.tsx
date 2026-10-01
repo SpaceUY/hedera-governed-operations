@@ -10,6 +10,8 @@ export type CouncilMemberRowProps = {
   name: string;
   /** The map's caption for the seat, when it has one ("demo co-signer"). */
   caption?: string;
+  /** In place of the caption: a badge another part of the screen puts on the seat ("demo key"). */
+  badge?: ReactNode;
   /** In place of the name's first letter in the avatar, for a seat whose name does not start its own ("AG"). */
   monogram?: string;
   /** The account holding the seat, shown under the name when the name is not already it. */
@@ -35,6 +37,7 @@ const STATE_CLASSES: Record<SeatState, string> = {
 export const CouncilMemberRow = ({
   name,
   caption,
+  badge,
   monogram,
   accountId,
   isViewer,
@@ -51,7 +54,7 @@ export const CouncilMemberRow = ({
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
         {name}
         {isViewer && <span className="badge badge-primary badge-sm">{MEMBER_COPY.yourWallet}</span>}
-        {caption && <span className="chip font-normal">{caption}</span>}
+        {badge ?? (caption && <span className="chip font-normal">{caption}</span>)}
       </span>
       {accountId && accountId !== name && <span className="text-xs text-base-content/60">{accountId}</span>}
     </span>

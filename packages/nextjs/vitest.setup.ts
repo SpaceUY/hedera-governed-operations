@@ -1,5 +1,8 @@
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
+
+// `server-only` throws outside a React Server Components build; the tests import server modules directly.
+vi.mock("server-only", () => ({}));
 
 // Testing Library only auto-cleans with global test hooks; Vitest exposes none by default.
 afterEach(() => {

@@ -1,6 +1,7 @@
 /**
  * The five kinds of operation this template governs, and the shapes a decoded proposal comes back
- * as. Adding a sixth kind is an encoder, a branch of the decoder and an entry in `PROPOSAL_TYPES`.
+ * as. Adding a sixth kind starts here and goes on through the encoder, the decoder, the app and the
+ * co-signing agent; the steps are in `AGENTS.md`, "How to add a proposal kind".
  *
  * Two of the five never touch a contract. A treasury transfer is a `CryptoTransfer` and a council
  * rotation is a `CryptoUpdate` on the governance account itself, so both are readable straight from
@@ -48,33 +49,38 @@ export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; execu
   Record<NativeProposalKind, { label: string; executeGas: null }> = {
   /**
    * Measured: 65,410, twice, plus one run at 60,066 — `execute` against the vault proxy at a 150,000
-   * limit (`0.0.10671156`, entries 7, 8 and 9). All three upgrade without an initializer. **An
-   * upgrade that nests an initializer has never run on testnet**; the only entry registered with one
-   * was withdrawn, so the limit covers that case by arithmetic and not by measurement.
+   * limit (executor `0.0.10671156`, an earlier deployment of the same contracts; entries 7, 8 and 9).
+   * All three upgrade without an initializer. **An upgrade that nests an initializer has never run
+   * on testnet**; the only entry registered with one was withdrawn, so the limit covers that case by
+   * arithmetic and not by measurement.
    */
   upgrade: { label: "Contract upgrade", executeGas: 150_000 },
   /**
-   * Measured: 247,050–247,064 over three runs — the executor, the adapter, SaucerSwap's router and
-   * the USDC/HBAR pool, single hop, output settled to an already associated treasury
-   * (`0xa5ee027700a30b404b7d0255b2a39efc376f332b4d09e682fe191308b48cea36` at a 500,000 limit,
-   * `0x4c792dedb1ce8721e80a558252c69ba8351bd4c5756b7a868bebbde4ca28afe3` at 300,000, the limit here).
+   * Measured: 247,047–247,107 over four runs — the executor, the adapter, SaucerSwap's router and
+   * the USDC/HBAR pool, single hop, output settled to an already associated treasury. Two plain
+   * calls against an earlier deployment of the same contracts (executor `0.0.10671156`):
+   * `0xa5ee027700a30b404b7d0255b2a39efc376f332b4d09e682fe191308b48cea36`, 247,063 at a 500,000
+   * limit, and `0x4c792dedb1ce8721e80a558252c69ba8351bd4c5756b7a868bebbde4ca28afe3`, 247,064 at
+   * 300,000. Two schedules at 300,000, the limit here: `0.0.10766696`, 247,047, on that deployment,
+   * and `0.0.10794955`, 247,107, on the current one. That leaves about 18% of the limit unused.
    * `treasurySwap.integration.test.ts` reproduces it and asserts this number from both sides.
    *
    * Two things are deliberately outside this number. The output token's association is paid once by
    * `yarn setup`, because an association charged to the call costs more than this whole limit and a
-   * successful scheduled call pays its limit every time. And neither run crossed an initialised
+   * successful scheduled call pays its limit every time. And none of the runs crossed an initialised
    * tick: a swap large enough to cross one does more work than this, so the figure belongs to a
    * single-hop swap of ordinary size rather than to any swap at all.
    */
   treasurySwap: { label: "Treasury swap", executeGas: 300_000 },
   /**
    * Measured: pause 65,128, unpause 65,084, freeze 67,734, unfreeze 67,789 — `execute` from the
-   * governance account through the executor and `TokenAdmin` to `0x167`, on the contracts deployed
-   * now (`0.0.10671146@1790713600.116717689`, `@1790713606.017477132`, `@1790713642.156765307`,
-   * `@1790713653.623309547`, entries 18, 19, 21 and 22). Plain `ContractExecute` at a 300,000 limit,
-   * which consumes what a schedule would. A freeze names the holder by the address the network knows
-   * it by: an account with an EVM alias named by its long-zero address is refused with
-   * `HtsRejected(15)`, `INVALID_ACCOUNT_ID` (entry 20, 64,206 consumed).
+   * governance account through the executor and `TokenAdmin` to `0x167`, on an earlier deployment of
+   * the same contracts (`0.0.10671146@1790713600.116717689`, `@1790713606.017477132`,
+   * `@1790713642.156765307`, `@1790713653.623309547`, entries 18, 19, 21 and 22). Plain
+   * `ContractExecute` at a 300,000 limit, which consumes what a schedule would. A freeze names the
+   * holder by the address the network knows it by: an account with an EVM alias named by its
+   * long-zero address is refused with `HtsRejected(15)`, `INVALID_ACCOUNT_ID` (entry 20, 64,206
+   * consumed).
    */
   tokenAdmin: { label: "Token administration", executeGas: 90_000 },
   treasuryTransfer: { label: "Treasury transfer", executeGas: null },

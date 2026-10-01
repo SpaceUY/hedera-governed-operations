@@ -4,10 +4,9 @@ import { useState } from "react";
 import { useTargetNetwork } from "./scaffold-hbar";
 import { useExecuteBeforeDeadline } from "./useWalletRequest";
 import { buildScheduleDelete } from "@sh/core/governance/schedules";
-import { type MirrorTransaction, fetchTransaction } from "@sh/core/mirror";
 import { useMutation } from "@tanstack/react-query";
+import { waitForTransactionRow } from "~~/services/governance/transactionRow";
 import { getHederaNetworkNameFromChainId } from "~~/utils/scaffold-hbar/networks";
-import { MIRROR_INDEXING_RETRY_DELAYS_MS, waitForMirrorIndexing } from "~~/utils/scaffold-hbar/waitForMirrorIndexing";
 
 /**
  * Names every withdrawal in the mutation cache, so a screen can tell a schedule this browser already
@@ -33,10 +32,6 @@ export class ScheduleDeleteRefusedError extends Error {
   }
 }
 
-/** The delete's Mirror row, or null until Mirror has indexed it. */
-const scheduleDeleteRowOf = (rows: MirrorTransaction[]): MirrorTransaction | null =>
-  rows.find(row => row.name === SCHEDULE_DELETE_ROW) ?? null;
-
 /**
  * Ends this round of signing. The registry entry, if any, stays pending and can be scheduled
  * again — this is not the same as cancelling (see `useCancelProposal`).
@@ -59,10 +54,7 @@ export function useWithdrawProposal() {
       const { transactionId } = await executeTransaction(buildScheduleDelete(scheduleId));
       setIsConfirming(true);
       try {
-        const row = await waitForMirrorIndexing(
-          async () => scheduleDeleteRowOf(await fetchTransaction(transactionId, { network })),
-          MIRROR_INDEXING_RETRY_DELAYS_MS,
-        );
+        const row = await waitForTransactionRow({ transactionId, name: SCHEDULE_DELETE_ROW, network });
         if (!row) {
           throw new Error(
             `The delete (transaction ${transactionId}) is not on Mirror yet, so it is not confirmed. ` +

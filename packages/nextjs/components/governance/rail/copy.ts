@@ -6,6 +6,7 @@
  */
 import { type ProposalStage, remainingSignatures } from "./proposalProgress";
 import type { Proposal } from "@sh/core/governance/proposals";
+import { CO_SIGNING_AGENT_COPY } from "~~/components/governance/wizard/kinds/coSigningAgent/copy";
 import { proposalStatusLabel, signaturesWord } from "~~/services/governance/proposalLabels";
 
 export type ProposalFamily = "contract" | "native";
@@ -176,8 +177,11 @@ export const AGENT_COPY = {
   monogram: "AG",
   notMember: "not a member",
   notSeated: "not seated",
-  /** `title` is the rotation's title (`councilChangeTitle`) for the council the agent's seat would make. */
-  howToSeat: (title: string) => `Approve “${title}” to seat it.`,
+  /**
+   * Names the proposal the viewer would open, by the wizard's own title, and `rule`, the council the
+   * agent's seat would make: the current threshold over one more member.
+   */
+  howToSeat: (rule: string) => `Approve “${CO_SIGNING_AGENT_COPY.title}” to seat it (${rule} council).`,
 } as const;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -237,6 +241,12 @@ export function executedResult(executedAt: Date | null, result: string) {
     why: "It ran by itself the moment the last signature landed. Nobody pressed execute.",
   };
 }
+
+/** The title of an executed council rotation's result: the council it made, and whether that seated the co-signing agent. */
+export const ROTATION_RESULT_COPY = {
+  agentSeated: (rule: string) => `The co-signing agent is seated · ${rule} council`,
+  councilNow: (rule: string) => `The council is now ${rule}`,
+} as const;
 
 /** What a proposal that did not run left behind, or null while it is live or once it ran. */
 export function endNote(proposal: Pick<Proposal, "state" | "registry" | "operation">): string | null {
@@ -339,6 +349,9 @@ export const DETAIL_COPY = {
   executeCall: (proposalId: number) => `execute(${proposalId}) on the registry`,
   nativeCall: "None — a native transaction, no contract call",
 } as const;
+
+/** While a signature is on its way: from the wallet's answer until the map has drawn what it did. */
+export const CONFIRMING_COPY = { line: "Confirming on the network" } as const;
 
 export const RAIL_NOTICE = { dismiss: "Dismiss" } as const;
 

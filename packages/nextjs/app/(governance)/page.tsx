@@ -2,8 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { partitionProposals } from "@sh/core/governance/proposals";
+import { type Proposal, partitionProposals } from "@sh/core/governance/proposals";
 import { useGovernanceConfig } from "~~/components/governance/GovernanceProvider";
+import { useMapPlayback, useShownProposals } from "~~/components/governance/MapPlaybackProvider";
 import { OperationCard } from "~~/components/governance/rail/OperationCard";
 import { PendingOperationsList } from "~~/components/governance/rail/PendingOperationsList";
 import { ProposalDetail } from "~~/components/governance/rail/ProposalDetail";
@@ -15,12 +16,17 @@ import { GOVERNANCE_ROUTES } from "~~/config/governanceConfig";
 import { useProposals } from "~~/hooks/mirror/useProposals";
 import { INBOX_COPY, councilRuleLabel, runsByItselfNote } from "~~/services/governance/proposalLabels";
 
+const NO_PROPOSALS: Proposal[] = [];
+
 export default function GovernanceHomePage() {
   const config = useGovernanceConfig();
   const { network, governanceAccountId, executor } = config;
   const executorContractId = executor.hederaContractId;
   const { inbox, council } = useProposals({ governanceAccountId, executorContractId, network });
-  const { pending, settled } = partitionProposals(inbox.data?.proposals ?? []);
+  // A proposal the map is still playing stays where the map shows it (in Pending, until its run lands).
+  const shown = useShownProposals(inbox.data?.proposals ?? NO_PROPOSALS);
+  const { busy } = useMapPlayback();
+  const { pending, settled } = partitionProposals(shown);
   const { selectedScheduleId, select } = useSelectedSchedule();
   useRefocusMovedCard(selectedScheduleId, cardPlaceOf(selectedScheduleId, inbox.data ? { pending, settled } : null));
 
@@ -100,6 +106,7 @@ export default function GovernanceHomePage() {
           selectedScheduleId={selectedScheduleId}
           onSelect={toggle}
           selectedDetail={selectedDetail}
+          confirmingScheduleIds={busy}
         />
       )}
 
@@ -116,6 +123,7 @@ export default function GovernanceHomePage() {
                 selected={proposal.schedule.schedule_id === selectedScheduleId}
                 onSelect={() => toggle(proposal.schedule.schedule_id)}
                 detail={selectedDetail}
+                confirming={busy.includes(proposal.schedule.schedule_id)}
               />
             ))}
           </ul>

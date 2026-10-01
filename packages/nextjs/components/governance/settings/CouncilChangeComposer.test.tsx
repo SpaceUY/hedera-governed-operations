@@ -109,7 +109,11 @@ type MirrorKey = { _type: string; key: string };
 /** The agent as the page checks it, holding `key` on account 0.0.600 while the council does not seat it. */
 const unseated = (key: MirrorKey): UnseatedAgent => ({
   seat: seat(key),
-  check: agentSeatOf("0.0.600", { account: { account: "0.0.600", key } as MirrorAccount, error: null }, COUNCIL.key),
+  check: agentSeatOf(
+    "0.0.600",
+    { account: { account: "0.0.600", key } as MirrorAccount, error: null },
+    { council: COUNCIL.key, configuredAgentId: "0.0.600" },
+  ),
 });
 const renderComposer = (agentKey: MirrorKey | null = null) =>
   render(

@@ -52,6 +52,24 @@ describe("councilSeatOf", () => {
   });
 });
 
+describe("the agent's caption", () => {
+  const agent = { accountId: "0.0.600", seat: "key-c" };
+
+  it("carries the map's caption for the agent's seat, where the map names it the agent", () => {
+    const memberNames = { "key-c": { name: AGENT_COPY.name, caption: "seated by the council" } };
+    expect(councilSeatOf("key-c", { proposers: PROPOSERS, viewerAccountId: null, memberNames, agent }).caption).toBe(
+      "seated by the council",
+    );
+  });
+
+  it("drops the caption where the map names that key as someone else, an agent left on a demo member's key", () => {
+    const memberNames = { "key-c": { name: "Bob", caption: "demo co-signer" } };
+    expect(
+      councilSeatOf("key-c", { proposers: PROPOSERS, viewerAccountId: null, memberNames, agent }).caption,
+    ).toBeUndefined();
+  });
+});
+
 describe("the unseated agent", () => {
   it("is the agent's seat while the council lacks it, and nothing otherwise", () => {
     expect(unseatedAgentSeatOf({ accountId: "0.0.600", seat: "key-d" }, COUNCIL)).toBe("key-d");

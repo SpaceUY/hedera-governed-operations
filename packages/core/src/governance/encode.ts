@@ -16,6 +16,7 @@
  * decoder never reads back, so the default lives with the screen, next to `PROPOSAL_TYPES[kind].label`.
  */
 import type { HederaNetworkName } from "../network";
+import { governanceAccountMemo } from "./council";
 import { PROPOSAL_TYPES, type TokenAdminOperation, tokenAdminNeedsAccount } from "./proposalTypes";
 import { REGISTRY_ABI } from "./registry";
 import { PROPOSAL_EXPIRY_SECONDS, fetchAccountPublicKey } from "./schedules";
@@ -278,6 +279,9 @@ export type CouncilRotationOptions = {
  * scheduled key change needs **both** thresholds — the outgoing council's and the incoming one's —
  * and the schedule simply waits until it has them rather than failing, so a rotation collects
  * signatures from two sets of keys.
+ *
+ * The same update rewrites the account's memo to the incoming council's rule, so the account stops
+ * describing a council it no longer has the moment the key changes.
  */
 export function buildCouncilRotation({
   governanceAccountId,
@@ -288,7 +292,8 @@ export function buildCouncilRotation({
 
   return new AccountUpdateTransaction()
     .setAccountId(AccountId.fromString(governanceAccountId))
-    .setKey(new KeyList(memberKeys, threshold));
+    .setKey(new KeyList(memberKeys, threshold))
+    .setAccountMemo(governanceAccountMemo(threshold, memberKeys.length));
 }
 
 function requireReachableThreshold(memberKeys: PublicKey[], threshold: number): void {

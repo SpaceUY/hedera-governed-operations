@@ -18,6 +18,7 @@ import {
   MAX_QUEUED,
   type QueueAction,
   animationQueueReducer,
+  busyScheduleIds,
   councilShown,
 } from "./queue";
 import { describe, expect, it } from "vitest";
@@ -200,5 +201,37 @@ describe("animationQueueReducer", () => {
     const playing = run(read([approved(BOB)], BEFORE, AFTER), read(flood, AFTER, LATER));
     expect(keys(playing)).toEqual(["approved:0.0.1:Ym9i"]);
     expect(playing.held).toBe(BEFORE);
+  });
+});
+
+describe("busyScheduleIds", () => {
+  it("is empty while nothing plays", () => {
+    expect(busyScheduleIds(EMPTY_QUEUE)).toEqual([]);
+  });
+
+  it("names each proposal with an event playing or waiting, once, the playing one first", () => {
+    const state = run(read([approved(ALICE, "0.0.2"), approved(BOB), approved(ALICE)], BEFORE, AFTER));
+    expect(busyScheduleIds(state)).toEqual(["0.0.2", "0.0.1"]);
+  });
+
+  it("names a council change that waits for its rotation's run", () => {
+    const pendingRun = world([
+      proposal({ id: "0.0.7", operation: ROTATION, executedAt: ago(3), execution: { status: "unconfirmed" } }),
+    ]);
+    const changed: AnimationEvent = { kind: "councilChanged", scheduleId: "0.0.7", at: ago(3), council: INCOMING };
+    expect(busyScheduleIds(run(read([changed], BEFORE, pendingRun)))).toEqual(["0.0.7"]);
+  });
+
+  it("empties once the queue has played out", () => {
+    const playing = run(read([approved(ALICE)], BEFORE, AFTER));
+    const done = animationQueueReducer(playing, { type: "finish", key: playing.queue[0].key });
+    expect(busyScheduleIds(done)).toEqual([]);
+  });
+
+  it("never names what the queue dropped when it gave up on a backlog", () => {
+    const flood = Array.from({ length: MAX_QUEUED + 2 }, (_unused, index) => approved(ALICE, `0.0.${100 + index}`));
+    expect(busyScheduleIds(run(read(flood, BEFORE, AFTER)))).toEqual([]);
+    const playing = run(read([approved(BOB)], BEFORE, AFTER), read(flood, AFTER, LATER));
+    expect(busyScheduleIds(playing)).toEqual(["0.0.1"]);
   });
 });

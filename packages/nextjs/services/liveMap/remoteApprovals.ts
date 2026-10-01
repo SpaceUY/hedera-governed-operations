@@ -8,6 +8,9 @@ import { type AnimationEvent, type GovernanceSnapshot } from "~~/services/liveMa
 
 export type ApprovedEvent = Extract<AnimationEvent, { kind: "approved" }>;
 
+/** A signature this session asked for on another seat's behalf: which schedule, and by which key. */
+export type SignedAs = { scheduleId: string; memberKey: string };
+
 /** What this session has submitted, as its mutations record it. */
 export type SessionWrites = {
   /** The connected account, or null. */
@@ -19,6 +22,8 @@ export type SessionWrites = {
   memberKey: string | null;
   /** Schedules this session signed (submitted or done; not failed). */
   signed: readonly string[];
+  /** Signatures this session asked the server to add for a demo co-signer (submitted or done; not failed). */
+  signedAs: readonly SignedAs[];
   /** Schedules this session opened. */
   opened: readonly string[];
   /** Whether this session is opening a proposal whose schedule id it does not know yet. */
@@ -31,8 +36,10 @@ export type SessionWrites = {
  * An approval is this session's when it is by the connected account's own key and on a schedule this
  * session signed — or opened, since the creator's own approval arrives together with `proposed`. Until
  * that key is read, every approval on a schedule this session signed or opened counts as its own, so
- * nothing is announced that this session may have sent. A proposal read before the session learnt its
- * schedule id (Mirror indexed it while the wallet was still answering) is matched by its creator.
+ * nothing is announced that this session may have sent. A signature this session asked the server to add
+ * for another seat (`signedAs`) is its own too, for that schedule and that key only. A proposal read
+ * before the session learnt its schedule id (Mirror indexed it while the wallet was still answering) is
+ * matched by its creator.
  */
 export function remoteApprovals(
   events: readonly AnimationEvent[],
@@ -44,6 +51,7 @@ export function remoteApprovals(
     world.proposals.find(({ schedule }) => schedule.schedule_id === scheduleId)?.schedule.creator_account_id;
 
   const isOwn = ({ scheduleId, memberKey }: ApprovedEvent): boolean => {
+    if (session.signedAs.some(own => own.scheduleId === scheduleId && own.memberKey === memberKey)) return true;
     if (session.memberKey !== null && session.memberKey !== memberKey) return false;
     if (session.signed.includes(scheduleId) || session.opened.includes(scheduleId)) return true;
     return session.opening && proposedNow.includes(scheduleId) && openedBy(scheduleId) === session.accountId;

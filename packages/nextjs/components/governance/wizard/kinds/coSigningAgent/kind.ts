@@ -2,11 +2,12 @@ import { AddAgentForm, type CoSigningAgentTargets } from "./AddAgentForm";
 import { CO_SIGNING_AGENT_COPY } from "./copy";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { defineWizardKind } from "~~/components/governance/wizard/kinds/wizardKind";
+import { getCoSigningAgentAccountId } from "~~/config/governanceConfig";
 
 /**
  * Seats the co-signing agent by rewriting the governance account's own threshold key: no contract, so
- * nothing can be missing. The configuration names no agent account today, so the form starts empty;
- * once it does, `suggestedAgentAccountId` is where it goes.
+ * nothing can be missing. The form starts with the configured agent account, the one Settings names too,
+ * and empty when none is configured.
  */
 export const CO_SIGNING_AGENT_KIND = defineWizardKind<CoSigningAgentTargets>({
   icon: PlusIcon,
@@ -14,7 +15,7 @@ export const CO_SIGNING_AGENT_KIND = defineWizardKind<CoSigningAgentTargets>({
   hint: CO_SIGNING_AGENT_COPY.pickerHint,
   resolveTargets: ({ config }) => ({
     status: "available",
-    targets: { config, suggestedAgentAccountId: null },
+    targets: { config, suggestedAgentAccountId: getCoSigningAgentAccountId() },
   }),
   Form: AddAgentForm,
 });
