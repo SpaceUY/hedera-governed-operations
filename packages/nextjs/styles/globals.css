@@ -160,6 +160,13 @@
     margin-bottom: 0.5rem;
     line-height: 1;
   }
+
+  /* Tailwind v4's preflight gives buttons the default cursor; every control here is meant to read as clickable. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
 }
 
 :root,
