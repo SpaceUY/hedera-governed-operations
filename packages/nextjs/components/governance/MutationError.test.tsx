@@ -44,11 +44,11 @@ describe("MutationError", () => {
     );
   });
 
-  it("asks to reject a request the app stopped waiting for in HashPack before trying again", () => {
+  it("asks to reject a request the app stopped waiting for in the wallet before trying again", () => {
     render(<MutationError error={new WalletRequestExpiredError(120)} />);
     expect(screen.getByRole("alert").textContent).toBe(
       "The request expired before it was approved. This transaction was not sent. " +
-        "Reject it in HashPack, then try again and approve within about 2 minutes.",
+        "Reject it in your wallet, then try again and approve within about 2 minutes.",
     );
   });
 

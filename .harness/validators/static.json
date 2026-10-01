@@ -84,7 +84,7 @@
     },
     {
       "file": "packages/nextjs/components/governance/wizard/copy.ts",
-      "contains": ["Approve it in HashPack"]
+      "contains": ["Approve it in your wallet"]
     },
     {
       "file": "packages/nextjs/components/governance/MutationError.tsx",
