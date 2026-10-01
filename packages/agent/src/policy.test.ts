@@ -12,6 +12,9 @@ import { describe, expect, it } from "vitest";
 const VAULT = "0x0000000000000000000000000000000000001234";
 const IMPLEMENTATION = "0x0000000000000000000000000000000000005678";
 const TOKEN = "0x000000000000000000000000000000000000abcd";
+const ADAPTER = "0x0000000000000000000000000000000000002222";
+const TOKEN_ADMIN = "0x0000000000000000000000000000000000003333";
+const LOOKALIKE = "0x000000000000000000000000000000000000dead";
 const TREASURY = "0.0.1001";
 const SUPPLIER = "0.0.2002";
 
@@ -20,11 +23,13 @@ const upgrade = (overrides: Partial<Extract<GovernedOperation, { kind: "upgrade"
   target: VAULT,
   implementation: IMPLEMENTATION,
   hasInitializer: false,
+  payableTinybars: 0n,
   ...overrides,
 });
 
 const swap = (overrides: Partial<Extract<GovernedOperation, { kind: "treasurySwap" }>> = {}): GovernedOperation => ({
   kind: "treasurySwap",
+  target: ADAPTER,
   tokenOut: TOKEN,
   recipient: VAULT,
   amountInTinybars: 100_000_000n,
@@ -36,9 +41,11 @@ const tokenAdmin = (
   overrides: Partial<Extract<GovernedOperation, { kind: "tokenAdmin" }>> = {},
 ): GovernedOperation => ({
   kind: "tokenAdmin",
+  target: TOKEN_ADMIN,
   operation: "pause",
   token: TOKEN,
   account: null,
+  payableTinybars: 0n,
   ...overrides,
 });
 
@@ -55,8 +62,13 @@ const transfer = (
 });
 
 const UPGRADE_RULE: UpgradeRule = { targets: [VAULT], implementations: [IMPLEMENTATION] };
-const SWAP_RULE: TreasurySwapRule = { maxAmountInTinybars: 500_000_000n, tokensOut: [TOKEN], recipients: [VAULT] };
-const TOKEN_ADMIN_RULE: TokenAdminRule = { operations: ["pause", "unpause"], tokens: [TOKEN] };
+const SWAP_RULE: TreasurySwapRule = {
+  targets: [ADAPTER],
+  maxAmountInTinybars: 500_000_000n,
+  tokensOut: [TOKEN],
+  recipients: [VAULT],
+};
+const TOKEN_ADMIN_RULE: TokenAdminRule = { targets: [TOKEN_ADMIN], operations: ["pause", "unpause"], tokens: [TOKEN] };
 const TRANSFER_RULE: TreasuryTransferRule = { maxTinybars: 200_000_000n, recipients: [SUPPLIER] };
 
 const FULL_POLICY: Policy = {
@@ -102,6 +114,10 @@ describe("an upgrade", () => {
 
   it("is refused for a contract the agent does not upgrade", () => {
     expect(refusal(upgrade({ target: "0x000000000000000000000000000000000000dead" }))).toContain("not a contract");
+  });
+
+  it("is refused when the proposal attaches HBAR, which the proxy would receive with no limit", () => {
+    expect(refusal(upgrade({ payableTinybars: 1n }))).toContain("with a call that spends none");
   });
 
   it("is refused for an implementation outside the allowlist", () => {
@@ -155,6 +171,11 @@ describe("a treasury swap", () => {
   it("is refused when the proceeds go somewhere else", () => {
     expect(refusal(swap({ recipient: "0x000000000000000000000000000000000000ffff" }))).toContain("not a recipient");
   });
+
+  it("is refused through a contract that only shares the adapter's selector", () => {
+    // A lookalike would take the HBAR and ignore the recipient, so every other limit passing means nothing.
+    expect(refusal(swap({ target: LOOKALIKE }))).toContain("not an adapter");
+  });
 });
 
 describe("token administration", () => {
@@ -168,6 +189,14 @@ describe("token administration", () => {
 
   it("is refused for another token", () => {
     expect(refusal(tokenAdmin({ token: "0x000000000000000000000000000000000000ffff" }))).toContain("not a token");
+  });
+
+  it("is refused through a contract that only shares TokenAdmin's selector", () => {
+    expect(refusal(tokenAdmin({ target: LOOKALIKE }))).toContain("not a contract this agent administers through");
+  });
+
+  it("is refused when the proposal attaches HBAR, which the executor would forward with the call", () => {
+    expect(refusal(tokenAdmin({ payableTinybars: 5_000_000_000n }))).toContain("50 ℏ");
   });
 });
 

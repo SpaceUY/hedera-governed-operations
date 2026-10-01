@@ -220,8 +220,13 @@ export function parsePolicy(source: string): Policy {
 
   if (root.treasurySwap !== undefined) {
     const rule = asObject(root.treasurySwap, "treasurySwap");
-    rejectUnknownKeys(rule, ["maxAmountInTinybars", "tokensOut", "recipients", "requireConfirmation"], "treasurySwap");
+    rejectUnknownKeys(
+      rule,
+      ["targets", "maxAmountInTinybars", "tokensOut", "recipients", "requireConfirmation"],
+      "treasurySwap",
+    );
     policy.treasurySwap = {
+      targets: stringList(rule.targets, "treasurySwap.targets"),
       maxAmountInTinybars: tinybars(rule.maxAmountInTinybars, "treasurySwap.maxAmountInTinybars"),
       tokensOut: stringList(rule.tokensOut, "treasurySwap.tokensOut"),
       recipients: stringList(rule.recipients, "treasurySwap.recipients"),
@@ -231,8 +236,9 @@ export function parsePolicy(source: string): Policy {
 
   if (root.tokenAdmin !== undefined) {
     const rule = asObject(root.tokenAdmin, "tokenAdmin");
-    rejectUnknownKeys(rule, ["operations", "tokens", "requireConfirmation"], "tokenAdmin");
+    rejectUnknownKeys(rule, ["targets", "operations", "tokens", "requireConfirmation"], "tokenAdmin");
     policy.tokenAdmin = {
+      targets: stringList(rule.targets, "tokenAdmin.targets"),
       operations: tokenAdminOperations(rule.operations),
       tokens: stringList(rule.tokens, "tokenAdmin.tokens"),
       requireConfirmation: optionalBoolean(rule.requireConfirmation, "tokenAdmin.requireConfirmation"),

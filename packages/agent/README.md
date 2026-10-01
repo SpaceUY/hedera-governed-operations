@@ -74,18 +74,23 @@ reads, since a limit its author believes is in force and nothing enforces is the
 ```json
 {
   "treasuryTransfer": { "maxTinybars": "5000000000", "recipients": ["0.0.1234"] },
-  "tokenAdmin": { "operations": ["pause", "unpause"], "tokens": ["0x…"] }
+  "tokenAdmin": { "targets": ["0x…"], "operations": ["pause", "unpause"], "tokens": ["0x…"] }
 }
 ```
 
 | Rule               | Limits                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `upgrade`          | `targets`, then `implementations` or `manifestTopicId` (one is required), and `allowInitializer` (off by default) |
-| `treasurySwap`     | `maxAmountInTinybars`, `tokensOut`, `recipients`                                                                  |
-| `tokenAdmin`       | `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens`                                                 |
+| `treasurySwap`     | `targets` (the adapter), `maxAmountInTinybars`, `tokensOut`, `recipients`                                         |
+| `tokenAdmin`       | `targets` (the `TokenAdmin` contract), `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens`          |
 | `treasuryTransfer` | `maxTinybars`, `recipients`, and `tokens` for HTS transfers                                                       |
 
 Every rule also takes `requireConfirmation`, which is not a limit but an escalation: see below.
+
+The three rules for calls through the executor require `targets`. A registry entry is read by its
+function selector, and any contract can expose that selector: without the list, a lookalike
+`pause(address)` or swap would pass every other limit. For the same reason they refuse HBAR attached
+to anything but a swap — the executor forwards it to the target, and only a swap has a limit for it.
 
 Three properties are worth more than the individual limits:
 

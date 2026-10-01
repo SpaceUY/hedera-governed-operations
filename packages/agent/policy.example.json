@@ -5,6 +5,7 @@
     "requireConfirmation": true
   },
   "tokenAdmin": {
+    "targets": ["0x0000000000000000000000000000000000000000"],
     "operations": ["pause", "unpause"],
     "tokens": ["0x0000000000000000000000000000000000000000"]
   },
