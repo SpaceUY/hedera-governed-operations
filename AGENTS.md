@@ -23,7 +23,7 @@ yarn core:check-types   # the shared domain under packages/core/
 yarn core:lint
 yarn core:test
 
-yarn release:publish --contract AcmeVault --version v2.0.0   # release manifest to the HCS topic
+yarn release:publish --contract AcmeVaultV2 --version v2.0.0   # release manifest to the HCS topic
 yarn agent:start        # the co-signing agent; see packages/agent/README.md
 yarn agent:check-types
 yarn agent:lint
