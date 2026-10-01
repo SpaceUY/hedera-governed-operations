@@ -98,12 +98,12 @@ const WALLET_REQUEST_ACTIONS: Record<WalletRequest["action"], string> = {
 
 /**
  * Where to act while the submit waits on a signature. The test signer signs on its own, so only
- * HashPack is named, with the window after which the network would refuse the transaction.
+ * the wallet is pointed to, with the window after which the network would refuse the transaction.
  */
 export function walletRequestLabel(request: WalletRequest, signerKind: HederaSignerKind): string {
   const step = `Step ${request.step} of ${request.steps}: ${WALLET_REQUEST_ACTIONS[request.action]}.`;
   if (signerKind === "burner") return `${step} Signing with the test signer…`;
-  return `${step} Approve it in HashPack — the request is valid for ${validityWindowLabel(request.validForSeconds)}.`;
+  return `${step} Approve it in your wallet — the request is valid for ${validityWindowLabel(request.validForSeconds)}.`;
 }
 
 /**
@@ -112,7 +112,7 @@ export function walletRequestLabel(request: WalletRequest, signerKind: HederaSig
  */
 export function lateSubmissionLabel(late: LateSubmission): string {
   return (
-    `HashPack sent step ${late.step} of ${late.steps} after the wizard stopped waiting, and the network accepted it ` +
+    `Your wallet sent step ${late.step} of ${late.steps} after the wizard stopped waiting, and the network accepted it ` +
     `(transaction ${late.transactionId}). The proposals are refreshed; check them before trying again.`
   );
 }

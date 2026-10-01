@@ -116,7 +116,7 @@ The council is the 2-of-3 key `yarn setup` put on the governance account: your o
 2. Under **Native · no contract, no registry entry**, pick **Pay a supplier**.
 3. Fill in **Recipient account** (`0.0.xxxxx` or an EVM address — alice's id is a convenient one), leave **Asset** on **HBAR (ℏ)** and enter an **Amount (ℏ)**; `0.05` is plenty. The governance account starts with 20 ℏ and pays every approved operation out of it.
 4. Read **What the council will see**: the target, **Gas limit** `n/a — native, network fee only`, **Expires** `7 days after scheduling. Unsigned, it simply lapses.` and **Who approves** `The 2-of-3 council.` (`2-of-4` here and below once the agent is seated). The preview is decoded from the very body about to be scheduled, so it is what the detail page will show the council.
-5. Click **Schedule with your wallet** and approve the request in HashPack. While it waits, the footer reads `Step 1 of 1: schedule the call for the council. Approve it in HashPack — the request is valid for …`; after that window the network would refuse it.
+5. Click **Schedule with your wallet** and approve the request in HashPack. While it waits, the footer reads `Step 1 of 1: schedule the call for the council. Approve it in your wallet — the request is valid for …`; after that window the network would refuse it.
 
 That one `ScheduleCreate` is the whole proposal: the governance account is the payer of the transfer it schedules, and your key is its admin key, so you and only you can withdraw it (5.6). Once it lands, the app takes you to it at `/governance/0.0.xxxxx`.
 
