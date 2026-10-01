@@ -12,7 +12,7 @@ Use Yarn (`packageManager` in the root `package.json`). Never switch the workspa
 
 ```bash
 yarn setup              # idempotent testnet bootstrap; writes ids to packages/nextjs/.env.local
-yarn next:dev           # http://localhost:3000
+yarn next:dev           # http://localhost:3000; instrumentation.ts compiles the governance routes at boot
 yarn next:build
 yarn next:check-types
 yarn lint               # core:lint + agent:lint + next:lint + hardhat:lint
