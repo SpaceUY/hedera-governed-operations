@@ -50,9 +50,10 @@ export const PROPOSAL_TYPES: Record<ContractProposalKind, { label: string; execu
   /**
    * Measured: 65,410, twice, plus one run at 60,066 — `execute` against the vault proxy at a 150,000
    * limit (executor `0.0.10671156`, an earlier deployment of the same contracts; entries 7, 8 and 9).
-   * All three upgrade without an initializer. **An upgrade that nests an initializer has never run
-   * on testnet**; the only entry registered with one was withdrawn, so the limit covers that case by
-   * arithmetic and not by measurement.
+   * All three upgrade without an initializer. With one — `upgradeToAndCall` setting the withdrawal
+   * limit to 2 ℏ — it measured 99,232 at the same limit (executor `0.0.10809608`, entry 2, schedule
+   * `0.0.10810700`, `0.0.10809608@1790868429.070599798`), which leaves about a third of the limit
+   * unused.
    */
   upgrade: { label: "Contract upgrade", executeGas: 150_000 },
   /**

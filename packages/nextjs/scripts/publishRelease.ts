@@ -15,19 +15,20 @@
  * a manifest evidence rather than a claim anybody could have posted. In a real deployment this runs
  * as the release pipeline, and the submit key is whatever identity that pipeline holds.
  *
- *   yarn release:publish --contract AcmeVault --version v2.0.0
- *   yarn release:publish --contract AcmeVault --version v2.0.0 --implementation 0x… --commit abc1234
+ *   yarn release:publish --contract AcmeVaultV2 --version v2.0.0
+ *   yarn release:publish --contract AcmeVaultV2 --version v2.0.0 --implementation 0x… --commit abc1234
  *
  * `--implementation` defaults to the address `yarn hardhat:deploy` recorded for
- * `<contract>_Implementation`, and `--commit` to `GITHUB_SHA` or the current HEAD.
+ * `<contract>_Implementation`, or for `<contract>` when it was not deployed behind a proxy, and
+ * `--commit` to `GITHUB_SHA` or the current HEAD.
  */
+import { implementationFromDeployments } from "./release/implementation";
 import { readSetupEnv } from "./setup/env";
 import { Client, TopicMessageSubmitTransaction } from "@hiero-ledger/sdk";
 import { buildReleaseManifestMessage, hashRuntimeBytecode } from "@sh/core/governance/releaseManifest";
 import { fetchContract } from "@sh/core/mirror";
 import { config as loadDotenv } from "dotenv";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseOperatorKey } from "~~/services/operatorKey";
 
@@ -54,7 +55,7 @@ function parseArgs(argv: string[]): Args {
   const contract = values.get("contract");
   const version = values.get("version");
   if (!contract || !version) {
-    throw new Error("--contract and --version are required, e.g. --contract AcmeVault --version v2.0.0");
+    throw new Error("--contract and --version are required, e.g. --contract AcmeVaultV2 --version v2.0.0");
   }
   return {
     contract,
@@ -63,21 +64,6 @@ function parseArgs(argv: string[]): Args {
     commit: values.get("commit"),
     topicId: values.get("topic"),
   };
-}
-
-/** The address `hardhat-deploy` recorded for the implementation behind the proxy. */
-function implementationFromDeployments(contract: string, network: string): string {
-  const path = resolve(PACKAGE_DIR, "..", "hardhat", "deployments", network, `${contract}_Implementation.json`);
-  try {
-    const record = JSON.parse(readFileSync(path, "utf8")) as { address?: string };
-    if (!record.address) throw new Error("the record carries no address");
-    return record.address;
-  } catch (error) {
-    throw new Error(
-      `Could not read the implementation address for ${contract} from ${path} (${(error as Error).message}). ` +
-        "Pass --implementation, or deploy first with yarn hardhat:deploy.",
-    );
-  }
 }
 
 function currentCommit(): string {
@@ -99,14 +85,17 @@ function requireTopicId(fromArgs: string | undefined): string {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  // The topic id is written by `yarn setup` into .env.local, along with the operator that may write to it.
-  loadDotenv({ path: resolve(PACKAGE_DIR, ".env"), quiet: true });
+  // The topic id is written by `yarn setup` into .env.local, and the operator that may write to it
+  // lives in .env. dotenv never overwrites a variable already set, so .env.local goes first and wins,
+  // as it does for Next.js.
   loadDotenv({ path: resolve(PACKAGE_DIR, ".env.local"), quiet: true });
+  loadDotenv({ path: resolve(PACKAGE_DIR, ".env"), quiet: true });
   const env = readSetupEnv(process.env);
   const topicId = requireTopicId(args.topicId);
   // hardhat-deploy names the directory after the network, and this script only ever runs against
   // the one `yarn setup` is allowed to touch.
-  const implementation = args.implementation ?? implementationFromDeployments(args.contract, "hederaTestnet");
+  const deploymentsDir = resolve(PACKAGE_DIR, "..", "hardhat", "deployments", "hederaTestnet");
+  const implementation = args.implementation ?? implementationFromDeployments(args.contract, deploymentsDir);
 
   const contract = await fetchContract(implementation, { network: env.network });
   if (!contract.runtime_bytecode || contract.runtime_bytecode === "0x") {
