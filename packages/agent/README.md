@@ -192,7 +192,9 @@ window. The cost is that confirming two proposals means waiting for the next 30-
 
 **And it cannot be guessed at.** Six digits is a million and the drift window makes three of them
 valid at once, so a step stops being answered after five wrong codes — the throttling RFC 6238 §5.2
-asks for, which turns the search from hours into decades. It resets with the next code rather than
+asks for, which turns the search from seconds into about 23 days on average. That is shorter than
+a schedule can live, so the throttle is not the whole defence: the endpoint binds to loopback, and
+whoever can reach it can already reach the process. It resets with the next code rather than
 locking the endpoint, because an endpoint that can be locked shut from outside denies the very
 approval it guards.
 
