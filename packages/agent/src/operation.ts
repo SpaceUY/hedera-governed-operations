@@ -16,9 +16,11 @@ import type { HbarTransfer, TokenAdminOperation, TokenTransfer } from "@sh/core/
 import type { Proposal } from "@sh/core/governance/proposals";
 
 export type GovernedOperation =
-  | { kind: "upgrade"; target: string; implementation: string; hasInitializer: boolean }
+  | { kind: "upgrade"; target: string; implementation: string; hasInitializer: boolean; payableTinybars: bigint }
   | {
       kind: "treasurySwap";
+      /** The contract the stored call goes to: the adapter, if the entry is what it reads as. */
+      target: string;
       tokenOut: string;
       recipient: string;
       /** What the stored call asks to swap. */
@@ -26,7 +28,14 @@ export type GovernedOperation =
       /** What the scheduled transaction actually sends with it. The policy checks the two agree. */
       payableTinybars: bigint;
     }
-  | { kind: "tokenAdmin"; operation: TokenAdminOperation; token: string; account: string | null }
+  | {
+      kind: "tokenAdmin";
+      target: string;
+      operation: TokenAdminOperation;
+      token: string;
+      account: string | null;
+      payableTinybars: bigint;
+    }
   | { kind: "treasuryTransfer"; hbar: HbarTransfer[]; tokens: TokenTransfer[] }
   | { kind: "councilRotation" };
 
@@ -75,6 +84,7 @@ export function readOperation(proposal: Proposal, executorContractId: string): R
           implementation: entry.implementation,
           // Anything longer than the `0x` an empty calldata decodes to is code nested in the upgrade.
           hasInitializer: entry.initializerCalldata.length > 2,
+          payableTinybars: operation.payableTinybars,
         },
       };
     case "treasurySwap":
@@ -82,6 +92,7 @@ export function readOperation(proposal: Proposal, executorContractId: string): R
         readable: true,
         operation: {
           kind: "treasurySwap",
+          target: entry.target,
           tokenOut: entry.tokenOut,
           recipient: entry.recipient,
           amountInTinybars: entry.amountInTinybars,
@@ -93,9 +104,11 @@ export function readOperation(proposal: Proposal, executorContractId: string): R
         readable: true,
         operation: {
           kind: "tokenAdmin",
+          target: entry.target,
           operation: entry.operation,
           token: entry.token,
           account: entry.account,
+          payableTinybars: operation.payableTinybars,
         },
       };
     case "unrecognized":

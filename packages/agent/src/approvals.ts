@@ -24,7 +24,9 @@ export const CONFIRMATION_TTL_MS = 15 * 60 * 1000;
  * Wrong codes a single step will look at. The replay guard stops a code being used twice and does
  * nothing against guessing: six digits is a million, and the drift window makes three of them valid
  * at once. RFC 6238 §5.2 and RFC 4226 §7.3 both ask for throttling for that reason, and this is it —
- * five tries per thirty seconds turns the search from hours into decades.
+ * five tries per thirty seconds turns the search from seconds into about 23 days on average. That is
+ * still inside a schedule's lifetime, so the throttle is not the defence on its own: the endpoint
+ * binds to loopback, and whoever can reach it can already reach the process.
  *
  * It is per step rather than a lockout, so a person who fat-fingered a code waits for the next one
  * instead of for an operator: an endpoint that can be locked shut from outside is its own denial of
