@@ -17,7 +17,7 @@ routes:
   - name: proposal-detail
     # SMOKE runs without a .env, so the app reads the template's demo instance on testnet: this is
     # one of its executed proposals, which stays readable on the Mirror Node.
-    path: /governance/0.0.10720313
+    path: /governance/0.0.10794949
   - name: new-proposal
     # SMOKE runs without a .env, so the wizard renders against the demo instance; no wallet is connected.
     path: /governance/new
