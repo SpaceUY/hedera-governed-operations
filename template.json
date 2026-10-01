@@ -37,7 +37,7 @@
             },
             {
               "label": "Deploy the contracts",
-              "text": "The contracts are deployed against the governance account, so they come after the first run — see Contracts below."
+              "text": "The contracts are deployed against the governance account, so they come after the first run. Create and fund the deployer account first, then deploy — both are under Contracts below."
             },
             {
               "label": "Finish the bootstrap",
@@ -92,6 +92,7 @@
             },
             {
               "label": "Validate with Hedera Harness",
+              "text": "Move packages/nextjs/.env out of the tree first: the static validator forbids it. docs/RUNBOOK.md §6 has the commands.",
               "command": "npx hedera-harness validate"
             }
           ]

@@ -277,8 +277,9 @@ npx hedera-harness validate-semantic
 
 ### What it grades
 
-`.harness/eval.json` holds five assertions. Four are read-only and pass without a wallet; the fifth
-is the one this template exists for.
+`.harness/eval.json` holds eight assertions. Five are read-only and pass without a wallet or a
+`.env`; E11 and E12 are read-only too but need the `.env` of a deployment, since they preview your
+own proposals; E9 is the one this template exists for.
 
 | Id | Journey | Needs a signer |
 | --- | --- | --- |
@@ -287,6 +288,9 @@ is the one this template exists for.
 | `E5` | `/governance/new` offers the kinds and explains the wallet is needed | no |
 | `E8` | A proposal's decoded operation, approvals and expiry, read from Mirror | no |
 | `E9` | The test signer approves a pending proposal, and the signature lands on the Mirror Node | **yes** |
+| `E10` | `/settings` shows the council and the registry's roles, with no way to grant a role | no |
+| `E11` | Selecting a pending proposal previews on the map what it would do | no, but needs a `.env` |
+| `E12` | Drafting a proposal previews it on the map | no, but needs a `.env` |
 
 ### The council seat, and why it is where it is
 

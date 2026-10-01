@@ -133,7 +133,8 @@ cp packages/nextjs/.env.example packages/nextjs/.env
 # and NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID
 
 yarn setup                                   # testnet resources; stops once the contracts are the next step
-yarn hardhat:deploy --network hederaTestnet  # see Contracts below for the deployer account
+yarn hardhat:account:generate                # deployer key; fund it at the faucet before deploying
+yarn hardhat:deploy --network hederaTestnet  # see Contracts below
 yarn setup                                   # demo token and the first proposal
 yarn next:dev                                # http://localhost:3000
 ```
@@ -186,6 +187,7 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | `/`                        | Live map — treasury figures and the council's threshold beside a rail of pending and recent proposals     |
 | `/governance/[scheduleId]` | One proposal: the decoded operation, its approvals, and Sign / Withdraw / Cancel (wallet-signed)          |
 | `/governance/new`          | Open a proposal: pick an operation, preview what the council will see, submit it (wallet-signed)          |
+| `/settings`                | The council read from the governance account's key, and the registry's roles read from the chain          |
 
 ## Use cases and customization
 
@@ -196,7 +198,7 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 | HTS token administration (issuer plus compliance) | Pause and freeze through `TokenAdmin`, which holds the token's keys | Wipe or KYC: a `TokenAdmin` function, that key set at token creation, a proposal kind |
 | Signer rotation | Council rotation as an `AccountUpdate` both councils sign | The key list at setup (`createGovernanceAccount` in `packages/nextjs/scripts/setup/hederaGovernance.ts`); a rotation proposal afterwards |
 | An AI agent under human control | One seat, a written policy, a code before upgrades, decisions on HCS. It signs; it never proposes or acts alone | `packages/agent/policy.example.json`; `SignSchedule` behind an HSM |
-| A small DAO or fund | Five operations, no multisig contract to deploy | A sixth kind ([how](AGENTS.md#how-to-add-an-operation)) |
+| A small DAO or fund | Five operations, no multisig contract to deploy | A sixth kind ([how](AGENTS.md#how-to-add-a-proposal-kind)) |
 
 ## Scripts
 
@@ -217,7 +219,7 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 
 ## Validate with Hedera Harness
 
-The template ships a [Hedera Harness](https://github.com/hedera-dev/hedera-harness) recipe under `.harness/` (`hedera-harness` is pinned to `2.0.0-rc.4`, schema v3). It checks that a fresh scaffold installs, lints, builds and boots, and then grades the running app against `.harness/eval.json` — five assertions, four of which read the app without a wallet and one of which **approves a real proposal on testnet**. The recipe assumes Yarn; if you scaffolded with npm, adjust the commands in `.harness/validators/yarn.json` and `.harness/spec.yaml`.
+The template ships a [Hedera Harness](https://github.com/hedera-dev/hedera-harness) recipe under `.harness/` (`hedera-harness` is pinned to `2.0.0-rc.4`, schema v3). It checks that a fresh scaffold installs, lints, builds and boots, and then grades the running app against `.harness/eval.json` — eight assertions: five read the app with no wallet and no `.env`, two read it against the `.env` of your own deployment, and one **approves a real proposal on testnet**. The recipe assumes Yarn; if you scaffolded with npm, adjust the commands in `.harness/validators/yarn.json` and `.harness/spec.yaml`.
 
 ```bash
 npx hedera-harness doctor             # preflight: node, git, recipe, agent CLI, browser
@@ -231,7 +233,7 @@ yarn harness:run                      # full loop: generate from .harness/prd.md
 | Stage | Credentials | Other |
 | ----- | ----------- | ----- |
 | `validate` | none | No `.env` inside the tree — the static validator forbids it. CI runs this on every pull request |
-| `validate-semantic` | `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_PRIVATE_KEY` **exported in the shell** (the harness never reads `.env`) | The `claude` CLI authenticated, Chrome or Playwright Chromium, and a workspace where `yarn setup` and the deploy have already run. With no `.env` the app browses the demo instance, so four assertions pass and E9, which seats the run's signer on your council, fails |
+| `validate-semantic` | `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_PRIVATE_KEY` **exported in the shell** (the harness never reads `.env`) | The `claude` CLI authenticated, Chrome or Playwright Chromium, and a workspace where `yarn setup` and the deploy have already run. With no `.env` the app browses the demo instance, so the five read-only assertions pass, and E9 (which seats the run's signer on your council), E11 and E12 fail |
 
 ```bash
 export HEDERA_OPERATOR_ID=0.0.xxxxx
