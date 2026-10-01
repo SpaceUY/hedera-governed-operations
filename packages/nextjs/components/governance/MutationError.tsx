@@ -16,7 +16,7 @@ const transactionExpiredMessage = (validForSeconds: number) =>
 
 const walletRequestExpiredMessage = (validForSeconds: number) =>
   "The request expired before it was approved. This transaction was not sent. " +
-  `Reject it in HashPack, then try again and approve within ${validityWindowLabel(validForSeconds)}.`;
+  `Reject it in your wallet, then try again and approve within ${validityWindowLabel(validForSeconds)}.`;
 
 const toFriendlyMessage = (error: unknown) => {
   if (isWalletRejection(error)) return WALLET_REJECTED_MESSAGE;

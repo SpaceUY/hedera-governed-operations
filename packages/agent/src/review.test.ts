@@ -187,6 +187,27 @@ describe("a proposal the agent cannot read", () => {
   });
 });
 
+describe("a call through the executor", () => {
+  const TOKEN = "0x000000000000000000000000000000000000abcd" as const;
+  const TOKEN_ADMIN = "0x0000000000000000000000000000000000003333" as const;
+  const options: ReviewOptions = {
+    ...OPTIONS,
+    policy: { tokenAdmin: { targets: [TOKEN_ADMIN], operations: ["pause"], tokens: [TOKEN] } },
+  };
+  const pause = (target: `0x${string}`): Proposal["registry"] =>
+    entry({ target, operation: { kind: "tokenAdmin", target, operation: "pause", token: TOKEN, account: null } });
+
+  it("is judged on the contract the registry entry calls, not only on what its selector reads as", () => {
+    expect(decide(proposal({ registry: pause(TOKEN_ADMIN) }), options).outcome).toBe("approved");
+    expect(decide(proposal({ registry: pause(STRANGER) }), options).reason).toContain("not a contract");
+  });
+
+  it("is judged on the HBAR the schedule attaches, which the executor forwards to that contract", () => {
+    const funded = proposal({ operation: { ...registryCall, payableTinybars: 100n }, registry: pause(TOKEN_ADMIN) });
+    expect(decide(funded, options).reason).toContain("with a call that spends none");
+  });
+});
+
 describe("verifying a release before signing an upgrade", () => {
   const inbox = (proposals: Proposal[]): ProposalInbox => ({ proposals, unreachableProposers: [] });
   const matched = { matched: true, manifest: { version: "v2.0.0" } } as never;

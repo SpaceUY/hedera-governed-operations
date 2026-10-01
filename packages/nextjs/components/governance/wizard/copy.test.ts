@@ -50,10 +50,10 @@ describe("walletRequestLabel", () => {
 
   it("names the step, where to approve it and how long the request stays valid", () => {
     expect(walletRequestLabel(register, "hashpack")).toBe(
-      "Step 1 of 2: register the call in the registry. Approve it in HashPack — the request is valid for about 2 minutes.",
+      "Step 1 of 2: register the call in the registry. Approve it in your wallet — the request is valid for about 2 minutes.",
     );
     expect(walletRequestLabel({ ...register, action: "schedule", step: 2 }, "hashpack")).toMatch(
-      /^Step 2 of 2: schedule the call for the council\. Approve it in HashPack/,
+      /^Step 2 of 2: schedule the call for the council\. Approve it in your wallet/,
     );
   });
 
@@ -73,7 +73,7 @@ describe("walletRequestLabel", () => {
 describe("lateSubmissionLabel", () => {
   it("names the step and the transaction the network accepted after the wizard stopped waiting", () => {
     expect(lateSubmissionLabel({ action: "schedule", step: 2, steps: 2, transactionId: "0.0.1@1.0" })).toBe(
-      "HashPack sent step 2 of 2 after the wizard stopped waiting, and the network accepted it " +
+      "Your wallet sent step 2 of 2 after the wizard stopped waiting, and the network accepted it " +
         "(transaction 0.0.1@1.0). The proposals are refreshed; check them before trying again.",
     );
   });

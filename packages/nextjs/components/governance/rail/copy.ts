@@ -8,6 +8,7 @@ import { type ProposalStage, remainingSignatures } from "./proposalProgress";
 import type { Proposal } from "@sh/core/governance/proposals";
 import { CO_SIGNING_AGENT_COPY } from "~~/components/governance/wizard/kinds/coSigningAgent/copy";
 import { proposalStatusLabel, signaturesWord } from "~~/services/governance/proposalLabels";
+import type { HederaSignerKind } from "~~/services/web3/hederaSignerPort";
 
 export type ProposalFamily = "contract" | "native";
 
@@ -208,11 +209,15 @@ export function signedWhenLabel(signedAt: Date, now: Date = new Date()): string 
 export const signedWhenAriaLabel = (name: string, when: string) =>
   `${name}: ${when.charAt(0).toLowerCase()}${when.slice(1)} — open the signature on HashScan`;
 
-/** The Sign button names the signer that will be asked, so a council member knows where to look. */
-export const SIGN_LABELS = {
-  hashpack: "Sign with HashPack",
-  burner: "Sign with the test signer",
-} as const;
+/**
+ * The Sign button names the signer that will be asked, so a council member knows where to look: the
+ * WalletConnect wallet by the name its session reports (any of them is kind "hashpack"), "your wallet"
+ * when it reports none.
+ */
+export function signLabel(signerKind: HederaSignerKind, walletName: string | null): string {
+  if (signerKind === "burner") return "Sign with the test signer";
+  return `Sign with ${walletName?.trim() || "your wallet"}`;
+}
 
 export const HASHSCAN_COPY = {
   heading: "On HashScan",

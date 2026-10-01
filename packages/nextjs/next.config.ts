@@ -9,6 +9,9 @@ const { ProvidePlugin } = nodeRequire("webpack") as {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
+  // `next dev` only: keep compiled routes for a day instead of dropping them after 60 s unvisited, so
+  // the routes `instrumentation.ts` warms at boot stay warm.
+  onDemandEntries: { maxInactiveAge: 24 * 60 * 60 * 1000 },
   // The demo signers route reads this file through `process.cwd()`, which the tracer follows: without the
   // exclusion a standalone or Vercel build would ship the demo council keys it holds.
   outputFileTracingExcludes: { "**": ["./setup-state.json"] },

@@ -187,7 +187,7 @@ describe("ProposalDetailPanel", () => {
     renderPanel({ accountId: MEMBER_B });
 
     const row = screen.getByText("your wallet").closest("li")!;
-    fireEvent.click(within(row).getByRole("button", { name: "Sign with HashPack" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Sign with your wallet" }));
     expect(sign).toHaveBeenCalledWith("0.0.777", expect.anything());
     expect(screen.getAllByRole("button", { name: /^Sign with/ })).toHaveLength(1);
   });
@@ -195,6 +195,9 @@ describe("ProposalDetailPanel", () => {
   it("names the signer the button will ask", () => {
     renderPanel({ accountId: MEMBER_B, signerKind: "burner" });
     expect(screen.getByRole("button", { name: "Sign with the test signer" })).toBeTruthy();
+    cleanup();
+    renderPanel({ accountId: MEMBER_B, walletName: "Kabila" });
+    expect(screen.getByRole("button", { name: "Sign with Kabila" })).toBeTruthy();
   });
 
   it("offers no Sign to a member who already signed, or with no wallet connected", () => {
@@ -207,7 +210,7 @@ describe("ProposalDetailPanel", () => {
 
   it("still offers Sign to an account it cannot match to a seat, under the council", () => {
     renderPanel({ accountId: "0.0.9999" });
-    const sign = screen.getByRole("button", { name: "Sign with HashPack" });
+    const sign = screen.getByRole("button", { name: "Sign with your wallet" });
     expect(sign.closest("li")).toBeNull();
   });
 
@@ -216,7 +219,7 @@ describe("ProposalDetailPanel", () => {
       accountId: MEMBER_B,
       proposal: baseProposal({ operation: REGISTRY_CALL, registry: { status: "unreachable", reason: "fetch failed" } }),
     });
-    const sign = screen.getByRole("button", { name: "Sign with HashPack" });
+    const sign = screen.getByRole("button", { name: "Sign with your wallet" });
     const warning = screen.getByText(UNREACHABLE_REGISTRY_SIGN_WARNING);
     expect(warning.getAttribute("role")).toBe("status");
     expect(sign.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -270,10 +273,10 @@ describe("ProposalDetailPanel", () => {
       }),
     });
 
-    expect(screen.getAllByRole("button", { name: "Sign with HashPack" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Sign with your wallet" })).toHaveLength(1);
     const incoming = screen.getByRole("region", { name: /Incoming council/ });
     expect(within(incoming).getByText("Signing above counts here too")).toBeTruthy();
-    expect(within(incoming).queryByRole("button", { name: "Sign with HashPack" })).toBeNull();
+    expect(within(incoming).queryByRole("button", { name: "Sign with your wallet" })).toBeNull();
   });
 
   it("says once that there is no reject and when it expires, without repeating the map's status note", () => {
@@ -452,7 +455,7 @@ describe("ProposalDetailPanel", () => {
       isLoading: false,
     } as unknown as ReturnType<typeof useCouncil>);
     renderPanel({ proposal: baseProposal({ progress: { signed: 0, threshold: 2, signedBy: [] } }) });
-    expect(screen.getByRole("button", { name: "Sign with HashPack" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign with your wallet" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign as Alice" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign as Bob" })).toBeTruthy();
     expect(

@@ -67,6 +67,12 @@ export type UpgradeRule = ConfirmableRule & {
 };
 
 export type TreasurySwapRule = ConfirmableRule & {
+  /**
+   * Adapters the stored call may go to, as EVM addresses. The decoder recognises a swap by its
+   * selector, and any contract can expose that selector: without this list, a lookalike adapter
+   * would receive the HBAR and ignore `recipients`.
+   */
+  targets: string[];
   /** Ceiling on the HBAR actually leaving the treasury, per proposal. */
   maxAmountInTinybars: bigint;
   tokensOut: string[];
@@ -74,6 +80,8 @@ export type TreasurySwapRule = ConfirmableRule & {
 };
 
 export type TokenAdminRule = ConfirmableRule & {
+  /** `TokenAdmin` contracts the stored call may go to, as EVM addresses — for the same reason as a swap's. */
+  targets: string[];
   operations: TokenAdminOperation[];
   tokens: string[];
 };
@@ -117,9 +125,18 @@ const listed = (allowlist: string[], value: string): boolean =>
 
 const hbar = (tinybars: bigint): string => Hbar.fromTinybars(tinybars.toString()).toString();
 
+/**
+ * The executor forwards whatever HBAR the schedule attaches to the stored call. Only a swap spends
+ * any, and it is checked against its own limit; on anything else the HBAR has no limit to answer to.
+ */
+const refuseAttachedHbar = (payableTinybars: bigint): RuleVerdict | null =>
+  payableTinybars === 0n ? null : refuse(`the proposal sends ${hbar(payableTinybars)} with a call that spends none`);
+
 function reviewUpgrade(operation: Extract<GovernedOperation, { kind: "upgrade" }>, rule: UpgradeRule): RuleVerdict {
   if (!listed(rule.targets, operation.target))
     return refuse(`${operation.target} is not a contract this agent upgrades`);
+  const attached = refuseAttachedHbar(operation.payableTinybars);
+  if (attached) return attached;
   if (rule.implementations && !listed(rule.implementations, operation.implementation)) {
     return refuse(`implementation ${operation.implementation} is not in the allowlist`);
   }
@@ -133,6 +150,8 @@ function reviewTreasurySwap(
   operation: Extract<GovernedOperation, { kind: "treasurySwap" }>,
   rule: TreasurySwapRule,
 ): RuleVerdict {
+  if (!listed(rule.targets, operation.target))
+    return refuse(`${operation.target} is not an adapter this agent swaps through`);
   // The amount in the calldata and the HBAR attached to the scheduled call are two separate numbers,
   // and only the second actually leaves the treasury. A proposal where they disagree does something
   // other than it reads, whichever way the difference goes, so it is refused before any limit.
@@ -157,6 +176,10 @@ function reviewTokenAdmin(
   operation: Extract<GovernedOperation, { kind: "tokenAdmin" }>,
   rule: TokenAdminRule,
 ): RuleVerdict {
+  if (!listed(rule.targets, operation.target))
+    return refuse(`${operation.target} is not a contract this agent administers through`);
+  const attached = refuseAttachedHbar(operation.payableTinybars);
+  if (attached) return attached;
   if (!rule.operations.includes(operation.operation)) {
     return refuse(`${operation.operation} is not an operation this agent approves`);
   }

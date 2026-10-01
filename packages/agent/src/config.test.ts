@@ -8,8 +8,10 @@ const policyOf = (rules: Record<string, unknown>): string => JSON.stringify(rule
 
 describe("parsePolicy", () => {
   it("reads a rule per kind and leaves the kinds it does not mention out", () => {
-    const policy = parsePolicy(policyOf({ tokenAdmin: { operations: ["pause", "unpause"], tokens: [VAULT] } }));
-    expect(policy.tokenAdmin).toEqual({ operations: ["pause", "unpause"], tokens: [VAULT] });
+    const policy = parsePolicy(
+      policyOf({ tokenAdmin: { operations: ["pause", "unpause"], tokens: [VAULT], targets: [VAULT] } }),
+    );
+    expect(policy.tokenAdmin).toEqual({ targets: [VAULT], operations: ["pause", "unpause"], tokens: [VAULT] });
     expect(policy.upgrade).toBeUndefined();
     expect(policy.treasurySwap).toBeUndefined();
   });
@@ -30,18 +32,31 @@ describe("parsePolicy", () => {
   it("refuses a rule name nothing reads, because its author believes that limit is in force", () => {
     expect(() => parsePolicy(policyOf({ treasurySwaps: {} }))).toThrow(/no rule named treasurySwaps/);
     expect(() =>
-      parsePolicy(policyOf({ tokenAdmin: { operations: ["pause"], tokens: [VAULT], maxAmount: "1" } })),
+      parsePolicy(
+        policyOf({ tokenAdmin: { operations: ["pause"], tokens: [VAULT], targets: [VAULT], maxAmount: "1" } }),
+      ),
     ).toThrow(/no rule named maxAmount/);
   });
 
   it("refuses an empty allowlist, which reads as permissive and is not", () => {
-    expect(() => parsePolicy(policyOf({ tokenAdmin: { operations: ["pause"], tokens: [] } }))).toThrow(/is empty/);
+    expect(() =>
+      parsePolicy(policyOf({ tokenAdmin: { targets: [VAULT], operations: ["pause"], tokens: [] } })),
+    ).toThrow(/is empty/);
+  });
+
+  it("refuses a swap or token-admin rule that does not name the contracts its calls may go to", () => {
+    expect(() => parsePolicy(policyOf({ tokenAdmin: { operations: ["pause"], tokens: [VAULT] } }))).toThrow(
+      /tokenAdmin.targets must be an array/,
+    );
+    expect(() =>
+      parsePolicy(policyOf({ treasurySwap: { maxAmountInTinybars: "1", tokensOut: [VAULT], recipients: [VAULT] } })),
+    ).toThrow(/treasurySwap.targets must be an array/);
   });
 
   it("refuses a token operation the contract has no method for", () => {
-    expect(() => parsePolicy(policyOf({ tokenAdmin: { operations: ["burn"], tokens: [VAULT] } }))).toThrow(
-      /must be one of pause, unpause, freeze, unfreeze/,
-    );
+    expect(() =>
+      parsePolicy(policyOf({ tokenAdmin: { operations: ["burn"], tokens: [VAULT], targets: [VAULT] } })),
+    ).toThrow(/must be one of pause, unpause, freeze, unfreeze/);
   });
 
   it("requires an upgrade rule to say how an implementation is trusted", () => {
@@ -89,7 +104,11 @@ describe("parsePolicy on the confirmation a rule can ask for", () => {
 
   it("refuses a value that is not true or false, which a string 'false' would read as on", () => {
     expect(() =>
-      parsePolicy(policyOf({ tokenAdmin: { operations: ["pause"], tokens: [VAULT], requireConfirmation: "false" } })),
+      parsePolicy(
+        policyOf({
+          tokenAdmin: { operations: ["pause"], tokens: [VAULT], targets: [VAULT], requireConfirmation: "false" },
+        }),
+      ),
     ).toThrow(/must be true or false/);
   });
 });
@@ -107,8 +126,10 @@ describe("the secret the confirmation codes come from", () => {
     }
   };
 
-  const escalating: Policy = { tokenAdmin: { operations: ["pause"], tokens: [VAULT], requireConfirmation: true } };
-  const plain: Policy = { tokenAdmin: { operations: ["pause"], tokens: [VAULT] } };
+  const escalating: Policy = {
+    tokenAdmin: { targets: [VAULT], operations: ["pause"], tokens: [VAULT], requireConfirmation: true },
+  };
+  const plain: Policy = { tokenAdmin: { targets: [VAULT], operations: ["pause"], tokens: [VAULT] } };
 
   it("is read from the environment as the bytes of its base32", () => {
     expect(withSecret("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", () => confirmationSecret(escalating))).toHaveLength(20);

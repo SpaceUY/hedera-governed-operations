@@ -74,18 +74,23 @@ reads, since a limit its author believes is in force and nothing enforces is the
 ```json
 {
   "treasuryTransfer": { "maxTinybars": "5000000000", "recipients": ["0.0.1234"] },
-  "tokenAdmin": { "operations": ["pause", "unpause"], "tokens": ["0x…"] }
+  "tokenAdmin": { "targets": ["0x…"], "operations": ["pause", "unpause"], "tokens": ["0x…"] }
 }
 ```
 
 | Rule               | Limits                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `upgrade`          | `targets`, then `implementations` or `manifestTopicId` (one is required), and `allowInitializer` (off by default) |
-| `treasurySwap`     | `maxAmountInTinybars`, `tokensOut`, `recipients`                                                                  |
-| `tokenAdmin`       | `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens`                                                 |
+| `treasurySwap`     | `targets` (the adapter), `maxAmountInTinybars`, `tokensOut`, `recipients`                                         |
+| `tokenAdmin`       | `targets` (the `TokenAdmin` contract), `operations` (`pause`, `unpause`, `freeze`, `unfreeze`), `tokens`          |
 | `treasuryTransfer` | `maxTinybars`, `recipients`, and `tokens` for HTS transfers                                                       |
 
 Every rule also takes `requireConfirmation`, which is not a limit but an escalation: see below.
+
+The three rules for calls through the executor require `targets`. A registry entry is read by its
+function selector, and any contract can expose that selector: without the list, a lookalike
+`pause(address)` or swap would pass every other limit. For the same reason they refuse HBAR attached
+to anything but a swap — the executor forwards it to the target, and only a swap has a limit for it.
 
 Three properties are worth more than the individual limits:
 
@@ -187,7 +192,9 @@ window. The cost is that confirming two proposals means waiting for the next 30-
 
 **And it cannot be guessed at.** Six digits is a million and the drift window makes three of them
 valid at once, so a step stops being answered after five wrong codes — the throttling RFC 6238 §5.2
-asks for, which turns the search from hours into decades. It resets with the next code rather than
+asks for, which turns the search from seconds into about 23 days on average. That is shorter than
+a schedule can live, so the throttle is not the whole defence: the endpoint binds to loopback, and
+whoever can reach it can already reach the process. It resets with the next code rather than
 locking the endpoint, because an endpoint that can be locked shut from outside denies the very
 approval it guards.
 
