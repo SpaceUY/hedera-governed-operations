@@ -174,7 +174,7 @@ Every deploy regenerates `packages/nextjs/contracts/deployedContracts.ts` with t
 |                    | `blank`                 | `hedera-demo`              | **this template**                                                            |
 | ------------------ | ----------------------- | -------------------------- | ---------------------------------------------------------------------------- |
 | Solidity workspace | yes (Hardhat / Foundry) | no                         | yes (Hardhat)                                                                |
-| Wallet             | EVM (wagmi)             | HashPack via WalletConnect | WalletConnect (HashPack, Kabila), reusable signer with sign-only and batch helpers |
+| Wallet             | EVM (wagmi)             | HashPack via WalletConnect | WalletConnect (HashPack, Kabila), reusable signer with a sign-only helper |
 | Reads              | JSON-RPC                | Mirror Node API routes     | typed Mirror Node client + React Query hooks                                 |
 | Swaps              | —                       | —                          | `SwapProvider` interface with a SaucerSwap V2 implementation                 |
 | Testnet setup      | manual                  | manual (`/admin` page)     | `yarn setup` (idempotent, writes `.env.local`)                               |
