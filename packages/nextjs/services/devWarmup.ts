@@ -1,7 +1,7 @@
 /**
  * The routes `next dev` compiles at boot instead of on the first click: `GOVERNANCE_ROUTES`, spelled
  * out because `instrumentation.ts` loads this file, and importing the app's config there pulls the
- * wallet hooks into the server's startup build and breaks every page. The test keeps the two in step.
+ * wallet hooks into the server's startup build and breaks every page.
  * Any schedule id compiles the proposal route; the page reads the proposal in the browser.
  */
 export const DEV_WARMUP_PATHS: readonly string[] = ["/", "/settings", "/governance/new", "/governance/0.0.1"];
