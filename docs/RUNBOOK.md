@@ -139,7 +139,7 @@ Back on the map (**← Map**), the card sits under **Pending operations** with `
 
 It reads `1 signed` because you opened it from a council seat. The network counts the signatures on a `ScheduleCreate` towards the transaction it schedules, so the proposer's approval arrives with the proposal and your row already says `Signed`. That is also why your row has no Sign button: the button only sits on the connected account's own row while that seat has not signed.
 
-**Sign with HashPack** is for a proposal somebody else opened. Open one as alice from the second wallet of 5.4 — the same **Pay a supplier**, say — and look at it from your own session: it reads `1 signed`, alice's row `Signed`, and your row `Not yet` with the button. Pressing it sends a `ScheduleSign` from your wallet, and yours is the second signature. The demo instance's transfer in 5.5 ran exactly that way, with bob as the second signature. A signature approves; it only makes anything run when it is the one that meets the threshold.
+**Sign with HashPack** (the button names the wallet you connected) is for a proposal somebody else opened. Open one as alice from the second wallet of 5.4 — the same **Pay a supplier**, say — and look at it from your own session: it reads `1 signed`, alice's row `Signed`, and your row `Not yet` with the button. Pressing it sends a `ScheduleSign` from your wallet, and yours is the second signature. The demo instance's transfer in 5.5 ran exactly that way, with bob as the second signature. A signature approves; it only makes anything run when it is the one that meets the threshold.
 
 ### 5.4 Get the second signature
 
@@ -158,7 +158,7 @@ console.log(`account ${accountId}\nECDSA key (hex) ${PrivateKey.fromStringDer(pr
 
 1. Import the account into a second wallet with that ECDSA key, on **testnet**: Kabila, or another account in HashPack. Kabila is the more useful second wallet, since it is also the one that can sign a withdrawal (5.6).
 2. Connect the app with it: **Disconnect** from the header menu and **Connect** again choosing that wallet, or open http://localhost:3000 in a second browser profile so your own session stays connected.
-3. Open the proposal — its card on the map, or `/governance/0.0.xxxxx`. Alice's row now carries the Sign button; press it and approve the `ScheduleSign` in the wallet. The button reads **Sign with HashPack** whichever WalletConnect wallet answers it.
+3. Open the proposal — its card on the map, or `/governance/0.0.xxxxx`. Alice's row now carries the Sign button; press it and approve the `ScheduleSign` in the wallet. The button names the wallet that will answer it: **Sign with Kabila** with Kabila connected, **Sign with HashPack** with HashPack.
 
 **Alternative: let the co-signing agent sign from its own seat.** The agent in `packages/agent` signs whatever its policy allows, seconds after it appears, with the account `yarn setup` created for it (`demoAccounts.agent`). It shows the routine path — a transfer inside written limits approved without anybody opening a wallet — rather than the general one: it refuses anything its policy does not cover, never signs a rotation, and pays a fee per signature and per published decision out of its own account (5 ℏ at setup). It signs nothing until the council holds its key, so this path starts by seating it, once.
 

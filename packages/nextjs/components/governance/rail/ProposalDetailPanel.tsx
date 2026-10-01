@@ -14,10 +14,10 @@ import {
   FAMILY_COPY,
   ROTATION_NOTE,
   ROTATION_ONE_SIGNATURE,
-  SIGN_LABELS,
   endNote,
   executedResult,
   noRejectNote,
+  signLabel,
   signatureHeadline,
   signatureSubline,
 } from "./copy";
@@ -65,7 +65,7 @@ export type ProposalDetailPanelProps = {
   accountId: string | null;
   /** Which signer the Sign button asks, so it can say where to approve. */
   signerKind: HederaSignerKind;
-  /** The connected WalletConnect wallet's name, for what Withdraw and Cancel say it can sign. */
+  /** The connected WalletConnect wallet's name, for the Sign button and what Withdraw and Cancel say it can sign. */
   walletName: string | null;
   governanceAccountId: string;
   executorContractId: string;
@@ -150,7 +150,7 @@ export const ProposalDetailPanel = ({
       // While the map plays a signature the panel shows the proposal as it was before it, seat unsigned.
       disabled={sign.isPending || signing || confirming}
     >
-      {SIGN_LABELS[signerKind]}
+      {signLabel(signerKind, walletName)}
     </button>
   ) : null;
 

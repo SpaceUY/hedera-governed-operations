@@ -4,6 +4,7 @@ import {
   cardStatusLabel,
   endNote,
   noRejectNote,
+  signLabel,
   signatureHeadline,
   signedWhenAriaLabel,
   signedWhenLabel,
@@ -130,5 +131,22 @@ describe("ROTATION_RESULT_COPY", () => {
   it("names the council a rotation made, and whether it seated the agent", () => {
     expect(ROTATION_RESULT_COPY.agentSeated("2-of-4")).toBe("The co-signing agent is seated · 2-of-4 council");
     expect(ROTATION_RESULT_COPY.councilNow("3-of-4")).toBe("The council is now 3-of-4");
+  });
+});
+
+describe("signLabel", () => {
+  it("names the WalletConnect wallet the session reports", () => {
+    expect(signLabel("hashpack", "Kabila")).toBe("Sign with Kabila");
+    expect(signLabel("hashpack", "HashPack")).toBe("Sign with HashPack");
+  });
+
+  it("falls back to the person's wallet when the session reports no name", () => {
+    expect(signLabel("hashpack", null)).toBe("Sign with your wallet");
+    expect(signLabel("hashpack", "  ")).toBe("Sign with your wallet");
+  });
+
+  it("names the test signer whatever the wallet name", () => {
+    expect(signLabel("burner", null)).toBe("Sign with the test signer");
+    expect(signLabel("burner", "HashPack")).toBe("Sign with the test signer");
   });
 });
