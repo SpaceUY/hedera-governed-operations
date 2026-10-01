@@ -3,8 +3,10 @@ import { type DemoAccount, type SetupState, emptyState } from "./state";
 import {
   type TreasuryAssociationActions,
   type TreasuryAssociationLookups,
+  associateFreshTreasury,
   reconcileTreasuryAssociation,
 } from "./treasuryAssociation";
+import { MirrorNodeError } from "@sh/core/mirror";
 import { describe, expect, it, vi } from "vitest";
 
 const USDC = "0.0.5449";
@@ -77,5 +79,22 @@ describe("reconcileTreasuryAssociation", () => {
   it("refuses when a council seat's key is missing, rather than signing below the threshold", async () => {
     const oneSeat = { ...governedState(), demoAccounts: { alice: account("alice") } };
     await expect(run(oneSeat, false)).rejects.toThrow();
+  });
+
+  it("fails on a 404 for a governance account the state already held, rather than waiting it out", async () => {
+    const notFound = new MirrorNodeError(404, "https://mirror/api/v1/accounts/0.0.governance/tokens", "Not found");
+    const lookups: TreasuryAssociationLookups = { accountHasToken: vi.fn(async () => Promise.reject(notFound)) };
+    await expect(
+      reconcileTreasuryAssociation(governedState(), USDC, { lookups, actions: recordingActions() }),
+    ).rejects.toBe(notFound);
+  });
+});
+
+describe("associateFreshTreasury", () => {
+  it("associates a governance account created in this run without asking the Mirror Node", async () => {
+    const actions = recordingActions();
+    const { outcome } = await associateFreshTreasury(governedState(), USDC, actions);
+    expect(outcome).toBe("created");
+    expect(actions.associateGovernanceToken).toHaveBeenCalledWith(GOVERNANCE_ACCOUNT, USDC, expect.anything());
   });
 });
