@@ -156,6 +156,21 @@ describe("GovernanceHomePage", () => {
     expect(screen.getByRole("status").textContent).toContain("0.0.999");
   });
 
+  it("says the proposals could not be read, instead of loading forever, when the council read failed", () => {
+    const refetch = vi.fn(() => Promise.resolve());
+    vi.mocked(useProposals).mockReturnValue({
+      council: { data: undefined, isError: true, isFetching: false, refetch },
+      inbox: { data: undefined, isError: false, isFetching: false },
+    } as unknown as ReturnType<typeof useProposals>);
+
+    render(<GovernanceHomePage />);
+
+    expect(screen.getByRole("alert").textContent).toContain(INBOX_COPY.unreadable);
+    expect(screen.queryByRole("status", { name: INBOX_COPY.loading })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: INBOX_COPY.retry }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
   it("pre-selects the first pending proposal when the URL names none", () => {
     showInbox([proposal("0.0.1", 1, "pending"), proposal("0.0.4", 4, "pending")]);
 
