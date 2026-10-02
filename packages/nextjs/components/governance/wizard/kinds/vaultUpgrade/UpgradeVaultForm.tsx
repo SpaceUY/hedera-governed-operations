@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { ReleaseLine } from "./ReleaseLine";
+import { VAULT_UPGRADE_COPY } from "./copy";
 import { HbarInput } from "@scaffold-hbar-ui/components";
 import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
 import { getReleaseTopicId } from "~~/config/governanceConfig";
+import { useVaultImplementation } from "~~/hooks/mirror/useVaultImplementation";
 import { type VaultUpgradeTargets, draftVaultUpgrade, tryDraft } from "~~/services/governance/drafts";
 
 export const UpgradeVaultForm = ({
@@ -14,11 +16,20 @@ export const UpgradeVaultForm = ({
   onDraftChange,
 }: KindFormProps<VaultUpgradeTargets>) => {
   const [withdrawalLimit, setWithdrawalLimit] = useState("");
+  const running = useVaultImplementation(proxyContractId, { network });
+  const runsImplementation = running.data?.toLowerCase() === implementation.toLowerCase();
+  const readingImplementation = running.isLoading;
 
   // Depends on the fields, not the object: the page rebuilds `targets` every render, while the
-  // addresses and the ABI (read from `deployedContracts.ts`) are stable values.
+  // addresses and the ABI (read from `deployedContracts.ts`) are stable values. A vault already on this
+  // implementation is refused: `initV2` is a reinitializer that has run, so the call could only revert and
+  // the governance account would pay for it. A slot that could not be read holds nothing back.
   useEffect(() => {
-    if (!withdrawalLimit.trim()) {
+    if (runsImplementation) {
+      onDraftChange({ status: "invalid", message: VAULT_UPGRADE_COPY.alreadyRunning });
+      return;
+    }
+    if (readingImplementation || !withdrawalLimit.trim()) {
       onDraftChange({ status: "empty" });
       return;
     }
@@ -27,7 +38,16 @@ export const UpgradeVaultForm = ({
         draftVaultUpgrade({ proxy, proxyContractId, implementation, implementationAbi }, { withdrawalLimit }),
       ),
     );
-  }, [withdrawalLimit, proxy, proxyContractId, implementation, implementationAbi, onDraftChange]);
+  }, [
+    runsImplementation,
+    readingImplementation,
+    withdrawalLimit,
+    proxy,
+    proxyContractId,
+    implementation,
+    implementationAbi,
+    onDraftChange,
+  ]);
 
   return (
     <div className="rounded-box border border-base-300 bg-base-200 p-4 flex flex-col gap-3">
