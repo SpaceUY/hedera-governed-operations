@@ -1,5 +1,5 @@
 import type { HederaProvider } from "@hashgraph/hedera-wallet-connect";
-import { type AccountId, Client, type Key, Status, type Transaction, TransactionId } from "@hiero-ledger/sdk";
+import { Client, Status, type Transaction, TransactionId } from "@hiero-ledger/sdk";
 import { extractIdentity } from "~~/utils/scaffold-hbar/hederaIdentity";
 import { base64StringToTransaction, transactionToBase64String } from "~~/utils/scaffold-hbar/hederaTxUtils";
 import type { HederaNetworkName } from "~~/utils/scaffold-hbar/networks";
@@ -11,11 +11,6 @@ export type HederaSignerSession = {
 };
 
 export type ExecutedTransaction = { transactionId: string };
-
-export type BatchInnerTransactionOptions = {
-  payer: AccountId | string;
-  batchKey: Key;
-};
 
 export class WalletRejectedError extends Error {
   override readonly name = "WalletRejectedError";
@@ -161,16 +156,4 @@ export async function signTransaction<T extends Transaction>(session: HederaSign
   } catch (error) {
     throw toWalletError(error, frozen);
   }
-}
-
-/**
- * Prepares an inner transaction of an atomic batch (HIP-551). With a batch key set, `freeze()` pins
- * the SDK's batch sentinel node (0.0.0); calling `setNodeAccountIds` would lock a real node list and
- * make the batch fail.
- */
-export function prepareBatchInnerTransaction<T extends Transaction>(
-  tx: T,
-  { payer, batchKey }: BatchInnerTransactionOptions,
-): T {
-  return tx.setTransactionId(TransactionId.generate(payer)).setBatchKey(batchKey).freeze();
 }

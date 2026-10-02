@@ -19,13 +19,13 @@
       "name": "lint",
       "command": "yarn lint",
       "timeoutMs": 180000,
-      "purpose": "Lint the Next.js workspace."
+      "purpose": "Lint every workspace."
     },
     {
       "name": "test",
       "command": "yarn test",
       "timeoutMs": 420000,
-      "purpose": "Unit tests for the Next.js workspace."
+      "purpose": "Unit tests for every workspace."
     },
     {
       "name": "build",

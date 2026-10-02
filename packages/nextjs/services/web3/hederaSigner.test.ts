@@ -5,12 +5,11 @@ import {
   executeTransaction,
   isTransactionExpired,
   isWalletRejection,
-  prepareBatchInnerTransaction,
   signTransaction,
   validityWindowLabel,
 } from "./hederaSigner";
 import type { HederaProvider } from "@hashgraph/hedera-wallet-connect";
-import { AccountId, Hbar, PrivateKey, Transaction, TransactionId, TransferTransaction } from "@hiero-ledger/sdk";
+import { Hbar, Transaction, TransactionId, TransferTransaction } from "@hiero-ledger/sdk";
 import { type Mock, describe, expect, it, vi } from "vitest";
 import { base64StringToTransaction } from "~~/utils/scaffold-hbar/hederaTxUtils";
 
@@ -169,37 +168,6 @@ describe("signTransaction", () => {
     await expect(signTransaction(createSession(provider), createTransfer())).rejects.toBeInstanceOf(
       WalletRejectedError,
     );
-  });
-});
-
-describe("prepareBatchInnerTransaction", () => {
-  const batchKey = PrivateKey.generateED25519().publicKey;
-
-  it("sets the batch key", () => {
-    const tx = prepareBatchInnerTransaction(createTransfer(), { payer: ACCOUNT_ID, batchKey });
-
-    expect(tx.batchKey?.toString()).toBe(batchKey.toString());
-  });
-
-  it("pays the inner transaction with the given payer", () => {
-    const tx = prepareBatchInnerTransaction(createTransfer(), { payer: AccountId.fromString(ACCOUNT_ID), batchKey });
-
-    expect(tx.transactionId?.accountId?.toString()).toBe(ACCOUNT_ID);
-  });
-
-  it("freezes the inner transaction", () => {
-    const tx = prepareBatchInnerTransaction(createTransfer(), { payer: ACCOUNT_ID, batchKey });
-
-    expect(tx.isFrozen()).toBe(true);
-  });
-
-  it("never assigns network node ids to the inner transaction", () => {
-    const tx = createTransfer();
-    const setNodeAccountIds = vi.spyOn(tx, "setNodeAccountIds");
-
-    prepareBatchInnerTransaction(tx, { payer: ACCOUNT_ID, batchKey });
-
-    expect(setNodeAccountIds).not.toHaveBeenCalled();
   });
 });
 
