@@ -86,6 +86,29 @@ describe("TokenAdminForm", () => {
     expect(lastResult(onDraftChange)).toEqual({ status: "invalid", message: TOKEN_ADMIN_COPY.noPauseKey("ACME") });
   });
 
+  it("refuses to pause a paused token or unpause an active one, and still offers the opposite", () => {
+    const onDraftChange = renderForm();
+    pick("unpause");
+    expect(lastResult(onDraftChange)).toEqual({
+      status: "invalid",
+      message: TOKEN_ADMIN_COPY.pauseChangesNothing("ACME", "UNPAUSED"),
+    });
+    cleanup();
+
+    vi.mocked(useToken).mockReturnValue({
+      data: { token: { symbol: "ACME", pause_status: "PAUSED" }, decimals: 0 },
+      isError: false,
+    } as never);
+    const paused = renderForm();
+    expect(lastResult(paused)).toEqual({
+      status: "invalid",
+      message: TOKEN_ADMIN_COPY.pauseChangesNothing("ACME", "PAUSED"),
+    });
+    pick("unpause");
+    const result = lastResult(paused);
+    expect(result?.status === "ready" && result.draft.kind).toBe("tokenAdmin");
+  });
+
   it("drafts no pause until the token is read, and refuses one it could not read", () => {
     vi.mocked(useToken).mockReturnValue({ data: undefined, isError: false } as never);
     const loading = renderForm();

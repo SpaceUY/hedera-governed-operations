@@ -27,6 +27,9 @@ export const TOKEN_ADMIN_COPY = {
   noPauseKey: (symbol: string) =>
     `${symbol} has no pause key, so the network would refuse to pause or unpause it (TOKEN_HAS_NO_PAUSE_KEY) ` +
     "and the governance account would pay for the failed call.",
+  pauseChangesNothing: (symbol: string, status: TokenPauseStatus) =>
+    `${symbol} is ${status.toLowerCase()} already, so the council would approve a call that changes nothing ` +
+    "and the governance account would pay for it.",
   noFreezeKey: (accountId: string, symbol: string) =>
     `${symbol} has no freeze key, so the network would refuse to freeze or unfreeze ${accountId} ` +
     "(TOKEN_HAS_NO_FREEZE_KEY) and the governance account would pay for the failed call.",

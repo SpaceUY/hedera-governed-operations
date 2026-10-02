@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { TOKEN_ADMIN_COPY, TOKEN_ADMIN_OPERATION_LABELS } from "./copy";
 import { HederaAddressInput } from "@scaffold-hbar-ui/components";
 import { type TokenAdminOperation, tokenAdminNeedsAccount } from "@sh/core/governance/proposalTypes";
+import type { TokenPauseStatus } from "@sh/core/mirror";
 import { ACCOUNT_LOOKUP_LABELS, tokenUnreadableLabel } from "~~/components/governance/wizard/copy";
 import { accountLookup } from "~~/components/governance/wizard/kinds/accountLookup";
 import type { KindFormProps } from "~~/components/governance/wizard/kinds/wizardKind";
@@ -13,6 +14,12 @@ import { useTokenRelationship } from "~~/hooks/mirror/useTokenRelationship";
 import { type TokenAdminTargets, draftTokenAdmin, tryDraft } from "~~/services/governance/drafts";
 
 const OPERATIONS = ["pause", "unpause", "freeze", "unfreeze"] as const satisfies readonly TokenAdminOperation[];
+
+/** The pause status a pause or an unpause leaves the token in: a token already there gains nothing from it. */
+const PAUSE_STATUS_AFTER: Partial<Record<TokenAdminOperation, TokenPauseStatus>> = {
+  pause: "PAUSED",
+  unpause: "UNPAUSED",
+};
 
 export const TokenAdminForm = ({
   targets: { tokenAdmin, tokenAdminContractId, tokenId },
@@ -53,6 +60,10 @@ export const TokenAdminForm = ({
       }
       if (pauseStatus === "NOT_APPLICABLE") {
         onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.noPauseKey(symbol) });
+        return;
+      }
+      if (pauseStatus === PAUSE_STATUS_AFTER[operation]) {
+        onDraftChange({ status: "invalid", message: TOKEN_ADMIN_COPY.pauseChangesNothing(symbol, pauseStatus) });
         return;
       }
       onDraftChange(draft(null));

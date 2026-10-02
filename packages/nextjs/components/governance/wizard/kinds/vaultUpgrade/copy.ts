@@ -39,6 +39,9 @@ export const VAULT_UPGRADE_COPY = {
   targetMissing:
     "The vault's next implementation is not deployed on this network, so a vault upgrade cannot be proposed yet. " +
     "Run `yarn hardhat:deploy --network hederaTestnet` to deploy it; paying a supplier works without it.",
+  alreadyRunning:
+    "The vault already runs v2, so there is nothing to upgrade: v2's initializer has run once and cannot run " +
+    "again, so the call could only revert and the governance account would pay for it.",
   /** The release line: whether a published release vouches for the code at the implementation. */
   release: (state: ReleaseCheckState, topicId: string): string => {
     if (state.status === "loading") return `Checking the releases on topic ${topicId}…`;
