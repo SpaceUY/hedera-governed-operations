@@ -20,7 +20,7 @@ How a proposal is listed, counted, read, withdrawn and signed by the agent is in
 
 ```mermaid
 flowchart LR
-  Browser["Browser (React, HashPack)"]
+  Browser["Browser (React, WalletConnect wallet)"]
   App["Next.js app<br/>pages"]
   Scripts["yarn setup<br/>release script"]
   Hedera["Hedera network<br/>HCS · HTS · Batch"]
@@ -37,11 +37,11 @@ flowchart LR
 
 ### User wallet → app → Hedera
 
-The app builds the transaction, freezes it and hands it to HashPack. The user's private key never leaves the wallet.
+The app builds the transaction, freezes it and hands it to the user's wallet (HashPack, Kabila). The user's private key never leaves the wallet.
 
 ```mermaid
 sequenceDiagram
-  participant U as User (HashPack)
+  participant U as User (wallet)
   participant A as Next.js client
   participant H as Hedera network
   participant M as Mirror Node
@@ -313,6 +313,8 @@ a throwaway account), while seating one more member — 2-of-3 to 2-of-4, every 
 runs on two, since both signers sit on both sides ([schedule 0.0.10794960](https://hashscan.io/testnet/schedule/0.0.10794960),
 the rotation that seated the demo's co-signing agent).
 
+![The rotation that seats the agent: one council of three, an incoming council of four, each with its own count](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/add-co-signing-agent.gif)
+
 The incoming council comes out of the decoded body in the same shape `fetchCouncilKey` returns for
 the current one, so `countThresholdSignatures` runs over both: a rotation's row carries `progress`
 against the council that exists and `incomingProgress` against the one it proposes, and every other
@@ -418,6 +420,8 @@ written policy allows. It cannot act alone: whatever it approves still needs the
 threshold from humans, which is what separates an approver from an owner. What it removes is the
 waiting — a routine proposal inside written limits gets its second signature in seconds, and one
 outside them gets a refusal with the limit it failed named in the log.
+
+![An unpause inside the policy: the agent's log says approved and its signature runs the proposal, with no one pressing anything](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/unpause-token-co-agent-signs.gif)
 
 It is the reason `packages/core` exists. Deciding whether to sign means decoding the scheduled body
 and reading the registry entry behind it, which is exactly what the app's proposal screens do; a

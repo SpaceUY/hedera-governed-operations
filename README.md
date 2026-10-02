@@ -6,6 +6,8 @@
 - **Real wallets, asynchronously.** Council members sign from their own wallets over WalletConnect, days apart, without sharing a machine. What they are asked to approve is decoded into a sentence, read straight from the Mirror Node with no indexer.
 - **Plus a co-signing agent.** An optional service that holds one seat, checks each proposal against a written policy and against a release manifest published on HCS, asks a person for a code before an upgrade, and publishes every decision — refusals included — to its own HCS topic. It is one of the n keys, so it can never act alone. See [`packages/agent`](packages/agent/README.md).
 
+![A vault upgrade waiting on one signature: "Sign as Alice", the pulse into the treasury, the ring filling, the run through the registry, and the vault turning v2](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/upgrade-vault-sign-as-alice.gif)
+
 ```mermaid
 sequenceDiagram
   participant P as Proposer (wallet)
