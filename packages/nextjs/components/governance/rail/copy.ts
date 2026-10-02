@@ -274,6 +274,10 @@ export const WITHDRAW_COPY = {
   },
   nativeNoCancel:
     "No “cancel” here: a native operation has no registry entry, so deleting its schedule is the whole story.",
+  progress: {
+    wallet: "Approve deleting the schedule in your wallet.",
+    confirming: "Confirming the delete on the network…",
+  },
 } as const;
 
 export const CANCEL_COPY = {
