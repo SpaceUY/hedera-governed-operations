@@ -133,6 +133,8 @@ export const INBOX_COPY = {
   settledHeading: "Recent",
   noPending: "No proposal is waiting for signatures.",
   loading: "Loading proposals",
+  unreadable: "The proposals could not be read right now.",
+  retry: "Try again",
 } as const;
 
 /**

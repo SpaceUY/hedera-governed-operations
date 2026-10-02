@@ -53,6 +53,11 @@ export default function GovernanceHomePage() {
   // list, so the search shows it as its result, with its detail under that card.
   const unlistedSelectionId =
     inbox.data && selectedScheduleId && !knownScheduleIds.has(selectedScheduleId) ? selectedScheduleId : null;
+  // A failed council read is not retried by itself, and the inbox waits for the council: without this
+  // the rail would show its skeleton until the page is reloaded.
+  const readFailed = !inbox.data && (council.isError || inbox.isError);
+  const retrying = council.isFetching || inbox.isFetching;
+  const retryRead = () => void (council.isError ? council.refetch() : inbox.refetch());
   const note = runsByItselfNote(council.data ? councilRuleLabel(council.data.key) : null);
 
   return (
@@ -93,7 +98,15 @@ export default function GovernanceHomePage() {
           This list may be incomplete: proposals from {inbox.data.unreachableProposers.join(", ")} could not be read.
         </p>
       )}
-      {!inbox.data && (
+      {readFailed && (
+        <div role="alert" className="alert alert-warning flex items-center justify-between gap-3">
+          <span>{INBOX_COPY.unreadable}</span>
+          <button type="button" className="btn btn-sm" onClick={retryRead} disabled={retrying}>
+            {INBOX_COPY.retry}
+          </button>
+        </div>
+      )}
+      {!inbox.data && !readFailed && (
         <div role="status" aria-label={INBOX_COPY.loading} className="flex flex-col gap-2">
           <div className="skeleton h-16 rounded-box" />
           <div className="skeleton h-16 rounded-box" />

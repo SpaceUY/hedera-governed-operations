@@ -25,7 +25,7 @@ NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=...
 
 - `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` comes from [cloud.reown.com](https://cloud.reown.com) (create a project, copy its id).
 - The operator key is only read by the scripts (`yarn setup`, `yarn release:publish`, `yarn harness:council-seat`), never by the app. Never prefix it with `NEXT_PUBLIC_`.
-- `HEDERA_COUNCIL_ACCOUNT_ID` is **your own account** — the one you will connect with HashPack in step 4. It becomes one of the governance account's keys (one of three after `yarn setup`, one of four once the council seats the co-signing agent) and is granted `PROPOSER_ROLE`, so without it you could watch the demo but not take part in it. It can be the operator account if you have no other, but then no human signature is involved in an approval. Changing it after step 3 means a new governance account and a fresh deployment, so pick it now.
+- `HEDERA_COUNCIL_ACCOUNT_ID` is **your own account** — the one you will connect with your wallet in step 4. It becomes one of the governance account's keys (one of three after `yarn setup`, one of four once the council seats the co-signing agent) and is granted `PROPOSER_ROLE`, so without it you could watch the demo but not take part in it. It can be the operator account if you have no other, but then no human signature is involved in an approval. Changing it after step 3 means a new governance account and a fresh deployment, so pick it now.
 
 ## 3. Bootstrap testnet resources
 
@@ -94,21 +94,21 @@ Verify the release topic (`NEXT_PUBLIC_RELEASE_TOPIC_ID` in `.env.local`) exists
 curl -s "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.xxxxx" | jq '{topic_id, memo, created_timestamp}'
 ```
 
-## 4. Run the app and connect HashPack
+## 4. Run the app and connect your wallet
 
 ```bash
 yarn next:dev
 ```
 
 1. Open http://localhost:3000. The live map shows the treasury figures, the council's threshold and the pending proposals (or the **Governance is not set up yet** notice until step 3 has run).
-2. Click **Connect**, choose HashPack and approve the WalletConnect pairing in the extension (the wallet must be on **testnet**).
+2. Click **Connect**, choose your WalletConnect wallet (HashPack or Kabila, for example) and approve the pairing in it (the wallet must be on **testnet**).
 3. The header shows your account as `0.0.xxxxx` once the session is live.
 
 ## 5. Take a proposal from open to executed
 
 This is the journey the template exists for: you propose an operation, the council signs it from its own wallets, and the network runs it the moment the threshold is met. It uses a treasury transfer because that is the shortest path through it — a native `CryptoTransfer`, one wallet transaction to open, no contract, no registry entry and no `PROPOSER_ROLE` needed to schedule it. The role still decides where it shows up: Mirror cannot list schedules by payer, so the map's inbox and the agent's are the schedules created by `PROPOSER_ROLE` holders, and `yarn setup` granted the role to your council account, the operator, alice and bob. A native proposal from any other account runs just the same, but is reachable only by its schedule id. Every other kind reaches the council the same way; the contract-backed ones only add a registration in front (see "Opening a proposal" in `docs/GOVERNANCE_UI.md`).
 
-The council is the 2-of-3 key `yarn setup` put on the governance account: your own account (`HEDERA_COUNCIL_ACCOUNT_ID`) and the two demo accounts, `alice` and `bob`. The co-signing agent has an account of its own, `agent`, outside the council; approving "Add the co-signing agent" seats it and makes the council 2-of-4 — your account, alice, bob and the agent (5.4). That is the state of the template's published demo instance, the one the app reads without a `.env`. The ids are in `packages/nextjs/.env.local` (`NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID`, `NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID`, `NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID`, `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID`); the demo accounts' keys are only in `packages/nextjs/setup-state.json`, which is gitignored. Start with the app running and HashPack connected as your council account (step 4).
+The council is the 2-of-3 key `yarn setup` put on the governance account: your own account (`HEDERA_COUNCIL_ACCOUNT_ID`) and the two demo accounts, `alice` and `bob`. The co-signing agent has an account of its own, `agent`, outside the council; approving "Add the co-signing agent" seats it and makes the council 2-of-4 — your account, alice, bob and the agent (5.4). That is the state of the template's published demo instance, the one the app reads without a `.env`. The ids are in `packages/nextjs/.env.local` (`NEXT_PUBLIC_GOVERNANCE_ACCOUNT_ID`, `NEXT_PUBLIC_DEMO_ACCOUNT_ALICE_ID`, `NEXT_PUBLIC_DEMO_ACCOUNT_BOB_ID`, `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID`); the demo accounts' keys are only in `packages/nextjs/setup-state.json`, which is gitignored. Start with the app running and your wallet connected as your council account (step 4).
 
 ### 5.1 Open the proposal
 
@@ -116,9 +116,11 @@ The council is the 2-of-3 key `yarn setup` put on the governance account: your o
 2. Under **Native · no contract, no registry entry**, pick **Pay a supplier**.
 3. Fill in **Recipient account** (`0.0.xxxxx` or an EVM address — alice's id is a convenient one), leave **Asset** on **HBAR (ℏ)** and enter an **Amount (ℏ)**; `0.05` is plenty. The governance account starts with 20 ℏ and pays every approved operation out of it.
 4. Read **What the council will see**: the target, **Gas limit** `n/a — native, network fee only`, **Expires** `7 days after scheduling. Unsigned, it simply lapses.` and **Who approves** `The 2-of-3 council.` (`2-of-4` here and below once the agent is seated). The preview is decoded from the very body about to be scheduled, so it is what the detail page will show the council.
-5. Click **Schedule with your wallet** and approve the request in HashPack. While it waits, the footer reads `Step 1 of 1: schedule the call for the council. Approve it in your wallet — the request is valid for …`; after that window the network would refuse it.
+5. Click **Schedule with your wallet** and approve the request in your wallet. While it waits, the footer reads `Step 1 of 1: schedule the call for the council. Approve it in your wallet — the request is valid for …`; after that window the network would refuse it.
 
 That one `ScheduleCreate` is the whole proposal: the governance account is the payer of the transfer it schedules, and your key is its admin key, so you and only you can withdraw it (5.6). Once it lands, the app takes you to it at `/governance/0.0.xxxxx`.
+
+![Pay a supplier: the recipient and amount, the map's dashed path and the preview, then the card under Pending](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/pay-a-supplier.gif)
 
 ### 5.2 Read it on the detail page and the map
 
@@ -139,7 +141,7 @@ Back on the map (**← Map**), the card sits under **Pending operations** with `
 
 It reads `1 signed` because you opened it from a council seat. The network counts the signatures on a `ScheduleCreate` towards the transaction it schedules, so the proposer's approval arrives with the proposal and your row already says `Signed`. That is also why your row has no Sign button: the button only sits on the connected account's own row while that seat has not signed.
 
-**Sign with HashPack** (the button names the wallet you connected) is for a proposal somebody else opened. Open one as alice from the second wallet of 5.4 — the same **Pay a supplier**, say — and look at it from your own session: it reads `1 signed`, alice's row `Signed`, and your row `Not yet` with the button. Pressing it sends a `ScheduleSign` from your wallet, and yours is the second signature. The demo instance's transfer in 5.5 ran exactly that way, with bob as the second signature. A signature approves; it only makes anything run when it is the one that meets the threshold.
+**Sign with <your wallet>** (the button names the wallet you connected, for example *Sign with HashPack* or *Sign with Kabila*) is for a proposal somebody else opened. Open one as alice from the second wallet of 5.4 — the same **Pay a supplier**, say — and look at it from your own session: it reads `1 signed`, alice's row `Signed`, and your row `Not yet` with the button. Pressing it sends a `ScheduleSign` from your wallet, and yours is the second signature. The demo instance's transfer in 5.5 ran exactly that way, with bob as the second signature. A signature approves; it only makes anything run when it is the one that meets the threshold.
 
 ### 5.4 Get the second signature
 
@@ -156,9 +158,9 @@ console.log(`account ${accountId}\nECDSA key (hex) ${PrivateKey.fromStringDer(pr
 '
 ```
 
-1. Import the account into a second wallet with that ECDSA key, on **testnet**: Kabila, or another account in HashPack. Kabila is the more useful second wallet, since it is also the one that can sign a withdrawal (5.6).
+1. Import the account into a second wallet with that ECDSA key, on **testnet**: Kabila, or another account in your first wallet. Kabila is the more useful second wallet, since it is also the one that can sign a withdrawal (5.6).
 2. Connect the app with it: **Disconnect** from the header menu and **Connect** again choosing that wallet, or open http://localhost:3000 in a second browser profile so your own session stays connected.
-3. Open the proposal — its card on the map, or `/governance/0.0.xxxxx`. Alice's row now carries the Sign button; press it and approve the `ScheduleSign` in the wallet. The button names the wallet that will answer it: **Sign with Kabila** with Kabila connected, **Sign with HashPack** with HashPack.
+3. Open the proposal — its card on the map, or `/governance/0.0.xxxxx`. Alice's row now carries the Sign button; press it and approve the `ScheduleSign` in the wallet. The button names the wallet that will answer it: for example **Sign with Kabila** with Kabila connected, **Sign with HashPack** with HashPack.
 
 **Alternative: let the co-signing agent sign from its own seat.** The agent in `packages/agent` signs whatever its policy allows, seconds after it appears, with the account `yarn setup` created for it (`demoAccounts.agent`). It shows the routine path — a transfer inside written limits approved without anybody opening a wallet — rather than the general one: it refuses anything its policy does not cover, never signs a rotation, and pays a fee per signature and per published decision out of its own account (5 ℏ at setup). It signs nothing until the council holds its key, so this path starts by seating it, once.
 
@@ -191,7 +193,11 @@ Until it is seated it logs one `seat-missing` line and keeps deciding without si
 
 *Seat it.* Seating the agent is a council rotation like any other, proposed from your seat and approved by the humans. On `/governance/new` pick **Add the co-signing agent** (under the native group, hinted `→ 2-of-4 council`) — **Agent account** starts with the agent's account, `NEXT_PUBLIC_CO_SIGNING_AGENT_ACCOUNT_ID` in `.env.local`. **Settings** in the header offers the same change: the council card lists the agent as `Not seated. Tick it below to propose a 2-of-4 council.` Either way the preview's **Who approves** reads `The current 2-of-3 council and the proposed 2-of-4 council, each to its own threshold.`, and **Schedule with your wallet** opens it. The detail calls it `Change to a 2-of-4 council` and lists both councils. Your create already counts in both, and alice sits in both, so her one signature from the second wallet completes both thresholds and the network rewrites the governance account's key. On the demo instance this is [schedule `0.0.10794960`](https://hashscan.io/testnet/schedule/0.0.10794960): opened by alice, signed by alice and bob — there the two human seats were alice's and bob's rather than yours and alice's — its scheduled `CRYPTOUPDATEACCOUNT` `SUCCESS`, leaving the 2-of-4 key over the council account, alice, bob and the agent.
 
+!["Add the co-signing agent": the prefilled account, both thresholds, then the rotation running and the agent seated](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/add-co-signing-agent.gif)
+
 On its next pass the running agent logs `seat-held`. From then on, within one poll (15 s by default) of your proposal appearing it prints a decision line — `"outcome":"approved","kind":"treasuryTransfer","reason":"within policy"` — and signs. A proposal outside the policy comes out `refused`, with the limit it failed as the reason. The app names its seat **Co-signing agent** on its own, since `yarn setup` wrote the agent's id to `.env.local`. The rest — confirmation codes for upgrades, the decision log, Docker — is in `packages/agent/README.md`.
+
+![The agent's terminal beside the map: "outcome":"approved", then its pulse into the treasury and the run](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/unpause-token-co-agent-signs.gif)
 
 ### 5.5 Watch the network execute it, and verify
 
@@ -277,8 +283,9 @@ npx hedera-harness validate-semantic
 
 ### What it grades
 
-`.harness/eval.json` holds five assertions. Four are read-only and pass without a wallet; the fifth
-is the one this template exists for.
+`.harness/eval.json` holds eight assertions. Five are read-only and pass without a wallet or a
+`.env`; E11 and E12 are read-only too but need the `.env` of a deployment, since they preview your
+own proposals; E9 is the one this template exists for.
 
 | Id | Journey | Needs a signer |
 | --- | --- | --- |
@@ -287,6 +294,9 @@ is the one this template exists for.
 | `E5` | `/governance/new` offers the kinds and explains the wallet is needed | no |
 | `E8` | A proposal's decoded operation, approvals and expiry, read from Mirror | no |
 | `E9` | The test signer approves a pending proposal, and the signature lands on the Mirror Node | **yes** |
+| `E10` | `/settings` shows the council and the registry's roles, with no way to grant a role | no |
+| `E11` | Selecting a pending proposal previews on the map what it would do | no, but needs a `.env` |
+| `E12` | Drafting a proposal previews it on the map | no, but needs a `.env` |
 
 ### The council seat, and why it is where it is
 
@@ -353,7 +363,7 @@ client.close();
 1. With `yarn next:dev` running, open http://localhost:3000. The header shows **Connect Wallet** (no key stored).
 2. Paste the printed `localStorage.setItem(...)` line in the browser console and reload.
 3. The header now shows the new account as `0.0.xxxxx` with a **test signer** badge, without any wallet modal (allow a few seconds: the id is resolved from the key's EVM alias on the Mirror Node).
-4. **Disconnect** from the header menu removes the key; reload and the app is back to HashPack.
+4. **Disconnect** from the header menu removes the key; reload and the app is back to your wallet.
 
 The test signer only activates on testnet. In a production build (`yarn next:build && yarn next:start`) it stays off unless `NEXT_PUBLIC_ENABLE_BURNER_SIGNER=true` is set at build time. Delete the disposable account when you are done (an `AccountDeleteTransaction` signed with its key, transferring the balance back to the operator) or just let the few HBAR sit on testnet.
 
@@ -361,7 +371,7 @@ The test signer only activates on testnet. In a production build (`yarn next:bui
 
 | Symptom                                                                                    | Cause                                                                                                                                             | Fix                                                                                                                                                                                                    |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Wallet modal opens but never lists HashPack, or pairing fails with `Invalid project id`    | `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` missing or wrong                                                                                          | Create a project at [cloud.reown.com](https://cloud.reown.com), set the id in `packages/nextjs/.env`, restart `yarn next:dev` (`NEXT_PUBLIC_*` values are read at build time)                          |
+| Wallet modal opens but never lists your wallet, or pairing fails with `Invalid project id`    | `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` missing or wrong                                                                                          | Create a project at [cloud.reown.com](https://cloud.reown.com), set the id in `packages/nextjs/.env`, restart `yarn next:dev` (`NEXT_PUBLIC_*` values are read at build time)                          |
 | Transaction succeeded, but the rail or `curl` does not show it yet                         | Mirror Node lag (a few seconds, up to ~20 s under load)                                                                                           | Wait and retry; the rail polls the Mirror Node while a proposal is open. Confirm on HashScan by transaction id if in doubt                                                                             |
 | `Error: listen EADDRINUSE: address already in use :::3000`                                 | Another dev server on port 3000                                                                                                                   | Stop it or run `yarn workspace @sh/nextjs dev -p 3001`                                                                                                                                                 |
 | `npx hedera-harness validate` fails in ASSERT with a forbidden file `packages/nextjs/.env` | The static validator lists `.env` as forbidden and the secret scan flags operator keys                                                            | Move `.env` outside the repo while validating (see step 6); never commit it                                                                                                                            |

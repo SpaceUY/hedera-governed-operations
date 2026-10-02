@@ -20,7 +20,7 @@ How a proposal is listed, counted, read, withdrawn and signed by the agent is in
 
 ```mermaid
 flowchart LR
-  Browser["Browser (React, HashPack)"]
+  Browser["Browser (React, WalletConnect wallet)"]
   App["Next.js app<br/>pages"]
   Scripts["yarn setup<br/>release script"]
   Hedera["Hedera network<br/>HCS · HTS · Batch"]
@@ -37,11 +37,11 @@ flowchart LR
 
 ### User wallet → app → Hedera
 
-The app builds the transaction, freezes it and hands it to HashPack. The user's private key never leaves the wallet.
+The app builds the transaction, freezes it and hands it to the user's wallet (HashPack, Kabila). The user's private key never leaves the wallet.
 
 ```mermaid
 sequenceDiagram
-  participant U as User (HashPack)
+  participant U as User (wallet)
   participant A as Next.js client
   participant H as Hedera network
   participant M as Mirror Node
@@ -86,38 +86,12 @@ flowchart LR
 - **UI**: the header shows the burner's `0.0.x` with a "test signer" badge; "Disconnect" forgets the key. Consumers read the payer with `requireAccountId()` and never touch the wallet provider directly, so they do not care which signer is active.
 - **Extension point**: `BurnerSigner.publicKey` lets a demo mode put the ephemeral account on-chain beyond paying (for example as a member of a threshold key); a payer-only demo needs nothing beyond the HBAR the harness funds (`chainValidation.fundingHbar`).
 
-### Batch of inner transactions with a batch key (HIP-551)
-
-Several transactions execute atomically: either all inner transactions succeed or none do. The service holds the batch key; the user signs only their own inner transaction.
-
-```mermaid
-sequenceDiagram
-  participant U as User (HashPack)
-  participant A as Next.js client
-  participant S as Service (batch key)
-  participant H as Hedera network
-
-  S->>A: Inner tx template (transactionId = payer, batchKey = service, frozen)
-  A->>U: hedera_signTransaction (sign only)
-  U-->>A: Signed inner tx bytes
-  A->>S: Signed inner tx
-  S->>S: BatchTransaction.addInnerTransaction(user tx, service txs)
-  S->>H: Sign with batch key, execute
-  H-->>S: Batch receipt (all-or-nothing)
-```
-
-Rules that make this work (verified on testnet in a proof of concept: [batch](https://hashscan.io/testnet/transaction/1789672360.349990104) whose inner transfer HashPack signed with the service's batch key):
-
-- Build the inner transaction with `setTransactionId(TransactionId.generate(payer))`, `setBatchKey(serviceKey)`, then `freeze()`.
-- Do **not** call `setNodeAccountIds` on an inner transaction: it locks the node list and `freeze()` can no longer pin node `0.0.0`, which batches require.
-- The wallet signs the inner transaction with `hedera_signTransaction`; the batch itself is executed by whoever holds the batch key.
-
 ## Module map
 
 | Module           | Path (`@sh/core/…` in the shared workspace, otherwise under `packages/nextjs/`)                                                                                                                              | Responsibility                                                                                           |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | Signing port     | `services/web3/hederaSignerPort.ts`, `hashPackSigner.ts`, `burnerSigner.ts`, `burnerSignerPolicy.ts`, `BurnerSignerProvider.tsx`, `hooks/useHederaSigner.ts` | `HederaSigner` port, HashPack and test-signer adapters, selection policy and context                     |
-| Wallet signer    | `services/web3/hederaSigner.ts`                                                                                                                              | WalletConnect calls: sign-and-execute, sign-only, batch inner-transaction helpers                        |
+| Wallet signer    | `services/web3/hederaSigner.ts`                                                                                                                              | WalletConnect calls: sign-and-execute and sign-only                                                      |
 | Wallet bootstrap | `services/web3/appKitHedera.ts`, `hederaWalletConnect.tsx`, `NativeTransactionSignerBridge.tsx`                                                              | AppKit + `HederaProvider` singletons, session context, bridge to `@scaffold-hbar-ui/hooks`               |
 | Mirror client    | `@sh/core/mirror`, `hooks/mirror/*`                                                                                                                   | Typed REST client (HTTP only) and React Query hooks; all reads go through here                           |
 | Proposals        | `@sh/core/governance/schedules`                                                                                                                           | A proposal as a scheduled transaction: create with the governance account as payer, sign, withdraw |
@@ -138,7 +112,6 @@ Rules that make this work (verified on testnet in a proof of concept: [batch](ht
 | **Two write paths**                    | Native services go through the Hiero SDK; contracts go through the JSON-RPC relay from `packages/hardhat`, and each deploy regenerates `contracts/deployedContracts.ts`   |
 | **Mirror Node lag**                    | Reads after consensus can 404 or return stale pages for several seconds; every post-write read polls with backoff and the UI shows a "resolving" state                     |
 | **Freeze before sign**                 | Wallet signing needs a frozen transaction with a fixed transaction id and node ids; `DAppSigner.freezeWithSigner` does not set node ids, so freeze with a network `Client` |
-| **Batch inner txs never set node ids** | `setNodeAccountIds` blocks `freeze()` from pinning node `0.0.0`, which HIP-551 inner transactions require                                                                  |
 | **HTS keys can be a contract id**       | A council cannot sign an HTS operation: scheduling one is refused outright and a scheduled contract call cannot present the governance key to `0x167`. The token's keys point at `TokenAdmin` instead — see [Governing an HTS token](#governing-an-hts-token-the-contract-as-the-tokens-key) |
 | **Schedules are indexed by creator**   | Mirror `/schedules?account.id=` filters by `creator_account_id`, and it lists the payer's signature, which does not count toward a threshold key                           |
 | **The proposer withdraws a proposal**  | A schedule is deletable only through an admin key fixed at creation, and that key must sign the creation — so it is the proposer's, not the council's. See [Withdrawing a proposal](#withdrawing-a-proposal-schedule-or-registry) |
@@ -340,6 +313,8 @@ a throwaway account), while seating one more member — 2-of-3 to 2-of-4, every 
 runs on two, since both signers sit on both sides ([schedule 0.0.10794960](https://hashscan.io/testnet/schedule/0.0.10794960),
 the rotation that seated the demo's co-signing agent).
 
+![The rotation that seats the agent: one council of three, an incoming council of four, each with its own count](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/add-co-signing-agent.gif)
+
 The incoming council comes out of the decoded body in the same shape `fetchCouncilKey` returns for
 the current one, so `countThresholdSignatures` runs over both: a rotation's row carries `progress`
 against the council that exists and `incomingProgress` against the one it proposes, and every other
@@ -445,6 +420,8 @@ written policy allows. It cannot act alone: whatever it approves still needs the
 threshold from humans, which is what separates an approver from an owner. What it removes is the
 waiting — a routine proposal inside written limits gets its second signature in seconds, and one
 outside them gets a refusal with the limit it failed named in the log.
+
+![An unpause inside the policy: the agent's log says approved and its signature runs the proposal, with no one pressing anything](https://github.com/SpaceUY/hedera-governed-operations/releases/download/docs-media/unpause-token-co-agent-signs.gif)
 
 It is the reason `packages/core` exists. Deciding whether to sign means decoding the scheduled body
 and reading the registry entry behind it, which is exactly what the app's proposal screens do; a
