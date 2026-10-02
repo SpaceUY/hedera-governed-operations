@@ -280,6 +280,11 @@ export const WithdrawCancelActions = ({
             <button type="button" className="btn btn-outline btn-sm" onClick={askToWithdraw} disabled={busy}>
               {WITHDRAW_COPY.button}
             </button>
+            {withdraw.isPending && (
+              <p role="status" className="m-0 text-sm">
+                {withdraw.isConfirming ? WITHDRAW_COPY.progress.confirming : WITHDRAW_COPY.progress.wallet}
+              </p>
+            )}
             <Note>{isContract ? WITHDRAW_COPY.why.contract : WITHDRAW_COPY.why.native}</Note>
             <MutationError error={withdraw.error} />
           </ActionCard>
